@@ -549,8 +549,8 @@ struct SkillShowcasePanel: View {
             if !HeroKits.hasKit(hero.heroID), skill.cc != .none {
                 noteText("\(CollectionStyle.ccName(skill.cc)): \(SkillMath.ccDetail(skill.cc, isUltimate: skill.slot == .ultimate))")
             }
-            noteText(L("係数はスロット倍率・アーキタイプ補正込み。CD 短縮は最大 \(Int(Balance.maxCooldownReduction * 100))% まで適用",
-                       "Ratios include slot and archetype multipliers. Cooldown reduction caps at \(Int(Balance.maxCooldownReduction * 100))%"))
+            noteText(L("数値は MLBB の値そのまま（全体の倍率なし）。CD 短縮は最大 \(Int(Balance.maxCooldownReduction * 100))% まで適用",
+                       "Values are MLBB's own (no global multipliers). Cooldown reduction caps at \(Int(Balance.maxCooldownReduction * 100))%"))
             if skill.slot == .ultimate {
                 noteText(L("アルティメットは Lv \(Balance.ultimateUnlockLevels.map(String.init).joined(separator: "/")) で習得可能",
                            "Ultimate ranks unlock at Lv \(Balance.ultimateUnlockLevels.map(String.init).joined(separator: "/"))"))

@@ -96,11 +96,15 @@ final class ZoneLayer {
     /// 観戦の全体視点で使うゾーン色（マテリアルの事前生成に使う）。
     static func spectatorColors(teams: TeamColors) -> [RGB] { Team.players.map { spectatorColor($0, teams: teams) } }
 
-    /// 試合のヒーローのスキルが作るゾーンの半径（m）。SkillArchetypes で ZoneSystem.spawn する型だけ（いずれも円）。
+    /// 試合のヒーローのスキルが作るゾーンの半径（m）。SkillArchetypes で ZoneSystem.spawn する型と、キットの円のゾーン
+    /// （HeroKits.plannedZones）。
     static func plannedRadii(state: SimState, master: MasterData) -> [Float] {
         var out = Set<Int>()
         for u in state.units where u.kind == .hero {
             guard let h = u.hero, let def = master.hero(h.heroID) else { continue }
+            for z in HeroKits.plannedZones(heroID: h.heroID, master: master) where z.halfAngle == nil {
+                out.insert(Int((Float(z.radius / Balance.unitsPerMeter) * 20).rounded()))
+            }
             for slot in SkillSlot.actives {
                 guard let sk = master.skill(hero: h.heroID, slot: slot) else { continue }
                 let t = SkillCatalog.targeting(for: sk, hero: def)
@@ -116,12 +120,40 @@ final class ZoneLayer {
         return out.sorted().map { Float($0) / 20 }
     }
 
-    /// ゾーンの見た目のプールが count 個になるまで作り、円の縁のメッシュを radii の半径ぶん作る。
-    func prewarm(count: Int, radii: [Float]) {
+    /// キットの扇形のゾーン（半角 rad, 半径 m）。configure の .cone と同じメッシュを作るため。
+    static func plannedSectors(state: SimState, master: MasterData) -> [(halfAngle: Float, radius: Float)] {
+        var out: [(halfAngle: Float, radius: Float)] = []
+        for u in state.units where u.kind == .hero {
+            guard let h = u.hero else { continue }
+            for z in HeroKits.plannedZones(heroID: h.heroID, master: master) {
+                guard let half = z.halfAngle else { continue }
+                out.append((Float(half), Float(z.radius / Balance.unitsPerMeter)))
+            }
+        }
+        return out
+    }
+
+    /// ゾーンの見た目のプールの数: 汎用の base に、試合のキットのヒーローが 1 回の発動で同時に出すゾーンの数を足す
+    /// （H031 の雹 5 つ・H026 の炸裂など。キットのヒーローが居なければ base のまま）。
+    static func plannedPoolSize(state: SimState, master: MasterData, base: Int) -> Int {
+        var extra = 0
+        for u in state.units where u.kind == .hero {
+            guard let h = u.hero else { continue }
+            extra += HeroKits.plannedZones(heroID: h.heroID, master: master).reduce(0) { $0 + $1.count }
+        }
+        return base + extra
+    }
+
+    /// ゾーンの見た目のプールが count 個になるまで作り、円の縁のメッシュを radii の半径ぶん、扇形のメッシュを sectors ぶん作る。
+    func prewarm(count: Int, radii: [Float], sectors: [(halfAngle: Float, radius: Float)] = []) {
         while pool.count < count { pool.append(makeVisual()) }
         _ = meshes.unitDisc
         _ = meshes.groundStrip
         for r in radii { _ = meshes.ring(radius: r, thickness: ZoneLayer.edgeThickness) }
+        for sc in sectors {
+            _ = meshes.sector(halfAngle: sc.halfAngle, outline: false)
+            _ = meshes.sector(halfAngle: sc.halfAngle, outline: true, thicknessRatio: min(0.2, 0.1 / max(0.5, sc.radius)))
+        }
         for c in ZoneLayer.colors + ZoneLayer.spectatorColors(teams: materials.teams) {
             _ = materials.unlit(c, alpha: ZoneLayer.alphas.fill)
             _ = materials.unlit(c, alpha: ZoneLayer.alphas.progress)

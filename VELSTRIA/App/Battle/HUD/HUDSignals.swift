@@ -1,18 +1,9 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: battle-hud（signals）。クイックシグナル（攻撃・撤退・集合・クイックチャット）:
-// - シグナル列は情報側の端（右手配置は右、左利きは左。K/D/A 等の情報列と同じ側）で、情報列の直下の 1 行。
-//   折りたたみ時は端のボタン 1 個、展開時はその内側へ チャット・集合・撤退・攻撃 を並べる
-//   （端の縦の余白は上の攻撃ボタン・必殺技・習得バッジまで 50〜100pt しかないため横に並べる。
-//   5 つ並べると習得バッジのタップ領域にかかる狭い画面（iPhone 13 mini）では 3 つ + 下の行に 2 つ）
-// - キルフィードはシグナル列と右側クラスタ（スペル・習得バッジ）より内側（スコアの下）に置く（killFeedSideReserve）
-// - 送信: メッセージ（最大 4 件・6 秒。ミニマップの下で、移動スティックの待機位置の円にかからない行数だけ新しいものを出す）、
-//   ミニマップのピン（広がるリング + 印）、効果音と触覚。連打防止 2 秒
-// - 味方ボットの定型返信（ピンに最も近い生存中の味方 1 人が約 1 秒後に「了解！」等）は表示だけ。
-//   オフライン対 AI のためシミュレーションには何も送らない（ボットの行動・決定論・リプレイに影響しない）
-// - チャットボタンで定型文のメニュー（タップで送信、外側のタップで閉じる）。チュートリアルでは出さない
-// 15Hz の更新（refresh）はメッセージ・ピンが残っている間だけ働き、変化した時だけ観測値を書き換える。
+// 既存のクイックシグナル・定型文を右端の薄い縦列へ集約する。
+// 4 個の送信ボタンは独立した 44pt のタッチ領域、折りたたみは所持金の隣。
+// 状態、返信、連打防止、ピン、15Hz 更新は従来のまま維持する。
 
 // MARK: - 種類と文言
 
@@ -334,7 +325,7 @@ final class HUDSignalCenter {
             let u = s.units[i]
             guard u.id != me, let h = u.hero else { return nil }
             let dead = shown.first(where: { $0.id == u.id })?.isDead ?? h.isDead
-            let name = master.hero(h.heroID).map { senderName($0) } ?? h.displayName
+            let name = master.hero(h.heroID).map { senderName($0) } ?? PlayerNameRules.shown(h.displayName)
             return HUDSignalAlly(id: u.id, name: name, pos: u.pos, alive: u.isAlive && !dead)
         }
     }
@@ -414,7 +405,7 @@ private struct HUDSignalTray: View {
                             label: kind.buttonLabel, identifier: "hud_signal_\(kind.rawValue)") {
                 center.send(.signal(kind), model: model)
             } icon: {
-                HUDSignalGlyph(icon: .signal(kind), size: size * 0.5)
+                HUDSignalGlyph(icon: .signal(kind), size: size * 0.73)
             }
         case .chat:
             HUDSignalButton(size: size, hit: layout.signalHitSize, tint: Theme.cyan, dimmed: dimmed,
@@ -423,7 +414,7 @@ private struct HUDSignalTray: View {
                 center.toggleChatMenu(model: model)
             } icon: {
                 Image(systemName: "ellipsis.bubble.fill")
-                    .font(.system(size: size * 0.44, weight: .bold))
+                    .font(.system(size: size * 0.67, weight: .semibold))
             }
         case .toggle:
             EmptyView()
@@ -477,18 +468,15 @@ private struct HUDSignalButton<Icon: View>: View {
         Button(action: action) {
             ZStack {
                 Circle()
-                    .fill(LinearGradient(colors: [highlighted ? tint.opacity(0.45) : HUDStyle.glassTop, HUDStyle.glassBottom],
-                                         startPoint: .top, endPoint: .bottom))
+                    .fill(Color(red: 0.05, green: 0.09, blue: 0.15).opacity(highlighted ? 0.45 : 0.22))
                 Circle()
-                    .strokeBorder(LinearGradient(colors: [tint.opacity(highlighted ? 1 : 0.7), tint.opacity(0.15)],
-                                                 startPoint: .top, endPoint: .bottom), lineWidth: 1.2)
+                    .strokeBorder(tint.opacity(highlighted ? 0.65 : 0.12), lineWidth: 0.5)
                 icon()
                     .foregroundStyle(tint)
-                    .shadow(color: tint.opacity(0.5), radius: 3)
+                    .shadow(color: .black.opacity(0.5), radius: 1, y: 0.5)
                     .opacity(dimmed ? 0.4 : 1)
             }
             .frame(width: size, height: size)
-            .shadow(color: .black.opacity(0.45), radius: 3, y: 1)
             .frame(width: hit, height: hit)
             .contentShape(Rectangle())
         }
@@ -685,28 +673,23 @@ enum HUDSignalSlot: Int, CaseIterable {
 }
 
 extension HUDLayout {
-    /// シグナルのボタンの見た目の直径（タップ領域は signalHitSize の正方形）。
-    var signalButtonSize: CGFloat { min(36, 32 * scale) }
+    /// 絵柄は約24pt、タップは端末の論理座標で44ptを確保する。
+    var signalButtonSize: CGFloat { min(27, 24 * scale) }
     var signalHitSize: CGFloat { 44 }
 
-    /// シグナル列の 1 行目の上端（情報側の上の列 = topEdge + 44 の直下）。
-    var signalRowTop: CGFloat { topEdge + topButtonSize }
+    /// ショップの44ptタップ領域の直下。
+    var signalRowTop: CGFloat { topEdge + 44 }
+    var signalTrayColumns: Int { 1 }
 
-    /// 1 行に並べる数。5 つ並べると操作部品（習得バッジのタップ領域）にかかる狭い画面では 3 つにして残りを下の行へ。
-    var signalTrayColumns: Int {
-        let all = HUDSignalSlot.allCases.count
-        return (0..<all).allSatisfy { signalAvoidsControls(signalCell(row: 0, column: $0)) } ? all : 3
-    }
-
-    /// 枠のタップ領域（情報側の端から 44pt ずつ内側へ。行があふれたら下の行の端から）。
     func signalSlotFrame(_ slot: HUDSignalSlot) -> CGRect {
-        let columns = signalTrayColumns
-        return signalCell(row: slot.rawValue / columns, column: slot.rawValue % columns)
-    }
-
-    private func signalCell(row: Int, column: Int) -> CGRect {
         let s = signalHitSize
-        let x = leftHanded ? leadingEdge + CGFloat(column) * s : trailingEdge - CGFloat(column + 1) * s
+        if slot == .toggle {
+            // ショップ左隣。クイック購入はこの直下に置く。
+            let x = leftHanded ? leadingEdge + 62 * scale + 2 : trailingEdge - 62 * scale - 46
+            return CGRect(x: x, y: topEdge, width: s, height: s)
+        }
+        let row = HUDSignalSlot.tray.firstIndex(of: slot) ?? 0
+        let x = leftHanded ? leadingEdge : trailingEdge - s
         return CGRect(x: x, y: signalRowTop + CGFloat(row) * s, width: s, height: s)
     }
 
@@ -760,6 +743,7 @@ extension HUDLayout {
         let band = killFeedTop...(killFeedTop + Self.killFeedEstimate.height)
         // 端からの距離（右手配置は trailingEdge − 内側の x、左利きは内側の x − leadingEdge）
         func depth(_ innerX: CGFloat) -> CGFloat { leftHanded ? innerX - leadingEdge : trailingEdge - innerX }
+        // ショップ隣のクイック購入（開閉ボタンの直下）も同じ列幅で避ける。
         var reserve = signalTrayFrame.width + 6
         for d in signalControlDiscs where d.center.y - d.radius <= band.upperBound && d.center.y + d.radius >= band.lowerBound {
             reserve = max(reserve, depth(leftHanded ? d.center.x + d.radius : d.center.x - d.radius) + 4)
@@ -782,19 +766,22 @@ extension HUDLayout {
         let item = Self.signalChatItemSize
         let w = item.width * 2 + Self.signalChatSpacing + Self.signalChatPadding * 2
         let h = item.height * rows + Self.signalChatSpacing * (rows - 1) + Self.signalChatPadding * 2
-        let tray = signalTrayFrame
-        return CGRect(x: leftHanded ? tray.minX : tray.maxX - w, y: tray.maxY + 4, width: w, height: h)
+        let chat = signalSlotFrame(.chat)
+        let x = leftHanded ? chat.maxX + 4 : chat.minX - w - 4
+        let y = topEdge + topButtonSize
+        return CGRect(x: x, y: y, width: w, height: h)
     }
 
     // MARK: メッセージ
 
     var signalMessageRowHeight: CGFloat { 16 * min(scale, 1.1) }
     var signalMessageSpacing: CGFloat { 2 }
+    var signalMessageTop: CGFloat { max(minimapDockFrame.maxY, utilityColumnFrame.maxY) + 4 }
 
     /// メッセージの欄に出す行数（最大 4。最低 1）。欄の下端を移動スティックの待機位置の円の上端より上に収める
     /// （主な端末ではミニマップドックと円の間が 1〜2 行分しかない）。
     var signalMessageRows: Int {
-        let top = minimapDockFrame.maxY + 4
+        let top = signalMessageTop
         let bottom = joystickRest.y - joystickRadius - 2
         let fit = Int(((bottom - top + signalMessageSpacing) / (signalMessageRowHeight + signalMessageSpacing)).rounded(.down))
         return min(HUDSignalBoard.maxMessages, max(1, fit))
@@ -809,6 +796,6 @@ extension HUDLayout {
         let panelNear = leftHanded ? heroPanelCenterX + heroPanelWidth / 2 : heroPanelCenterX - heroPanelWidth / 2
         let room = leftHanded ? dock.maxX - panelNear - 6 : panelNear - 6 - dock.minX
         let w = min(200 * min(scale, 1.1), room)
-        return CGRect(x: leftHanded ? dock.maxX - w : dock.minX, y: dock.maxY + 4, width: w, height: h)
+        return CGRect(x: leftHanded ? dock.maxX - w : dock.minX, y: signalMessageTop, width: w, height: h)
     }
 }

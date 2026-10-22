@@ -1,154 +1,299 @@
 import Foundation
 import VelstriaCore
 
-// スキル演出: H025 月弦のルミナ（Ranger / 三日月の長弓・月光の矢・翠と白の外套）。
-// 主題: 月光の弦と翠の矢。白い芯 × 翠緑（主）× 白銀（副）× 淡い月光の黄（差し色）。矢は扇状に分かれ、月の輪が地に刻まれる。
-// フィリエル（H003・青緑の月光）とは逆に、森エルフらしい翠と、分裂・散開する「矢の筋」で見せる。
-// ミヤ型のキット（docs/kits/Miya.md）に合わせた構成:
-//   パッシブ 月環の導き      — 頭上に月が灯り、足元に月の輪が巡って翠の光が昇る（命中ごとに攻撃速度の段が積もる）
-//   スキル1 月弦分矢        — 自己強化。弓に月光が集まり、主矢と左右の副矢の三条の矢の筋が少しずつずれて前へ走り、矢先に光が灯る。
-//                             効果中は弓の先に月の粒が流れ続ける（矢そのものは通常攻撃の弾なので、着弾の演出は無い）
-//   スキル2 月蝕の矢        — 指定地点へ月蝕の矢。着弾前に月の輪が地に灯り、着弾で六条の小さな矢が等間隔に散る（鈍足）
-//   アルティメット 隠れ月光 — 月影に紛れて姿を消す。月の輪が足元に咲き、翠の霞となって薄れ、疾風の筋が続く（2 秒）
-// 寸法は固定値で持つ（S1・奥義の照準リングは「撃てる距離」の目安で、演出の大きさには使えない）。
+// スキル演出: H025 月弦のルミナ（Ranger / 三日月の長弓・月光の矢・白と水色の外套。MLBB の Miya の Velstria 版）。
+// 主題: 月光。白い芯 × 水色（主）× 明るい水色（副）× 淡い月の青（差し色）× 濃い青の気・青紫の帳（ローカルの色）。
+// 2026-10-17 に MLBB の画面収録（vid3、docs/vfx/H025.md）に合わせて作り直した。MLBB の見え方:
+//   パッシブ 月環の導き   — 段の増加は体力バーの下の ▼ 印（UI）だけで、世界の演出は無い。Velstria は HUD のバッジで数を出すので、
+//                           段が積もるたび（0.4 秒に 1 回まで・5 段まで。隠れ月光が解けて最大の段になる瞬間も）弓の先の小さな閃きだけ。
+//                           最大の段の「月影」（体に重なる淡い金の人影が矢を放つ）は、演出の合図が無いので出せない（記録の保留）
+//   スキル1 月弦分矢      — 自己強化 4〜9 秒（ランク。自身中心なので cast と impact を発動と同時に再生）。MLBB では発動で矢は飛ばず、
+//                           0.07〜0.33 秒に濃い青の気（加算の青）が全身を包んで消える。分裂の矢は通常攻撃の弾（汎用の演出）。
+//                           効果中は弓の先に白い水色の星が時々きらめく（MLBB は矢を放つたびに弓の先で閃く。長さは発動のイベントの
+//                           duration = 効果時間。0 なら書いた 4 秒: durationFromCast）
+//   スキル2 月蝕の矢      — 弓を天へ向けて引き、0.32 秒で天へ矢を放つ（cast。画面収録: 指を離してから 0.31 秒）: 弓の先で水色の星が閃き、
+//                           青い矢が天へ抜ける。着弾点（ゾーンの telegraph = 発動と同時）には 0.05 秒から細い水色の輪だけが出る
+//                           （MLBB では着弾まで矢の雨は見えない）。0.65 秒（s2Delay）に着弾: 白い閃光 → 縁の輪が太い光の帯になって渦を巻き、
+//                           中央を白い渦が回り、地面から矢じりが上の光の矢が昇る。移動不能 1.2 秒の敵は水色の光の檻（下が明るい円柱）に入る（hit）。
+//                           着弾の 0.33 秒後（0.98 秒、s2SplitDelay）に範囲が白く光り、6 本の小さな矢（本物の投射物）が撃った向きから
+//                           0° / ±60° / ±120° / 180° へ散る = travel が各矢に付く（毎秒 12.5 m で 4 m、0.32 秒。高さ 0.6 m）。
+//                           impact は「ゾーンの発動」と「小さな矢 6 本それぞれの終わり（命中・射程の端）」の計 7 回再生されるので、
+//                           着弾の本体は telegraph（at = 0.65）に置き、impact は小さな閃きだけにする
+//   アルティメット 隠れ月光 — 頭上に大きな三日月が灯り（約 0.4 秒）、そこから青紫の光の柱が地へ降りて姿を包み（約 0.45 秒）、
+//                           足元で水色の閃光（0.1 秒）、柱の中に青い光の粒が漂う。姿が薄くなるのは UnitLayer（隠密の不透明度）。
+//                           隠密 2 秒のあいだの位置を敵に見せないよう、演出はすべて発動の位置に置き、追従する合図を置かない
+// 光る部品（閃光・光の柱・光の帯・渦・矢）は加算（glowing）。着弾前の細い輪・光の檻の円柱はアルファ合成（地面の上の線・ガラスの檻）。
+// SkillFXDirector は count を読まない: 時刻は at（遅れ）で表す。duration は durationFromCast の合図（S1 の効果中の演出）だけが使う。
+// 奥義の隠密（2 秒）は位置を見せないため、効果の長さに合わせて追従する合図を置かない。
 
 enum FX_H025: HeroFXSet {
-    static let palette = FXPalette(core: RGB(0.96, 1.0, 0.97), primary: RGB(0.3, 0.92, 0.6),
-                                   secondary: RGB(0.84, 0.98, 0.92), accent: RGB(1.0, 0.95, 0.55),
-                                   dark: RGB(0.02, 0.1, 0.06))
+    // MLBB の Miya の既定スキンの月光（水色の輪 #3DC6E8・白い芯 #F4FCFC・明るい水色 #A8F8FC・三日月 #94CBFF）に合わせる。
+    static let palette = FXPalette(core: RGB(0.93, 0.99, 1.0), primary: RGB(0.24, 0.78, 0.92),
+                                   secondary: RGB(0.6, 0.95, 1.0), accent: RGB(0.6, 0.8, 1.0),
+                                   dark: RGB(0.02, 0.05, 0.14))
+
+    /// スキル1 の濃い青の気（MLBB: 発動前のコマとの差 = 加算の青 (6, 8, 83)。地面と混ざって #3462BC / #557CEF に見える）。
+    private static let aura = FXTint.rgb(0.12, 0.22, 1.0)
+    /// スキル1 の気の立ち上がりの閃き（f55 の #82A0FD）。
+    private static let periwinkle = FXTint.rgb(0.55, 0.66, 1.0)
+    /// 奥義の光の柱の青紫（発動前との差 (24, 36, 100)。地面と混ざって #427EBF / #569BE0）。
+    private static let veil = FXTint.rgb(0.26, 0.38, 1.0)
+    /// 天へ放つ矢・散る矢の筋の青（f330 #2071DB / #4CAFFF）。
+    private static let arrowBlue = FXTint.rgb(0.16, 0.48, 0.95)
+    /// バインドの光の檻（f356〜368 #5EBCEC / #78EEFF）。
+    private static let cage = FXTint.rgb(0.45, 0.82, 1.0)
+
+    // MARK: - sim の時刻・寸法（Kit_H025.LuminaTuning と同じ値。sim を変えたらここも合わせる）
+
+    /// スキル1 の効果時間（s1Duration のランク 1。実際の長さ（ランクで 4→9 秒）は発動のイベントの duration から取る）。
+    private static let buffTime: Float = 4
+    /// スキル2: 着弾までの遅れ（s2Delay 0.65）・半径（s2Radius 170）・移動不能（s2Root）。
+    private static let eclipseDelay: Float = 0.65
+    private static let eclipseRadius: Float = 1.7
+    private static let rootTime: Float = 1.2
+    /// 天へ矢を放つ時刻（画面収録: 指を離してから弓を天へ向けて 0.27〜0.32 秒）。
+    private static let eclipseShoot: Float = 0.32
+    /// 6 本の小さな矢が散る時刻（着弾 + s2SplitDelay 0.33）。
+    private static let eclipseSplit: Float = 0.98
+    /// 小さな矢が射程の端（400）へ着くまで（速度 1250）。
+    private static let minorArrowTime: Float = 0.32
 
     /// 弓を構えた左手の先（局所座標）。
     private static let bow: SIMD3<Float> = [-0.1, 1.35, 0.6]
+    /// 天へ向けて引いた弓の先（スキル2）。
+    private static let bowHigh: SIMD3<Float> = [-0.1, 1.85, 0.45]
 
-    /// 扇状に走る月光の矢の筋（pivot から angle 度（+ = 左）の向きへ length m）。
-    private static func volley(_ angle: Float, length: Float, _ tint: FXTint, at t: Float = 0,
-                               from pivot: SIMD3<Float> = [0, 1.1, 0.3], life: Float = 0.4, width: Float = 0.7) -> FXCue {
-        let a = angle * .pi / 180
-        let d = length / 2
-        return FXCue.mesh(FXMesh.ray(.arrow, length: length, width: width, tint, life: life).with { $0.yaw = 90 + angle },
-                          at: t, offset: pivot + SIMD3<Float>(-sin(a) * d, 0, cos(a) * d))
+    // MARK: - 部品
+
+    /// 縦に立つ矢（円盤を横倒しにした板。up なら矢じりが上、そうでなければ下）。中心が原点。
+    /// repeated(2, yaw: 90) で直交する 2 枚にすると、どの向きから見ても読める。
+    private static func uprightArrow(length: Float, width: Float, _ tint: FXTint, life: Float, up: Bool,
+                                     alpha: Float = 1) -> FXMesh {
+        FXMesh(shape: .disc, tex: .arrow, tint: tint, alpha: alpha, size: [length, 1, width],
+               sizeEnd: [length, 1, width], ease: .linear, life: life, fadeIn: 0.05, fadeOut: 0.75, yaw: 45,
+               roll: up ? 90 : -90)
     }
 
-    /// 矢の筋の先（pivot から angle 度の向きへ length m の位置）。
-    private static func tipOffset(_ angle: Float, length: Float, from pivot: SIMD3<Float>) -> SIMD3<Float> {
-        let a = angle * .pi / 180
-        return pivot + SIMD3<Float>(-sin(a) * length, 0, cos(a) * length)
+    /// 地面の細い光の輪（半径 r の所に線。.ring の画像は一辺の 0.44 倍の半径に線がある）。from = 始まりの大きさの比。
+    private static func groundRing(_ r: Float, _ tint: FXTint, life: Float, alpha: Float = 1, from: Float = 1) -> FXMesh {
+        let d = r / 0.44
+        return FXMesh(shape: .disc, tex: .ring, tint: tint, alpha: alpha, size: [d * from, 1, d * from], sizeEnd: [d, 1, d],
+                      ease: .out, life: life, fadeIn: 0.1, fadeOut: 0.85)
     }
+
+    /// 小さな光（スキルのダメージが出ない段を既定の演出で補わせないための詰め物）。
+    private static func glint(_ tint: FXTint) -> [FXCue] {
+        [.emit(.flare(0.6, tint, life: 0.12), offset: [0, 1.0, 0])]
+    }
+
+    // MARK: - レシピ
 
     static func recipe(_ slot: SkillSlot, _ s: FXSkillInfo) -> SkillFXRecipe {
-        var r = SkillFXRecipe()
         switch slot {
         case .passive:
+            var r = SkillFXRecipe()
+            // 段が積もるたび（MLBB は ▼ 印の UI だけ）: 弓の先の小さな水色の閃きと、胸元から昇る数粒の光
             r.cast = [
-                .mesh(.sprite(.moon, 0.6, .accent, life: 0.6, grow: 1.3, alpha: 0.95), .follow, offset: [0, 2.3, 0]),
-                .emit(.flare(0.9, .core, life: 0.18, tex: .flare4), .follow, offset: [0, 2.3, 0]),
-                .mesh(.halo(0.9, .primary, life: 0.8, spin: 160, tex: .ringDouble), .follow, offset: [0, 0.3, 0]),
-                .mesh(.decal(.moon, 2.0, .secondary, life: 0.8, spin: 70, alpha: 0.7), .follow),
-                .emit(.rising(12, radius: 0.5, .primary, speed: 1.8, life: 0.8), .follow),
+                .emit(.flare(0.5, .secondary, life: 0.12, tex: .flare4), .follow, offset: bow),
+                .emit(.motes(4, radius: 0.22, .primary, life: 0.45, size: 0.06, rise: 1.0), .follow, offset: [0, 1.25, 0]),
             ]
-            r.hit = []
+            // パッシブ由来のスキルのダメージは無い（月影は通常攻撃）
+            r.hit = glint(.secondary)
+            return r
         case .skill1:
-            // 自己強化: 弓に月光が集まり、前へ三条の矢の筋が走る。月の輪が腰に巡り、効果中（4 秒）は弓の先に月の粒が流れる
-            var cast: [FXCue] = [
-                .emit(.gather(14, radius: 0.6, .primary, life: 0.2), offset: bow),
-                .emit(.flare(1.1, .core, life: 0.16, tex: .flare4), at: 0.12, offset: bow),
-                .mesh(.sprite(.moon, 0.6, .accent, life: 0.35, grow: 1.5, alpha: 0.9), at: 0.12, offset: bow),
-                .mesh(.halo(0.9, .primary, life: 0.9, spin: -180, tex: .ringDouble), .follow, offset: [0, 0.9, 0]),
-                .mesh(.decal(.moon, 1.6, .secondary, life: 0.7, spin: 90, alpha: 0.7)),
-                .emit(.trail(.glow, .primary, rate: 30, life: 0.3, size: 0.3).with { $0.duration = 4 }, .follow, offset: bow),
-            ]
-            // 主矢（中央・長く太い）に続いて、左右の副矢が 0.03 秒ずつ遅れて走り、それぞれの矢先に光が灯る
-            let pivot: SIMD3<Float> = [0, 1.15, 0.5]
-            for (angle, length, width, t) in [(Float(0), Float(3.6), Float(1.0), Float(0.12)),
-                                              (Float(-22), Float(2.8), Float(0.75), Float(0.15)),
-                                              (Float(22), Float(2.8), Float(0.75), Float(0.18))] {
-                cast.append(volley(angle, length: length, angle == 0 ? .core : .primary, at: t, from: pivot, life: 0.4,
-                                   width: width))
-                cast.append(.emit(.flare(angle == 0 ? 0.9 : 0.6, angle == 0 ? .core : .accent, life: 0.14, tex: .flare4),
-                                  at: t + 0.04, offset: tipOffset(angle, length: length, from: pivot)))
-            }
-            r.cast = cast
-            // 自己強化は着弾が無い。空のままだと共通の演出（効果半径に比例して巨大化する）が補われるので、小さな光を明示する
-            r.impact = [.emit(.flare(0.6, .accent, life: 0.12, tex: .flare4), offset: bow)]
+            return moonArrow()
         case .skill2:
-            // 月蝕の矢: 弓を高く引いて空へ放ち、着弾点に月の輪が灯る（telegraph）→ 着弾で六条の小さな矢が散る（impact）→ 矢が走る（travel）
-            let E: Float = max(1.0, s.radius)
-            r.cast = [
-                .emit(.gather(10, radius: 0.5, .primary, life: 0.16), offset: bow),
-                .emit(.flare(1.2, .core, life: 0.16, tex: .flare4), at: 0.14, offset: bow),
-                .mesh(.ray(.arrow, length: 2.4, width: 0.8, .core, life: 0.3, alpha: 0.95), at: 0.14, offset: [0, 1.5, 1.4]),
-                .mesh(.sprite(.moon, 0.55, .accent, life: 0.3, grow: 1.6, alpha: 0.9), at: 0.14, offset: bow),
-            ]
-            r.telegraph = [
-                .mesh(.decal(.moon, E * 2.0, .accent, life: 0.55, spin: 120, alpha: 0.6)),
-                .mesh(.decal(.ringDouble, E * 2.2, .secondary, life: 0.55, spin: -80, alpha: 0.5)),
-                .mesh(.sprite(.moon, 0.9, .accent, life: 0.5, grow: 0.6, alpha: 0.9), offset: [0, 2.6, 0]),
-            ]
-            var impact: [FXCue] = [
-                .emit(.flare(1.5, .core, life: 0.18, tex: .flare6), offset: [0, 0.9, 0]),
-                .mesh(.decal(.moon, E * 2.2, .primary, life: 0.9, spin: 90, alpha: 0.85)),
-                .mesh(.decal(.ringDouble, E * 1.8, .secondary, life: 0.8, spin: -80, grow: 1.1, alpha: 0.8)),
-                .mesh(.shockRing(E * 1.2, .accent, life: 0.4)),
-                .mesh(.shockRing(E * 1.8, .primary, life: 0.55), at: 0.05),
-                .emit(.rising(16, radius: 0.9, .primary, speed: 2.2, life: 0.8), at: 0.06, quality: 1),
-            ]
-            // 着弾点から六条（60° おき）に散る小さな矢
-            for (k, angle) in [-150, -90, -30, 30, 90, 150].enumerated() {
-                impact.append(volley(Float(angle), length: 2.2, k % 2 == 0 ? .core : .primary, at: 0.04 + Float(k) * 0.01,
-                                     from: [0, 0.5, 0], life: 0.4))
-            }
-            r.impact = impact
-            r.travel = [
-                .mesh(.ray(.arrow, length: 1.1, width: 0.45, .core, life: 0.6, alpha: 0.95).with { $0.fadeOut = 0.85 }, .follow,
-                      offset: [0, 0.8, -0.3]),
-                .emit(.trail(.glow, .primary, rate: 40, life: 0.2, size: 0.25), .follow, offset: [0, 0.8, 0]),
-            ]
-            r.hit = [
-                .emit(.sparks(8, speed: 5, .secondary, end: .primary), offset: [0, 1.0, 0]),
-                // 鈍足の月の輪（追従）
-                .mesh(.halo(0.5, .accent, life: 0.9, spin: 140, tex: .ring), .follow, offset: [0, 0.15, 0]),
-            ]
+            return eclipse()
         case .ultimate:
-            // 隠れ月光: 月影に紛れる。足元に月の輪が咲き、翠の霞となって薄れ、2 秒のあいだ疾風の筋が尾を引く
-            r.cast = [
-                .emit(.bloom(1.6, .secondary, life: 0.35), offset: [0, 1.0, 0]),
-                .emit(.smoke(10, radius: 0.5, life: 0.8, size: 0.8), quality: 1),
-                // 背後の高い位置に月を掲げる（上方カメラで体を覆わないよう、小さめ・半透明）
-                .mesh(.sprite(.moon, 1.4, .accent, life: 0.6, grow: 1.3, alpha: 0.75), offset: [0, 2.6, -0.8]),
-                .mesh(.decal(.runeCircle, 3.0, .primary, life: 0.9, spin: 140, alpha: 0.7)),
-                .mesh(.halo(1.0, .secondary, life: 0.7, spin: 200, tex: .ringDouble), offset: [0, 1.0, 0]),
-                .mesh(.shockRing(2.0, .core, life: 0.4)),
-                .emit(.flutter(.moon, 12, radius: 0.8, .accent, speed: 1.8, life: 1.0, size: 0.16), at: 0.05, offset: [0, 1.0, 0]),
-                .emit(.rising(18, radius: 0.7, .primary, speed: 2.0, life: 0.9), at: 0.05, quality: 1),
-                .emit(.trail(.glow, .secondary, rate: 24, life: 0.4, size: 0.4).with { $0.duration = 2 }, .follow, offset: [0, 1.0, 0]),
-                .emit(.trail(.streak, .primary, rate: 40, life: 0.3, size: 0.3).with {
-                    $0.dir = .backward; $0.speed = 3; $0.duration = 2
-                }, .follow, offset: [0, 0.9, 0], quality: 1),
-            ]
-            // 自己の隠蔽に着弾は無い。共通の演出が補われて巨大化しないよう、小さな光を明示する
-            r.impact = [.emit(.bloom(0.9, .secondary, life: 0.3), offset: [0, 1.0, 0])]
+            return hiddenMoonlight()
         }
+    }
+
+    // MARK: - スキル1 月弦分矢
+
+    /// 自己強化（4〜9 秒）。MLBB: 指を離して 2 コマ後（f54）に肩が青紫に閃き、f55〜60 に濃い青の気が全身を包み、f62（0.33 秒）に消える。
+    private static func moonArrow() -> SkillFXRecipe {
+        var r = SkillFXRecipe()
+        r.cast = [
+            // 0.04: 肩の青紫の閃き（f54〜55）
+            .emit(.flare(1.0, periwinkle, life: 0.12, tex: .flare4), at: 0.04, .follow, offset: [0, 1.45, 0.05]),
+            // 0.04〜0.34: 全身を包む濃い青の気（柔らかい光が膨らみ、下から上へ揺らいで縁から欠ける殻。どちらも加算）
+            .mesh(FXMesh.sprite(.glow, 2.0, aura, life: 0.3, grow: 1.12, alpha: 0.85).glowing().with {
+                $0.fadeIn = 0.3
+                $0.fadeOut = 0.5
+            }, at: 0.04, .follow, offset: [0, 1.0, 0]),
+            .mesh(FXMesh(shape: .cylinder, tex: .beam, tint: aura, alpha: 0.9, size: [0.42, 1.3, 0.42],
+                         sizeEnd: [0.6, 2.0, 0.6], ease: .out, life: 0.3, fadeIn: 0.25, fadeOut: 0.5).glowing()
+                .flowing(.noise, scroll: [0.3, -1.8], tiling: 2.5, strength: 0.8, erosion: 0.55, edge: periwinkle),
+                  at: 0.05, .follow),
+            // 気の縁で上へ揺れる青い炎の舌（コマ送り）
+            .emit(.sheet(.flameLoop, 0.85, aura, end: periwinkle, count: 6, life: 0.28, orient: .upright, radius: 0.32).with {
+                $0.speed = 0.9
+            }, at: 0.06, .follow, offset: [0, 0.45, 0]),
+            // 効果中（4〜9 秒 = 発動のイベントの duration）: 弓の先に白い水色の星が時々きらめく
+            // （MLBB は矢を放つたびに弓の先で閃く。Velstria の通常攻撃の弾は汎用の演出なので、ここで代わりに見せる）
+            .emit(.trail(.twinkle, .secondary, rate: 3, life: 0.3, size: 0.32).with {
+                $0.duration = buffTime
+                $0.durationFromCast = true
+                $0.sheet = .sparkTwinkle
+                $0.sheetRandomStart = true
+                $0.tintEnd = .core
+                $0.speed = 0.1
+            }, .follow, offset: bow),
+        ]
+        // 自身中心なので発動と同時に再生: 足元に広がる青い気（地面の柔らかい光。加算）
+        r.impact = [
+            .mesh(FXMesh.decal(.glow, 1.9, aura, life: 0.34, spin: 0, grow: 1.1, alpha: 0.6).glowing(), at: 0.05, .follow),
+        ]
+        // 連弾の矢は通常攻撃の弾（スキルのダメージではない）ので被弾演出は出ない
+        r.hit = glint(.secondary)
         return r
     }
+
+    // MARK: - スキル2 月蝕の矢
+
+    /// 天へ放つ（0.32）→ 着弾点に細い輪だけ（0.05〜0.65）→ 着弾（0.65）: 白い閃光・渦を巻く光の帯・昇る光の矢 →
+    /// 範囲が白く光って 6 本の小さな矢が散る（0.98、travel）。
+    private static func eclipse() -> SkillFXRecipe {
+        var r = SkillFXRecipe()
+        let R = eclipseRadius
+        let land = eclipseDelay
+        let shoot = eclipseShoot
+        let split = eclipseSplit
+        let skyward = bowHigh + SIMD3<Float>(0, 0.5, 0)
+        r.cast = [
+            // 0.32: 天へ放つ瞬間、弓の先で水色の星が閃く（f329 #7BDBFD / #9EFAFE）
+            .emit(.sheet(.hitFlash, 1.3, .secondary, end: .primary, life: 0.16), at: shoot, offset: bowHigh),
+            // 天へ抜ける青い矢（f329〜331: 3 本の青い筋。速さに沿って伸びる光の筋）と、矢じりの見える主矢（直交する 2 枚の板）
+            .emit(FXEmit(tex: .streak, tint: .core, tintEnd: arrowBlue, count: 3, emit: 0.04, life: 0.14, lifeVar: 0.1,
+                         size: 0.18, sizeVar: 0.2, grow: 1, shape: .sphere(0.2), dir: .local([0, 1, 0.3]), speed: 22,
+                         speedVar: 0.1, spread: 5, stretch: 4, fade: .linearFadeOut), at: shoot, offset: skyward),
+            .mesh(uprightArrow(length: 1.5, width: 0.45, arrowBlue, life: 0.16, up: true).with { $0.rise = 20 }.glowing(),
+                  at: shoot, offset: skyward).repeated(2, yaw: 90),
+        ]
+        // ゾーンの telegraph は発動と同時に着弾点で再生される（中心が原点）。着弾の本体もここに at = 0.65 で置く
+        var tele: [FXCue] = [
+            // 0.05〜0.65: 着弾点に細い水色の輪（照準の円の縁。MLBB f322〜338 #3DC6E8 / #62E3F6・半径 1.76。地面に描く線）
+            .mesh(groundRing(R + 0.05, .primary, life: land - 0.03, alpha: 0.95), at: 0.05),
+            // 0.65 着弾: 中心の白い閃光（f339 #F4FCFC）と、中心から縁へ走る白い衝撃の輪（コマ送り）
+            .mesh(FXMesh.sprite(.glowHard, 1.8, .core, life: 0.14, grow: 1.6).glowing(), at: land, offset: [0, 0.8, 0]),
+            .emit(.groundSheet(.shockRing, R * 1.8, .core, life: 0.3), at: land, offset: [0, 0.05, 0]),
+            // 縁の輪が太い光の帯に変わり、筋の模様が輪に沿って流れて渦を巻く（f340〜348 #A8F8FC。散る瞬間まで）
+            .mesh(FXMesh.halo(R, .secondary, life: split - land + 0.03, spin: 200, tex: .beam, alpha: 1).with {
+                $0.size = [R * 0.92, 1, R * 0.92]
+                $0.sizeEnd = [R * 1.02, 1, R * 1.02]
+                $0.ease = .out
+                $0.fadeIn = 0.1
+                $0.fadeOut = 0.75
+            }.glowing().flowing(.streaks, scroll: [1.6, 0], tiling: 3, strength: 0.7, erosion: 0.3, edge: .core), at: land),
+            // 中央を回る白い渦（f341〜344 の白い三日月の渦）
+            .mesh(FXMesh.decal(.swirl, R * 1.4, .core, life: 0.3, spin: -480, grow: 1.2, alpha: 1).glowing(), at: land + 0.02),
+            // 0.68〜0.95: 輪の中の地面から上へ昇る光の矢（矢じりが上。f340〜348 の白〜青の縦の矢 #5EBAF7）
+            .emit(FXEmit(tex: .streak, tint: .core, tintEnd: arrowBlue, count: 16, emit: 0.26, life: 0.3, lifeVar: 0.15,
+                         size: 0.13, sizeVar: 0.3, grow: 0.8, shape: .disc(R * 0.85), dir: .up, speed: 3.5, speedVar: 0.3,
+                         stretch: 3.6, fade: .gradualFadeInOut), at: land + 0.03, offset: [0, 0.2, 0]),
+            // 0.98 分裂: 範囲に満ちる白い光（f349〜350 #F6FBFD）
+            .mesh(FXMesh(shape: .cylinder, tex: .beam, tint: .core, alpha: 0.9, size: [R * 0.85, 0.6, R * 0.85],
+                         sizeEnd: [R * 0.9, 2.4, R * 0.9], ease: .out, life: 0.2, fadeIn: 0.05, fadeOut: 0.35).glowing(),
+                  at: split),
+            .emit(.flare(2.6, .core, life: 0.14, tex: .flare6), at: split, offset: [0, 0.7, 0]),
+            .shake(0.12, at: land),
+        ]
+        // 矢じりの見える光の矢 3 本（直交する 2 枚の板。着弾から 0.06 秒ずつ遅れて、ゆっくり昇りながら消える）
+        let standing: [SIMD3<Float>] = [[0.75, 0.65, 0.35], [-0.6, 0.65, -0.55], [0.1, 0.65, -1.0]]
+        for (k, p) in standing.enumerated() {
+            tele.append(.mesh(uprightArrow(length: 1.25, width: 0.4, .core, life: 0.3, up: true).with { $0.rise = 1.6 }.glowing(),
+                              at: land + 0.03 + 0.06 * Float(k), offset: p).repeated(2, yaw: 90))
+        }
+        r.telegraph = tele
+        // 着弾の 0.33 秒後に散る 6 本の小さな矢（本物の投射物。前方 = 飛ぶ向き。MLBB の高さ 0.5〜0.6）: 白い光の矢と青い筋
+        r.travel = [
+            .mesh(FXMesh(shape: .disc, tex: .arrow, tint: .core, alpha: 1, size: [1.4, 1, 0.42], sizeEnd: [1.4, 1, 0.42],
+                         ease: .linear, life: minorArrowTime + 0.06, fadeIn: 0.02, fadeOut: 0.85, yaw: 90).glowing(), .follow,
+                  offset: [0, 0.6, 0]),
+            .emit(.trail(.streak, .primary, rate: 40, life: 0.14, size: 0.2).with {
+                $0.dir = .backward
+                $0.speed = 3
+                $0.stretch = 2.6
+                $0.tintEnd = arrowBlue
+            }, .follow, offset: [0, 0.6, 0], quality: 1),
+        ]
+        // ゾーンの発動（中心）と、小さな矢 6 本それぞれの終わり（命中・射程の端）: 小さな閃きだけ（MLBB の矢は消えるだけ）
+        r.impact = [
+            .emit(.flare(0.7, .secondary, life: 0.1, tex: .flare4), offset: [0, 0.6, 0]),
+        ]
+        // 移動不能 1.2 秒（着弾）: 白い閃き + 水色の光の檻（下の縁が明るく上へ薄れる円柱・半径 0.6・高さ 1.15。f345〜372）と足元の輪
+        r.hit = [
+            .emit(.sheet(.hitFlash, 1.1, .core, end: .secondary, life: 0.16), offset: [0, 1.0, 0]),
+            .mesh(FXMesh(shape: .cylinder, tex: .beam, tint: cage, alpha: 0.55, size: [0.5, 1.15, 0.5],
+                         sizeEnd: [0.62, 1.15, 0.62], ease: .out, life: rootTime, fadeIn: 0.04, fadeOut: 0.85), .follow),
+            .mesh(groundRing(0.62, .secondary, life: rootTime, from: 0.85).glowing(), .follow),
+        ]
+        return r
+    }
+
+    // MARK: - アルティメット 隠れ月光
+
+    /// 月光の帳に包まれて月影に紛れる（隠密 2 秒・弱体の解除・加速）。演出は発動の位置に置く（隠れた位置を敵に見せない）。
+    /// MLBB: f400（発動の次のコマ）頭上に大きな三日月 → f401〜412 その下から青紫の光の柱が地へ降りる → f402〜404 足元の閃光 →
+    /// f405〜412 柱の中に青い光の粒。
+    private static func hiddenMoonlight() -> SkillFXRecipe {
+        var r = SkillFXRecipe()
+        let crown: SIMD3<Float> = [0, 3.7, 0]
+        r.cast = [
+            // 0.03〜0.45: 頭上の大きな三日月（直径 1.9・#94CBFF、芯 #E2FCFF）と、その内の渦の飾り
+            .mesh(FXMesh.sprite(.moon, 1.9, .accent, life: 0.42, grow: 1.06, alpha: 1).glowing().with {
+                $0.fadeIn = 0.1
+                $0.fadeOut = 0.6
+            }, at: 0.03, offset: crown),
+            .mesh(FXMesh.sprite(.swirl, 1.2, .core, life: 0.36, grow: 1.15, alpha: 0.75).glowing().with { $0.fadeIn = 0.15 },
+                  at: 0.05, offset: crown + SIMD3<Float>(0.1, 0, 0)),
+            // 0.05〜0.53: 三日月から地へ降りる青紫の光の柱（半径 1.0。円柱を逆さに吊るして下へ伸ばす。加算）
+            .mesh(FXMesh(shape: .cylinder, tex: .beam, tint: veil, alpha: 0.85, size: [0.85, 0.5, 0.85],
+                         sizeEnd: [1.0, 3.6, 1.0], ease: .out, life: 0.48, fadeIn: 0.12, fadeOut: 0.55, roll: 180).glowing()
+                .flowing(.streaks, scroll: [0, -0.8], tiling: 3, strength: 0.4, edge: .accent), at: 0.05, offset: crown),
+            // 0.1: 足元の閃光（水色の星と、横に伸びる光。0.1 秒。#82CFFF）
+            .emit(.sheet(.hitFlash, 1.5, .core, end: .secondary, life: 0.16), at: 0.1, offset: [0, 0.35, 0]),
+            .mesh(FXMesh(shape: .billboard, tex: .glow, tint: .secondary, alpha: 1, size: [2.6, 0.22, 1],
+                         sizeEnd: [3.2, 0.12, 1], ease: .out, life: 0.15, fadeIn: 0.05, fadeOut: 0.4).glowing(),
+                  at: 0.1, offset: [0, 0.35, 0]),
+            // 0.18〜: 柱の中に漂う青い光の粒
+            .emit(.motes(10, radius: 0.8, .rgb(0.4, 0.6, 1.0), life: 0.6, size: 0.09, rise: 0.4), at: 0.18,
+                  offset: [0, 0.45, 0]),
+        ]
+        // 自身中心なので発動と同時に再生: 柱が地に着く所の淡い光
+        r.impact = [
+            .mesh(FXMesh.decal(.glow, 2.3, veil, life: 0.5, spin: 0, grow: 1.0, alpha: 0.5).glowing(), at: 0.12),
+        ]
+        // ダメージは無い
+        r.hit = glint(.accent)
+        return r
+    }
+
+    // MARK: - 詠唱モーション（2026-10-17 の作り直しでは変えていない）
 
     static func motion(_ slot: SkillSlot, _ m: inout MotionBuilder) {
         switch slot {
         case .passive:
             break
         case .skill1:
-            // 弓を軽く引いて月光を宿す（矢は放たない）
-            m.draw(0.09, up: 0.05)
-            m.release(0.05)
-            m.hold(0.12)
+            // 弦を引き絞って月光を宿し、0.1 秒で離す（MLBB の発動は矢を放たず気をまとうだけ。モーションは以前のまま）
+            m.draw(0.08, up: 0.08)
+            m.release(0.04)
+            m.hold(0.14) { $0.glow = 1.8 }
         case .skill2:
-            // 弓を高く構えて月蝕の矢を空へ放つ（ブリンクはしない）
-            m.draw(0.12, up: 0.3)
-            m.release(0.05)
+            // 弓を天へゆっくり向けて引き（画面収録: 指を離してから 0.27〜0.32 秒）、0.32 秒で放ち、矢が落ちるまで空を見上げる
+            // （0.32 + 0.2 + 0.1 + 戻り 0.25 = 0.87 秒）
+            m.draw(0.12, up: 0.35)
+            m.draw(0.16, up: 0.75)
+            m.release(0.04)
+            m.hold(0.2) { $0.glow = 1.6; $0.headPitch = -0.35 }
             m.settle(0.1)
         case .ultimate:
-            // 腰を落として外套を翻し、月影に紛れる
-            m.brace(0.08, depth: 0.2)
-            m.hold(0.14) { $0.glow = 1.8; $0.ring = 1.0 }
+            // 腰を落として外套で身を包み、月影に紛れる
+            m.brace(0.08, depth: 0.22)
+            m.guardCross(0.1)
+            m.hold(0.12) { $0.glow = 2.0; $0.ring = 1.0 }
             m.settle(0.12)
         }
     }

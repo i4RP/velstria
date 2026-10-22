@@ -4,14 +4,13 @@ import XCTest
 /// レビュー修正の回帰テスト: 事前計算表・推奨購入の完走・無限 Gold・マルチキル上限・キーフレームシーク・試合中の不変条件。
 final class EconomyReviewTests: XCTestCase {
 
-    // MARK: - 装備・ルーンの事前計算表
+    // MARK: - 装備の事前計算表
 
     func testItemTableMatchesMasterParsing() throws {
         let m = MasterData.shared
         let table = EconomyItemTable.table(for: m)
         XCTAssertTrue(table === EconomyItemTable.shared)
         for it in m.items { XCTAssertEqual(table.percent(item: it), it.passivePercent, it.itemID) }
-        for r in m.runes { XCTAssertEqual(table.percent(rune: r), r.percent, r.runeID) }
         for cat in ItemCategory.allCases {
             // 素朴な並べ替え（毎回 % を解析）と同じ順
             let naive = m.items.filter { $0.category == cat && !$0.isConsumable }.sorted { a, b in
@@ -36,8 +35,9 @@ final class EconomyReviewTests: XCTestCase {
         a.attack = 100; b.attack = 100
         // 能力値・固有の能力値・適応攻撃・能力値で決まる固有効果（神秘・撃砕）を含む組み合わせ
         let items = ["EQ109", "EQ112", "EQ210", "EQ113", "EQ105", "EQ122"]
-        ItemStats.apply(items: items, runes: ["RN06", "RN15", "RN24"], to: &a, master: m)
-        ItemStats.apply(items: items, runes: ["RN06", "RN15", "RN24"], to: &b, master: other)
+        let emblem = EmblemLoadout(.fighter, .fatal, .weaponMaster, .braveSmite)
+        ItemStats.apply(items: items, emblem: emblem, to: &a, master: m)
+        ItemStats.apply(items: items, emblem: emblem, to: &b, master: other)
         XCTAssertEqual(a, b)
     }
 
@@ -154,7 +154,9 @@ final class EconomyReviewTests: XCTestCase {
 
     func testKeyframeSeekMatchesContinuousPlayback() {
         let cfg = MatchFactory.standardMatch(humanHeroID: "H001", humanName: "K", seed: 99)
-        let sim = Simulation(config: cfg)
+        // 記録はアプリ（BattleController）と同じく map(for:) の地図で。ReplayPlayer は map(for:) で再生するので、
+        // 既定の .standard で記録すると別の地図を比べることになる
+        let sim = Simulation(config: cfg, map: MapDefinition.map(for: cfg.mode))
         let recorder = ReplayRecorder(config: cfg)
         sim.recorder = recorder
         let human = sim.state.humanHeroID!
@@ -216,7 +218,8 @@ final class EconomyReviewTests: XCTestCase {
         let t = f.tower(team: .red, lane: .bot, tier: .outer)
         let golds = blue.map { f.hero($0).gold }
         f.kill(t, by: bogusID)
-        for (n, i) in blue.enumerated() { XCTAssertEqual(f.hero(i).gold - golds[n], 120) }
+        // MLBB: アウターはチーム全員に 60（近くに居ないのでおまけの 50 は無い）
+        for (n, i) in blue.enumerated() { XCTAssertEqual(f.hero(i).gold - golds[n], 60) }
         f.kill(f.addMonster(.campLarge, at: Vec2(6000, 6000)), by: bogusID)
     }
 

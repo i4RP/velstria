@@ -34,6 +34,9 @@ struct BattleLaunch: Identifiable, Equatable {
     var onlineSeat: Int?
     /// オンライン対戦を観戦席で見る（座席なし。ホストの配信を遅延付きで再生する）。
     var onlineSpectator: Bool = false
+    /// オンライン対戦: 試合を始めた時の座席ごとの参加者（config.players の添字 → プレイヤー ID・フレンドコード）。
+    /// リザルトの通報・ブロックの相手を、名前ではなく座席で引く（同じ名前の参加者・試合中に抜けた参加者を取り違えない）。
+    var onlineSeatPlayers: [Int: OnlineSeatPlayer] = [:]
     /// リプレイの持ち主の座席（config.players の添字）。nil なら最初の人間の枠。
     var replayOwnerSeat: Int?
     /// 観戦の初期設定（速度・視界・自動カメラ）。
@@ -64,6 +67,24 @@ struct BattleLaunch: Identifiable, Equatable {
     }
 }
 
+/// オンライン対戦の座席に座っていた参加者（試合の開始時に部屋の状態から控える）。
+struct OnlineSeatPlayer: Equatable {
+    var peerID: OnlinePeerID
+    var friendCode: String?
+
+    /// 座席（config.players の添字と同じ番号）に座っている人間の参加者。名前は照らし合わせない
+    /// （クライアントの部屋の名前は表示用に整えてあり、試合の構成の名前と一致しないことがある）。
+    static func capture(room: OnlineRoom, players: [PlayerSlot]) -> [Int: OnlineSeatPlayer] {
+        var result: [Int: OnlineSeatPlayer] = [:]
+        // 座席の並び = config.players の並び（OnlineRoom.seatIndex(of:) と同じ数え方）
+        for (i, seat) in room.seats.enumerated() where players.indices.contains(i) && players[i].controller == .human {
+            guard let id = seat.peerID else { continue }
+            result[i] = OnlineSeatPlayer(peerID: id, friendCode: room.peer(id)?.friendCode)
+        }
+        return result
+    }
+}
+
 /// マジックチェスの起動パラメータ。
 struct MagicChessLaunch: Identifiable, Equatable {
     let id = UUID()
@@ -91,6 +112,11 @@ final class AppModel: FriendProfileAccess {
     let haptics: HapticsService
     /// フレンド（申請・在席・パーティの招待）。FeatureFlags.lanMatch が有効な時だけ受信箱へ繋ぐ。
     let friends = FriendHub()
+    /// 公開の名刺（relay の Directory）とランキング（第3段）。
+    let publicProfiles = PublicProfileService()
+    let ranking = RankingService()
+    /// アカウント（パスワード・Game Center・クラウド保存。プロフィール > アカウント）。
+    let account = AccountCenter()
 
     var profile: Profile {
         didSet {
@@ -119,6 +145,10 @@ final class AppModel: FriendProfileAccess {
     var lastRewardReport: RewardReport?
     /// トースト表示用メッセージ。
     var toast: String?
+    /// オンラインのルールに同意する前に開かれたリンク（招待・フレンド）。同意したら開き直す。
+    @ObservationIgnored private var pendingOnlineLink: URL?
+    /// 規則を満たさない名前の知らせを、この起動で出したか。
+    @ObservationIgnored private var notedReplacedOnlineName = false
 
     init(persistence: PersistenceService = PersistenceService()) {
         self.persistence = persistence
@@ -133,6 +163,40 @@ final class AppModel: FriendProfileAccess {
         haptics.enabled = loaded.settings.hapticsEnabled
         storeKit.attach(to: self)
         wireFriends()
+        wirePublicServices()
+        account.host = self
+    }
+
+    /// 公開の名刺・ランキング（第3段）: 送る・読むのはクラウドのランクと同じ条件（オンラインに同意した 13 歳以上）。
+    private func wirePublicServices() {
+        publicProfiles.isAllowed = { [weak self] in self?.syncsCloudRank ?? false }
+        publicProfiles.own = { [weak self] in self?.ownPublicCard() }
+        ranking.isAllowed = { [weak self] in self?.syncsCloudRank ?? false }
+        ranking.myCode = { [weak self] in self?.profile.friendCode }
+        ranking.friendCodes = { [weak self] in self?.profile.friends.map(\.code) ?? [] }
+    }
+
+    /// 自分の名刺の中身（名前は外に見せる形。得意ヒーロー 3 体は使った試合の多い順）。
+    func ownPublicCard() -> (code: String, key: String, card: PublicCardPayload)? {
+        let p = profile
+        guard FriendCode.isValid(p.friendCode), FriendInboxKey.isValid(p.inboxKey) else { return nil }
+        let heroes = DraftShowcase.favorites(p, roster: master.heroes.map(\.heroID), limit: 3).map { id -> PublicHeroStat in
+            let c = p.career.perHero[id] ?? HeroCareer()
+            return PublicHeroStat(heroID: id, matches: c.matches, wins: min(c.wins, c.matches))
+        }
+        let avatar: String? = master.hero(p.avatarHeroID) != nil ? p.avatarHeroID : nil
+        let card = PublicCardPayload(name: String(onlineName.prefix(12)), avatar: avatar, frame: p.equippedAvatarFrame,
+                                     level: max(1, p.accountLevel), country: p.countryCode.flatMap(CountryFlag.normalized),
+                                     heroes: heroes, matches: p.career.matches, wins: min(p.career.wins, p.career.matches))
+        return (p.friendCode, p.inboxKey, card)
+    }
+
+    /// 運営のメールを取りに行き、まだ入れていない物をメールに入れる（起動時・前面に戻った時。オンラインに同意した時だけ通信する）。
+    func refreshOpsMail() async {
+        guard syncsCloudRank, let mail = await OpsMailService.fetch(base: OnlineRelayConfig.baseURL, transport: rankTransport) else { return }
+        var p = profile
+        OpsMailService.merge(mail, into: &p)
+        if p != profile { profile = p }
     }
 
     private func wireFriends() {
@@ -145,8 +209,87 @@ final class AppModel: FriendProfileAccess {
     /// 起動時処理（ログインボーナス・デイリー更新・未処理トランザクション）。
     func onLaunch(now: Date = Date()) {
         LiveOpsService.onLaunch(profile: &profile, master: master, now: now)
+        // ランクのシーズン: 新しいシーズンの最初の起動でランクを下げ、前のシーズンの報酬をメールで送る（クラウドへ預ける前に）
+        SeasonService.refresh(profile: &profile, now: now)
         Task { await storeKit.start() }
         friends.start()
+        Task {
+            await pullCloudRank()
+            await publicProfiles.publishOwn()
+            await refreshOpsMail()
+            await account.refresh()
+        }
+    }
+
+    // MARK: アカウントの切替（AccountCenter.switchTo）
+
+    /// 別のアカウントへ切り替える前に: 部屋を出て、受信箱を切る（新しいフレンドコードで繋ぎ直す）。
+    func prepareForAccountSwitch() {
+        leaveOnlineRoom()
+        friends.reset()
+        pendingOnlineLink = nil
+        publicProfiles.forgetPublished()
+    }
+
+    /// 切り替えた後に: 新しいコードで受信箱へ繋ぎ、クラウドのランク・名刺・運営のメールを取り直し、購入の記録を確かめ直す。
+    func afterAccountSwitch() {
+        friends.start()
+        Task {
+            await pullCloudRank()
+            await publicProfiles.publishOwn()
+            await refreshOpsMail()
+        }
+        Task {
+            await storeKit.refreshEntitlements()
+            await storeKit.syncMonthlySpendFromHistory()
+        }
+    }
+
+    // MARK: ランク（クラウド）
+
+    /// クラウドのランクの通信の送り手（テストは差し替える）。
+    @ObservationIgnored var rankTransport: RankCloud.Transport = FriendInboxEraser.urlSession
+
+    /// クラウドのランクを使うか: オンライン機能のルールに同意した 13 歳以上だけ（フレンドの受信箱と同じ条件。OnlineAccess）。
+    /// 使わない間はフレンドコード・鍵・勝敗を中継サーバーへ送らず、ランクは端末の計算（RankService.apply）だけで進める。
+    /// フレンドサーバーを止めている間（friends.isEnabled。単体テスト）も送らない。
+    var syncsCloudRank: Bool { onlineAccess == .available && friends.isEnabled() }
+
+    /// 起動時・オンラインのルールに同意した時: クラウドのランクを取り込む（初回は端末の記録を預ける）。
+    func pullCloudRank() async {
+        guard syncsCloudRank else { return }
+        let code = profile.friendCode, key = profile.inboxKey
+        // 同意を取り消した後に端末で進めた: 中継の古いランクを消してから、端末のランクを預け直す（消せなければ今回は預けない。
+        // 残したまま預けると、中継は記録のあるアカウントの seed を受け取らず、古いランクに戻してしまう）
+        if profile.cloudRankStale {
+            guard await RankCloud.erase(code: code, key: key, transport: rankTransport), profile.friendCode == code else { return }
+            profile.cloudRankStale = false
+            publicProfiles.forgetPublished()
+        }
+        if let s = await RankCloud.seed(code: code, key: key, local: profile.rank, transport: rankTransport) { adoptCloudRank(s, code: code) }
+    }
+
+    /// ランク戦の結果をクラウドへ送り、正の値で端末の写しを上書きする（クラウドのランクを使わない間は送らない）。
+    private func syncRankedMatch(_ outcome: BattleOutcome, report: RewardReport) {
+        guard syncsCloudRank else { return }
+        let code = profile.friendCode, key = profile.inboxKey, transport = rankTransport
+        let matchID = "m_" + String(RankService.stableHash("\(profile.playerID)|\(outcome.summary.seed)|\(outcome.summary.duration)"), radix: 36)
+        let won = report.won, rating = report.matchRating, mvp = outcome.summary.humanPlayer?.isMVP == true
+        Task {
+            if let s = await RankCloud.match(code: code, key: key, matchID: matchID, won: won, rating: rating, mvp: mvp, transport: transport) {
+                adoptCloudRank(s, code: code)
+            }
+        }
+    }
+
+    /// クラウドの値で端末のランクを上書きし、中継にこのコードのデータがあると記録する（全データの削除で中継のランクも消す。
+    /// FriendHub.hasServerData）。待っている間にデータを削除した（コードが変わった）なら何もしない。
+    private func adoptCloudRank(_ s: CloudRank, code: String) {
+        guard profile.friendCode == code else { return }
+        var p = profile
+        p.rank.adopt(s)
+        p.inboxRegistered = true
+        profile = p
     }
 
     // MARK: 戦闘
@@ -155,6 +298,20 @@ final class AppModel: FriendProfileAccess {
         router.isMatchFlowPresented = false
         friends.declineAllAsBusy()
         activeBattle = launch
+        // フレンドに今の状態を知らせる（試合中「ランキング1分」・練習中・ライブ観戦）
+        let mode = launch.config.mode
+        if launch.isSpectating || launch.replay != nil {
+            friends.setMyActivity(FriendActivity(.watch, mode: FriendActivityMode.code(mode)))
+        } else if mode == .practice || mode == .tutorial {
+            friends.setMyActivity(FriendActivity(.practice))
+        } else {
+            friends.setMyActivity(FriendActivity(.match, mode: FriendActivityMode.code(mode), since: Date()))
+        }
+    }
+
+    /// 戦闘の外の状態（オンラインのパーティにいればルーム中、いなければオンライン）。
+    var idleActivity: FriendActivity {
+        online != nil ? FriendActivity(.room, mode: FriendActivityMode.code(.custom)) : FriendActivity(.online)
     }
 
     // MARK: オンライン対戦
@@ -165,13 +322,15 @@ final class AppModel: FriendProfileAccess {
     func hostOnlineRoom(name roomName: String? = nil, port: UInt16? = OnlineProtocol.defaultPort,
                         relay: Bool = true, relayCode: String? = nil) {
         leaveOnlineRoom()
-        let name = profile.displayName.isEmpty ? L("プレイヤー", "Player") : profile.displayName
+        let name = onlineName
         let session = OnlineSession.host(peerID: profile.playerID, name: name,
-                                         roomName: roomName ?? L("\(name) の部屋", "\(name)'s room"))
+                                         roomName: roomName ?? L("\(name) の部屋", "\(name)'s room"),
+                                         avatar: profile.avatarHeroID, friendCode: profile.friendCode)
         wire(session)
         session.startListening(preferredPort: port)
         if relay { session.startRelay(baseURL: OnlineRelayConfig.baseURL, code: relayCode) }
         online = session
+        friends.setMyActivity(idleActivity)
     }
 
     /// 部屋コードで入る（中継経由。違う場所・違う Wi-Fi のホストへ）。code は正規化済み（RelayRoomCode.parse）。
@@ -197,6 +356,7 @@ final class AppModel: FriendProfileAccess {
             showToast(L("試合中は参加できません。試合が終わってからリンクを開いてください", "You are in a match. Open the link again after it ends"))
             return true
         }
+        if deferUntilOnlineAllowed(url) { return true }
         if let online {
             if online.role == .client, online.joinedRelayCode == link.code, online.isConnected {
                 // 既にその部屋にいる: 画面を出すだけ
@@ -231,11 +391,13 @@ final class AppModel: FriendProfileAccess {
             showToast(L("はじめの設定を終えてから、もう一度リンクを開いてください", "Finish the first-time setup, then open the link again"))
             return true
         }
+        if deferUntilOnlineAllowed(url) { return true }
         friends.start()
         switch friends.requestFriend(code: link.code) {
         case .sent, .accepted: break
         case .alreadyFriend: showToast(L("すでにフレンドです", "You are already friends"))
         case .isSelf: showToast(L("自分のフレンドコードです", "That is your own friend code"))
+        case .blocked: showToast(FriendHub.blockedMessage)
         case .invalid(let message): showToast(message)
         }
         return true
@@ -244,19 +406,57 @@ final class AppModel: FriendProfileAccess {
     /// パーティを作る: 部屋を作って自分が先に座る（フレンドは同じチームに入る）。すでに自分の部屋があればそのまま使う。
     func hostPartyRoom() {
         guard FeatureFlags.lanMatch, activeBattle == nil, activeMagicChess == nil else { return }
+        guard onlineAccess == .available else {
+            showOnlineLobby()
+            return
+        }
         if let online, online.isHost {
             showOnlineLobby()
             return
         }
-        let name = profile.displayName.isEmpty ? L("プレイヤー", "Player") : profile.displayName
+        let name = onlineName
         hostOnlineRoom(name: L("\(name) のパーティ", "\(name)'s party"))
         online?.takeSeat(0)
         showOnlineLobby()
     }
 
+    /// オンラインの画面を開いた: 部屋に入っていなければ自分のパーティ（部屋）を作る（フレンドをすぐ招待できるように）。
+    func ensurePartyRoom() {
+        guard FeatureFlags.lanMatch, onlineAccess == .available, online == nil, activeBattle == nil, activeMagicChess == nil else { return }
+        noteReplacedOnlineNameIfNeeded()
+        let name = onlineName
+        hostOnlineRoom(name: L("\(name) のパーティ", "\(name)'s party"))
+    }
+
+    /// いま招待に使える部屋（自分がホストで中継が開いている、または部屋コードで入っている）。
+    var partyInviteRoom: (code: String, name: String)? {
+        guard let session = online else { return nil }
+        if session.isHost {
+            guard let code = session.relayCode, session.relayStatus?.isReady == true else { return nil }
+            return (code, session.room.name)
+        }
+        guard let code = session.joinedRelayCode, session.isConnected else { return nil }
+        return (code, session.room.name)
+    }
+
+    /// フレンドをパーティへ招待する。部屋がまだ無ければ作り、部屋コードが使えるようになるまで（最大 10 秒）待ってから送る。
+    func inviteToParty(_ friend: Friend) {
+        if partyInviteRoom == nil && online == nil { ensurePartyRoom() }
+        Task { @MainActor in
+            for _ in 0..<40 {
+                if let room = partyInviteRoom {
+                    friends.invite(friend, roomCode: room.code, roomName: room.name)
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            showToast(L("部屋の準備ができませんでした。もう一度お試しください", "The room is not ready. Please try again"))
+        }
+    }
+
     /// フレンドの招待に同意した: 部屋コードで入り、ホストと同じチームの空席に自動で座る。
     func joinPartyRoom(code: String) {
-        guard FeatureFlags.lanMatch, RelayRoomCode.isValid(code) else { return }
+        guard FeatureFlags.lanMatch, onlineAccess == .available, RelayRoomCode.isValid(code) else { return }
         guard activeBattle == nil, activeMagicChess == nil else {
             showToast(L("試合中は参加できません", "You are in a match"))
             return
@@ -285,15 +485,21 @@ final class AppModel: FriendProfileAccess {
     /// 部屋に入る（クライアント）。wantsSpectate: 観戦席で入る（試合中なら途中から観戦する）。
     func joinOnlineRoom(connection: OnlineConnection, wantsSpectate: Bool = false) {
         leaveOnlineRoom()
-        let name = profile.displayName.isEmpty ? L("プレイヤー", "Player") : profile.displayName
-        let session = OnlineSession.join(peerID: profile.playerID, name: name, connection: connection, wantsSpectate: wantsSpectate)
+        noteReplacedOnlineNameIfNeeded()
+        let name = onlineName
+        let session = OnlineSession.join(peerID: profile.playerID, name: name, connection: connection, wantsSpectate: wantsSpectate,
+                                         avatar: profile.avatarHeroID, friendCode: profile.friendCode)
         wire(session)
         online = session
+        friends.setMyActivity(idleActivity)
     }
 
     private func wire(_ session: OnlineSession) {
         session.onMatchStart = { [weak self, weak session] config, seat in
             guard let self, let session else { return }
+            // 最近一緒に遊んだ人（部屋の選手のうちフレンドコードを名乗った人）
+            let played = session.room.peers.compactMap { p in p.friendCode.map { (code: $0, name: p.name) } }
+            RecentPlayers.record(played, into: &self.profile.recentPlayers, me: self.profile.friendCode, now: Date())
             guard let seat, config.players.indices.contains(seat) else {
                 // 座席の無い開始（起こらないはず）: ホストが試合を回さないと部屋全体が止まるので、実況として開く（B1 の保険）
                 if session.isHost { session.onSpectateStart?(config) }
@@ -313,7 +519,8 @@ final class AppModel: FriendProfileAccess {
             var p = self.profile
             p.lastPickedHeroID = config.players[seat].heroID
             self.profile = p
-            self.startBattle(BattleLaunch(config: config, onlineSeat: seat))
+            self.startBattle(BattleLaunch(config: config, onlineSeat: seat,
+                                          onlineSeatPlayers: OnlineSeatPlayer.capture(room: session.room, players: config.players)))
         }
         // 観戦（観戦席の参加者・座らずに実況するホスト）: 操作なし・報酬なしの観戦の戦闘を開く
         session.onSpectateStart = { [weak self, weak session] config in
@@ -327,7 +534,8 @@ final class AppModel: FriendProfileAccess {
                 self.showToast(L("観戦が始まりましたが、戦闘中のため開けませんでした", "Spectating started while you were in another battle"))
                 return
             }
-            self.startBattle(BattleLaunch(config: config, onlineSpectator: true))
+            self.startBattle(BattleLaunch(config: config, onlineSpectator: true,
+                                          onlineSeatPlayers: OnlineSeatPlayer.capture(room: session.room, players: config.players)))
         }
         session.onDisconnected = { [weak self] reason in
             self?.showToast(reason)
@@ -337,11 +545,124 @@ final class AppModel: FriendProfileAccess {
         }
         // 観戦の案内を受ける前に、戦闘（読み込み・リザルトを含む）を開いているかを聞く（開いていれば何も変えずに断る）
         session.isBattleOpen = { [weak self] in self?.activeBattle != nil }
+        // ホスト: ブロックした相手は部屋に入れない
+        session.blockedFriendCodes = { [weak self] in Set(self?.profile.blockedPlayers.map(\.code) ?? []) }
+    }
+
+    // MARK: オンラインの安全（ガイドライン 1.2 / 5.1）
+
+    /// オンライン機能を使えるか（ルールへの同意・年齢）。
+    var onlineAccess: OnlineAccess { OnlineAccess.status(for: profile) }
+
+    /// 他のプレイヤーへ見せる自分の名前（規則を満たさない古い名前は送らない）。
+    var onlineName: String {
+        profile.displayName.isEmpty ? L("プレイヤー", "Player") : PlayerNameRules.outgoing(profile.displayName)
+    }
+
+    /// オンラインのルール（コミュニティガイドライン・利用規約）に同意した: 受信箱へ繋ぎ、クラウドのランクを取り込み、待たせていたリンクを開く。
+    func acceptOnlineRules() {
+        guard onlineAccess == .needsConsent else { return }
+        profile.acceptedOnlineRulesVersion = FeatureFlags.currentOnlineRulesVersion
+        friends.start()
+        // ランク戦の結果を送る前に端末のランクを預ける（預けずに送ると、中継は初期のランクから数え始める）。名刺も送る
+        Task {
+            await pullCloudRank()
+            await publicProfiles.publishOwn()
+            await refreshOpsMail()
+            await account.refresh()
+        }
+        if let url = pendingOnlineLink {
+            pendingOnlineLink = nil
+            if !openFriendLink(url) { openOnlineJoinLink(url) }
+        }
+    }
+
+    /// オンライン機能をやめる（同意を取り消す）: 部屋を出て受信箱を切る（クラウドのランクも送らなくなる）。次にオンラインを開くと同意し直す。
+    func revokeOnlineRules() {
+        leaveOnlineRoom()
+        friends.reset()
+        pendingOnlineLink = nil
+        profile.acceptedOnlineRulesVersion = 0
+        // 中継のランクと名刺（ランクの消去で名刺も消える）を消す。消せなければ、次に同意した時に預け直す前に消す（cloudRankStale）
+        publicProfiles.forgetPublished()
+        guard profile.inboxRegistered else { return }
+        profile.cloudRankStale = true
+        let code = profile.friendCode, key = profile.inboxKey, transport = rankTransport
+        Task {
+            if await RankCloud.erase(code: code, key: key, transport: transport), profile.friendCode == code {
+                profile.cloudRankStale = false
+            }
+        }
+    }
+
+    /// オンラインを使えない時のリンク: 同意がまだなら同意の画面を出し、同意したら開き直す。年齢で使えなければ知らせる。
+    /// 先へ進めないなら true。
+    private func deferUntilOnlineAllowed(_ url: URL) -> Bool {
+        switch onlineAccess {
+        case .available:
+            return false
+        case .needsConsent:
+            pendingOnlineLink = url
+            showOnlineLobby()
+            return true
+        case .ageRestricted:
+            showToast(OnlineAccess.ageRestrictedMessage)
+            return true
+        case .disabled:
+            return true
+        }
+    }
+
+    /// ブロックする（フレンドコード単位）。自分がホストの部屋にいれば、その相手を部屋から外す。
+    func blockPlayer(_ target: PlayerReportTarget) {
+        if let code = target.friendCode { friends.block(code: code, name: target.name) }
+        removeFromHostedRoom(target)
+        showToast(L("\(target.displayName) をブロックしました", "Blocked \(target.displayName)"))
+    }
+
+    /// 自分がホストの部屋から外す（この部屋には入り直せない）。
+    func kickFromRoom(_ target: PlayerReportTarget) {
+        guard removeFromHostedRoom(target) else { return }
+        showToast(L("\(target.displayName) を部屋から外しました", "Removed \(target.displayName) from the room"))
+    }
+
+    @discardableResult
+    private func removeFromHostedRoom(_ target: PlayerReportTarget) -> Bool {
+        guard let session = online, session.isHost else { return false }
+        let ids = session.room.peers.filter { p in
+            p.id != session.localPeerID
+                && ((target.peerID != nil && p.id == target.peerID) || (target.friendCode != nil && p.friendCode == target.friendCode))
+        }.map(\.id)
+        for id in ids { session.kick(id) }
+        return !ids.isEmpty
+    }
+
+    /// 全データの削除の前に: 部屋を出て、フレンドの受信箱を切る（新しいフレンドコードで繋ぎ直すまで古いコードで繋がない）。
+    func prepareForDataDeletion() {
+        leaveOnlineRoom()
+        friends.reset()
+        pendingOnlineLink = nil
+    }
+
+    /// オンライン機能をやめて、中継サーバーの受信箱も消す（新しいフレンドコードになり、フレンドの一覧は空になる）。
+    /// completion(false) は通信の失敗（同意は取り消したまま。もう一度試せる）。
+    func revokeOnlineRulesAndEraseServerData(completion: @escaping @MainActor (Bool) -> Void) {
+        revokeOnlineRules()
+        friends.eraseServerData(completion: completion)
+    }
+
+    /// オンラインを開いた時: 保存している名前が規則を満たさず「プレイヤー」と表示されるなら、一度だけ知らせる。
+    func noteReplacedOnlineNameIfNeeded() {
+        guard !notedReplacedOnlineName, PlayerNameRules.isReplacedOnline(profile.displayName) else { return }
+        notedReplacedOnlineName = true
+        showToast(L("今の名前はほかのプレイヤーには「プレイヤー」と表示されます。プロフィールで名前を変えてください",
+                    "Other players see your current name as \"Player\". Change it in your profile"))
     }
 
     func leaveOnlineRoom() {
         online?.leave()
         online = nil
+        if activeBattle == nil { friends.setMyActivity(idleActivity) }
     }
 
     /// 戦闘終了時に BattleSessionView から呼ばれる。報酬を適用しリザルト用に保持する。
@@ -354,11 +675,22 @@ final class AppModel: FriendProfileAccess {
         profile = p
         lastOutcome = outcome
         lastRewardReport = report
+        if report.rankAfter != nil { syncRankedMatch(outcome, report: report) }
+        // 名刺の通算の成績が変わった（送ってよい時だけ。変わっていなければ送らない）
+        Task { await publicProfiles.publishOwn() }
+        // アカウントのクラウド保存（パスワードか Game Center を設定した人だけ。10 分に 1 回まで）
+        account.autoSave()
+        // リザルトを見ている間は「集計中」
+        friends.setMyActivity(FriendActivity(.tally))
         return report
     }
 
     func dismissBattle() {
         activeBattle = nil
+        friends.setMyActivity(idleActivity)
+        #if DEBUG || TESTER_TOOLS
+        FXCheckSession.shared.battleDismissed(app: self)
+        #endif
         // 観戦席: 戦闘中に断った次の試合の観戦を、閉じた後に求め直す
         online?.battleClosed()
     }
@@ -381,6 +713,7 @@ final class AppModel: FriendProfileAccess {
         toast = message
     }
 
-    func owns(heroID: String) -> Bool { profile.ownedHeroIDs.contains(heroID) }
+    /// ゲームに出すヒーロー（HeroRoster）は全員が使える（解放・所持の制限なし。2026-10-12）。
+    func owns(heroID: String) -> Bool { EconomyService.isOwned(heroID: heroID, profile: profile) }
     func owns(cosmeticID: String) -> Bool { profile.ownedCosmeticIDs.contains(cosmeticID) }
 }

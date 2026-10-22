@@ -22,14 +22,21 @@ final class BattleWorld {
     let projectiles: ProjectileLayer
     let zones: ZoneLayer
     let vfx: VFXSystem
+    /// 塔・Star Core の立ち上がり・損傷・倒壊の合図 → 粒子・音（StructureFX.swift）。
+    let structureFX: StructureFXDirector
     /// スキル固有の演出（SkillFX）。
     let skillDirector: SkillFXDirector
     /// Effekseer の効果（ヒーロー別の通常攻撃・スキル）。Metal が使えない環境では nil。BattleRenderer が設定する。
     var effekseer: EffekseerDirector?
     func attach(effekseer director: EffekseerDirector) {
         effekseer = director
+        // キットのヒーローの段に重ねる Effekseer の効果（FXElement.efk）
+        skillDirector.player.efk.sink = { [weak director] x, p, yaw, follow, offset in
+            director?.playStacked(x, at: p, yaw: yaw, follow: follow, offset: offset)
+        }
         projectiles.suppressedHeroes = director.heroes
         projectiles.skillShotsKept = director.skillOptOutHeroes
+        projectiles.attackShotsKept = director.attackOptOutHeroes
     }
     /// Effekseer が通常攻撃の演出を出すヒーローか（旧来の通常攻撃の演出・被弾を止める）。
     private func fxHandlesAttack(_ id: EntityID?, _ f: RenderFrame) -> Bool {
@@ -42,6 +49,10 @@ final class BattleWorld {
         return effekseer.handlesSkill(f.state.unit(id)?.hero?.heroID)
     }
     let aim: AimLayer
+    #if DEBUG || TESTER_TOOLS
+    /// 内部ビルドの判定の形の表示（設定・比較撮影で有効にした試合だけ。HitShapeOverlay）。
+    private(set) var hitShapes: HitShapeOverlay?
+    #endif
     /// 霧（プレイヤーは自チームの視界。観戦者は常に作り、視点チームを選んだ時だけ出す）。
     let fog: FogOfWar?
     let ambient: AmbientParticles
@@ -56,6 +67,8 @@ final class BattleWorld {
     private weak var arView: ARView?
     private weak var overlay: CombatTextOverlay?
     private var time: Float = 0
+    /// 試合終了後に経った実時間（sim は終了で止まるので、終幕の演出はこれで進める）。終了前へ戻ったら 0。
+    private var endedClock: Double = 0
     private var textSeed = 0
     private var lastHealFX: [EntityID: Float] = [:]
     private var pendingHeal: Double = 0
@@ -85,6 +98,8 @@ final class BattleWorld {
     private var hasSyncedViewer = false
     #if DEBUG
     private let showcase: RenderShowcase?
+    /// 塔の一生を繰り返す確認用（-towerDemo）。
+    private let towerDemo: TowerDemo?
     #endif
 
     init(controller: BattleController, settings: RenderSettings, groundImage: CGImage?, arView: ARView,
@@ -102,6 +117,7 @@ final class BattleWorld {
         root.addChild(map.root)
         units = UnitLayer(materials: materials, meshes: meshes, text: text, master: controller.ctx.master,
                           quality: settings.quality)
+        units.authoredStructures = map.stage?.authoredStructures ?? []
         root.addChild(units.root)
         projectiles = ProjectileLayer(materials: materials, meshes: meshes, master: controller.ctx.master, quality: settings.quality)
         root.addChild(projectiles.root)
@@ -109,17 +125,26 @@ final class BattleWorld {
         root.addChild(zones.root)
         vfx = VFXSystem(quality: settings.quality, materials: materials, meshes: meshes)
         root.addChild(vfx.root)
+        structureFX = StructureFXDirector(vfx: vfx, materials: materials)
         skillDirector = SkillFXDirector(master: controller.ctx.master, quality: settings.quality, units: units,
                                         projectiles: projectiles)
         root.addChild(skillDirector.player.root)
         aim = AimLayer(materials: materials, meshes: meshes)
         root.addChild(aim.root)
+        #if DEBUG || TESTER_TOOLS
+        if HitShapeOverlay.isRequested {
+            let overlay = HitShapeOverlay(controller: controller)
+            root.addChild(overlay.root)
+            overlay.attach()
+            hitShapes = overlay
+        }
+        #endif
         ambient = AmbientParticles(map: controller.ctx.map, teams: materials.teams, texture: vfx.starTexture,
                                    quality: settings.quality)
         root.addChild(ambient.root)
         if controller.viewerTeam != nil || controller.isSpectating {
             // 観戦者は試合中に視点チームを選べるので、全体視点で始まっても作っておく（途中で作るとヒッチになる）
-            fog = FogOfWar(team: controller.viewerTeam, size: settings.quality.fogTextureSize)
+            fog = FogOfWar(team: controller.viewerTeam, size: settings.quality.fogTextureSize, mapSize: controller.ctx.map.size)
             if let fog { root.addChild(fog.entity) }
         } else {
             fog = nil
@@ -128,6 +153,7 @@ final class BattleWorld {
         director = controller.isSpectating ? CameraDirector(controller: controller, link: cameraLink) : nil
         #if DEBUG
         showcase = RenderShowcase.isRequested ? RenderShowcase(master: controller.ctx.master) : nil
+        towerDemo = TowerDemo.requested.map { TowerDemo(target: $0) }
         if SkillFXDemo.isRequested {
             let demo = SkillFXDemo()
             demo.walk = { [weak controller] p in controller?.send(.moveTo(point: p)) }
@@ -155,9 +181,11 @@ final class BattleWorld {
     private func makeFrame(dt: Float) -> RenderFrame {
         let state = controller.state
         let focus = controller.presentationFocusID
-        return RenderFrame(state: state, alpha: Float(controller.interpolationAlpha), dt: dt, time: time,
-                           viewerTeam: controller.viewerTeam, humanID: controller.humanHeroID, focusID: focus,
-                           ended: state.phase == .ended, winner: state.winner)
+        var f = RenderFrame(state: state, alpha: Float(controller.interpolationAlpha), dt: dt, time: time,
+                            viewerTeam: controller.viewerTeam, humanID: controller.humanHeroID, focusID: focus,
+                            ended: state.phase == .ended, winner: state.winner)
+        f.presentationTime = state.time + endedClock
+        return f
     }
 
     // MARK: 毎フレーム
@@ -167,14 +195,23 @@ final class BattleWorld {
         if gallery != nil, controller.state.tick != galleryTick { finishWarmup() }
         gallery?.update(dt: dt)
         time += dt
+        endedClock = controller.state.phase == .ended ? endedClock + Double(dt) : 0
         updateCullBounds(rig: rig)
         #if DEBUG
         var frame = makeFrame(dt: dt)
         frame.camera = rig.camera.position
+        StageDebug.applyLayoutReference(to: &frame)
+        StageDebug.applyPitReference(to: &frame)
         if let showcase {
             var injected: [SimEvent] = []
             showcase.apply(&frame, events: &injected)
             for e in injected { handle(e, frame: frame) }
+        }
+        if let towerDemo {
+            towerDemo.apply(&frame, units: units)
+            if let id = towerDemo.towerID, let v = units.structure(id) {
+                for a in towerDemo.hits { structureFX.hit(v, attacker: a, time: time, near: nearCamera(v.root.position)) }
+            }
         }
         #else
         var frame = makeFrame(dt: dt)
@@ -197,11 +234,12 @@ final class BattleWorld {
             shakeRequest = 0
         }
         t = probe.start()
-        workStats.measure(.map, live: live) { map.update(dt: dt) }
+        workStats.measure(.map, live: live) { map.update(dt: dt, camera: frame.camera) }
         probe.stop(.map, t)
         t = probe.start()
         workStats.measure(.units, live: live) { units.sync(frame) }
         flushMuzzles(frame)
+        flushStructureCues(frame, rig: rig)
         probe.stop(.units, t)
         workStats.measure(.projectiles, live: live) {
             t = probe.start()
@@ -219,11 +257,15 @@ final class BattleWorld {
             probe.stop(.vfx, t)
             t = probe.start()
             skillDirector.update(dt: dt, state: frame.state)
+            skillDirector.observeEmpoweredReady(state: frame.state, viewer: frame.humanID ?? frame.focusID)
             probe.stop(.skillFX, t)
             t = probe.start()
             effekseer?.update(dt: dt, state: frame.state)
             probe.stop(.effekseer, t)
         }
+        #if DEBUG || TESTER_TOOLS
+        hitShapes?.update(dt: dt)
+        #endif
         #if DEBUG
         if let demo = skillDirector.demo {
             let t = time
@@ -243,6 +285,7 @@ final class BattleWorld {
         #else
         let aimShown = controller.aim
         #endif
+        aim.taper = aimTaper(aimShown)
         aim.update(aimShown, origin: aimOrigin, dt: dt)
         // 草むら: 表示中のスキル予告に重なる草むらを半透明に
         map.beginBrushMarks()
@@ -262,6 +305,30 @@ final class BattleWorld {
         t = probe.start()
         flushHealText(dt: dt, frame: frame)
         probe.stop(.text, t)
+    }
+
+    private struct AimTaperKey: Hashable {
+        var heroID: String
+        var slot: SkillSlot
+        var stage: Int
+    }
+
+    /// 照準の帯を台形にする値（キットの fxValues。ヒーロー × スロット × 段ごとに 1 回だけ引く）。
+    private var aimTapers: [AimTaperKey: (near: Float, far: Float)?] = [:]
+
+    private func aimTaper(_ aim: AimIndicator?) -> (near: Float, far: Float)? {
+        guard let aim, case .skill(let slot) = aim.kind, let id = controller.humanHeroID,
+              let hero = controller.state.unit(id)?.hero else { return nil }
+        let key = AimTaperKey(heroID: hero.heroID, slot: slot, stage: HeroKits.activeStage(hero, slot: slot))
+        if let cached = aimTapers[key] { return cached }
+        let values = HeroKits.fxValues(heroID: key.heroID, slot: slot, stage: key.stage)
+        var taper: (near: Float, far: Float)?
+        if let near = values.first(where: { $0.key == "aimNearHalfWidth" }),
+           let far = values.first(where: { $0.key == "aimFarHalfWidth" }) {
+            taper = (Float(near.value / Balance.unitsPerMeter), Float(far.value / Balance.unitsPerMeter))
+        }
+        aimTapers[key] = taper
+        return taper
     }
 
     func updateOverlay(dt: Float, rig: CameraRig) {
@@ -287,6 +354,9 @@ final class BattleWorld {
     /// - 詠唱中（帰還・転移）のヒーローのループは今の状態から付け直す
     /// - 霧は補間せずに今の視界へ（次の計算結果で一度に合わせる）、カメラは切り替え（滑らせない）
     /// イベントは配らない・受け取らない（シークで飛ばした区間の演出は出さない）。一時停止中でも呼ばれる。
+    /// resetForPresentationEpoch の作り直し中（構造物の合図は出さない: 2 回目の同期で飛ばした区間の合図が出るため）。
+    private var snapping = false
+
     func resetForPresentationEpoch(rig: CameraRig) {
         units.resetForPresentationEpoch()
         projectiles.resetForPresentationEpoch()
@@ -300,8 +370,11 @@ final class BattleWorld {
         pendingHeal = 0
         pendingHealTimer = 0
         shakeRequest = 0
+        structureFX.reset()
         // 1 回目で見た目を今の状態から作り直し、2 回目で作ったばかりの見た目のフェード（HP バーの遅れなど）も終わらせる
+        snapping = true
         for _ in 0..<2 { sync(events: [], dt: BattleWorld.presentationSnapDt, rig: rig) }
+        snapping = false
         let state = controller.state
         let viewer = controller.viewerTeam
         for i in state.units.indices where state.units[i].kind == .hero {
@@ -460,9 +533,14 @@ final class BattleWorld {
             if let i = f.state.index(of: src) {
                 let u = f.state.units[i]
                 let interval = CombatSystem.attackInterval(u.stats)
+                // 次の通常攻撃がキットの強い通常攻撃（三連突き・円撃）なら、その全身のモーションで振る（描画だけ）
+                let empowered = u.hero.map { HeroKits.empoweredAttackReady($0) } ?? false
                 units.noteAttackStart(sourceID: src, windup: u.windupRemaining ?? interval * Balance.attackWindupRatio,
-                                      interval: interval, time: time)
+                                      interval: interval, time: time, empowered: empowered)
             }
+        case .empoweredAttack(let e):
+            // キットの強い通常攻撃（三連突き・円撃）: 普段の通常攻撃の演出（Effekseer）に重ねて、その技の演出を出す
+            if isShown(e.sourceID, f) { skillDirector.onEmpoweredAttack(e, state: f.state) }
         case .attackReleased(let src, let target, let isRanged):
             units.noteAttackRelease(sourceID: src)
             units.noteAttack(sourceID: src, time: time)
@@ -470,10 +548,14 @@ final class BattleWorld {
             if isRanged, !fxDone, units.hero(src) != nil { pendingMuzzles.append((src, target)) }
         case .damage(let d):
             units.noteHit(targetID: d.targetID)
+            if case .skill(let slot) = d.source, let src = d.sourceID { units.noteSkillHit(sourceID: src, slot: slot, time: time) }
             onDamage(d, f)
+            structureHit(d, f)
             if isShown(d.targetID, f) {
                 effekseer?.onDamage(d, state: f.state)
                 if !fxHandlesSkill(d.sourceID, f) { skillDirector.onDamage(d, state: f.state) }
+                // 被弾の閃き（全ヒーロー共通。Effekseer の演出のヒーローも）
+                skillDirector.playHitFlash(d, state: f.state)
             }
         case .heal(let target, let source, let amount):
             onHeal(target: target, source: source, amount: amount, f)
@@ -507,7 +589,7 @@ final class BattleWorld {
                 }
             }
         case .skillCast(let c):
-            units.noteCast(heroID: c.casterID, slot: c.slot, time: time)
+            units.noteCast(heroID: c.casterID, slot: c.slot, stage: c.stage, time: time)
             if isShown(c.casterID, f) {
                 let fxDone = effekseer?.onCast(c, state: f.state) ?? false
                 if !fxDone, !skillDirector.onCast(c, state: f.state) { skillFX(c, f) }
@@ -561,18 +643,12 @@ final class BattleWorld {
             guard isShown(heroID, f), let base = units.worldPositionOf(heroID) else { break }
             vfx.spawn(.levelUp, at: base + SIMD3(0, 0.1, 0), color: FXColors.levelUp, important: true)
             vfx.ring(at: base, color: FXRings.levelUp, from: 0.3, to: 1.8, duration: 0.7)
-        case .structureDestroyed(let id, let kind, let team, _, _, _):
-            guard let base = units.worldPositionOf(id) else { break }
-            let top = base + SIMD3(0, kind == .core ? 3.6 : 4.6, 0)
-            vfx.spawn(.towerExplosion, at: top, color: teamLight(team), scale: kind == .core ? 1.6 : 1,
-                      important: true)
-            vfx.spawn(.debris, at: top - SIMD3(0, 1.5, 0), color: .gray, scale: kind == .core ? 1.5 : 1, important: true)
-            vfx.spawn(.smoke, at: base + SIMD3(0, 1.2, 0), color: .gray, scale: kind == .core ? 1.6 : 1, important: true)
-            vfx.flash(at: top, color: materials.teams.light(team), radius: kind == .core ? 4.5 : 3, duration: 0.45, alpha: 0.7)
-            vfx.ring(at: base, color: materials.teams.light(team), from: 1, to: kind == .core ? 12 : 8, duration: 0.8)
-            if let focus = f.focusID, let fp = units.worldPositionOf(focus), simd_distance(fp, base) < 20 {
-                shakeRequest = max(shakeRequest, kind == .core ? 0.8 : 0.55)
-            }
+        case .structureDestroyed(let id, let kind, _, _, _, _):
+            // 倒壊は構造物の見た目が deathTime からの時刻表（TowerPose）で段階的に見せ、粉塵・破片・音はその合図
+            // （flushStructureCues）が出す。ここは追従ヒーローが近い時だけ小さく揺らす（遠い塔では揺らさない）
+            guard let base = units.worldPositionOf(id), let focus = f.focusID, let fp = units.worldPositionOf(focus),
+                  simd_distance(fp, base) < (kind == .core ? 16 : 12) else { break }
+            shakeRequest = max(shakeRequest, kind == .core ? 0.3 : 0.18)
         case .respawned(let heroID, let pos):
             let p = worldPosition(pos)
             guard f.viewerTeam == nil || f.state.unit(heroID)?.team == f.viewerTeam else { break }
@@ -639,6 +715,8 @@ final class BattleWorld {
                                                            important: involvesFocus) }
                         break
                     }
+                    // 構造物への命中は攻撃者に向いた側面の火花と石の粉（structureHit）
+                    if units.structure(d.targetID) != nil { break }
                     // ミニオン同士の小競り合いは控えめに
                     let minor = src?.kind == .minion && f.state.unit(d.targetID)?.kind == .minion
                     if !minor || settings.quality.level == .high {
@@ -664,6 +742,27 @@ final class BattleWorld {
                       stackKey: d.targetID)
             if case .skill(.ultimate) = d.source { shakeRequest = max(shakeRequest, 0.45) }
         }
+    }
+
+    /// 構造物の被弾: 攻撃者に向いた側面に小さな火花と石の粉（攻撃者が視点チームから見えている時だけ。隠れた敵の位置を漏らさない）。
+    private func structureHit(_ d: DamageEvent, _ f: RenderFrame) {
+        guard d.amount > 0, let v = units.structure(d.targetID), let src = d.sourceID, let si = f.state.index(of: src),
+              f.isVisible(si), let a = units.worldPositionOf(src) else { return }
+        structureFX.hit(v, attacker: a, time: time, near: nearCamera(v.root.position))
+    }
+
+    /// 構造物の合図（立ち上がり・損傷・倒壊・Core の崩壊）→ 粒子・音（StructureFXDirector）。近い時の着地・衝撃波は小さく揺らす。
+    private func flushStructureCues(_ f: RenderFrame, rig: CameraRig) {
+        guard !units.structureCues.isEmpty else { return }
+        if snapping {
+            units.clearStructureCues()
+            return
+        }
+        let focus = (f.focusID ?? controller.humanHeroID).flatMap { units.worldPositionOf($0) }
+        let shake = structureFX.play(units.structureCues, now: time, near: nearCamera, listener: rig.focus.value, focus: focus,
+                                     speed: controller.isOnline || f.ended ? 1 : controller.speed)
+        shakeRequest = max(shakeRequest, shake)
+        units.clearStructureCues()
     }
 
     private func onHeal(target: EntityID, source: EntityID?, amount: Double, _ f: RenderFrame) {
@@ -789,7 +888,7 @@ final class BattleWorld {
         switch spell {
         case "BS02":
             vfx.spawn(.skillBurst, at: p + SIMD3(0, 1, 0), color: .white, important: true)
-        case "BS03":
+        case "BS03", "BS16":
             vfx.spawn(.heal, at: p, color: FXColors.heal, scale: 1.4, important: true)
             vfx.ring(at: p, color: FXRings.heal, from: 0.5, to: 8, duration: 0.6)
         case "BS04":
@@ -853,6 +952,9 @@ final class BattleWorld {
     /// 死亡中の味方追従（プレイヤー）: 追っている味方を画面の中央より少し上に置く（下の味方一覧に隠れないように。m）。
     static let deathFollowLead: Float = -0.7
 
+    /// 演出の時刻（RenderFrame.presentationTime と同じ値。Star Core の終幕のカメラが倒壊と同じ時計で動く）。
+    var presentationTime: Double { controller.state.time + endedClock }
+
     func updateCamera(rig: CameraRig, dt: Float, snap: Bool) {
         let seeking = controller.seekingToTick != nil
         // シーク中は sim が途中の tick を行き来する（描画は同期しない）ので、視界の切替の反映もシークの後で行う
@@ -876,10 +978,16 @@ final class BattleWorld {
         drive.direct = aim.kind == .free && (cameraLink.isPanning || cameraLink.isPinching)
         drive.directZoom = cameraLink.isPinching
         #if DEBUG
-        if let z = StageDebug.cameraZoom { drive.zoom = z }
+        if let z = StageDebug.cameraZoom {
+            drive.zoom = z
+            drive.zoomRange = 0.7...20
+            // Reference photography must not be recentered by the gameplay edge clamp.
+            drive.free = false
+            drive.lead = 0
+        }
         #endif
         drive.transition = cameraTransition(rig: rig, aim: aim, target: target, snap: snap)
-        rig.update(drive, dt: dt, mapMeters: MapScene.mapMeters)
+        rig.update(drive, dt: dt, mapMeters: Float(controller.ctx.map.size / Balance.unitsPerMeter))
         lastCameraSubject = aim.subject
         lastCameraKind = aim.kind
         lastCameraFitZoom = aim.fitZoom
@@ -1083,6 +1191,9 @@ final class BattleWorld {
         projectiles.teardown()
         zones.teardown()
         zones.onTrigger = nil
+        #if DEBUG || TESTER_TOOLS
+        hitShapes?.detach()
+        #endif
         root.removeFromParent()
     }
 }

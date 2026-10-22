@@ -14,6 +14,13 @@ import VelstriaCore
 //                      キットのヒーローはロールの合図を使わず、キットのパッシブのバッジの変化から出す。スタックが増えた / タイマーが始まった
 //                      → recipe(.passive).cast、スキルの発動の直後にスタックが尽きた → HeroFXSet.passiveRelease（持つヒーローだけ））
 //   再使用の段        → skillCast.stage >= 1 は、ヒーローが段の演出（HeroFXSet.recipe(_:stage:_:)）を持てばそれを使う
+//   効果の長さ        → cast と発動と同時の impact のうち durationFromCast の合図（FXEmit の継続放出の duration・FXMesh の life）は
+//                      skillCast.duration を使う（0 なら書いた値。上限 FXCue.castDurationLimit）。count・shape はまだ読まない
+//   empoweredAttack  → キットの強い通常攻撃（三連突き・円撃）の演出 HeroFXSet.empoweredAttack（sim の術者の位置 → 対象。1 発目の命中で）
+//   強い通常攻撃の準備 → 自分（観戦は追っているヒーロー）の次の通常攻撃が強い間、HeroFXSet.empoweredReady（足元の円）を術者に追従して
+//                      出し直し続け、外れたら消す（HeroKits.empoweredAttackReady。observeEmpoweredReady）
+//   残りの数          → HeroFXSet.countedSlot のスキルのバッジ（.stacks = 残りの数）が減ったら、発動の演出のうち
+//                      HeroFXSet.spentGroups の組（FXMesh.group）を術者の追従から消す（H028 の環剣: 剣を使うたびに回る刃が 1 本減る）
 
 @MainActor
 final class SkillFXDirector {
@@ -51,11 +58,20 @@ final class SkillFXDirector {
     }
 
     private var lastHit: [HitKey: Float] = [:]
+    /// 被弾の閃きの最後の時刻（相手ごと。playHitFlash の間隔の管理。タイマーではなく時刻だけ）。
+    private var lastFlash: [EntityID: Float] = [:]
     private var lastPassive: [EntityID: Float] = [:]
     private var lastCast: [EntityID: (slot: SkillSlot, time: Float)] = [:]
     private var ambushReady: [EntityID: Bool] = [:]
     /// キットのパッシブのバッジの前回の値（スタックの増加・タイマーの開始でパッシブの演出、発動の直後のスタックの消費で解放の演出を出す）。
     private var kitPassive: [EntityID: (stacks: Int, timer: Bool)] = [:]
+    /// HeroFXSet.countedSlot のバッジの数の前回の値（減ったら発動の演出の組を消す）。
+    private var kitCounts: [EntityID: Int] = [:]
+    /// キットの強い通常攻撃の演出・準備の目印（試合のヒーローの分。prewarm で組む）。
+    private var empowered: [String: [FXCue]] = [:]
+    private var empoweredReadyCues: [String: [FXCue]] = [:]
+    /// 準備の目印を出しているヒーローと、最後に出した時刻（1 体だけ。ユニットごとのタイマーは持たない）。
+    private var readyShown: (id: EntityID, at: Float)?
     private var time: Float = 0
 
     init(master: MasterData, quality: RenderQuality, units: UnitLayer, projectiles: ProjectileLayer) {
@@ -99,8 +115,21 @@ final class SkillFXDirector {
                     list.append((palette, sr))
                 }
             }
+            // 被弾の閃き（全ヒーロー共通。このヒーローの色の加算の材質を先に作る）
+            var flash = SkillFXRecipe()
+            flash.cast = [SkillFXDirector.hitFlashCue(size: 1, height: 1)]
+            list.append((palette, flash))
             // パッシブのスタックの解放の演出（持つヒーローだけ。材質を先に作る）
             if let cues = SkillFXCatalog.passiveRelease(heroID: id, released: 1, master: master) {
+                var r = SkillFXRecipe()
+                r.cast = cues
+                list.append((palette, r))
+            }
+            // キットの強い通常攻撃の演出と準備の目印（持つヒーローだけ。材質を先に作る）
+            for (cues, store) in [(SkillFXCatalog.empoweredAttack(heroID: id, master: master), true),
+                                  (SkillFXCatalog.empoweredReady(heroID: id, master: master), false)] {
+                guard let cues else { continue }
+                if store { empowered[id] = cues } else { empoweredReadyCues[id] = cues }
                 var r = SkillFXRecipe()
                 r.cast = cues
                 list.append((palette, r))
@@ -123,10 +152,50 @@ final class SkillFXDirector {
         f.y = 0
         if simd_length(f) < 1e-3 { f = [0, 0, -1] }
         return SkillFXPlayer.Context(palette: palettes[key.heroID] ?? .from(RGB(1, 1, 1)), origin: origin, caster: caster,
-                                     target: target, forward: simd_normalize(f), follow: follow, variant: variant)
+                                     target: target, forward: simd_normalize(f), follow: follow, variant: variant,
+                                     source: SkillFXPlayer.Source(heroID: key.heroID, slot: key.slot, stage: key.stage))
     }
 
     private static func ground(_ v: Vec2) -> SIMD3<Float> { worldPosition(v) }
+
+    // MARK: 被弾の閃き（全ヒーロー共通）
+
+    /// 同じ相手へ閃きを重ねない最短の間隔（秒）。
+    static let hitFlashInterval: Float = 0.12
+
+    /// 被弾の閃きの合図: 体の中ほどに、白に近いスキルの色（パレットの core）の柔らかい光（加算の板 1 枚・追従・0.09 秒）。
+    static func hitFlashCue(size: Float, height: Float) -> FXCue {
+        .mesh(FXMesh.sprite(.glow, size, .core, life: 0.09, grow: 1.2, alpha: 0.8).glowing().with {
+            $0.fadeIn = 0.15
+            $0.fadeOut = 0.3
+        }, .follow, offset: [0, height, 0])
+    }
+
+    /// 被弾の閃き: ヒーローのスキル・会心の通常攻撃が当たったヒーロー・ミニオン・モンスター・人形を 0.09 秒光らせる。
+    /// 共通のプール（SkillFXPlayer）の板を使う（ユニットごとの材質・タイマーは足さない。同じ相手へは hitFlashInterval に 1 回）。
+    func playHitFlash(_ d: DamageEvent, state: SimState) {
+        let slot: SkillSlot
+        switch d.source {
+        case .skill(let s): slot = s
+        case .basicAttack where d.isCrit: slot = .passive
+        default: return
+        }
+        guard let src = d.sourceID, let hero = state.unit(src)?.hero, let target = state.unit(d.targetID),
+              let p = units.worldPositionOf(d.targetID) else { return }
+        let dims: (size: Float, height: Float)
+        switch target.kind {
+        case .hero, .dummy: dims = (1.7, 0.95)
+        case .minion: dims = (1.1, 0.55)
+        case .monster: dims = (2.2, 0.9)
+        default: return
+        }
+        if let last = lastFlash[d.targetID], time - last < SkillFXDirector.hitFlashInterval { return }
+        if lastFlash.count > 128 { lastFlash = lastFlash.filter { time - $0.value < 1 } }
+        lastFlash[d.targetID] = time
+        let key = SkillKey(heroID: hero.heroID, slot: slot)
+        player.play([SkillFXDirector.hitFlashCue(size: dims.size, height: dims.height)],
+                    context(key, origin: p, caster: p, target: p, forward: nil, follow: .unit(d.targetID)))
+    }
 
     /// 術者の向き（xz の単位ベクトル）。
     private func facing(_ id: EntityID, _ s: SimState) -> SIMD3<Float>? {
@@ -135,6 +204,43 @@ final class SkillFXDirector {
     }
 
     // MARK: イベント
+
+    /// キットの強い通常攻撃（三連突き・円撃）。sim の術者の位置（判定の円の中心）を原点に、対象の sim の位置へ向けて再生する。
+    /// 演出を再生したら true。
+    @discardableResult
+    func onEmpoweredAttack(_ e: EmpoweredAttackEvent, state: SimState) -> Bool {
+        guard let cues = empowered[e.heroID] else { return false }
+        let origin = SkillFXDirector.ground(e.origin)
+        let target = state.unit(e.targetID).map { SkillFXDirector.ground($0.pos) } ?? origin
+        var dir = target - origin
+        dir.y = 0
+        let forward: SIMD3<Float>? = simd_length(dir) > 0.05 ? dir : facing(e.sourceID, state)
+        let key = SkillKey(heroID: e.heroID, slot: .passive)
+        player.play(cues, context(key, origin: origin, caster: origin, target: target, forward: forward,
+                                  follow: .unit(e.sourceID)))
+        return true
+    }
+
+    /// 次の通常攻撃が強い間の目印（足元の円）。viewer（自分・観戦の追従）のヒーローだけ、準備ができている間
+    /// empoweredReadyPeriod 秒ごとに出し直し（寿命はそれより長いので途切れない）、外れた・倒れた・追う相手が変わったら消す。
+    func observeEmpoweredReady(state: SimState, viewer: EntityID?) {
+        var want: (id: EntityID, cues: [FXCue])?
+        if let viewer, let u = state.unit(viewer), u.isAlive, let h = u.hero, !h.isDead,
+           let cues = empoweredReadyCues[h.heroID], HeroKits.empoweredAttackReady(h) {
+            want = (viewer, cues)
+        }
+        if let shown = readyShown, shown.id != want?.id {
+            player.cut(follow: .unit(shown.id), group: SkillFXCatalog.empoweredReadyGroup)
+            readyShown = nil
+        }
+        guard let want else { return }
+        if let shown = readyShown, time - shown.at < SkillFXCatalog.empoweredReadyPeriod { return }
+        guard let p = units.worldPositionOf(want.id), let heroID = state.unit(want.id)?.hero?.heroID else { return }
+        let key = SkillKey(heroID: heroID, slot: .passive)
+        player.play(want.cues, context(key, origin: p, caster: p, target: p, forward: facing(want.id, state),
+                                       follow: .unit(want.id)))
+        readyShown = (want.id, time)
+    }
 
     /// スキル発動。演出を再生したら true（呼び出し側は既定の演出を出さない）。
     @discardableResult
@@ -150,6 +256,14 @@ final class SkillFXDirector {
             return false
         }
         lastCast[c.casterID] = (c.slot, time)
+        // 数を出すスキルの撃ち直し（クールダウンのリセットなど）: 前の発動の組（回る刃）を消してから新しく出す
+        if SkillFXCatalog.countedSlot(heroID: c.heroID) == c.slot {
+            for g in SkillFXCatalog.spentGroups(heroID: c.heroID, remaining: 0) {
+                player.cut(follow: .unit(c.casterID), group: g)
+            }
+            // 次に見た数で消す組を決め直す（同じフレームに剣を使っていても、その数に合わせて消す）
+            kitCounts[c.casterID] = Int.max
+        }
         let caster = units.worldPositionOf(c.casterID) ?? SkillFXDirector.ground(c.origin)
         let origin = SkillFXDirector.ground(c.origin)
         let target = SkillFXDirector.ground(c.target)
@@ -157,15 +271,16 @@ final class SkillFXDirector {
         dir.y = 0
         let forward: SIMD3<Float>? = simd_length(dir) > 0.05 ? dir : facing(c.casterID, state)
         let ctx = context(key, origin: caster, caster: caster, target: target, forward: forward, follow: .unit(c.casterID))
-        player.play(r.cast, ctx)
+        // durationFromCast の合図（効果中ずっと続く追従の放出・メッシュ）は長さを発動のイベントから取る（0 なら書いた値）
+        player.play(FXCue.applyingCastDuration(r.cast, seconds: c.duration), ctx)
         // 即時に解決するアーキタイプは着弾もこの場で
         switch c.archetype {
         case .cone, .selfAoE, .teamHeal:
-            player.play(r.impact, ctx)
+            player.play(FXCue.applyingCastDuration(r.impact, seconds: c.duration), ctx)
         case .targetedBlink, .blinkEmpower:
             var hit = ctx
             hit.origin = target
-            player.play(r.impact, hit)
+            player.play(FXCue.applyingCastDuration(r.impact, seconds: c.duration), hit)
         default:
             break
         }
@@ -280,6 +395,7 @@ final class SkillFXDirector {
         let who = target ?? heroUnit
         guard let p = units.worldPositionOf(who) else { return }
         player.play(r.cast, context(key, origin: p, caster: p, target: p, forward: facing(heroUnit, state), follow: .unit(who)))
+        SkillFXAudio.passiveSink?(heroUnit, hero.heroID)
     }
 
     /// パッシブの発動の推定（ロール別の合図）。
@@ -356,7 +472,35 @@ final class SkillFXDirector {
             ambushReady[u.id] = h.passive.value >= 1
         }
         observeKitPassives(state: state)
+        observeKitCounts(state: state)
         player.update(dt: dt)
+    }
+
+    /// 残りの数をバッジで出すスキル（HeroFXSet.countedSlot）の数が減ったら、発動の演出のその組を消す（H028 の環剣の回る刃）。
+    /// バッジが消えた（使い切った・効果時間の終わり・死亡）ときは 0 として残りの組も消す。最初に見た値は基準にするだけ。
+    func observeKitCounts(state: SimState) {
+        for u in state.units where u.kind == .hero {
+            guard let h = u.hero, h.kit != nil, let slot = SkillFXCatalog.countedSlot(heroID: h.heroID) else { continue }
+            let now = Self.kitCountSample(HeroKits.badge(h, slot: slot))
+            let last = kitCounts[u.id]
+            kitCounts[u.id] = now
+            guard Self.kitCountDropped(last: last, now: now) else { continue }
+            for g in SkillFXCatalog.spentGroups(heroID: h.heroID, remaining: now) {
+                player.cut(follow: .unit(u.id), group: g)
+            }
+        }
+    }
+
+    /// 数を出すバッジ → 残りの数（.stacks の値。バッジが無い・ほかの種類は 0）。
+    static func kitCountSample(_ badge: KitBadge?) -> Int {
+        guard let badge, badge.kind == .stacks else { return 0 }
+        return max(0, badge.value)
+    }
+
+    /// 前回（nil = まだ見ていない）より数が減ったか。
+    static func kitCountDropped(last: Int?, now: Int) -> Bool {
+        guard let last else { return false }
+        return now < last
     }
 
     /// スタックの解放（消費）の演出を再生する。ヒーローが passiveRelease を持たなければ何もせず false。
@@ -368,6 +512,7 @@ final class SkillFXDirector {
         let key = SkillKey(heroID: hero.heroID, slot: .passive)
         player.play(cues, context(key, origin: p, caster: p, target: p, forward: facing(heroUnit, state),
                                   follow: .unit(heroUnit)))
+        SkillFXAudio.passiveSink?(heroUnit, hero.heroID)
         return true
     }
 
@@ -420,7 +565,10 @@ final class SkillFXDirector {
         zones.removeAll()
         shots.removeAll()
         lastHit.removeAll()
+        lastFlash.removeAll()
         kitPassive.removeAll()
+        kitCounts.removeAll()
+        readyShown = nil
     }
 }
 

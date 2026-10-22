@@ -9,7 +9,7 @@ import UIKit
 //   -perfExit          書き出し後にアプリを終了する（tools/perf_run.sh が終了を待つ）
 //
 // 出力: <アプリのデータ>/Documents/perf/perf-report.json と、コンソールへの 1 行（"VELSTRIA_PERF_REPORT {...}"）。
-// 計測の読み方は FrameStats / AssetLedger のコメントを参照。
+// 計測の読み方は FrameStats / AssetLedger のコメント、skillFXBudget は docs/SKILL_FX.md「予算の観測」を参照。
 
 struct PerfReport: Codable {
     var device: String
@@ -31,6 +31,8 @@ struct PerfReport: Codable {
     var peakEntities: Int
     var notes: [String]
     var syncWork: [String: SyncWorkStats.Sample]? = nil
+    /// スキル演出の予算による打ち切り・破棄（幕が上がってから書き出しまで。シーク・再同期があればその後から）。
+    var skillFXBudget: SkillFXBudgetSnapshot? = nil
 }
 
 @MainActor

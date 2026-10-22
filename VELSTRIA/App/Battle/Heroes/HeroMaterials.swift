@@ -83,6 +83,8 @@ enum MetalKind: Equatable {
 
 enum SkinTone: Equatable {
     case fair, tan, deep, pale, ashen
+    /// 深淵の薄紫の肌（H032 ディアス）。
+    case violet
 
     var color: HSB {
         switch self {
@@ -91,6 +93,7 @@ enum SkinTone: Equatable {
         case .deep: return HSB(0.06, 0.50, 0.58)
         case .pale: return HSB(0.62, 0.07, 0.97)
         case .ashen: return HSB(0.40, 0.10, 0.74)
+        case .violet: return HSB(0.72, 0.2, 0.86)
         }
     }
 }
@@ -135,7 +138,8 @@ struct HeroSkinInfo: Equatable {
 enum HeroSkins {
     /// ヒーローの HeroSkin コスメ（ID 昇順）。
     static func skins(for heroID: String, master: MasterData) -> [CosmeticDef] {
-        master.cosmetics.filter { $0.type == .heroSkin && $0.heroID == heroID }
+        // 描画のデータ（非表示のヒーローのスキンも引ける。ストア・コレクションの一覧は master.cosmetics）
+        master.allCosmetics.filter { $0.type == .heroSkin && $0.heroID == heroID }
     }
 
     /// skinID を解決する。未知・他ヒーロー用・スキン以外は既定スキン。

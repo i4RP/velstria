@@ -12,6 +12,24 @@ import VelstriaCore
 final class SpectatorCameraTests: XCTestCase {
     private let M = MapScene.mapMeters
 
+    func testFollowCentersEveryEdgeAtEveryZoom() {
+        for zoom in [0.7, 1.0, 1.4, 2.5] {
+            let rig = CameraRig()
+            for target in [SIMD2<Float>(0, 0), SIMD2(M, 0), SIMD2(0, -M), SIMD2(M, -M),
+                           SIMD2(M / 2, 0), SIMD2(M, -M / 2)] {
+                let drive = CameraDrive(target: target, zoom: zoom, transition: .cut,
+                                        zoomRange: CameraRig.spectatorZoomRange)
+                rig.update(drive, dt: 1 / 60, mapMeters: M)
+                // 追従は地図の端でも丸めない（注視点は追従先から focusLead だけ北。2026-10-17 の MLBB のカメラで 0.91 m）
+                XCTAssertEqual(rig.focus.value, target + SIMD2(0, -CameraRig.focusLead))
+                let offset = CameraRig.groundOffsetPerDistance(ndc: .zero, aspectRatio: 2.16)!
+                XCTAssertLessThan(simd_length(offset), 0.00001)
+                let left = target.x - rig.currentDistance * tan(CameraRig.fovDegrees * .pi / 360) * 2.16
+                if target.x == 0 { XCTAssertLessThan(left, 0) }
+            }
+        }
+    }
+
     // MARK: カメラの移り方
 
     func testCutSnapsAndGlideEasesToTheTarget() {
@@ -39,7 +57,7 @@ final class SpectatorCameraTests: XCTestCase {
         var cut = CameraDrive(target: SIMD2(90, -90), zoom: 1.3)
         cut.transition = .cut
         rig.update(cut, dt: 1.0 / 60, mapMeters: M)
-        XCTAssertEqual(rig.focus.value, CameraRig.clampFocus(SIMD2(90, -90 - CameraRig.focusLead), mapMeters: M, zoom: 1.3))
+        XCTAssertEqual(rig.focus.value, SIMD2(90, -90 - CameraRig.focusLead))
         XCTAssertEqual(rig.currentDistance, CameraRig.baseDistance * 1.3, accuracy: 1e-4)
     }
 
@@ -299,7 +317,7 @@ final class SpectatorCameraTests: XCTestCase {
         let h = s.heroIndices
         s.units[h[0]].pos = Vec2(4000, 4000)
         s.units[h[1]].pos = Vec2(5500, 4600)     // 約 16 m
-        s.units[h[2]].pos = Vec2(10500, 10000)   // 約 80 m 以上
+        s.units[h[2]].pos = Vec2(9600, 9600)   // 直前の対象から45 m以上、縮小後の地図内
         for i in h { s.units[i].prevPos = s.units[i].pos }
         c.restore(s)
         c.cameraMode = .followUnit(s.units[h[0]].id)
@@ -312,10 +330,10 @@ final class SpectatorCameraTests: XCTestCase {
         c.cameraMode = .followUnit(s.units[h[2]].id)
         frames(w, 1)
         XCTAssertFalse(w.rig.isGliding)
-        let target = CameraRig.clampFocus(world(Vec2(10500, 10000)) + SIMD2(0, -CameraRig.focusLead), mapMeters: M, zoom: 1)
+        let target = world(Vec2(9600, 9600)) + SIMD2(0, -CameraRig.focusLead)
         XCTAssertLessThan(simd_distance(w.rig.focus.value, target), 0.01, "遠い対象への切替は即座に")
         // 自由視点 → 追従も滑らかに
-        c.cameraMode = .free(Vec2(9500, 9800))
+        c.cameraMode = .free(Vec2(9000, 9200))
         frames(w, 20)
         c.cameraMode = .followUnit(s.units[h[2]].id)
         frames(w, 1)
@@ -323,11 +341,11 @@ final class SpectatorCameraTests: XCTestCase {
         frames(w, 40)
         // シーク・再同期（presentationEpoch）は即座に。snap: true も（B26）
         var moved = c.state
-        moved.units[h[2]].pos = Vec2(10000, 9000)
+        moved.units[h[2]].pos = Vec2(9400, 8800)
         moved.units[h[2]].prevPos = moved.units[h[2]].pos
         c.restore(moved)
         frames(w, 1)
-        let t2 = CameraRig.clampFocus(world(Vec2(10000, 9000)) + SIMD2(0, -CameraRig.focusLead), mapMeters: M, zoom: 1)
+        let t2 = world(Vec2(9400, 8800)) + SIMD2(0, -CameraRig.focusLead)
         XCTAssertLessThan(simd_distance(w.rig.focus.value, t2), 0.01)
         c.cameraMode = .followUnit(s.units[h[0]].id)
         w.world.updateCamera(rig: w.rig, dt: 1.0 / 30, snap: true)
@@ -354,7 +372,7 @@ final class SpectatorCameraTests: XCTestCase {
         c.requestSeek(toTick: 450)
         XCTAssertNotNil(c.seekingToTick)
         var mid = c.state
-        mid.units[h].pos = Vec2(10000, 9000)
+        mid.units[h].pos = Vec2(9400, 8800)
         mid.units[h].prevPos = mid.units[h].pos
         c.restore(mid)
         frames(w, 20)
@@ -373,7 +391,7 @@ final class SpectatorCameraTests: XCTestCase {
         XCTAssertFalse(w.rig.isGliding, "シークの後は切り替え（滑らせない）")
         let after = try! XCTUnwrap(c.state.unit(id))
         XCTAssertLessThan(simd_distance(w.rig.focus.value,
-                                        CameraRig.clampFocus(world(after.pos) + SIMD2(0, -CameraRig.focusLead), mapMeters: M, zoom: 1)),
+                                        world(after.pos) + SIMD2(0, -CameraRig.focusLead)),
                           1.0)
     }
 

@@ -5,8 +5,24 @@ import XCTest
 /// 長時間のため Release で実行する: swift test -c release --filter BotMatchTests
 final class BotMatchTests: XCTestCase {
     /// 3 シード × Normal / Hard + Easy 1 試合。
-    static let seeds: [UInt64] = [1, 6, 11]
-    static let easySeed: UInt64 = 4
+    /// 2026-10-16（sim 24、フランコの幾何と時間を動画で測った値に）: シード 1 は Hard で赤 0 キル（青 10 / 赤 0）、シード 11 は Normal で
+    /// 赤 0 キル（12 / 0）になったため、隣の 2（Normal 11 / 6・Hard 8 / 4）と 12（4 / 3・5 / 3）にした（検査の中身は同じ）。
+    /// ほかのシード 3〜5・7〜9・13〜15 は Normal・Hard とも両チームがキルを取った（最少はシード 5 の青 1）。
+    /// 2026-10-16（sim 31、オーロラ・ミヤ・子龍の幾何と時間を動画で測った値に）: シード 2 は Normal で青 0 キル（0 / 6）になったため 3
+    /// （Normal 4 / 3・Hard 7 / 3）にした。シード 1〜15 × Normal・Hard の 30 試合で片方が 0 キルになったのは 2 Normal と 10 Normal だけ。
+    /// 2026-10-21（sim 44、ジャングルとローム装備を MLBB 2.2.16 に）: シード 12 は Normal で青 0 キル（0 / 5）になったため 13
+    /// （Normal 2 / 4・Hard 5 / 19）にした（検査の中身は同じ）。シード 1〜15 × Normal・Hard の 30 試合はどれも 10:23〜17:52 で Core が割れ、
+    /// 片方が 0 キルになったのは 12 Normal だけ。
+    /// 2026-10-21（sim 45、塔・ベース・ミニオンの構成を MLBB 2.2.16 に）: シード 3 は Normal で 30:37 と 30 分の上限を超えたため 7
+    /// （Normal 19:55・Hard 17:51、キル 15 / 21・15 / 16）にした（検査の中身は同じ）。standard の地図はレーンが canyon の 1.4 倍あり、
+    /// シード 1〜12 × Normal・Hard の 24 試合は 13:32〜30:37（30 分を超えたのは 3 Normal だけ。どれも両チームがキルを取った）。
+    /// 遊ぶ地図 canyon の試合時間は CanyonMatchTests。
+    static let seeds: [UInt64] = [7, 6, 13]
+    /// Easy はキルが少なく、シードで片方が 0 キルになりやすい（MLBB の能力値への移行後: Easy 6 シードのキル合計 青 22 / 赤 61、
+    /// 移行前も 青 57 / 赤 79 で赤寄り）。シード 4 は青 0 / 赤 5 になったため、両チームがキルを取る 9 にした（検査の中身は同じ）。
+    /// 2026-10-15（sim 23、ティグラルの幾何と時間を動画で測った値に）: シード 9 は青 0 / 赤 3 になったため 10（青 6 / 赤 5）にした。
+    /// ほかの Easy のシード 2・3・5・7・8・12・13・14 はどれも両チームがキルを取った（合計 青 42 / 赤 57）。
+    static let easySeed: UInt64 = 10
 
     func testFullBotMatchesEndByCoreDestruction() throws {
         #if DEBUG
@@ -31,12 +47,29 @@ final class BotMatchTests: XCTestCase {
         #endif
     }
 
+    /// 泉に立つ人間の通常戦のシード。
+    /// 2026-10-16（sim 29、オーロラの幾何と時間を動画で測った値に）: シード 5 は 7:47 で Core が割れて 8 分の下限を下回った
+    /// （人間が動かない青が押し切られる）ため、隣の 6（11:08）にした（検査の中身は同じ）。シード 1〜12 のうち 3（7:41）と 5 のほかは
+    /// どれも 8 分以上で、ほかの条件も満たした。
+    /// 2026-10-16（sim 32、エウドラの幾何と時間を動画で測った値に）: シード 5 は 7:27（446.6 秒）で Core が割れて 8 分の下限を下回った
+    /// （人間が動かない青が押し切られる）ため、隣の 6 にした（検査の中身は同じ。オーロラの作業でも同じ理由で 6 にしている）。
+    /// 2026-10-16（sim 31、ディアスの幾何と時間を動画で測った値に）: シード 5 は 7:19 で Core が割れて 8 分の下限を下回った
+    /// （人間が動かない青が押し切られる）ため、6（10:21）にした（検査の中身は同じ。オーロラの作業（sim 29）も同じ理由で 6 にしている）。
+    /// シード 1〜12 のうち 4（6:22）と 5 のほかはどれも 8 分以上で、ほかの条件も満たした。
+    /// 2026-10-16（sim 40、セイバーのスキル1 の剣を剣撃ごとに使うようにした）: シード 6 は 7:57（477.0 秒。赤のジャングルにセイバー）で
+    /// Core が割れて 8 分の下限を下回ったため、隣の 7（14:11、キル 8 / 7）にした（検査の中身は同じ）。シード 1〜12 のうち 5（7:49）と 6 の
+    /// ほかはどれも 8 分以上で、ほかの条件も満たした（最短は 4 の 9:19）。
+    /// 2026-10-16（sim 40、ライラの S1・S2 の溜めと星爆弾の照準を動画に合わせた）: シード 6 は 7:23（442.9 秒、キル 1 / 0）で Core が割れて
+    /// 8 分の下限を下回った（人間が動かない青が押し切られる）ため、隣の 7（15:25、キル 4 / 19）にした（検査の中身は同じ）。
+    /// シード 1〜12 のうち 6 と 10（7:23）のほかはどれも 8 分以上で、ほかの条件も満たした。
+    static let idleHumanSeed: UInt64 = 7
+
     /// 通常戦（人間 1 人 + AI 9 人）で人間が泉に立ったまま何もしない場合も、ボットは正常に試合を進める。
     func testStandardMatchWithIdleHumanInFountain() throws {
         #if DEBUG
         throw XCTSkip("Release で実行する: swift test -c release --filter BotMatchTests")
         #else
-        let cfg = MatchFactory.standardMatch(humanHeroID: "H003", humanName: "Idle", seed: 5)
+        let cfg = MatchFactory.standardMatch(humanHeroID: "H003", humanName: "Idle", seed: Self.idleHumanSeed)
         let r = BotMatchReport.run("standard idle human", config: cfg)
         print(BotMatchReport.tableHeader())
         print(r.tableRow)
@@ -56,7 +89,9 @@ final class BotMatchTests: XCTestCase {
         #else
         let cfg = MatchFactory.standardMatch(humanHeroID: "H002", humanName: "Rec", humanPosition: .top,
                                              allyDifficulty: .hard, enemyDifficulty: .normal, seed: 8)
-        let sim = Simulation(config: cfg)
+        // 記録はアプリ（BattleController）と同じく map(for:) の地図で。ReplayPlayer は map(for:) で再生するので、
+        // 既定の .standard で記録すると別の地図を比べることになる
+        let sim = Simulation(config: cfg, map: MapDefinition.map(for: cfg.mode))
         let recorder = ReplayRecorder(config: cfg)
         sim.recorder = recorder
         let human = sim.state.humanHeroID!

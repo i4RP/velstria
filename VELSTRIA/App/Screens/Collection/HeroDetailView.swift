@@ -13,7 +13,7 @@ enum HeroDetailTab: String, CaseIterable, Identifiable {
         case .stats: return L("能力値", "Stats")
         case .skills: return L("スキル", "Skills")
         case .skins: return L("スキン", "Skins")
-        case .build: return L("ビルド", "Build")
+        case .build: return L("戦闘準備", "Preparation")
         }
     }
 
@@ -33,7 +33,9 @@ struct HeroDetailView: View {
     @Environment(AppModel.self) private var app
     // 出荷ビルドでは DebugLaunch.args が空なので常に .overview。-heroTab <skills 等> はストア用スクリーンショットの撮影用。
     @State private var tab: HeroDetailTab = DebugLaunch.value(after: "-heroTab").flatMap(HeroDetailTab.init(rawValue:)) ?? .overview
+    @State private var showsDetails = DebugLaunch.value(after: "-heroTab") != nil
     @State private var pendingSKU: String?
+    @State private var showsBattleSkills = false
     /// スキルタブで開いているスキル（nil = スキル 1）。
     @State private var selectedSkillID: String?
 
@@ -41,53 +43,234 @@ struct HeroDetailView: View {
         if let hero = app.master.hero(heroID) {
             let skills = app.master.skills(forHero: hero.heroID)
             let current = HeroSkillSelection.resolved(selectedID: selectedSkillID, skills: skills)
-            ScreenScaffold(title: L("ヒーロー詳細", "Hero Details")) {
-                // 左 = ヒーロー情報（名前・ロール・評価バー・スキルアイコン列）、右 = タブの内容（スキルタブはスキル詳細）
-                HStack(alignment: .top, spacing: 12) {
-                    HeroInfoPanel(hero: hero, selectedSkillID: tab == .skills ? current?.skillID : nil,
-                                  skillIDPrefix: "skill_", pendingSKU: $pendingSKU,
-                                  onSelectSkill: { skill in
-                                      withAnimation(.easeInOut(duration: 0.22)) {
-                                          selectedSkillID = skill.skillID
-                                          tab = .skills
-                                      }
-                                  },
-                                  onQuickTab: { t in
-                                      withAnimation(.easeInOut(duration: 0.22)) { tab = t }
-                                  })
-                    VStack(spacing: 6) {
-                        tabBar
-                        Group {
-                            if tab == .skills {
-                                if let skill = current {
-                                    SkillShowcasePanel(skill: skill, hero: hero)
-                                        .id(skill.skillID)
-                                        .transition(.opacity)
+            GeometryReader { geometry in
+                ZStack {
+                    LinearGradient(colors: [.black.opacity(0.35), .clear, .black.opacity(0.4)],
+                                   startPoint: .leading, endPoint: .trailing).ignoresSafeArea()
+                    VStack(spacing: 0) {
+                        showcaseHeader
+                        HStack(spacing: 0) {
+                            showcaseInfo(hero, skills: skills)
+                                .frame(width: geometry.size.width * 0.28)
+                            HeroPreview3DView(heroID: hero.heroID, skinID: app.profile.equippedSkins[hero.heroID])
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .overlay(alignment: .bottom) {
+                                    Text(L("ドラッグして回転", "Drag to rotate"))
+                                        .font(Theme.body(10)).foregroundStyle(.white.opacity(0.65))
+                                        .padding(.bottom, 8).allowsHitTesting(false)
                                 }
-                            } else {
-                                ScrollView {
-                                    tabContent(hero)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(.bottom, 12)
-                                }
-                                .scrollIndicators(.hidden)
-                            }
+                            skinRail(hero, height: geometry.size.height)
+                                .frame(width: geometry.size.width * 0.23)
                         }
-                        .id(tab)
-                        .transition(.opacity.combined(with: .move(edge: .trailing)))
-                        .animation(.easeInOut(duration: 0.2), value: current?.skillID)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 2)
-                .padding(.bottom, 6)
+            }
+            .background {
+                GeometryReader { background in
+                    Image("HomeBackdrop").resizable().scaledToFill()
+                        .frame(width: background.size.width, height: background.size.height).clipped()
+                }.ignoresSafeArea()
+            }
+            .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $showsDetails) {
+                VStack(spacing: 8) {
+                    HStack {
+                        Text(MasterText.hero(hero)).font(Theme.heading(18))
+                        Spacer()
+                        Button(L("閉じる", "Close")) { showsDetails = false }
+                    }
+                    tabBar
+                    if tab == .skills, let skill = current {
+                        SkillShowcasePanel(skill: skill, hero: hero).id(skill.skillID)
+                        HStack {
+                            ForEach(skills) { skill in
+                                SkillIconButton(skill: skill, hero: hero, isSelected: current?.skillID == skill.skillID,
+                                                identifier: "detail_skill_" + skill.skillID) {
+                                    selectedSkillID = skill.skillID
+                                }
+                            }
+                        }
+                    } else {
+                        ScrollView { tabContent(hero) }
+                    }
+                }
+                .padding(16)
+                .background(Theme.panel)
+                .foregroundStyle(Theme.textPrimary)
+                .sheet(isPresented: $showsBattleSkills) {
+                    VStack(spacing: 10) {
+                        HStack {
+                            Text(L("バトルスキル", "Battle Skills")).font(Theme.heading(20))
+                            Spacer()
+                            Button(L("閉じる", "Close")) { showsBattleSkills = false }
+                        }
+                        BattleSkillPicker(current: SpellLoadoutRules.effective(heroID: heroID, profile: app.profile)[0]) { id in
+                            app.profile.heroSpells[heroID] = [id, SpellLoadoutRules.fixedSpellID]
+                            showsBattleSkills = false
+                        }
+                    }.padding(16).background(Theme.panel).foregroundStyle(Theme.textPrimary)
+                }
             }
             .storePurchaseFlow(sku: $pendingSKU)
+            .onChange(of: app.router.path.count) { _, _ in showsDetails = false }
+
         } else {
             ScreenScaffold(title: L("ヒーロー詳細", "Hero Details")) {
-                CollectionEmptyState(symbol: "questionmark.circle", title: L("ヒーローが見つかりません", "Hero not found"))
+                EmptyStateView(symbol: "questionmark.circle", title: L("ヒーローが見つかりません", "Hero not found"))
             }
         }
+    }
+
+    private var showcaseHeader: some View {
+        HStack {
+            Button { app.router.pop() } label: {
+                Image(systemName: "arrow.uturn.backward")
+                    .font(.system(size: 28, weight: .medium))
+                    .foregroundStyle(Theme.cyan)
+                    .shadow(color: Theme.cyan.opacity(0.7), radius: 6)
+                    .frame(width: 60, height: 44)
+            }
+            .accessibilityLabel(L("戻る", "Back"))
+            .accessibilityIdentifier("nav_back")
+            Spacer()
+            CurrencyBadge(kind: .coin, amount: app.profile.starlightCoin)
+            CurrencyBadge(kind: .gem, amount: app.profile.totalGem)
+        }
+        .padding(.horizontal, 20).padding(.top, 4)
+    }
+
+    private func openDetails(_ selection: HeroDetailTab) {
+        tab = selection
+        showsDetails = true
+        app.haptics.tap()
+    }
+
+    private func showcaseInfo(_ hero: HeroDef, skills: [SkillDef]) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 4) {
+                Label(MasterText.hero(hero), systemImage: Theme.roleSymbol(hero.role))
+                    .font(.system(size: 21, weight: .semibold, design: .serif))
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                Rectangle().fill(Theme.cyan.opacity(0.4)).frame(height: 1)
+                Text(MasterText.role(hero.role)).font(Theme.body(14))
+                Text(SkillTags.featureTags(hero: hero, master: app.master).map { SkillTags.name(for: $0) }.joined(separator: " / "))
+                    .font(Theme.body(11)).foregroundStyle(Theme.textSecondary)
+                if !app.owns(heroID: hero.heroID), let item = StoreCatalog.unlockItem(heroID: hero.heroID, master: app.master) {
+                    Button { pendingSKU = item.sku } label: {
+                        HStack {
+                            Text(L("解放", "Unlock"))
+                            PriceTag(currency: item.currency, amount: EconomyService.price(of: item), size: 12)
+                        }
+                    }.buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("herodetail_unlock")
+                }
+                HeroRatingBars(ratings: HeroRatingMath.ratings(for: hero, master: app.master))
+                    .frame(maxWidth: 210)
+                Button {
+                    let name = app.profile.displayName.isEmpty ? "Player" : app.profile.displayName
+                    let config = MatchFactory.practiceMatch(humanHeroID: hero.heroID, humanName: name,
+                                                            options: PracticeOptions(), seed: UInt64.random(in: 1...UInt64.max))
+                    app.startBattle(BattleLaunch(config: config))
+                } label: {
+                    Label(L("練習場で試す", "Try in Practice"), systemImage: "figure.fencing")
+                        .font(Theme.body(12)).frame(minHeight: 32)
+                }
+                .buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("herodetail_practice")
+                HStack(spacing: 2) {
+                    ForEach(skills) { skill in
+                        SkillIconButton(skill: skill, hero: hero, isSelected: false,
+                                        identifier: "skill_" + skill.skillID) {
+                            selectedSkillID = skill.skillID
+                            openDetails(.skills)
+                        }.frame(maxWidth: .infinity)
+                    }
+                }
+                HStack(spacing: 16) {
+                    showcaseShortcut(.stats)
+                    showcaseShortcut(.build)
+                    showcaseShortcut(.overview)
+                }
+            }
+            .padding(.top, 8).padding(.bottom, 4)
+        }
+        .scrollIndicators(.hidden)
+        .foregroundStyle(Theme.textPrimary)
+    }
+
+    private func showcaseShortcut(_ selection: HeroDetailTab) -> some View {
+        Button { openDetails(selection) } label: {
+            VStack(spacing: 3) {
+                Image(systemName: selection.symbol)
+                    .font(.system(size: 17)).frame(width: 32, height: 32)
+                    .overlay(Circle().stroke(Theme.cyan.opacity(0.35)))
+                Text(selection == .overview ? L("伝記", "Lore") : selection.title).font(Theme.body(10))
+            }.frame(minHeight: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("herodetail_quick_\(selection.rawValue)")
+    }
+
+    private func skinRail(_ hero: HeroDef, height: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L("スキン", "Skins"))
+                .font(Theme.heading(16)).foregroundStyle(Theme.textPrimary)
+                .frame(maxWidth: .infinity).padding(.bottom, 8)
+                .background(alignment: .bottom) { Rectangle().fill(Theme.cyan.opacity(0.6)).frame(height: 1) }
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 10) {
+                    showcaseSkinCard(hero: hero, skin: nil, height: height)
+                    ForEach(CosmeticInfo.skins(heroID: hero.heroID, master: app.master)) { skin in
+                        showcaseSkinCard(hero: hero, skin: skin, height: height)
+                    }
+                }
+                .padding(3)
+            }
+            .scrollIndicators(.hidden)
+            .frame(height: max(150, height * 0.59))
+            Spacer(minLength: 0)
+        }.padding(.top, 24)
+    }
+
+    private func showcaseSkinCard(hero: HeroDef, skin: CosmeticDef?, height: CGFloat) -> some View {
+        let equipped = app.profile.equippedSkins[hero.heroID] == skin?.cosmeticID
+        let cardHeight = max(140, height * 0.56)
+        return Button {
+            app.haptics.tap()
+            var profile = app.profile
+            if let skin {
+                if app.owns(cosmeticID: skin.cosmeticID) {
+                    if CosmeticInfo.equip(skin, profile: &profile) { app.profile = profile }
+                } else if let item = StoreCatalog.storeItem(forCosmetic: skin.cosmeticID, master: app.master) {
+                    app.router.push(.productDetail(item.sku))
+                }
+            } else {
+                CosmeticInfo.unequip(.heroSkin, heroID: hero.heroID, profile: &profile)
+                app.profile = profile
+            }
+        } label: {
+            ZStack(alignment: .bottom) {
+                if let art = skin.flatMap({ PortraitArt.skin($0.cosmeticID) }) ?? PortraitArt.card(hero.heroID) ?? PortraitArt.hero(hero.heroID) {
+                    Image(uiImage: art).resizable().scaledToFill()
+                        .frame(width: cardHeight * 0.6, height: cardHeight).clipped()
+                }
+                LinearGradient(colors: [.clear, .black.opacity(0.9)], startPoint: .center, endPoint: .bottom)
+                VStack(spacing: 4) {
+                    Text(skin.map { MasterText.cosmetic($0) } ?? L("デフォルト", "Default"))
+                        .font(Theme.body(12)).lineLimit(2)
+                    if equipped {
+                        Label(L("使用中", "Equipped"), systemImage: "checkmark.circle.fill")
+                            .font(Theme.body(10)).foregroundStyle(Theme.cyan)
+                    }
+                }.foregroundStyle(.white).padding(10)
+            }
+            .frame(width: cardHeight * 0.6, height: cardHeight)
+            .background(Theme.panel)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .overlay(RoundedRectangle(cornerRadius: 5).stroke(equipped ? Theme.cyan : .white.opacity(0.25), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("herodetail_skin_\(skin?.cosmeticID ?? "default")")
     }
 
     private var tabBar: some View {
@@ -126,7 +309,7 @@ struct HeroDetailView: View {
         case .stats: HeroStatsSection(hero: hero)
         case .skills: EmptyView()   // スキルは右パネル（SkillShowcasePanel）に出す
         case .skins: HeroSkinsSection(hero: hero)
-        case .build: HeroBuildSection(hero: hero)
+        case .build: HeroBuildSection(hero: hero, onChangeBattleSkill: { showsBattleSkills = true })
         }
     }
 }
@@ -142,7 +325,10 @@ private struct HeroOverviewSection: View {
         VStack(alignment: .leading, spacing: 10) {
             // リソース・ダメージの種類・射程・難易度（左パネルからこちらへ移した基本情報）
             HStack(spacing: 5) {
-                CollectionInfoTag(text: "\(CollectionStyle.resourceName(hero.resource)) \(Int(hero.resourceMax))",
+                // 最大値は Lv1（怒り・リソースなしは量を持たないので名前だけ）
+                CollectionInfoTag(text: hero.resource.usesPool
+                                      ? "\(CollectionStyle.resourceName(hero.resource)) \(Int(hero.resourceMax))"
+                                      : CollectionStyle.resourceName(hero.resource),
                                   symbol: CollectionStyle.resourceSymbol(hero.resource),
                                   color: CollectionStyle.resourceColor(hero.resource))
                 CollectionInfoTag(text: CollectionStyle.damageTypeName(damageType),
@@ -156,7 +342,7 @@ private struct HeroOverviewSection: View {
             .minimumScaleFactor(0.8)
             Panel(padding: 12) {
                 VStack(alignment: .leading, spacing: 6) {
-                    CollectionSectionTitle(title: L("ストーリー", "Lore"), symbol: "quote.opening")
+                    SectionTitle(title: L("ストーリー", "Lore"), symbol: "quote.opening")
                     Text(MasterText.name(id: "\(hero.heroID).lore", ja: hero.lore))
                         .font(Theme.body(13))
                         .foregroundStyle(Theme.textPrimary.opacity(0.92))
@@ -207,7 +393,7 @@ private struct HeroStatsSection: View {
         let color = Theme.roleColor(hero.role)
         Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 9) {
-                CollectionSectionTitle(title: L("基本能力値", "Base Stats"), symbol: "chart.bar.fill",
+                SectionTitle(title: L("基本能力値", "Base Stats"), symbol: "chart.bar.fill",
                                        trailing: "Lv1 → Lv\(Balance.maxLevel)")
                 ForEach(HeroStatKind.allCases) { kind in
                     let growth = kind.growth(hero).map { "+\(CollectionStyle.number($0, digits: kind.digits == 0 ? 2 : 3))/Lv" }
@@ -220,7 +406,7 @@ private struct HeroStatsSection: View {
                     legend(color: color, text: "Lv1")
                     legend(color: color.opacity(0.35), text: "Lv\(Balance.maxLevel)")
                     Spacer()
-                    Text(L("装備・ルーン補正を除く", "Excludes items and runes"))
+                    Text(L("装備・エンブレム補正を除く", "Excludes items and emblems"))
                         .font(Theme.body(10))
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -248,7 +434,7 @@ private struct HeroSkinsSection: View {
         let skins = CosmeticInfo.skins(heroID: hero.heroID, master: app.master)
         let equipped = app.profile.equippedSkins[hero.heroID]
         VStack(alignment: .leading, spacing: 8) {
-            CollectionSectionTitle(title: L("スキン", "Skins"), symbol: "paintpalette.fill",
+            SectionTitle(title: L("スキン", "Skins"), symbol: "paintpalette.fill",
                                    trailing: L("\(skins.count + 1) 種", "\(skins.count + 1) total"))
             LazyVGrid(columns: columns, spacing: 10) {
                 defaultSkinCard(equipped: equipped == nil)
@@ -347,40 +533,55 @@ private struct HeroSkinsSection: View {
 
 private struct HeroBuildSection: View {
     let hero: HeroDef
+    var onChangeBattleSkill: () -> Void
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        let isCustom = BuildRules.custom(for: hero.heroID, profile: app.profile, master: app.master) != nil
         let build = BuildRules.current(for: hero.heroID, profile: app.profile, master: app.master)
-        let recommended = BuildRules.recommended(for: hero.heroID, master: app.master)
-        Panel(padding: 12) {
-            VStack(alignment: .leading, spacing: 10) {
-                CollectionSectionTitle(title: isCustom ? L("カスタムビルド", "Custom Build") : L("おすすめビルド", "Recommended Build"),
-                                       symbol: isCustom ? "person.fill" : "star.fill",
-                                       trailing: build.isEmpty ? nil : totalLabel(build))
-                if build.isEmpty {
-                    CollectionEmptyState(symbol: "shippingbox",
-                                         title: L("ビルドが未設定です", "No build yet"),
-                                         message: L("ビルド編集で購入順を決めておくと、戦闘中のおすすめ購入に反映されます。",
-                                                    "Set up a purchase order in the build editor to use it as in-match recommendations."))
-                } else {
-                    buildRow(build, iconSize: 50)
+        let skill = SpellLoadoutRules.effective(heroID: hero.heroID, profile: app.profile)[0]
+        VStack(alignment: .leading, spacing: 10) {
+            Panel(padding: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L("ビルド", "Build")).font(Theme.heading(14))
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 4) {
+                            ForEach(Array(build.enumerated()), id: \.offset) { _, id in
+                                if let item = app.master.item(id) { ItemIconView(item: item, size: 30) }
+                            }
+                        }.frame(height: 52)
+                    }.scrollIndicators(.hidden)
+                    Button { app.router.push(.buildEditor(hero.heroID)) } label: {
+                        Label(L("変更", "Change"), systemImage: "arrow.triangle.2.circlepath")
+                    }.labelStyle(.iconOnly).buttonStyle(SecondaryButtonStyle()).accessibilityLabel(L("変更", "Change")).accessibilityIdentifier("herodetail_build_edit")
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L("エンブレム", "Emblems")).font(Theme.heading(14))
+                    if let emblem = EmblemMath.loadout(for: hero.heroID, profile: app.profile, master: app.master) {
+                        VStack(spacing: 3) {
+                            Image(systemName: EmblemStyle.setSymbol(emblem.set))
+                                .font(.system(size: 28))
+                                .foregroundStyle(EmblemStyle.color(emblem.set))
+                            Text(EmblemMath.setName(emblem.set)).font(Theme.body(9)).lineLimit(1)
+                        }
+                        .frame(height: 52)
+                    }
+                    Button { app.router.push(.emblems) } label: {
+                        Label(L("変更", "Change"), systemImage: "arrow.triangle.2.circlepath")
+                    }.labelStyle(.iconOnly).buttonStyle(SecondaryButtonStyle()).accessibilityLabel(L("変更", "Change"))
+                }.frame(width: 90, alignment: .leading)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L("バトルスキル", "Battle Skill")).font(Theme.heading(13)).lineLimit(1)
+                    SpellIconView(spellID: skill, size: 48).frame(height: 52)
+                    Button { onChangeBattleSkill() } label: {
+                        Label(L("変更", "Change"), systemImage: "arrow.triangle.2.circlepath")
+                    }.labelStyle(.iconOnly).buttonStyle(SecondaryButtonStyle()).accessibilityLabel(L("変更", "Change")).accessibilityIdentifier("herodetail_battle_skill_change")
+                    Text(FlowText.spellName(skill)).font(Theme.body(11))
+                }.frame(width: 90, alignment: .leading)
                 }
-                // カスタム使用中でも、ロール別のおすすめを参考として並べる
-                if isCustom && !recommended.isEmpty && recommended != build {
-                    CollectionSectionTitle(title: L("おすすめビルド（\(MasterText.role(hero.role))）", "Recommended (\(MasterText.role(hero.role)))"),
-                                           symbol: "star.fill", trailing: totalLabel(recommended))
-                    buildRow(recommended, iconSize: 40)
-                }
-                Button {
-                    app.haptics.tap()
-                    app.router.push(.buildEditor(hero.heroID))
-                } label: {
-                    Label(L("ビルド編集", "Edit Build"), systemImage: "square.and.pencil")
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("herodetail_build_edit")
+            }
+            if !BuildRules.plans(for: hero.heroID).isEmpty {
+                HeroBattlePlanSection(hero: hero)
             }
         }
     }
@@ -433,5 +634,142 @@ private struct HeroBuildSection: View {
         .buttonStyle(CollectionPressStyle())
         .accessibilityLabel("\(index + 1). \(MasterText.item(item))")
         .accessibilityIdentifier("herodetail_build_\(index)_\(item.itemID)")
+    }
+}
+
+// MARK: - バトルプラン
+
+/// MLBB の「バトルプラン」と同じく、3 つのプラン（名前・タグ・装備 6 個・バトルスキル）を並べ、
+/// 使っているものに「有効」、ほかに「使う」を出す。選んだプランは Profile.heroBuildPlans に保存し、試合の構成へ渡る。
+private struct HeroBattlePlanSection: View {
+    let hero: HeroDef
+    @Environment(AppModel.self) private var app
+
+    var body: some View {
+        let plans = BuildRules.plans(for: hero.heroID)
+        let active = BuildRules.activePlanIndex(for: hero.heroID, profile: app.profile)
+        let isCustom = BuildRules.custom(for: hero.heroID, profile: app.profile, master: app.master) != nil
+        Panel(padding: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionTitle(title: L("バトルプラン", "Battle Plans"), symbol: "list.bullet.rectangle.fill",
+                                       trailing: L("\(plans.count) 件", "\(plans.count) plans"))
+                if isCustom {
+                    Text(L("カスタムビルドを保存している間は、試合のおすすめ購入にカスタムビルドを使います。",
+                           "While a custom build is saved, in-match recommendations use the custom build."))
+                        .font(Theme.body(11))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                ForEach(Array(plans.enumerated()), id: \.offset) { k, plan in
+                    planCard(plan, index: k, isActive: k == active)
+                }
+                customEmblemNote
+            }
+        }
+    }
+
+    /// エンブレム画面の一括設定で付けたエンブレムがあれば、試合ではプランのエンブレムの代わりにそれを使う。
+    @ViewBuilder private var customEmblemNote: some View {
+        if let custom = EmblemMath.custom(for: hero.heroID, profile: app.profile) {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(L("一括設定のエンブレムを使います", "Using the emblem applied from the Emblems screen"))
+                        .font(Theme.body(11))
+                        .foregroundStyle(Theme.textSecondary)
+                    EmblemLoadoutBadge(emblem: custom, compact: true)
+                }
+                Spacer(minLength: 4)
+                Button {
+                    var p = app.profile
+                    EmblemMath.clearCustom(heroID: hero.heroID, profile: &p)
+                    app.profile = p
+                    app.haptics.tap()
+                } label: {
+                    Text(L("プランに戻す", "Use Plan")).lineLimit(1)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("herodetail_emblem_clear")
+            }
+        }
+    }
+
+    private func planCard(_ plan: BuildPlan, index: Int, isActive: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text(BuildRules.planName(plan))
+                    .font(Theme.heading(13))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                ForEach(plan.tags, id: \.self) { tag in
+                    CollectionInfoTag(text: BuildRules.planTag(tag), color: Theme.cyan)
+                }
+                Spacer(minLength: 4)
+                if isActive {
+                    Label(L("有効", "Active"), systemImage: "checkmark.circle.fill")
+                        .font(Theme.heading(13))
+                        .foregroundStyle(Theme.success)
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("herodetail_plan_\(index)_active")
+                } else {
+                    Button {
+                        use(index, plan: plan)
+                    } label: {
+                        Text(L("使う", "Use")).lineLimit(1)
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("herodetail_plan_\(index)_use")
+                }
+            }
+            HStack(spacing: 6) {
+                ForEach(Array(plan.items.enumerated()), id: \.offset) { i, id in
+                    if let item = app.master.item(id) {
+                        ItemIconView(item: item, size: 36)
+                            .accessibilityLabel("\(i + 1). \(MasterText.item(item))")
+                    }
+                }
+                Spacer(minLength: 4)
+                if let spell = plan.spellHint {
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text(L("バトルスキル", "Spell"))
+                            .font(Theme.body(10))
+                            .foregroundStyle(Theme.textSecondary)
+                        Text(BuildRules.planSpell(spell))
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+            // エンブレム（セット + 天賦 3 つ。画面のエンブレムの列）
+            HStack(spacing: 6) {
+                Text(L("エンブレム", "Emblem"))
+                    .font(Theme.body(10))
+                    .foregroundStyle(Theme.textSecondary)
+                EmblemLoadoutBadge(emblem: plan.emblem)
+                Spacer(minLength: 0)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("herodetail_plan_\(index)_emblem")
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(isActive ? Theme.success.opacity(0.12) : Color.white.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(isActive ? Theme.success.opacity(0.7) : Theme.panelStroke, lineWidth: isActive ? 1.5 : 1)
+        )
+    }
+
+    private func use(_ index: Int, plan: BuildPlan) {
+        var p = app.profile
+        BuildRules.choosePlan(index, for: hero.heroID, profile: &p)
+        app.profile = p
+        app.haptics.tap()
+        app.showToast(L("バトルプラン「\(plan.name)」を使います", "Using battle plan \"\(plan.nameEN)\""))
     }
 }

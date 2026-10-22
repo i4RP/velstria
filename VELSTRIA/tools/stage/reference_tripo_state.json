@@ -1,0 +1,78 @@
+{
+  "root_wall": {
+    "submitting": false,
+    "concept": "references/field/root_wall.png",
+    "request": {
+      "type": "image_to_model",
+      "model_version": "v2.5-20250123",
+      "texture": true,
+      "pbr": true,
+      "texture_quality": "detailed",
+      "texture_alignment": "original_image",
+      "orientation": "align_image",
+      "face_limit": 24000,
+      "model_seed": 191026,
+      "texture_seed": 191026
+    },
+    "task_id": "74c2dcbe-0d2a-4838-954a-07e4ae5c801f",
+    "status": "success",
+    "progress": 100
+  },
+  "camp_crescent": {
+    "submitting": false,
+    "concept": "references/field/camp_crescent.png",
+    "request": {
+      "type": "image_to_model",
+      "model_version": "v2.5-20250123",
+      "texture": true,
+      "pbr": true,
+      "texture_quality": "detailed",
+      "texture_alignment": "original_image",
+      "orientation": "align_image",
+      "face_limit": 24000,
+      "model_seed": 191026,
+      "texture_seed": 191026
+    },
+    "task_id": "9ced8ac3-d4f6-43f4-b183-18c02b91aeb2",
+    "status": "success",
+    "progress": 100
+  },
+  "river_wall": {
+    "submitting": false,
+    "concept": "references/field/river_wall.png",
+    "request": {
+      "type": "image_to_model",
+      "model_version": "v2.5-20250123",
+      "texture": true,
+      "pbr": true,
+      "texture_quality": "detailed",
+      "texture_alignment": "original_image",
+      "orientation": "align_image",
+      "face_limit": 24000,
+      "model_seed": 191026,
+      "texture_seed": 191026
+    },
+    "task_id": "1e493545-b632-4a48-a3ac-50a89b75ecc7",
+    "status": "success",
+    "progress": 100
+  },
+  "camp_gate": {
+    "submitting": false,
+    "concept": "references/field/camp_gate.png",
+    "request": {
+      "type": "image_to_model",
+      "model_version": "v2.5-20250123",
+      "texture": true,
+      "pbr": true,
+      "texture_quality": "detailed",
+      "texture_alignment": "original_image",
+      "orientation": "align_image",
+      "face_limit": 24000,
+      "model_seed": 191026,
+      "texture_seed": 191026
+    },
+    "task_id": "6ab53d43-ac17-40a8-9b9b-16d7b5c9d84a",
+    "status": "success",
+    "progress": 100
+  }
+}

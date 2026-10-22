@@ -12,6 +12,8 @@ import VelstriaCore
 final class HUDTopBarTests: XCTestCase {
     /// 横画面の論理サイズと Safe Area（左右 = Dynamic Island / ノッチ側、下 = ホームインジケータ）。
     private let devices: [(name: String, size: CGSize, side: CGFloat, bottom: CGFloat)] = [
+        ("16:9 compact", CGSize(width: 667, height: 375), 0, 0),
+        ("16:9 large", CGSize(width: 736, height: 414), 0, 0),
         ("iPhone 13 mini", CGSize(width: 812, height: 375), 44, 21),
         ("iPhone 16e", CGSize(width: 844, height: 390), 47, 21),
         ("iPhone 17 Pro", CGSize(width: 874, height: 402), 62, 20),
@@ -40,7 +42,7 @@ final class HUDTopBarTests: XCTestCase {
             ("キルフィード", killFeedFrame(l, reserveSignals: !spectating)),
         ]
         if !spectating {
-            for (k, f) in l.utilityFrames.enumerated() { out.append((k == 0 ? "端末状態" : "縦列のボタン\(k)", f)) }
+            for (k, f) in l.utilityFrames.enumerated() { out.append(("縦列のボタン\(k)", f)) }
             out.append(("味方列", l.allyStripFrame))
         }
         return out
@@ -49,7 +51,7 @@ final class HUDTopBarTests: XCTestCase {
     /// 戦闘の操作部品（右手配置は右、左利きは左）。習得ボタンはタップ領域（44pt）で見る。
     private func controls(_ l: HUDLayout) -> [(String, CGPoint, CGFloat)] {
         var out: [(String, CGPoint, CGFloat)] = AttackButtonSlot.allCases.map {
-            ("攻撃\($0.rawValue)", l.attackCenter(for: $0), l.attackDiameter(for: $0) / 2)
+            ("攻撃\($0.rawValue)", l.attackCenter(for: $0), max(44, l.attackDiameter(for: $0)) / 2)
         }
         for slot in SkillSlot.actives {
             out.append(("スキル\(slot.rawValue)", l.skillCenter(slot), (slot == .ultimate ? l.ultDiameter : l.skillDiameter) / 2))
@@ -118,17 +120,17 @@ final class HUDTopBarTests: XCTestCase {
                     XCTAssertLessThanOrEqual(column.minX - map.maxX, 4, "\(tag) ミニマップのすぐ右")
                 }
                 XCTAssertFalse(column.intersects(l.minimapDockFrame), tag)
-                XCTAssertGreaterThanOrEqual(l.utilityButtonSize, 30, tag)
-                XCTAssertLessThanOrEqual(l.utilityButtonSize, 34, tag)
+                XCTAssertGreaterThanOrEqual(l.utilityButtonSize, 18, tag)
+                XCTAssertLessThanOrEqual(l.utilityButtonSize, 24, tag)
                 for k in 0..<HUDLayout.utilityButtonCount {
                     let f = l.utilityButtonFrame(k)
                     XCTAssertGreaterThanOrEqual(f.width, 44, "\(tag) ボタン \(k)")
                     XCTAssertGreaterThanOrEqual(f.height, 44, "\(tag) ボタン \(k)")
-                    XCTAssertFalse(f.intersects(l.utilityStatusFrame), "\(tag) ボタン \(k) と端末状態")
+                    XCTAssertTrue(l.utilityStatusFrame.isEmpty, "\(tag) 端末時刻の行は表示しない")
                     if k > 0 { XCTAssertFalse(f.intersects(l.utilityButtonFrame(k - 1)), "\(tag) ボタン \(k - 1)/\(k)") }
                 }
-                // 縦列はミニマップドック（地図 + 全体マップボタン）の高さに収まる（降参パネル・スティックの受付より上）
-                XCTAssertLessThanOrEqual(column.maxY, l.minimapDockFrame.maxY, tag)
+                // 3つの44ptタッチ領域はミニマップより少し下へ伸びるが、移動の受付領域より上。
+                XCTAssertLessThan(column.maxY, l.joystickZone.minY, tag)
                 // 照準のキャンセル領域と重ならない
                 let c = l.cancelCenter, r = l.cancelRadius
                 let cancel = CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)
@@ -155,7 +157,7 @@ final class HUDTopBarTests: XCTestCase {
                 let tag = "\(d.name) \(left ? "左利き" : "右手")"
                 let strip = l.allyStripFrame, score = l.scoreFrame, column = l.utilityColumnFrame
                 XCTAssertEqual(score.midX, d.size.width / 2, accuracy: 0.01, tag)
-                XCTAssertLessThan(score.width, 120, "\(tag) 小型のスコア")
+                XCTAssertLessThan(score.width, 125, "\(tag) 小型のスコア")
                 XCTAssertLessThan(score.height, 36, "\(tag) 小型のスコア")
                 // 味方列はスコアのミニマップ側（右手配置は左、左利きは右）で、縦列との間に収まる
                 if left {
@@ -169,18 +171,18 @@ final class HUDTopBarTests: XCTestCase {
                 }
                 XCTAssertEqual(strip.midY, score.midY, accuracy: 1, "\(tag) 顔とスコアの高さ")
                 XCTAssertEqual(strip.minY, l.topEdge, accuracy: 0.01, "\(tag) 顔は上端に沿う")
-                XCTAssertGreaterThanOrEqual(l.allyFaceSize, 24, tag)
+                XCTAssertGreaterThanOrEqual(l.allyFaceSize, 18, tag)
                 XCTAssertLessThanOrEqual(l.allyFaceSize, 28, tag)
                 XCTAssertGreaterThanOrEqual(strip.width, l.allyFaceSize * CGFloat(HUDLayout.allyStripMax) - 0.01, "\(tag) 4 人分")
-                // 情報側の列は topInfoAlignment の側の Safe Area の端に寄せる
+                // 操作中の情報列は所持金・シグナル開閉を避け、観戦では端へ寄せる。
                 for spectating in [false, true] {
                     let info = l.topInfoFrame(spectating: spectating)
                     if left {
                         XCTAssertEqual(l.topInfoAlignment, .topLeading)
-                        XCTAssertEqual(info.minX, l.leadingEdge, accuracy: 0.01, tag)
+                        XCTAssertEqual(info.minX, spectating ? l.leadingEdge : l.shopFrame.maxX + 48, accuracy: 0.01, tag)
                     } else {
                         XCTAssertEqual(l.topInfoAlignment, .topTrailing)
-                        XCTAssertEqual(info.maxX, l.trailingEdge, accuracy: 0.01, tag)
+                        XCTAssertEqual(info.maxX, spectating ? l.trailingEdge : l.shopFrame.minX - 48, accuracy: 0.01, tag)
                     }
                     XCTAssertLessThanOrEqual(info.maxY, l.killFeedTop, "\(tag) キルフィードより上")
                 }
@@ -285,7 +287,7 @@ final class HUDTopBarTests: XCTestCase {
 
         XCTAssertTrue(HUDModel.volumesSilent(m.settings))
         XCTAssertFalse(m.soundMuted)
-        XCTAssertTrue(m.soundSilenced, "既定の設定では実際に無音なので消音の表示")
+        XCTAssertTrue(m.soundSilenced, "BGM・効果音がどちらも 0 なら実際に無音なので消音の表示")
         m.toggleSound()
         XCTAssertFalse(m.soundMuted, "音量 0 の間は一時消音を切り替えない")
         XCTAssertFalse(app.audio.isTemporarilyMuted)

@@ -11,6 +11,7 @@ import VelstriaCore
 // - 初勝利ボーナス: その日（端末ローカル日付）の最初の勝利に +300（日付キーが前回より進んだ時のみ）。
 // - アカウント XP: 勝利 120 / 敗北 80。次のレベルまで 400 + 100×Lv、最大 Lv 60（最大到達後の XP は 0 に固定）。
 // - ランク戦は RankService.apply。パス XP: 勝利 150 / 敗北 100。
+// - マジックダスト（エンブレム）: 勝利 15 / 敗北 8 × 時間係数（EmblemEconomy.matchDust）。
 // - ミッション進捗・通算成績（ヒーロー別・MVP・連勝・ペンタキル）・戦績（最新 50 件）・リプレイ保存（最新 20 件）・実績評価。
 // - 報酬の対象外（観戦・カスタム・オンラインなど）のリプレイ保存と視聴記録は ReplayArchiveService が行う（報酬・戦績は無し）。
 // - 反映後は即時保存する（デバウンス待ちの間にアプリが終了しても報酬・戦績を失わないように）。
@@ -26,7 +27,12 @@ struct RewardReport: Equatable {
     var accountLevelAfter = 1
     var rankBefore: RankState?
     var rankAfter: RankState?
+    /// ランク戦の動き（スターポイント・保護ポイントの内訳）と試合評価（0〜16）。
+    var rankDelta: RankMatchDelta?
+    var matchRating: Double = 0
     var passXP = 0
+    /// マジックダスト（エンブレムの解放・強化）。
+    var magicDust = 0
     /// 進捗したミッション ID。
     var missionsProgressed: [String] = []
     /// 新たに解除した実績 ID。
@@ -160,9 +166,15 @@ enum RewardService {
         // ランク（countsForRank が立っているか、モードがランク戦なら反映）
         if launch.countsForRank || launch.config.mode == .ranked {
             report.rankBefore = profile.rank
-            RankService.apply(won: won, to: &profile.rank)
+            if let human = summary.humanPlayer { report.matchRating = RankService.matchRating(human, in: summary) }
+            report.rankDelta = RankService.apply(won: won, rating: report.matchRating, mvp: summary.humanPlayer?.isMVP == true,
+                                                 to: &profile.rank)
             report.rankAfter = profile.rank
         }
+
+        // エンブレムのマジックダスト（Coin と同じ時間係数）
+        report.magicDust = EmblemEconomy.matchDust(won: won, durationFactor: report.durationFactor)
+        EmblemService.addDust(report.magicDust, profile: &profile)
 
         // スターパス
         report.passXP = won ? winPassXP : lossPassXP
@@ -180,13 +192,15 @@ enum RewardService {
         }
 
         // 戦績（新しい順・最新 50 件）
-        let record = MatchRecord(
+        var record = MatchRecord(
             date: now, mode: launch.config.mode, difficulty: enemyDifficulty(launch.config, humanTeam: human.team),
             won: summary.humanWon, duration: summary.duration, heroID: human.heroID,
             kills: human.score.kills, deaths: human.score.deaths, assists: human.score.assists,
             creepScore: human.score.creepScore, gold: human.score.goldEarned,
             damageToHeroes: human.score.damageToHeroes, grade: human.grade, isMVP: human.isMVP,
             items: human.items, replayID: report.replayID, summary: summary)
+        record.rankBefore = report.rankBefore.map { PublicRank($0) }
+        record.rankAfter = report.rankAfter.map { PublicRank($0) }
         profile.matchHistory.insert(record, at: 0)
         if profile.matchHistory.count > maxMatchHistory {
             profile.matchHistory.removeLast(profile.matchHistory.count - maxMatchHistory)
@@ -219,7 +233,7 @@ enum RewardService {
 
         if launch.countsForRank || launch.config.mode == .ranked {
             report.rankBefore = profile.rank
-            RankService.apply(won: false, to: &profile.rank)
+            report.rankDelta = RankService.apply(won: false, rating: 0, to: &profile.rank)
             report.rankAfter = profile.rank
         }
 

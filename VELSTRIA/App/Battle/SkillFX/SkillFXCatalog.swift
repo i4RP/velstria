@@ -20,11 +20,28 @@ protocol HeroFXSet {
     /// released = 消費したスタック数。nil（既定）= 何も出さない（スタックが増えたときの演出は recipe(.passive, _).cast のまま）。
     /// s は passive スロットの寸法。ボルグの防御・ゴルムのスタック消費など、積む演出と区別したいヒーローだけが実装する。
     static func passiveRelease(_ s: FXSkillInfo, released: Int) -> [FXCue]?
+    /// 残りの数をバッジ（kind = .stacks。HeroKits.badge）で出すスキル。数が減ると、そのスキルの発動の演出のうち
+    /// spentGroups の組（FXMesh.group）を消す（H028 の環剣: 剣を 1 本使うたびに回る刃を 1 本消す）。nil（既定）= 無し。
+    static var countedSlot: SkillSlot? { get }
+    /// countedSlot の残りが remaining 本（バッジが消えたら 0）のときに消えているべき組。何度呼ばれてもよい（消えた組は何もしない）。
+    static func spentGroups(remaining: Int) -> [Int]
+    /// キットの強い通常攻撃（SimEvent.empoweredAttack: H027 の三連突き・H032 の円撃）の演出。1 発目の命中の瞬間に、sim の術者の位置を
+    /// 原点（.origin）・対象の位置を照準点（.target）・前方 = 術者 → 対象、追従 = 術者（.follow）で再生する。2 発目以降は
+    /// キットの間隔（fxValues）に合わせて at をずらして書く。s は passive スロットの寸法（キットの fxValues と通常攻撃の射程 attackRange）。
+    /// nil（既定）= 無し（普段の通常攻撃の演出のまま）。
+    static func empoweredAttack(_ s: FXSkillInfo) -> [FXCue]?
+    /// 次の通常攻撃が強い間の目印（MLBB の見せ方: 足元の円など）。自分（観戦は追っているヒーロー）だけに、術者に追従して
+    /// SkillFXCatalog.empoweredReadyPeriod 秒ごとに出し直し、準備が外れたら消す（メッシュだけ。group = empoweredReadyGroup）。nil = 無し。
+    static func empoweredReady(_ s: FXSkillInfo) -> [FXCue]?
 }
 
 extension HeroFXSet {
     static func recipe(_ slot: SkillSlot, stage: Int, _ s: FXSkillInfo) -> SkillFXRecipe? { nil }
     static func passiveRelease(_ s: FXSkillInfo, released: Int) -> [FXCue]? { nil }
+    static var countedSlot: SkillSlot? { nil }
+    static func spentGroups(remaining: Int) -> [Int] { [] }
+    static func empoweredAttack(_ s: FXSkillInfo) -> [FXCue]? { nil }
+    static func empoweredReady(_ s: FXSkillInfo) -> [FXCue]? { nil }
 }
 
 enum SkillFXCatalog {
@@ -51,15 +68,19 @@ enum SkillFXCatalog {
         sets[heroID]?.palette ?? FXPalette.from(RGB(0.6, 0.85, 1))
     }
 
-    /// スキルの寸法（マスターデータ + 照準の規則から。m）。
-    static func info(heroID: String, slot: SkillSlot, master: MasterData) -> FXSkillInfo {
+    /// スキルの寸法（マスターデータ + 照準の規則 + キットの Tune から。m・秒）。stage = 再使用の段（照準・キットの値も段のもの）。
+    static func info(heroID: String, slot: SkillSlot, stage: Int = 0, master: MasterData) -> FXSkillInfo {
         guard let hero = master.hero(heroID), let skill = master.skill(hero: heroID, slot: slot) else {
-            return FXSkillInfo(heroID: heroID, slot: slot, archetype: .passive, radius: 1.5, range: 6)
+            return FXSkillInfo(heroID: heroID, slot: slot, archetype: .passive, radius: 1.5, range: 6, stage: stage)
         }
-        let t = SkillCatalog.targeting(for: skill, hero: hero)
+        let t = HeroKits.targeting(for: skill, hero: hero, stage: stage)
         let k = Float(Balance.unitsPerMeter)
+        var kit: [String: KitFXValue] = [:]
+        for v in HeroKits.fxValues(heroID: heroID, slot: slot, stage: stage) { kit[v.key] = v }
         return FXSkillInfo(heroID: heroID, slot: slot, archetype: t.archetype, radius: max(0.6, Float(t.radius) / k),
-                           range: max(1, Float(t.range) / k))
+                           range: max(1, Float(t.range) / k), stage: stage, hitRadius: Float(t.radius) / k,
+                           halfAngle: Float(t.halfAngle * 180 / .pi), shape: t.shape, kit: kit,
+                           attackRange: Float(hero.attackRange) / k)
     }
 
     /// スロットの演出（ヒーローの定義 → 空の段は既定演出で補う）。
@@ -68,6 +89,7 @@ enum SkillFXCatalog {
         let generic = FXGeneric.recipe(s)
         guard let set = sets[heroID] else { return generic }
         var r = set.recipe(slot, s)
+        guard r.fillsEmptyPhases else { return r }
         if r.cast.isEmpty { r.cast = generic.cast }
         if r.impact.isEmpty { r.impact = generic.impact }
         if r.travel.isEmpty { r.travel = generic.travel }
@@ -80,7 +102,7 @@ enum SkillFXCatalog {
     /// 空の段は共通の演出（stage 0）で補う。
     static func stageRecipe(heroID: String, slot: SkillSlot, stage: Int, master: MasterData) -> SkillFXRecipe? {
         guard stage > 0, let set = sets[heroID] else { return nil }
-        let s = info(heroID: heroID, slot: slot, master: master)
+        let s = info(heroID: heroID, slot: slot, stage: stage, master: master)
         guard let r = set.recipe(slot, stage: stage, s) else { return nil }
         return merged(r, over: recipe(heroID: heroID, slot: slot, master: master))
     }
@@ -89,6 +111,14 @@ enum SkillFXCatalog {
     static func passiveRelease(heroID: String, released: Int, master: MasterData) -> [FXCue]? {
         guard let set = sets[heroID] else { return nil }
         return set.passiveRelease(info(heroID: heroID, slot: .passive, master: master), released: released)
+    }
+
+    /// 残りの数をバッジで出すスキル（HeroFXSet.countedSlot。持たないヒーローは nil）。
+    static func countedSlot(heroID: String) -> SkillSlot? { sets[heroID]?.countedSlot }
+
+    /// countedSlot の残りが remaining のときに消えているべき演出の組（FXMesh.group）。
+    static func spentGroups(heroID: String, remaining: Int) -> [Int] {
+        sets[heroID]?.spentGroups(remaining: remaining) ?? []
     }
 
     /// 段の演出の空の段を共通の演出で補う。
@@ -104,11 +134,37 @@ enum SkillFXCatalog {
         return r
     }
 
+    /// キットの強い通常攻撃の演出（ヒーローが持つときだけ。無ければ nil）。
+    static func empoweredAttack(heroID: String, master: MasterData) -> [FXCue]? {
+        guard let set = sets[heroID], let cues = set.empoweredAttack(info(heroID: heroID, slot: .passive, master: master)),
+              !cues.isEmpty else { return nil }
+        return cues
+    }
+
+    /// 次の通常攻撃が強い間の目印（ヒーローが持つときだけ。無ければ nil）。メッシュの組を empoweredReadyGroup にそろえて返す。
+    static func empoweredReady(heroID: String, master: MasterData) -> [FXCue]? {
+        guard let set = sets[heroID], let cues = set.empoweredReady(info(heroID: heroID, slot: .passive, master: master)),
+              !cues.isEmpty else { return nil }
+        return cues.map { cue in
+            guard case .mesh(let m) = cue.element else { return cue }
+            var c = cue
+            c.element = .mesh(m.with { $0.group = empoweredReadyGroup })
+            return c
+        }
+    }
+
+    /// 強い通常攻撃の目印のメッシュの組（準備が外れたら SkillFXPlayer.cut で消す）。
+    static let empoweredReadyGroup = 9
+    /// 目印を出し直す間隔（秒）。目印のメッシュの寿命はこれより長く書き、重ねて途切れないようにする。
+    static let empoweredReadyPeriod: Float = 1.5
+
     /// 段の演出を探す最大の段（キットの再使用は 3 段まで）。
     static let maxStage = 3
 
     /// スロットの詠唱モーション（無ければ nil = 既定の動き）。
     static func motion(heroID: String, slot: SkillSlot, builder: MotionBuilder) -> MotionClip? {
+        // ヒーロー固有の全身のモーション（HeroSkillMotions）があれば、そちらが先（演出の定義の motion は使わない）
+        if let clip = HeroSkillMotions.cast(heroID: heroID, slot: slot, stage: 0, builder: builder) { return clip }
         guard slot != .passive, let set = sets[heroID] else { return nil }
         var m = builder
         set.motion(slot, &m)

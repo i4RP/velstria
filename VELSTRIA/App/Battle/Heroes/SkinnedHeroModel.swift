@@ -360,6 +360,21 @@ final class SkinnedHeroModel: HeroDisplayModel {
     /// 前腕の籠手・爪は本体アセット（Tripo の本体プロンプト・assets.json H007 / H022）に含めるので、
     /// 手続きメッシュも Prop も付けない（castGlow の親・前腕追従のため空の entity は残す）。
     static let bodyWornGear: Set<String> = ["\(WeaponKind.stoneFist)", "\(WeaponKind.azureClaw)"]
+    /// 吊り輪を握って下げる副手（灯籠）。構え・振りの武器角に関係なく、胴の向きのまま真下へ吊るす
+    /// （双剣の構えの武器角 -1.05 を灯籠に掛けると、火袋が前へ水平に突き出して浮いて見える）。
+    static let hangingGear: Set<String> = ["\(OffhandKind.moonLantern)"]
+
+    /// スキンメッシュのヒーローの装備だけに掛ける表示倍率（設計図の weaponScale / offhandScale に掛ける。手続きモデルは従来どおり）。
+    /// 手続きの寸法は 2 頭身寄りの手続きモデル向けで、人の体格のスキンメッシュには大きすぎるもの:
+    /// 弩（Prop の弓は手続きの 1.7 倍の幅 1.0 m）、月弓・光の弓（全長 1.27 m で下の弓先が足元に立つ）。
+    /// entity の拡縮なので、先端（weaponTip / offhandTip）・軌跡・発射位置も同じ比で縮む。
+    static func gearScale(_ kind: String) -> Float {
+        switch kind {
+        case "\(WeaponKind.mechCrossbow)": return 0.78
+        case "\(OffhandKind.ashBow)", "\(OffhandKind.lightBow)": return 0.84
+        default: return 1
+        }
+    }
 
     let root = Entity()
     let overheadHeight: Float
@@ -382,6 +397,8 @@ final class SkinnedHeroModel: HeroDisplayModel {
     private let flag: ModelEntity?
     let float: ModelEntity?
     private var effects: HeroEffects
+    /// 次の通常攻撃が強い間の武器の先の光（setEmpoweredReady。0 = 消す）。
+    private var empoweredGlow: Float = 0
 
     private var poser: HeroSkeletonPoser
     private let handR: Int
@@ -402,6 +419,10 @@ final class SkinnedHeroModel: HeroDisplayModel {
     private let floatAnchor: V3
     private let weaponFollowsArm: Bool
     private let offhandFollowsArm: Bool
+    private let offhandHangs: Bool
+    /// 状態のクリップ（待機など）を重ねている度合い（0〜1、切り替えで武器角が跳ねないよう時間で寄せる）。
+    private var stateClipHold: Float = 0
+    private var lastApplyTime: Float = 0
     private let weaponPoints: HeroWeaponPoints
     private var animator: HeroAnimator
     /// 歩幅の基準にする腰から足首までの長さ（m）。テストで手続きモデルと skinned モデルの走りの位相を揃えるのに使う。
@@ -456,12 +477,17 @@ final class SkinnedHeroModel: HeroDisplayModel {
         let skinHips = rp[rig.index[.hips]!].y
         let skinShoulder = (rp[rig.index[.armL]!].y + rp[rig.index[.armR]!].y) * 0.5
         let ay = (skinShoulder - skinHips) / max(0.05, procShoulder - procHips)
-        floatAnchor = V3(ms.floatAnchor.x, skinShoulder + (ms.floatAnchor.y - procShoulder) * ay, ms.floatAnchor.z)
+        var anchor = V3(ms.floatAnchor.x, skinShoulder + (ms.floatAnchor.y - procShoulder) * ay, ms.floatAnchor.z)
+        // 潮の水球（H004）は大きく（半径 0.12 + 輪 0.17）、頭の高さで回ると正面のカメラ（詳細・ギャラリー）で顔の前を通って隠す。
+        // 人の体格のスキンでは胸の高さで回す（手続きの 2 頭身では 1.15 m が頭の横）
+        if bp.float == .waterOrb { anchor.y = min(anchor.y, skinShoulder - 0.12) }
+        floatAnchor = anchor
         floatMotion = ms.floatMotion
 
         wingDepth = template.backDepth ?? ms.wingAnchor.z
         weaponFollowsArm = bp.weaponFollowsArm
         offhandFollowsArm = bp.offhand == .stoneFist || bp.offhand == .azureClaw
+        offhandHangs = Self.hangingGear.contains("\(bp.offhand)")
         // 武器・副手のエンティティは手続きの武器座標のまま（Prop は propFit の中）なので、手続きの先端がそのまま使える
         weaponPoints = HeroWeaponPoints(blueprint: bp, meshes: ms)
         overheadHeight = (template.bounds.max.y + 0.38) * bp.scale
@@ -522,8 +548,8 @@ final class SkinnedHeroModel: HeroDisplayModel {
         motion.addChild(clone)
         motion.addChild(weapon)
         motion.addChild(offhand)
-        weapon.scale = V3(repeating: bp.weaponScale)
-        offhand.scale = V3(repeating: bp.offhandScale)
+        weapon.scale = V3(repeating: bp.weaponScale * Self.gearScale("\(bp.weapon)"))
+        offhand.scale = V3(repeating: bp.offhandScale * Self.gearScale("\(bp.offhand)"))
         if let wingL, let wingR {
             motion.addChild(wingL)
             motion.addChild(wingR)
@@ -548,6 +574,17 @@ final class SkinnedHeroModel: HeroDisplayModel {
                                 defaultRunSpeed: defaultRunSpeed,
                                 motion: motionSet.flatMap { HeroMotionBinding(set: $0, library: HeroMotionClips.library(heroID: heroID)) })
         animator.legLength = skinLeg * bp.scale
+        // 足の接地（全身のモーション）: スキンの腰・腿の付け根・膝・足首の待機の位置から
+        if let uR = rig.index[.upLegR].map({ rp[$0] }), let uL = rig.index[.upLegL].map({ rp[$0] }),
+           let kR = rig.index[.legR].map({ rp[$0] }), let kL = rig.index[.legL].map({ rp[$0] }),
+           let fR = rig.index[.footR].map({ rp[$0] }), let fL = rig.index[.footL].map({ rp[$0] }) {
+            let hipsRest = rp[rig.index[.hips]!]
+            let s = bp.scale
+            animator.legRig = HeroLegRig(hips: hipsRest * s, socketR: (uR - hipsRest) * s, socketL: (uL - hipsRest) * s,
+                                         thighR: simd_distance(uR, kR) * s, shinR: simd_distance(kR, fR) * s,
+                                         thighL: simd_distance(uL, kL) * s, shinL: simd_distance(kL, fL) * s,
+                                         dropScale: hipsDropScale * s, rest: animator.profile.rest)
+        }
         if let hip = rig.index[.upLegL], let knee = rig.index[.legL], let foot = rig.index[.footL] {
             let thigh = simd_length(rp[hip] - rp[knee])
             let shin = simd_length(rp[knee] - rp[foot])
@@ -591,6 +628,10 @@ final class SkinnedHeroModel: HeroDisplayModel {
     }
 
     func castDuration(_ slot: SkillSlot) -> Float { animator.castDuration(slot) }
+    func castDuration(_ slot: SkillSlot, stage: Int) -> Float { animator.castDuration(slot, stage: stage) }
+    func castRestarts(_ slot: SkillSlot, stage: Int) -> Bool { animator.castRestarts(slot, stage: stage) }
+    func playCast(_ slot: SkillSlot, stage: Int) { animator.playCast(slot, stage: stage) }
+    func playCastHit(_ slot: SkillSlot) -> Float? { animator.playCastHit(slot) }
 
     func update(dt: Double, moveSpeed: Double) {
         let pose = animator.advance(dt: Float(dt), moveSpeed: HeroModelLibrary.metersPerSecond(moveSpeed))
@@ -607,6 +648,15 @@ final class SkinnedHeroModel: HeroDisplayModel {
     func synchronizeAttackRelease() {
         if heroID == "H025" { animator.synchronizeAttackRelease() }
     }
+
+    func playAttack(windup: Double, interval: Double, empowered: Bool) {
+        let wasDead = animator.state == .dead
+        animator.playAttack(windup: Float(windup), interval: Float(interval), empowered: empowered)
+        if heroID == "H025" { animator.awaitAttackRelease() }
+        if wasDead { effects.setOpacity(1, body: body) }
+    }
+
+    func setEmpoweredReady(_ ready: Bool) { empoweredGlow = ready ? HeroEffects.empoweredGlow : 0 }
 
     func attackLaunchPoint() -> SIMD3<Float>? {
         weaponPoints.launchPosition(weapon: weapon, offhand: offhand, strikeHand: animator.strikeHand)
@@ -628,6 +678,10 @@ final class SkinnedHeroModel: HeroDisplayModel {
     var clipLayer: HeroClipLayer { animator.clips }
     /// 脚の長さの比（hipsDrop の伸び率）。
     var legScale: Float { hipsDropScale }
+    /// 足の接地の脚の寸法（テスト用）。
+    var legRig: HeroLegRig? { animator.legRig }
+    /// 今の手続きの姿勢（クリップを重ねる前。テスト用）。
+    var currentPose: HeroPose { animator.current }
 
     /// 任意の姿勢を適用する（テスト用）。手続きの姿勢そのものを見るため、再生中のクリップは重ねない。
     func applyPose(_ p: HeroPose, time: Float = 0) {
@@ -661,12 +715,20 @@ final class SkinnedHeroModel: HeroDisplayModel {
         let rig = poser.rig
         let gripR = V3(0, -rig.gripR, 0), gripL = V3(0, -rig.gripL, 0)
         let handPosR = poser.position[handR], handPosL = poser.position[handL]
+        // 状態のクリップ（腕を下ろした待機など）の間は、割り当ての待機の武器角（idleWeaponR / L）へ寄せる
+        let dtHold = min(0.1, max(0, t - lastApplyTime))
+        lastApplyTime = t
+        let stateClip: Float = clips && wu > 0 && animator.clips.role == .state ? 1 : 0
+        stateClipHold += (stateClip - stateClipHold) * min(1, dtHold * 8)
         if wu > 0, let m = animator.motion {
+            let k = stateClipHold
+            let angR = m.idleWeaponR.map { p.weaponR + ($0 - p.weaponR) * k } ?? p.weaponR
+            let angL = m.idleWeaponL.map { p.weaponL + ($0 - p.weaponL) * k } ?? p.weaponL
             weapon.position = simd_mix(handPosR + q.foreArmR.act(gripR), handPosR + q.handR.act(gripR), V3(repeating: wu))
-            let heldR = m.weaponGrip.map { q.handR * $0 } ?? q.torso * ry(p.armR.yaw) * rx(p.weaponR)
+            let heldR = m.weaponGrip.map { q.handR * $0 } ?? q.torso * ry(p.armR.yaw) * rx(angR)
             weapon.orientation = weaponFollowsArm ? q.handR : simd_slerp(qp.weaponR(p, followsArm: false), heldR, wu)
             offhand.position = simd_mix(handPosL + q.foreArmL.act(gripL), handPosL + q.handL.act(gripL), V3(repeating: wu))
-            let heldL = m.offhandGrip.map { q.handL * $0 } ?? q.torso * ry(-p.armL.yaw) * rx(p.weaponL)
+            let heldL = m.offhandGrip.map { q.handL * $0 } ?? q.torso * ry(-p.armL.yaw) * rx(angL)
             offhand.orientation = offhandFollowsArm ? q.handL : simd_slerp(qp.weaponL(p, followsArm: false), heldL, wu)
         } else {
             weapon.position = handPosR + q.foreArmR.act(gripR)
@@ -696,6 +758,11 @@ final class SkinnedHeroModel: HeroDisplayModel {
                 segment.scale = V3(1, length, 1)
             }
         }
+        if offhandHangs {
+            // 胴の正面の水平成分だけを残して真下へ吊るす（体が傾いても火袋は鉛直）
+            let f = q.torso.act(V3(0, 0, -1))
+            offhand.orientation = abs(f.x) + abs(f.z) > 1e-4 ? ry(atan2(-f.x, -f.z)) : qIdentity
+        }
         if let wingL, let wingR {
             let sp = min(1.3, max(0, p.wings))
             let flap = 0.06 * sin(t * 2.4)
@@ -723,6 +790,9 @@ final class SkinnedHeroModel: HeroDisplayModel {
                 float.position = floatAnchor + V3(0, 0.06 * sin(t * 1.4), 0)
             }
         }
-        effects.apply(p, time: t, dead: animator.state == .dead, body: body)
+        // 次の通常攻撃が強い間は武器の先の光を灯す（姿勢の光を下から支える。詠唱・打撃の光はそのまま上に乗る）
+        var lit = p
+        if empoweredGlow > 0, animator.state != .dead { lit.glow = max(lit.glow, empoweredGlow) }
+        effects.apply(lit, time: t, dead: animator.state == .dead, body: body)
     }
 }

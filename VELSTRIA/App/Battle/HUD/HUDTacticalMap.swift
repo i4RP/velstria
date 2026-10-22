@@ -1,39 +1,28 @@
 import SwiftUI
 import VelstriaCore
 
-/// 小さい地図のドラッグ操作と、全体確認用の44ptボタンを分ける。
+/// カメラのドラッグを保ち、全体マップの入口を地図の右下の小さなアイコンへ集約する。
 struct HUDMinimapDock: View {
     let model: HUDModel
     let layout: HUDLayout
 
     var body: some View {
-        VStack(spacing: 4) {
-            HUDMinimapView(model: model, size: layout.minimapSize)
-            Button { model.setTacticalMap(open: true) } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "map.fill")
-                        .foregroundStyle(HUDStyle.accent)
-                    Text(L("全体マップ", "MAP OVERVIEW"))
-                        .font(.system(size: 10, weight: .heavy, design: .rounded))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                    Spacer(minLength: 0)
+        HUDMinimapView(model: model, size: layout.minimapSize)
+            .overlay(alignment: layout.leftHanded ? .bottomLeading : .bottomTrailing) {
+                Button { model.setTacticalMap(open: true) } label: {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 21, height: 21)
+                        .background(Circle().fill(Color.black.opacity(0.45)))
+                        .frame(width: 44, height: 44, alignment: layout.leftHanded ? .bottomLeading : .bottomTrailing)
+                        .contentShape(Rectangle())
                 }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10)
-                .frame(width: layout.minimapSize, height: 32)
-                .hudGlass(cornerRadius: 10)
-                .frame(height: 44)
-                .contentShape(Rectangle())
+                .buttonStyle(HUDPressStyle())
+                .accessibilityLabel(L("全体マップを開く", "Open map overview"))
+                .accessibilityIdentifier("hud_minimap_expand")
             }
-            .buttonStyle(HUDPressStyle())
-            .accessibilityLabel(L("全体マップを開く", "Open map overview"))
-            .accessibilityIdentifier("hud_minimap_expand")
-        }
-        .frame(width: layout.minimapDockFrame.width, height: layout.minimapDockFrame.height)
-        .position(x: layout.minimapDockFrame.midX, y: layout.minimapDockFrame.midY)
+            .position(x: layout.minimapFrame.midX, y: layout.minimapFrame.midY)
     }
 }
 

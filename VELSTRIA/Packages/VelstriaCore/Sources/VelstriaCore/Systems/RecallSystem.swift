@@ -40,7 +40,8 @@ public enum RecallSystem {
         var bestD = Double.infinity
         for k in s.units.indices {
             let u = s.units[k]
-            guard u.kind == .tower, u.team == team, u.isAlive else { continue }
+            // 味方のタワー・ベース（Core）・ミニオン（MLBB の降臨。トラップを置くヒーローはまだ居ない）
+            guard (u.kind == .tower || u.kind == .core || u.kind == .minion), u.team == team, u.isAlive else { continue }
             let d = u.pos.distanceSquared(to: requested)
             if d <= r * r, d < bestD {
                 bestD = d
@@ -82,6 +83,10 @@ public enum RecallSystem {
     public static func cancelChannel(_ s: inout SimState, _ i: Int) {
         guard let ch = s.units[i].hero?.channel else { return }
         s.units[i].hero?.channel = nil
+        if ch.kind == .teleport, let slot = s.units[i].hero?.spells.firstIndex(of: "BS09") {
+            let cd = s.units[i].hero?.spellCooldowns[slot] ?? 0
+            s.units[i].hero?.spellCooldowns[slot] = max(0, cd - 30)
+        }
         s.emit(.channelCanceled(heroID: s.units[i].id, kind: ch.kind))
     }
 
@@ -117,6 +122,10 @@ public enum RecallSystem {
                                                radius: s.units[i].radius)
             }
             s.units[i].hero?.channel = nil
+            if ch.kind == .teleport {
+                CombatSystem.addStatus(&s, targetIndex: i, StatusEffect(kind: .speedBoost, duration: 3,
+                    magnitude: 0.6, sourceID: s.units[i].id, tag: "spell.BS09"))
+            }
             s.units[i].pos = dest
             s.units[i].prevPos = dest
             s.units[i].moveIntent = .none

@@ -1,6 +1,6 @@
-In a world where the Star Ring has shattered, choose from 24 heroes in a 5v5 MOBA for iPhone. Team up with four AI allies, push three lanes and destroy the enemy Star Core.
+In a world where the Star Ring has shattered, choose from 10 heroes in a 5v5 MOBA for iPhone. Team up with four AI allies, push three lanes and destroy the enemy Star Core.
 Builds, vision, boss fights and teamfights: a full MOBA in matches of roughly 10 to 18 minutes.
-A Tutorial and Practice mode help newcomers, and every match is against AI with no connection needed.
+A Tutorial and Practice mode help newcomers. Matches against AI need no connection, and you can also play online with friends.
 
 ◆ HOW TO PLAY
 - Pick a position (Top, Jungle, Mid, Bot or Support) and push the lane with your minions
@@ -11,30 +11,36 @@ A Tutorial and Practice mode help newcomers, and every match is against AI with 
 
 ◆ NEW TO MOBAS? START HERE
 - Tutorial: five chapters, about five minutes; offered at first launch, skippable, and replayable any time
-- Practice: try every hero, owned or not, with Infinite Gold and No Cooldowns
+- Practice: try every hero with Infinite Gold and No Cooldowns
 - Easy controls: the Attack button auto-targets nearby enemies, and skills cast with a tap (auto-aim) or a drag (manual aim). Auto-level Skills and Recommended Items are on from the start
 
-◆ 24 HEROES, 6 ROLES
-Vanguard, Duelist, Ranger, Arcanist, Support and Assassin, four heroes each. Every hero has a Passive, three Skills and an Ultimate. Start with six heroes, one per role, and unlock the other 18 with Starlight Coins (Coins) earned by playing.
+◆ 10 HEROES, 5 ROLES
+Duelist, Ranger, Arcanist, Support and Assassin, two heroes each. Every hero has a Passive, two Skills and an Ultimate. All 10 heroes are available from the start; heroes are never unlocked or sold.
 
-◆ 92 ITEMS, 10 BATTLE SPELLS, 30 RUNES
+◆ 92 ITEMS, 15 BATTLE SPELLS, 7 EMBLEMS
 - Items: attack, magic, defense and movement; buy anywhere, any time, and combine at a discount using the components you own. Boots can carry a jungle or roam blessing
 - Battle Spells: Blink, Cleanse, Ignite and more
-- Runes: five paths
+- Emblems: seven sets with freely combined talents
 
 ◆ MODES
-- Classic (Standard): you and four AI allies vs five AI enemies; earn Coins whether you win or lose
-- Ranked: an AI ladder with bans, snake picks and seven tiers, Meteorite to Star Sovereign; the AI toughens as you climb
+- Classic (Standard): you and four AI allies vs five AI enemies
+- Ranked: an AI ladder with snake-order hero picks and seven tiers, Meteorite to Star Sovereign; the AI toughens as you climb
 - Brawl: single lane, no jungle, faster pace; earns rewards but no rank points
 - Rising: a win-to-advance run against AI
 - AI & Custom: pick your side, AI strength and map
 - Auto Battler: you vs seven AI rivals
 - Spectate and Replays: watch AI vs AI (no rewards or records), or rewatch your auto-saved matches at 0.5x to 8x with rewind and file sharing
 
+◆ PLAY ONLINE WITH FRIENDS
+- Share a room code, or join players on the same Wi-Fi: 5v5 for up to 10 players, with AI in any empty seats
+- Add friends with friend codes and invite them to your party. The host sets the teams and spectator seats
+- No free-text chat. Block or report players; hosts can remove players from the room
+- Requires accepting the Community Guidelines and Terms of Service; not available to players under 13
+
 ◆ COSMETIC-FOCUSED PURCHASES
-- Free to play. Optional in-app purchases: AstralGem (shown as "Astral Gems" on the purchase sheet) and Star Pass Premium. Spend AstralGem on cosmetics such as skins
-- Cosmetics don't affect combat, nothing paid is randomized, and heroes unlock only with Coins, never with AstralGem
-- Star Pass: 30 levels, free and premium tracks. Premium is purchased each season and adds Coins and AstralGem on top of cosmetics; Coins speed up hero unlocks
+- Free to play. Optional in-app purchases: AstralGem (shown as "Astral Gems" on the purchase sheet) and Star Pass Premium. Spend AstralGem on cosmetics such as recall and spawn effects, emotes, avatar frames and kill effects
+- Cosmetics don't affect combat, nothing paid is randomized, and every hero is available to everyone; heroes are never sold
+- Star Pass: 30 levels, free and premium tracks. Premium is purchased each season and adds AstralGem and other rewards on top of cosmetics
 
 ◆ BUILT FOR PHONES
 - Landscape touch controls, left-handed layout, Colorblind Mode
@@ -42,6 +48,6 @@ Vanguard, Duelist, Ranger, Arcanist, Support and Assassin, four heroes each. Eve
 
 ◆ NOTES
 - Minors need a parent's or guardian's consent to buy. Monthly spending limits apply by age (15 and under: ¥5,000; 16 to 19: ¥10,000; 20 and over: no limit).
-- Every match is against AI and works without a connection (only purchases need one).
+- Matches against AI work offline. Online matches, friends and purchases need a connection.
 - Game data stays on your device and is deleted with the app. AstralGem balances lost through device loss, reset or app deletion can't be restored.
 - Requires an iPhone with iOS 18 or later; landscape only.

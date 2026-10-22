@@ -130,6 +130,56 @@
       "id": "H024", "name_ja": "夢織のノア", "name_en": "Noa, Dreamweaver", "role": "Assassin",
       "prompt": "Dreamy adult woman, slim build, fair skin. Soft layered lime-green and lilac cloth outfit with silver trims, short ruffled kilt over striped leggings, soft boots. Lavender bob hair under a long floppy lilac nightcap with a silver crescent pin. Silver thread-spool ornaments on the belt. Palette: lime green, lilac, lavender, silver.",
       "notes": "両手の dreamNeedle は Prop、夢の糸（dreamThreads）は実行時。blueprint.scale 0.96。"
+    },
+    {
+      "id": "H025", "name_ja": "月弦のルミナ", "name_en": "Lumina, Moon String", "role": "Ranger",
+      "prompt": "her graceful elf female face with long pointed elf ears and moonlight-cyan eyes, the silver-white high ponytail, the slim silver circlet with the small blue feather pin, the blue-violet huntress bodice with high collar, the silver crescent-moon shoulder guards and silver bracers, the deep blue cloak. a fitted blue-violet huntress bodice and tunic with silver trims, a short layered skirt of silver-edged tassets over fitted dark-blue leggings that cover the legs completely, and silver-trimmed knee-high boots; the deep blue cloak hangs straight behind her back and ends above the knees. Body-worn: the silver crescent-moon shoulder guards.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H026", "name_ja": "紫電のエウリア", "name_en": "Euria, Violet Bolt", "role": "Arcanist",
+      "prompt": "her elf female face with long pointed elf ears and bright violet eyes, the short silver-white hair, the two silver blade-like horns sweeping back from her temples, the white coat with sharp pointed shoulders, the fitted blue bodysuit with cyan lightning-streak lines. the white coat is fitted on the torso and arms with short cuffs at the wrists, and opens below the waist into two coat tails reaching the knees, showing the fitted blue bodysuit on the legs and white knee-high boots. Body-worn: the pointed white coat shoulders.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H027", "name_ja": "竜槍のジャルド", "name_en": "Jarld, Dragon Spear", "role": "Duelist",
+      "prompt": "his heroic young male face, the brown high ponytail with the red cord, the teal-green dragon-head crest guard on his forehead, the teal-green dragon-scale breastplate and large dragon-scale pauldrons with gold trims, the pale tunic and the red cape. the pale tunic ends in a knee-length tabard at front and back over fitted dark trousers, teal-green dragon-scale greaves and boots; the red cape hangs straight down behind the back to the knees. Body-worn: the large dragon-scale pauldrons.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H028", "name_ja": "断空のザイル", "name_en": "Zail, Sky Cleaver", "role": "Assassin",
+      "prompt": "his sleek male face, the silver-white high ponytail with the red band, the glowing red visor over his eyes and the small silver antenna fins, the black bodysuit with angular steel-blue mechanical armor plates and silver trims, the red scarf. angular steel-blue armor plates on the chest, shoulders, forearms, hips and shins over the black bodysuit, armored boots; the red scarf is wrapped around the neck with two short tails hanging down the back. Body-worn: the angular steel-blue shoulder plates.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H029", "name_ja": "聖槌のボルグ", "name_en": "Borg, Holy Hammer", "role": "Support",
+      "prompt": "his towering massive male build, the short golden-blond hair, the gold circlet on his brow, his square-jawed face, the royal-blue plate armor with gold trims and the huge pauldrons, the red cape. full royal-blue plate armor with gold trims covering the whole body, plate tassets over the hips, armored greaves and sabatons; the red cape hangs straight down behind the back to the calves. Body-worn: the huge royal-blue pauldrons with gold trims.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H030", "name_ja": "星砲のライナ", "name_en": "Raina, Star Cannon", "role": "Ranger",
+      "prompt": "her cheerful young female face and bright blue eyes, the very long golden-blonde twin tails with the brown leather hair clips and cyan gems, the white jacket with gold epaulettes, the brown leather corset-vest, the navy necktie, the blue pleated skirt and black opaque tights. the white jacket is fitted with sleeves to the wrists, the blue pleated skirt ends at mid-thigh over black opaque tights that cover the legs completely, and brown leather knee-high boots; the twin tails fall straight down behind her back on both sides without touching the arms. Body-worn: the gold epaulettes on the shoulders.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H031", "name_ja": "氷嵐のオーリア", "name_en": "Oria, Ice Storm", "role": "Arcanist",
+      "prompt": "her tall regal female face with very pale skin and calm pale-blue eyes, the very long silver-white hair, the halo-shaped crown of jagged ice crystals behind her head with the thin platinum circlet, the deep ultramarine gown with high collar, the silver-blue sleeves with ice at the wrists. the deep ultramarine gown is fitted to the body and flares slightly below the knees into a hem of ice crystals that ends at the ankles with a clear gap between the feet (two separate legs inside, fitted ultramarine leggings and silver-blue boots visible at the hem); the translucent icy veil is short and hangs only behind the back. Body-worn: the ice crystal halo crown behind her head.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H032", "name_ja": "赤拳のディアス", "name_en": "Dias, Red Fist", "role": "Duelist",
+      "prompt": "his fierce young male face with pale lavender skin, the wild white hair, the pair of golden horns, the crimson eyes, the dark-purple spiked pauldrons and high-collared dark-purple armored jacket with the crimson core gem in the chest plate, the crimson trousers. the dark-purple armored jacket covers the torso and arms to the wrists, crimson trousers with spiked dark-purple shin guards and dark boots. Body-worn: the dark-purple spiked pauldrons and a long black demonic tail hanging straight down behind him to the ground.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H033", "name_ja": "紅牙のヴァルド", "name_en": "Vald, Crimson Fang", "role": "Assassin",
+      "prompt": "his handsome male face, the swept-back golden-blond hair, the sharp eyes, the long dark-navy coat with copper trims and buttons, the short blue capelet, the silver gauntlet on the right arm. the dark-navy coat is fitted on the torso and arms and opens below the waist into coat tails reaching the knees at front and back, dark fitted trousers and tall dark boots; the blue capelet covers only the shoulders. Body-worn: the short blue capelet and the silver gauntlet on the right forearm and hand.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
+    },
+    {
+      "id": "H034", "name_ja": "鎖鉤のゴルム", "name_en": "Gorm, Chain Hook", "role": "Support",
+      "prompt": "his huge barrel-chested male build with short sturdy legs, tan skin, the big horned iron helmet, the thick red beard reaching his chest, the long red hair, the round iron disc shoulder guards, the iron scale chestplate over the green tunic with the fur collar, the leather bracers. the iron scale chestplate and green tunic end at the hips over a short leather loincloth-style kilt with thick brown fur-lined trousers underneath covering the legs, heavy fur boots; bare thick upper arms with leather bracers on the forearms; the long red hair falls straight down behind the back. Body-worn: the round iron disc shoulder guards and a thick rusty chain worn diagonally across the chest like a sash.",
+      "notes": "本体は build/heroref/<ID>/fullbody.png（ポートレートから作った全身 T ポーズ）を --concept-source fullbody で使う。武器・浮遊物は実行時の手続きメッシュ（Prop なし）。"
     }
   ],
   "props": [
@@ -267,6 +317,51 @@
     {
       "kind": "lightBow", "heroes": ["H020"], "grip": 0.5, "optional": false, "side": "bow",
       "prompt": "a light bow, side view, slender curved recurve bow with polished gold limbs, glowing pale-gold inner edge, amethyst-purple wrapped grip in the middle, glowing pearls at both tips, thin glowing golden string, the bow curving to the right with the string on the left side of the image."
+    },
+    {
+      "kind": "crescentBow", "heroes": ["H025"], "grip": 0.5, "optional": false, "side": "bow",
+      "prompt": "a huge crescent-moon longbow, side view, tall silver crescent-shaped bow limbs lined on the outer edge with small sharp thorn-like silver spikes, a glowing cyan moonlight inner rim, small silver crescent hooks with glowing cyan pearls at both tips, dark wrapped grip in the middle with a small glowing cyan crescent ornament, thin glowing pale-cyan string, the bow curving to the right with the string on the left side of the image.",
+      "notes": "手続き版（crescentBow）は ashBow と同じ YZ 平面・弦 +Z。propMount は ashBow と同じ (1, 0.6, true)。"
+    },
+    {
+      "kind": "dragonSpear", "heroes": ["H027"], "grip": 0.29, "optional": false, "yaw": -90,
+      "prompt": "a very long dragon spear, front view, the dragon head facing the viewer, long dark shaft with gold rings and a pointed gold butt cap at the bottom, near the top a teal-green dragon head with golden horns, a golden flowing mane on both sides and glowing orange eyes, from the dragon's open jaws a large golden flame-shaped spear blade pointing straight up with a glowing orange core, the flat face of the blade toward the viewer.",
+      "notes": "手続き版は穂先・たてがみの面が XY（面 ±Z）、竜頭の上が +Z。yaw -90 で画像の正面 -> +Z。全長に対し握りは下から 0.29。"
+    },
+    {
+      "kind": "photonBlade", "heroes": ["H028"], "grip": 0.1, "optional": false, "yaw": -90,
+      "prompt": "a futuristic long sword, front view of the flat of the blade, blade tip pointing straight up and hilt at the bottom, long slim black blade with a glowing crimson-red cutting edge along the right side and a silver spine along the left side, angular silver crossguard with small swept wings and a glowing red gem in the center, black grip with silver bands, small silver pommel.",
+      "notes": "手続き版は刃が XY 面（面 ±Z）で光る刃縁が +X。yaw -90 で画像の右 -> +X。"
+    },
+    {
+      "kind": "holyMaul", "heroes": ["H029"], "grip": 0.25, "optional": false,
+      "prompt": "a huge holy war maul, front view, long dark haft with gold rings and a round gold pommel at the bottom, at the top a massive rectangular royal-blue hammer head extending left and right with heavy gold-plated striking faces at both ends and gold bands, a glowing golden four-pointed holy star sigil on the side of the head.",
+      "notes": "手続き版は槌頭の長さと打撃面が ±Z（siegeHammer と同じ）。画像の左右 = ±Z なので yaw なし。"
+    },
+    {
+      "kind": "heaterShield", "heroes": ["H029"], "grip": 0.5, "optional": false, "axis": "vertical", "yaw": 90,
+      "prompt": "a tall kite-shaped heater shield, front view of the shield face, flat top edge with rounded upper corners narrowing to a point at the bottom, polished gold face framed by a thick royal-blue rim, a royal-blue cross over the face, a glowing golden diamond holy gem at the center of the cross.",
+      "notes": "手続き版の盾面は -Z。正規化で yaw 90（画像の正面 -> -Z）、propMount は (1, 0.3, true)（trs((-0.1, 0.02, -0.12), ry(0.3))）。"
+    },
+    {
+      "kind": "starCannon", "heroes": ["H030"], "grip": 0.37, "optional": false, "side": "gun",
+      "prompt": "a giant magic hand cannon carried like a bazooka, side profile view, standing upright with the muzzle at the top and the stock at the bottom, one long thick straight white cannon barrel of even width from bottom to top (its width about one quarter of its height) wrapped with three broad gold bands, a short navy-blue shoulder stock at the bottom end, two long golden blade-shaped horns attached to the left and right sides of the muzzle and pointing straight up beyond it, a large glowing cyan power orb in a gold ring mounted on the side of the barrel, the side with the orb facing the left side of the image.",
+      "notes": "手続き版は砲口 +Y、上面（動力球）+Z。side gun。"
+    },
+    {
+      "kind": "abyssRing", "heroes": ["H032"], "grip": 0.22, "optional": false, "axis": "vertical", "yaw": -90,
+      "prompt": "a golden bladed hand ring like a chakram, front view of the flat ring, a thick gold ring with four curved hook-shaped gold blades sticking out of the outer edge in the same rotating direction (the top blade longer), a thin glowing crimson-red inner edge, a short dark grip bar crossing the lower inside of the ring horizontally.",
+      "notes": "H032 の両手で共用（weapon / offhand とも abyssRing）。手続き版は輪が XY 面（面 ±Z）、握りの棒は輪の下寄りを X 方向に渡る。輪は PCA の長軸が揺れるので axis vertical。"
+    },
+    {
+      "kind": "bloodGreatsword", "heroes": ["H033"], "grip": 0.2, "optional": false, "yaw": -90,
+      "prompt": "an enormous silver greatsword, front view of the flat of the blade, blade tip pointing straight up and hilt at the bottom, very wide silver blade with a jagged serrated saw-tooth spine along the left side and a straight sharp edge along the right side, a glowing icy-blue fuller down the center, a crossguard shaped like a silver horned skull with glowing blue eyes facing the viewer, black leather-wrapped grip, spiked silver pommel.",
+      "notes": "手続き版は刃が XY 面（面 ±Z）、ギザギザの峰が -X。yaw -90 で画像の右 -> +X（峰は画像の左 -> -X）。"
+    },
+    {
+      "kind": "hookChain", "heroes": ["H034"], "grip": 0.24, "optional": false, "yaw": -90,
+      "prompt": "a heavy iron chain hook weapon, front view, short thick brown wooden handle wrapped with iron rings at the bottom, a thick iron rod above it, at the top a huge massive curved iron hook as wide as half the weapon's height, thick and broad like a meat hook, bending over to the right like a big question mark with a sharp barbed tip, a short iron claw on the left side, a loop of thick rusty iron chain hanging from the left side of the handle, the flat side of the hook toward the viewer.",
+      "notes": "手続き版は鉤が XY 面（面 ±Z）で +X へ曲がる、鎖は -X。yaw -90 で画像の右 -> +X。"
     }
   ],
   "skins": [

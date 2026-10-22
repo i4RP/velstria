@@ -4,8 +4,8 @@ import VelstriaCore
 // 担当: battle-hud。上部の HUD:
 // 中央に小型のスコア（青キル・試合時間・赤キル、キルの下に破壊タワー数）、
 // スコアのミニマップ側に味方 4 人の状態列（顔・HP・倒れた味方の赤い復活秒数・必殺技）、
-// 情報側（右手配置は右上、左利きは左上 = HUDLayout.topInfoAlignment）に自分の K/D/A（剣・ドクロ・拍手のアイコン + 数字）・CS と
-// スコアボード（UI029）、ミニマップの内側に端末状態と 設定（UI030）・消音・ズームの縦列（HUDUtilityColumn.swift）。
+// 情報側に自分の K/D/A・CS とスコアボード。所持金とシグナル開閉の場所を端に空ける。
+// ミニマップの内側に設定（UI030）・消音・ズームの縦列（HUDUtilityColumn.swift）。
 // ミニマップドック（左利きでは右上）に合わせ、味方列と縦列は左右反転する。
 // 観戦・リプレイでは味方列と縦列を出さず、情報側にスコアボード・一時停止・退出を並べる。
 // 各部品の位置は HUDLayout の拡張（下）で決め、HUDTopBarTests で重なりが無いことを確かめる。
@@ -67,7 +67,7 @@ struct HUDScoreCapsule: View, Equatable {
         HStack(spacing: 0) {
             teamSide(top.blueKills, towers: top.blueTowers, color: blue, symbol: "circle.fill", leading: true)
             Text(clock)
-                .font(.system(size: 12.5 * scale, weight: .heavy, design: .rounded))
+                .font(.system(size: 11.5 * scale, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(.white.opacity(0.94))
                 .shadow(color: .black.opacity(0.5), radius: 1, y: 0.5)
@@ -79,19 +79,13 @@ struct HUDScoreCapsule: View, Equatable {
         .padding(.horizontal, 5 * scale)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 8 * scale, style: .continuous)
-                .fill(LinearGradient(stops: [.init(color: blue.opacity(0.45), location: 0),
-                                             .init(color: HUDStyle.glassBottom, location: 0.34),
-                                             .init(color: HUDStyle.glassBottom, location: 0.66),
-                                             .init(color: red.opacity(0.45), location: 1)],
-                                     startPoint: .leading, endPoint: .trailing))
+            LinearGradient(stops: [.init(color: blue.opacity(0.18), location: 0),
+                                   .init(color: Color.black.opacity(0.28), location: 0.35),
+                                   .init(color: Color.black.opacity(0.28), location: 0.65),
+                                   .init(color: red.opacity(0.18), location: 1)],
+                           startPoint: .leading, endPoint: .trailing)
+                .clipShape(RoundedRectangle(cornerRadius: 2 * scale))
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8 * scale, style: .continuous)
-                .strokeBorder(LinearGradient(colors: [blue.opacity(0.75), Color.white.opacity(0.16), red.opacity(0.75)],
-                                             startPoint: .leading, endPoint: .trailing), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.3), radius: 3, y: 2)
         .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(L("キル数 ブルー \(top.blueKills) 対 レッド \(top.redKills)、破壊タワー ブルー \(top.blueTowers) 対 レッド \(top.redTowers)、経過 \(clock)",
@@ -105,7 +99,7 @@ struct HUDScoreCapsule: View, Equatable {
             HStack(spacing: 2 * scale) {
                 if colorblind && leading { mark(symbol, color: color) }
                 Text("\(kills)")
-                    .font(.system(size: 16 * scale, weight: .black, design: .rounded))
+                    .font(.system(size: 15 * scale, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(color)
                     .shadow(color: .black.opacity(0.6), radius: 1, y: 1)
@@ -115,9 +109,9 @@ struct HUDScoreCapsule: View, Equatable {
             }
             HStack(spacing: 1.5 * scale) {
                 Image(systemName: Self.towerSymbol)
-                    .font(.system(size: 6 * scale, weight: .bold))
+                    .font(.system(size: 5 * scale, weight: .medium))
                 Text("\(towers)")
-                    .font(.system(size: 7.5 * scale, weight: .heavy, design: .rounded))
+                    .font(.system(size: 6 * scale, weight: .medium))
                     .monospacedDigit()
             }
             .foregroundStyle(color.opacity(0.9))
@@ -174,9 +168,9 @@ struct HUDAllyIcon: View, Equatable {
     static let lowHPRatio = 0.3
 
     var body: some View {
-        let corner = size * 0.2
+        let corner = size * 0.12
         VStack(spacing: barGap) {
-            HeroPortraitView(heroID: ally.heroID, size: size, showsRole: false)
+            HeroPortraitView(heroID: ally.heroID, size: size, showsRole: false, face: true)
                 .saturation(ally.isDead ? 0 : 1)
                 .overlay {
                     if ally.isDead {
@@ -185,8 +179,8 @@ struct HUDAllyIcon: View, Equatable {
                 }
                 .overlay(
                     RoundedRectangle(cornerRadius: corner, style: .continuous)
-                        .strokeBorder(Theme.teamColor(.blue, colorblind: colorblind).opacity(ally.isDead ? 0.25 : 0.7),
-                                      lineWidth: 1)
+                        .strokeBorder(Theme.teamColor(.blue, colorblind: colorblind).opacity(ally.isDead ? 0.25 : 0.45),
+                                      lineWidth: 0.5)
                 )
                 .overlay {
                     if ally.isDead {
@@ -267,7 +261,7 @@ struct HUDOutlinedNumber: View {
 
 // MARK: - 情報側（K/D/A・CS・スコアボード）
 
-/// 右上（左利きは左上）の列。操作中: 自分の成績 + スコアボード、観戦: スコアボード・一時停止・退出。
+/// 右上（左利きは左上）の列。操作中は成績からスコアボードへ。観戦はスコアボード・一時停止・退出。
 struct HUDTopRight: View {
     let model: HUDModel
     let layout: HUDLayout
@@ -291,18 +285,32 @@ struct HUDTopRight: View {
                     model.requestLeave()
                 }
             } else {
-                // 成績の欄はボタンの見た目と中心の高さをそろえる（ボタンのタップ領域は下へ広げる）
-                HUDPlayerStats(top: model.top, scale: layout.topScale)
-                    .equatable()
-                    .padding(.top, max(0, (layout.utilityButtonSize - layout.topStatsHeight) / 2))
-                HUDUtilityButton(symbol: "list.bullet.rectangle.fill", label: L("スコアボード", "Scoreboard"),
-                                 identifier: "hud_scoreboard", size: layout.utilityButtonSize,
-                                 hitAlignment: .top) { toggleScoreboard() }
+                // 成績全体をスコアボードの入口にする。薄い見た目にも44ptのタップ高さを保つ。
+                Button { toggleScoreboard() } label: {
+                    HStack(spacing: 5 * layout.topScale) {
+                        HUDPlayerStats(top: model.top, scale: layout.topScale)
+                            .equatable()
+                            .frame(width: layout.topStatsWidth)
+                        Image(systemName: "list.bullet.rectangle")
+                            .font(.system(size: 12 * layout.topScale, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                    .padding(.top, 5 * layout.topScale)
+                    .frame(width: infoWidth, height: layout.utilityHitSize, alignment: .top)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(HUDPressStyle())
+                .accessibilityLabel(L("スコアボード", "Scoreboard"))
+                .accessibilityValue(L("キル \(model.top.kills)、デス \(model.top.deaths)、アシスト \(model.top.assists)、CS \(model.top.creepScore)",
+                                      "Kills \(model.top.kills), deaths \(model.top.deaths), assists \(model.top.assists), CS \(model.top.creepScore)"))
+                .accessibilityIdentifier("hud_scoreboard")
             }
         }
         .fixedSize()
         .opacity(model.isAiming ? 0.25 : 1)
     }
+
+    private var infoWidth: CGFloat { layout.topInfoFrame(spectating: false).width }
 
     private func toggleScoreboard() {
         if model.panel == .scoreboard { model.closePanel() } else { model.openPanel(.scoreboard) }
@@ -325,8 +333,8 @@ struct HUDPlayerStats: View, Equatable {
     }
 
     var body: some View {
-        let icon = 11 * scale
-        HStack(spacing: 7 * scale) {
+        let icon = 8.5 * scale
+        HStack(spacing: 4 * scale) {
             stat(top.kills) {
                 HUDCrossedSwords().fill(Color.white.opacity(0.85)).frame(width: icon * 1.15, height: icon * 1.15)
             }
@@ -342,7 +350,7 @@ struct HUDPlayerStats: View, Equatable {
                     .frame(width: icon, height: icon)
             }
             .accessibilityLabel(L("アシスト \(top.assists)", "Assists \(top.assists)"))
-            Rectangle().fill(Color.white.opacity(0.18)).frame(width: 1, height: 12 * scale)
+            Rectangle().fill(Color.white.opacity(0.18)).frame(width: 0.5, height: 9 * scale)
             stat(top.creepScore) {
                 Image(systemName: Self.creepSymbol)
                     .font(.system(size: icon * 0.78, weight: .bold))
@@ -350,12 +358,12 @@ struct HUDPlayerStats: View, Equatable {
             }
             .accessibilityLabel("CS \(top.creepScore)")
         }
-        .font(.system(size: 13 * scale, weight: .heavy, design: .rounded))
+        .font(.system(size: 10 * scale, weight: .medium))
         .monospacedDigit()
-        .padding(.horizontal, 9 * scale)
-        .frame(height: 26 * scale)
-        .hudGlass(cornerRadius: 13 * scale)
-        .allowsHitTesting(false)
+        .lineLimit(1)
+        .minimumScaleFactor(0.75)
+        .frame(height: 18 * scale)
+        .shadow(color: .black.opacity(0.75), radius: 1, y: 0.5)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("hud_kda")
     }
@@ -405,7 +413,7 @@ extension HUDLayout {
     // MARK: スコア
 
     /// 中央のスコアの大きさ（参考画面の「3 11:27 35」程度。キルの下に破壊タワー数）。
-    var scoreSize: CGSize { CGSize(width: 102 * topScale, height: 30 * topScale) }
+    var scoreSize: CGSize { CGSize(width: 110 * topScale, height: 24 * topScale) }
 
     /// 中央のスコア（味方の顔の帯と中心の高さをそろえる）。
     var scoreFrame: CGRect {
@@ -416,9 +424,9 @@ extension HUDLayout {
     // MARK: 味方列
 
     static let allyStripMax = 4
-    var allySpacing: CGFloat { 3 * topScale }
-    var allyBarGap: CGFloat { 2 }
-    var allyBarHeight: CGFloat { 3 }
+    var allySpacing: CGFloat { 2 * topScale }
+    var allyBarGap: CGFloat { 1 }
+    var allyBarHeight: CGFloat { 1.5 }
     /// 味方列とスコア・縦列の間の隙間。
     var allyGap: CGFloat { 4 * topScale }
 
@@ -438,7 +446,7 @@ extension HUDLayout {
     var allyFaceSize: CGFloat {
         let n = CGFloat(Self.allyStripMax)
         let fit = (allyRoom - allySpacing * (n - 1)) / n
-        return max(20, min(28, 26 * scale, fit.rounded(.down)))
+        return max(18, min(27, 25 * scale, fit.rounded(.down)))
     }
 
     var allyStripHeight: CGFloat { allyFaceSize + allyBarGap + allyBarHeight }
@@ -456,12 +464,12 @@ extension HUDLayout {
 
     static let utilityButtonCount = 3
     /// 縦列のボタンの見た目の直径（タップ領域は utilityHitSize）。
-    var utilityButtonSize: CGFloat { min(34, 32 * scale) }
+    var utilityButtonSize: CGFloat { min(24, 20 * scale) }
     var utilityHitSize: CGFloat { max(44, utilityButtonSize) }
-    /// 端末状態（電池・時刻）の行の高さ。
-    var utilityStatusHeight: CGFloat { 14 }
+    /// 旧端末状態行は描画しない。配置互換のため高さ0の領域を残す。
+    var utilityStatusHeight: CGFloat { 0 }
     /// ミニマップとタップ領域の隙間（見た目のボタンとは 7pt ほど空く）。
-    var utilityColumnGap: CGFloat { 2 }
+    var utilityColumnGap: CGFloat { 1 }
 
     /// 縦列のタップ領域の左端（ミニマップの内側 = 右手配置は右、左利きは左）。
     var utilityColumnMinX: CGFloat {
@@ -481,9 +489,9 @@ extension HUDLayout {
                width: utilityHitSize, height: utilityHitSize)
     }
 
-    /// 端末状態と各ボタンのタップ領域（重なりの確認用）。
+    /// 各ボタンのタップ領域（重なりの確認用）。
     var utilityFrames: [CGRect] {
-        [utilityStatusFrame] + (0..<Self.utilityButtonCount).map { utilityButtonFrame($0) }
+        (0..<Self.utilityButtonCount).map { utilityButtonFrame($0) }
     }
 
     /// 縦列全体の外接矩形。
@@ -494,14 +502,16 @@ extension HUDLayout {
     // MARK: 情報側（右上 / 左利きは左上）
 
     /// 自分の成績（K/D/A・CS）の欄の高さ。
-    var topStatsHeight: CGFloat { 26 * topScale }
+    var topStatsHeight: CGFloat { 18 * topScale }
     /// 自分の成績の欄に確保する幅（2 桁の K/D/A と 3 桁の CS まで収まる）。
-    var topStatsWidth: CGFloat { 176 * topScale }
+    var topStatsWidth: CGFloat { 108 * topScale }
 
-    /// 情報側の列（操作中: 成績 + スコアボード、観戦: スコアボード・一時停止・退出）。Safe Area の内側の端に寄せる。
+    /// 操作中は端のショップ・シグナル開閉を避ける。観戦では従来の3操作を端へ置く。
     func topInfoFrame(spectating: Bool) -> CGRect {
-        let w = spectating ? topButtonSize * 3 + 12 : topStatsWidth + 6 + utilityHitSize
+        let w = spectating ? topButtonSize * 3 + 12 : topStatsWidth + 20 * topScale
         let h = spectating ? topButtonSize : utilityHitSize
-        return CGRect(x: leftHanded ? leadingEdge : trailingEdge - w, y: topEdge, width: w, height: h)
+        let reserve: CGFloat = spectating ? 0 : 62 * scale + 48
+        return CGRect(x: leftHanded ? leadingEdge + reserve : trailingEdge - reserve - w,
+                      y: topEdge, width: w, height: h)
     }
 }

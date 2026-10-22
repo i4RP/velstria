@@ -287,7 +287,7 @@ enum ReplayArchiveService {
         }
         guard importableModes.contains(config.mode), config.practice == nil else { throw ImportError.invalidContent }
         guard config.maxDuration.isFinite, (60...3600).contains(config.maxDuration) else { throw ImportError.invalidContent }
-        // 10 人（Blue 5 → Red 5、ポジション順）・重複なし・マスターにあるヒーロー / スペル / ルーン / スキン
+        // 10 人（Blue 5 → Red 5、ポジション順）・重複なし・マスターにあるヒーロー / スペル / スキン、正しいエンブレム
         let players = config.players
         guard players.count == 10 else { throw ImportError.invalidContent }
         for team in Team.players {
@@ -298,7 +298,7 @@ enum ReplayArchiveService {
         for p in players {
             guard p.team != .neutral, master.hero(p.heroID) != nil,
                   p.spells.count <= 2, p.spells.allSatisfy({ master.spell($0) != nil }),
-                  p.runes.count <= 3, p.runes.allSatisfy({ $0.isEmpty || master.rune($0) != nil }),
+                  p.emblem?.isValid ?? true,
                   p.skinID.map({ master.cosmetic($0) != nil }) ?? true,
                   p.displayName.count <= maxDisplayNameLength else { throw ImportError.invalidContent }
         }

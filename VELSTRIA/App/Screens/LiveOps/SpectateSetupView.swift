@@ -195,8 +195,8 @@ struct SpectateSetupView: View {
             Text(L("マップ", "Map"))
                 .font(Theme.body(10))
                 .foregroundStyle(Theme.textSecondary)
-            LiveOpsSegmented(options: SpectateMap.allCases.map {
-                LiveOpsSegmentOption(value: $0, title: SpectateSetup.mapTitle($0),
+            CelestialTabs(options: SpectateMap.allCases.map {
+                CelestialTab(value: $0, title: SpectateSetup.mapTitle($0),
                                      symbol: $0 == .brawl ? "burst.fill" : "map.fill",
                                      identifier: "spectate_map_\($0 == .brawl ? "brawl" : "standard")")
             }, selection: $prefs.map, axis: .vertical, onChange: { _ in
@@ -423,7 +423,7 @@ private struct SpectateSettingsSheet: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             VStack(spacing: 10) {
                 HStack {
                     Text(L("観戦の設定", "Spectate Settings"))
@@ -448,14 +448,14 @@ private struct SpectateSettingsSheet: View {
     private var settings: some View {
         VStack(alignment: .leading, spacing: 10) {
             labeled(L("再生速度", "Speed")) {
-                LiveOpsSegmented(options: BattleController.spectatorSpeeds.map {
-                    LiveOpsSegmentOption(value: $0, title: SpectateSetup.speedTitle($0),
+                CelestialTabs(options: BattleController.spectatorSpeeds.map {
+                    CelestialTab(value: $0, title: SpectateSetup.speedTitle($0),
                                          identifier: "spectate_pref_speed_\(SpectateSetup.speedTitle($0).dropLast())")
                 }, selection: $prefs.speed, onChange: { _ in app.audio.play(.uiTap) })
             }
             labeled(L("視界", "Vision")) {
-                LiveOpsSegmented(options: [nil, Team.blue, Team.red].map { v in
-                    LiveOpsSegmentOption(value: v, title: SpectateSetup.visionTitle(v),
+                CelestialTabs(options: [nil, Team.blue, Team.red].map { v in
+                    CelestialTab(value: v, title: SpectateSetup.visionTitle(v),
                                          symbol: v.map { LiveOpsFormat.teamSymbol($0) } ?? "eye.fill",
                                          identifier: "spectate_pref_vision_\(v.map { $0 == .blue ? "blue" : "red" } ?? "all")")
                 }, selection: $prefs.vision, onChange: { _ in app.audio.play(.uiTap) })
@@ -475,8 +475,8 @@ private struct SpectateSettingsSheet: View {
             .toggleStyle(LiveOpsToggleStyle())
             .accessibilityIdentifier("spectate_pref_director")
             labeled(L("最大試合時間", "Max Duration")) {
-                LiveOpsSegmented(options: SpectateSetup.maxMinutesChoices.map {
-                    LiveOpsSegmentOption(value: $0, title: SpectateSetup.durationTitle($0), identifier: "spectate_pref_duration_\($0)")
+                CelestialTabs(options: SpectateSetup.maxMinutesChoices.map {
+                    CelestialTab(value: $0, title: SpectateSetup.durationTitle($0), identifier: "spectate_pref_duration_\($0)")
                 }, selection: $prefs.maxMinutes, onChange: { _ in app.audio.play(.uiTap) })
                 Text(L("時間切れはタワー・キルの多いチームの勝ち（既定: 標準 40 分・乱闘 15 分）。",
                        "At the limit, the team with more towers/kills wins (default: Standard 40 min, Brawl 15 min)."))
@@ -504,7 +504,7 @@ struct SpectateWatchRecordPanel: View {
         let goals = LiveOpsService.watchGoalProgress(profile: p, now: Date())
         Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 8) {
-                LiveOpsSectionHeader(title: L("観戦の記録", "Watch Record"), symbol: "eye.fill", tint: Theme.cyan)
+                SectionTitle(title: L("観戦の記録", "Watch Record"), symbol: "eye.fill", tint: Theme.cyan)
                 HStack(spacing: 6) {
                     stat(L("観戦", "Matches"), "\(p.career.spectatedMatches)")
                     stat(L("リプレイ", "Replays"), "\(p.career.replaysWatched)")
@@ -522,7 +522,7 @@ struct SpectateWatchRecordPanel: View {
                                 .font(Theme.mono(11))
                                 .foregroundStyle(entry.progress >= entry.goal.target ? Theme.success : Theme.textSecondary)
                         }
-                        LiveOpsProgressBar(fraction: Double(entry.progress) / Double(max(1, entry.goal.target)),
+                        CelestialProgressBar(value: Double(entry.progress) / Double(max(1, entry.goal.target)),
                                            tint: entry.progress >= entry.goal.target ? Theme.success : Theme.cyan, height: 5)
                     }
                     .accessibilityElement(children: .ignore)
@@ -596,7 +596,7 @@ private struct SpectateRosterSheet: View {
         current.picks = picks
         let config = SpectateSetup.config(options: current, seed: seed, master: app.master)
         return ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
                     Text(L("ヒーローの指定", "Pick Heroes"))

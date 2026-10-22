@@ -433,6 +433,8 @@ final class HUDDeathScreenTests: XCTestCase {
 
     /// 横画面の論理サイズと Safe Area（左右 = Dynamic Island / ノッチ側、下 = ホームインジケータ）。HUDLayoutTests と同じ端末。
     private let devices: [(name: String, size: CGSize, side: CGFloat, bottom: CGFloat)] = [
+        ("iPhone SE", CGSize(width: 667, height: 375), 0, 0),
+        ("16:9 large", CGSize(width: 736, height: 414), 0, 0),
         ("iPhone 13 mini", CGSize(width: 812, height: 375), 44, 21),
         ("iPhone 16e", CGSize(width: 844, height: 390), 47, 21),
         ("iPhone 17 Pro", CGSize(width: 874, height: 402), 62, 20),
@@ -456,35 +458,27 @@ final class HUDDeathScreenTests: XCTestCase {
         return CGRect(x: c.x - size.width / 2, y: c.y - size.height / 2, width: size.width, height: size.height)
     }
 
-    /// 下部パネルとその周り（HUDHeroPanel / BattleHUDView の現行の寸法）。
+    /// 新HUDの常設経済ボタン。旧下部パネルは存在しない。
     private func panelRects(_ l: HUDLayout) -> [(String, CGRect)] {
-        let s = min(l.scale, 1.08)
-        let panelH = HUDRootMetrics.heroPanelHeight(l)
-        let panel = CGRect(x: l.heroPanelCenterX - l.heroPanelWidth / 2, y: l.bottomEdge - panelH,
-                           width: l.heroPanelWidth, height: panelH)
-        // おすすめ購入（パネル右上 46pt 上・44pt）・状態アイコン列（パネル左上 26pt 上、6 個まで）・トースト（パネル上 104pt）
-        let quickBuy = CGRect(x: panel.maxX + 2 * s - max(44, 38 * s), y: panel.minY - 46 * s,
-                              width: max(44, 38 * s), height: max(44, 38 * s))
-        let statusRow = CGRect(x: panel.minX + 4 * s, y: panel.minY - 26 * s, width: 6 * (22 * s + 3), height: 22 * s)
-        let toastY = l.bottomEdge - (panelH + 104 * s)
-        let toast = CGRect(x: l.heroPanelCenterX - 130, y: toastY - 16, width: 260, height: 32)
-        return [("下部パネル", panel), ("おすすめ購入", quickBuy), ("状態アイコン列", statusRow), ("トースト", toast)]
+        [("ショップ", l.shopFrame), ("おすすめ購入", l.quickBuyFrame)]
     }
 
     /// 操作部品の円（攻撃 3 つ・スキル格子・習得バッジ・スペル・帰還・スティックの土台）。
     private func controlCircles(_ l: HUDLayout) -> [(String, CGPoint, CGFloat)] {
         var circles: [(String, CGPoint, CGFloat)] = AttackButtonSlot.allCases.map {
-            ("attack_\($0.rawValue)", l.attackCenter(for: $0), l.attackDiameter(for: $0) / 2)
+            ("attack_\($0.rawValue)", l.attackCenter(for: $0), max(44, l.attackDiameter(for: $0)) / 2)
         }
         circles += [
-            ("recall", l.recallCenter, l.recallDiameter / 2),
-            ("spell1", l.spellCenter(0), l.spellDiameter / 2),
-            ("spell2", l.spellCenter(1), l.spellDiameter / 2),
+            ("recall", l.recallCenter, max(44, l.recallDiameter) / 2),
+            ("spell1", l.spellCenter(0), max(44, l.spellDiameter) / 2),
+            ("spell2", l.spellCenter(1), max(44, l.spellDiameter) / 2),
+            ("item", l.itemActiveCenter, max(44, l.itemActiveDiameter) / 2),
+            ("gear", l.gearActiveCenter, max(44, l.itemActiveDiameter) / 2),
             ("joystick", l.joystickRest, l.joystickRadius),
         ]
         for slot in SkillSlot.actives {
             circles.append(("skill\(slot.rawValue)", l.skillCenter(slot),
-                            (slot == .ultimate ? l.ultDiameter : l.skillDiameter) / 2))
+                            max(44, slot == .ultimate ? l.ultDiameter : l.skillDiameter) / 2))
             // 習得バッジはタップ領域（44pt）で見る
             circles.append(("level\(slot.rawValue)", l.levelBadgeCenter(slot),
                             max(l.levelBadgeDiameter, HUDLevelBadge.touchDiameter) / 2))
@@ -492,7 +486,7 @@ final class HUDDeathScreenTests: XCTestCase {
         return circles
     }
 
-    func testEmblemSitsAboveHeroPanelWithoutOverlap() {
+    func testCompactEmblemSitsAboveScrollableAllyStripWithoutOverlap() {
         for d in devices {
             for left in [false, true] {
                 let l = layout(d, leftHanded: left)
@@ -501,10 +495,10 @@ final class HUDDeathScreenTests: XCTestCase {
                 let c = l.deathEmblemCenter
                 let e = emblemRect(l)
 
-                // 大きさ: タップ領域は 44pt 以上、幅は参考画面の比率（画面幅の約 19%）
+                // コンパクトな44ptタップ領域。幅も空き領域に合わせ96pt以下。
                 XCTAssertGreaterThanOrEqual(size.height, 44, tag)
                 XCTAssertGreaterThanOrEqual(size.width, 44, tag)
-                XCTAssertEqual(size.width / d.size.width, 0.19, accuracy: 0.01, tag)
+                XCTAssertLessThanOrEqual(size.width, 96, tag)
                 XCTAssertLessThan(size.height / d.size.height, 0.16, "\(tag): 控えめな大きさ")
 
                 // Safe Area 内
@@ -513,18 +507,14 @@ final class HUDDeathScreenTests: XCTestCase {
                 XCTAssertGreaterThanOrEqual(e.minY, l.topEdge, tag)
                 XCTAssertLessThanOrEqual(e.maxY, d.size.height - d.bottom, tag)
 
-                // 下部パネルの中央の上
-                let rects = panelRects(l)
-                let panel = rects[0].1
-                XCTAssertEqual(c.x, l.heroPanelCenterX, accuracy: 0.5, tag)
-                XCTAssertLessThan(e.maxY, panel.minY, tag)
-                XCTAssertGreaterThan(e.minX, panel.minX, "\(tag): パネルの幅に収まる")
-                XCTAssertLessThan(e.maxX, panel.maxX, "\(tag): パネルの幅に収まる")
-
-                // 重ならないもの: パネルの周り・ミニマップドック（全体マップボタン込み）・スティックの受付領域（浮動 / 固定）
-                // トーストは死亡中はエンブレムの上へ譲る（BattleHUDView の HUDToastLayer）ので、生きている間の位置とは比べない
-                let others = rects.filter { $0.0 != "トースト" } + [
-                    ("ミニマップドック", l.minimapDockFrame), ("ミニマップ", l.minimapFrame),
+                let strip = HUDDeathMetrics.stripFrame(l, allies: 4)
+                XCTAssertEqual(c.x, strip.midX, accuracy: 0.5, tag)
+                XCTAssertLessThan(e.maxY, strip.minY, tag)
+                XCTAssertGreaterThanOrEqual(e.minX, strip.minX, tag)
+                XCTAssertLessThanOrEqual(e.maxX, strip.maxX, tag)
+                let others = panelRects(l) + [
+                    ("味方追従", strip), ("クイックチャット", l.signalChatMenuFrame),
+                    ("メッセージ", l.signalMessageFrame), ("ミニマップ", l.minimapFrame),
                     ("スティックの受付領域", l.joystickZone), ("固定スティックの受付領域", l.fixedJoystickZone),
                 ]
                 for (name, r) in others {
@@ -544,13 +534,13 @@ final class HUDDeathScreenTests: XCTestCase {
         }
     }
 
-    func testEmblemFollowsHeroPanelWhenMirrored() {
+    func testEmblemFollowsAllyStripWhenMirrored() {
         for d in devices {
             let r = layout(d, leftHanded: false)
             let l = layout(d, leftHanded: true)
             XCTAssertEqual(r.deathEmblemSize, l.deathEmblemSize, d.name)
             XCTAssertEqual(r.deathEmblemCenter.y, l.deathEmblemCenter.y, accuracy: 1e-6, d.name)
-            XCTAssertEqual(l.deathEmblemCenter.x, l.heroPanelCenterX, accuracy: 1e-6, d.name)
+            XCTAssertEqual(l.deathEmblemCenter.x, HUDDeathMetrics.stripFrame(l, allies: 4).midX, accuracy: 1e-6, d.name)
             XCTAssertLessThan(r.deathEmblemCenter.x, d.size.width / 2, "\(d.name): 右手配置はスティック寄り（左）")
             XCTAssertGreaterThan(l.deathEmblemCenter.x, d.size.width / 2, "\(d.name): 左利きは右へ反転")
         }

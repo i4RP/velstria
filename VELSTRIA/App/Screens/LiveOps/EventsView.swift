@@ -101,7 +101,7 @@ struct EventsView: View {
         let upcoming = LiveOpsEvents.upcoming(now: now)
         if active.isEmpty && upcoming.isEmpty {
             Panel {
-                LiveOpsEmptyState(symbol: "calendar.badge.clock",
+                EmptyStateView(symbol: "calendar.badge.clock",
                                   title: L("現在開催中のイベントはありません", "No events right now"),
                                   message: L("新しいイベントはお知らせでご案内します。デイリー・ウィークリーミッションで報酬を獲得しましょう。",
                                              "New events will be announced in Notices. Meanwhile, earn rewards from daily and weekly missions."))
@@ -182,7 +182,7 @@ private struct EventCard: View {
                     }
                 }
                 if !missions.isEmpty {
-                    LiveOpsProgressBar(fraction: Double(done) / Double(missions.count), tint: Theme.gold, height: 6)
+                    CelestialProgressBar(value: Double(done) / Double(missions.count), tint: Theme.gold, height: 6)
                 }
             }
             .padding(14)
@@ -216,7 +216,7 @@ struct EventDetailView: View {
                     }
                 } else {
                     Panel {
-                        LiveOpsEmptyState(symbol: "questionmark.folder",
+                        EmptyStateView(symbol: "questionmark.folder",
                                           title: L("イベントが見つかりません", "Event not found"),
                                           message: L("このイベントは終了したか、配信が取り下げられました。", "This event has ended or is no longer available."))
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -280,7 +280,7 @@ struct EventDetailView: View {
         let claimable = missions.filter { $0.state == .claimable }
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                LiveOpsSectionHeader(title: L("イベントミッション", "Event Missions"), symbol: "flag.fill")
+                SectionTitle(title: L("イベントミッション", "Event Missions"), symbol: "flag.fill")
                 Spacer()
                 if phase == .active && claimable.count > 1 {
                     Button {
@@ -294,7 +294,7 @@ struct EventDetailView: View {
             }
             if missions.isEmpty {
                 Panel {
-                    LiveOpsEmptyState(symbol: "flag.slash",
+                    EmptyStateView(symbol: "flag.slash",
                                       title: L("ミッションはありません", "No missions"),
                                       message: L("このイベントには達成ミッションがありません。内容は左の説明をご覧ください。",
                                                  "This event has no missions. See the description for details."))

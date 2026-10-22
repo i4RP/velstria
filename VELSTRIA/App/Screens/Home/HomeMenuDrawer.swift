@@ -5,14 +5,14 @@ import VelstriaCore
 // 項目を押すとドロワーを閉じてから遷移する（onSelect に遷移先を渡す。nil = 閉じるだけ）。
 
 struct HomeMenuDrawer: View {
-    let metrics: HomeMetrics
+    let layout: HomeLayout
     let onSelect: (Route?) -> Void
     @Environment(AppModel.self) private var app
     @State private var shown = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let m = metrics
+        let m = layout
         ZStack(alignment: .trailing) {
             Color.black.opacity(0.55)
                 .contentShape(Rectangle())
@@ -29,7 +29,7 @@ struct HomeMenuDrawer: View {
     }
 
     private var panel: some View {
-        let m = metrics
+        let m = layout
         let trailingInset = m.size.width - m.contentMaxX
         let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 4)
         return VStack(alignment: .leading, spacing: 10) {
@@ -45,7 +45,7 @@ struct HomeMenuDrawer: View {
                         .foregroundStyle(.white)
                         .frame(width: 32, height: 32)
                         .homePanel(cut: 6, corners: .all, tint: Theme.cyan, opacity: 0.8, accent: false)
-                        .frame(width: HomeMetrics.minTapSize, height: HomeMetrics.minTapSize)
+                        .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(HomePressStyle(scale: 0.9))
@@ -84,8 +84,7 @@ struct HomeMenuDrawer: View {
     }
 
     private func tile(_ item: HomeMenuItem) -> some View {
-        let badge = item.badge(profile: app.profile)
-        return Button {
+        Button {
             FlowFX.tap(app)
             onSelect(item.route)
         } label: {
@@ -99,11 +98,10 @@ struct HomeMenuDrawer: View {
             }
             .frame(maxWidth: .infinity, minHeight: 62)
             .homePanel(cut: 7, tint: Theme.cyan, opacity: 0.5, accent: false)
-            .overlay(alignment: .topTrailing) { FlowCountBadge(count: badge).offset(x: 3, y: -3) }
             .contentShape(Rectangle())
         }
         .buttonStyle(HomePressStyle(scale: 0.94))
-        .accessibilityLabel(item.title + (badge > 0 ? L("、受取可能 \(badge)", ", \(badge) to claim") : ""))
+        .accessibilityLabel(item.title)
         .accessibilityIdentifier(item.identifier)
     }
 

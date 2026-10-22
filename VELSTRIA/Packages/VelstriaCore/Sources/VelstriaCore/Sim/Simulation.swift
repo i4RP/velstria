@@ -13,6 +13,9 @@ public final class Simulation {
     /// 人間の入力を記録する（リプレイ用）。nil なら記録しない。
     public var recorder: ReplayRecorder?
 
+    /// - Parameter map: 試合・リプレイ・オンラインでは `MapDefinition.map(for: config.mode)` を渡す（ReplayPlayer はそれで再生する。
+    ///   2026-10-15 の relayout から `map(for:)` は `.relayout` を返す）。既定の `.standard` は比較用の固定の地図で、座標を前提にした
+    ///   テストが使う。記録して再生を比べるテストも `map(for:)` を渡すこと。
     public init(config: MatchConfig, master: MasterData = .shared, map: MapDefinition = .standard) {
         self.ctx = SimContext(master: master, map: map, config: config)
         self.state = SimState(config: config)

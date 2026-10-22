@@ -1,33 +1,40 @@
-VELSIA: Star Ring Arena is a fully offline 5v5 MOBA. Every teammate and opponent is computer-controlled (AI). There is no server, no account or login, no chat, no multiplayer and no user-generated content. No network connection is needed to play; only In-App Purchases use Apple's StoreKit.
+VELSIA: Star Ring Arena is a 5v5 MOBA for iPhone. All single-player modes (AI matches, Practice, Tutorial, spectating, replays) run on the device with no connection. The app also offers optional online play: one player's iPhone hosts a room, and others join with a 6-character room code (through our relay server on Cloudflare Workers) or from Nearby rooms on the same Wi-Fi (Local Network/Bonjour). There is no account or login, no free-text chat and no voice chat. In-App Purchases use Apple's StoreKit.
 
 FIRST LAUNCH
-1. Tap to start, then select an age group. Please choose "20 or older". Younger age groups have monthly purchase limits (15 and under: JPY 5,000 per month, 16-19: JPY 10,000 per month) that can block test purchases.
+1. Tap to start and choose "20 or older". Younger groups have purchase limits that may block test purchases; under-13 players can't use online features.
 2. Accept the Terms of Service and the Privacy Policy.
-3. Enter any player name. First-time setup runs entirely on the device (no download). The tutorial can be played or skipped.
+3. Enter any player name (offensive words and contact details are rejected). The tutorial can be played or skipped.
 
 WHERE TO FIND EACH FEATURE
-- Play a match: Home > BATTLE > Standard (vs AI, choose Easy / Normal / Hard) > Choose Hero > Confirm > DEPLOY. Ranked (vs AI, draft with bans): Home > BATTLE > Ranked > Start Draft. A match takes about 10-18 minutes.
-- For a short session: Home > Practice. A practice match can be left at any time from the in-match menu.
-- Tutorial: Home > BATTLE > More > Tutorial (also Settings > Support > Tutorial).
-- Spectate an AI vs AI match: Home > Spectate. Replays of your own matches: Home > Replays.
-- Replay files: on Home > Replays, a replay can be shared from its row menu (a .vreplay file) and a file can be imported with "Import File". The file holds only the match setup, inputs and player display names. It is handed to whichever person or app the user picks in the iOS share sheet; the app never uploads it.
-- Heroes, items and runes: Home > Heroes / Items / Runes. Battle spells and rune pages are chosen on the Choose Hero screen before each match.
-- Language: Settings > Language > English (by default the app follows the device language).
-- Delete all local data: Settings > Privacy.
-- Contact / support, Terms of Service and Privacy Policy: Settings > Support.
+- Match vs AI: Home > BATTLE > Standard > Choose Hero > Confirm > DEPLOY. Ranked: Home > BATTLE > Ranked > Start Draft. About 10-18 minutes.
+- Short session: Home > Practice.
+- Tutorial: Home > BATTLE > More > Tutorial.
+- Spectate: Home > Spectate. Replays: Home > Replays (.vreplay files hold match setup, inputs and names; shared only via the share sheet).
+- Data deletion, blocked players, Stop Using Online Features: Settings > Privacy. Support and policies: Settings > Support.
+
+ONLINE PLAY (a match needs two iPhones)
+1. Device A: Home > Online. The first time, read the Online Rules, check "I agree to the Community Guidelines and Terms of Service" and tap "Agree and Continue". A party opens with a room code; "Invite Players" shares it. iOS asks for Local Network access here.
+2. Device B: Home > Online > agree > Join by Room Code > enter the code > Join (or pick the room under Nearby on the same Wi-Fi).
+3. Device A: Start Game. AI plays any empty seats.
+4. Friends: each device shows "Your friend code". On B, Add a friend > enter A's code > Send; on A, Friend Requests > Accept. Friends can then be invited from the friend list.
+One device is enough to check the Online Rules, room code, friend code and safety settings. If you need a second player, contact us via the review contact details and we will join from our device.
+
+SAFETY (Guideline 1.2)
+- Filter: display names and room names are checked on the device when entered and when received.
+- Report: "..." next to a player (party slots, participant list, friends, requests, invitations) > Report > reason > a draft email to info@btcpay.jp with the player's name, friend code and player ID. After an online match: results screen > Report.
+- Block: same menu > Block. Their requests and invitations are discarded and they can't join rooms you host. Unblock in Settings > Privacy.
+- Hosts can Remove from Room. Party invitations are accepted only from friends.
+- We begin reviewing reports within 2 business days and can suspend a violator's friend code.
+- Rules: https://velsia.xyz/en/community
 
 IN-APP PURCHASES
-- 6 consumable Astral Gem packs: com.bitcoinpay.velstria.gem.60, .gem.300, .gem.980, .gem.1980, .gem.3280, .gem.6480
-- 1 non-consumable: com.bitcoinpay.velstria.pass.premium (Star Pass Premium, Season 1)
-Steps: Home > Store > Get Gems (or tap the currency counter at the top of Home) > tap a gem pack > confirm. The paid gem balance (including the pack bonus) increases as soon as the verified transaction is finished. Gems are spent on cosmetic items in the Store. Star Pass Premium: Home > Star Pass > Premium. Restore Purchases: Home > Store > Restore (also on the Star Pass premium panel).
-
-Paid items are cosmetic only and never change combat stats. There are no randomized paid items (no loot boxes): every product shows exactly what you receive. Heroes are unlocked with Starlight Coins that are earned by playing, not with real money.
-
-NOTE ON NETWORK ENTRIES
-Info.plist still declares a Local Network usage description, a Bonjour service and the velstria:// URL scheme. They belong to a development-only LAN match feature that is switched off in this build (FeatureFlags.lanMatch = false). No screen, link or setting reaches it, so the app never asks for Local Network access.
+- Consumable Astral Gem packs: com.bitcoinpay.velstria.gem.60, .gem.300, .gem.980, .gem.1980, .gem.3280, .gem.6480
+- Non-consumable: com.bitcoinpay.velstria.pass.premium (Star Pass Premium, Season 1)
+Steps: Home > Store > Get Gems > tap a pack > confirm; the paid gem balance (incl. bonus) updates when the verified transaction finishes. Star Pass Premium: Home > Star Pass > Premium. Restore: Home > Store > Restore.
+Paid items are cosmetic only. There are no loot boxes. Every hero is available to every player and heroes are not sold.
 
 PRIVACY
-The app does not collect any data. The profile, replays and purchase records are stored only on the device. There are no analytics, advertising or tracking SDKs, and no App Tracking Transparency prompt. The app uses no encryption other than what iOS provides.
+Our relay keeps only friend codes, names in requests held for absent players (14 days), each inbox's key hash and last connection time, and opted-in players' ranks. Delete Friend Server Data or Delete All Data (Settings > Privacy) erases them. Room traffic is forwarded in real time, not stored or logged. No analytics, ad or tracking SDKs; no ATT prompt. Relay traffic uses iOS TLS; same-Wi-Fi traffic is plain TCP. No proprietary encryption.
 
 DEVICE
-iPhone only, landscape orientation, iOS 18 or later.
+iPhone only, landscape, iOS 18 or later.

@@ -24,20 +24,29 @@ final class MapScene {
     private var waterTime: Float = 0
     private var waterAccumulator: Float = 0
     private(set) var fountainSpires: [Entity] = []
+    /// 泉の浮遊結晶の底の高さ（上下に揺れる中心）と回る速さ。新セットは台座の受け口の上に小さく浮かべる。
+    private var spireBase: Float = 1.6
+    private var spireSpin: Float = 0.6
 
     /// 地図の境界（m）。
-    static let mapMeters: Float = Float(Balance.mapSize / Balance.unitsPerMeter)
+    static let mapMeters: Float = Float(MapDefinition.relayout.size / Balance.unitsPerMeter)
+    private let extent: Float
 
     /// 素材から作ったステージ（docs/STAGE.md）。素材やシェーダーが使えない環境では nil で、従来の手続き生成の地形を使う。
     private(set) var stage: StageScene?
 
-    init(map: MapDefinition, materials: RenderMaterials, quality: RenderQuality, groundImage: CGImage?) {
+    /// artSet: ステージの素材のセット（既定は起動引数で選ばれたもの。テストが新旧を指定する）。
+    init(map: MapDefinition, materials: RenderMaterials, quality: RenderQuality, groundImage: CGImage?,
+         artSet: StageArtSet = .current) {
+        extent = Float(map.size / Balance.unitsPerMeter)
         root.name = "map"
-        if let plan = StagePrep.take(map: map, quality: quality), let stage = StageScene(plan: plan) {
+        if let plan = StagePrep.take(map: map, quality: quality, set: artSet), let stage = StageScene(plan: plan) {
             self.stage = stage
             root.addChild(stage.root)
             for e in stage.brushEntities { adoptBrush(e) }
-            buildDecorations(map: map, materials: materials, quality: quality, terrain: false)
+            if map.stageID == "canyon" { return } // Authored bases, ground and pits already exist in the imported chunks.
+            buildDecorations(map: map, materials: materials, quality: quality, terrain: false,
+                             fountainSockets: stage.fountainSockets)
             buildGroundDecals(map: map, materials: materials, paving: false)
             return
         }
@@ -47,7 +56,7 @@ final class MapScene {
         buildOuterGround()
         buildDecorations(map: map, materials: materials, quality: quality, terrain: true)
         buildBrushes(map: map, materials: materials, quality: quality)
-        buildWater(map: map)
+        if map.river == nil { buildWater(map: map) }  // 8 の字の川は地面のテクスチャだけで描く
         buildGroundDecals(map: map, materials: materials, paving: true)
         if quality.level != .low { buildDetailOverlay() }
     }
@@ -62,7 +71,7 @@ final class MapScene {
     // MARK: 地面
 
     private func buildGround(image: CGImage?, quality: RenderQuality) {
-        let M = MapScene.mapMeters
+        let M = extent
         var d = MeshDescriptor(name: "ground")
         d.positions = MeshBuffers.Positions([[0, 0, 0], [M, 0, 0], [M, 0, -M], [0, 0, -M]])
         d.normals = MeshBuffers.Normals([[0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0]])
@@ -99,7 +108,7 @@ final class MapScene {
     }
 
     private func buildOuterGround() {
-        let M = MapScene.mapMeters
+        let M = extent
         let size: Float = M + 140
         let mesh = MeshResource.generatePlane(width: size, depth: size)
         var mat = PhysicallyBasedMaterial()
@@ -151,7 +160,10 @@ final class MapScene {
     }
 
     /// terrain = false のときは拠点の飾り（泉・ランタン・門柱）だけを作る（壁・外周の森・草花はステージが描く）。
-    private func buildDecorations(map: MapDefinition, materials: RenderMaterials, quality: RenderQuality, terrain: Bool) {
+    /// fountainSockets: ステージ（新セット）が泉に遺跡の台座を置いたときの柱の頂部（Team.players の順）。あれば旧来の
+    /// 白い台座・石柱・ランタンは作らず、受け皿にチーム色の小さな結晶、門に遺跡の標柱を置く。
+    private func buildDecorations(map: MapDefinition, materials: RenderMaterials, quality: RenderQuality, terrain: Bool,
+                                  fountainSockets: [[SIMD3<Float>]] = []) {
         var batch = ChunkBatch()
         var rng = RenderRNG(seed: 0xDEC0)
         let density = quality.decorationDensity
@@ -238,18 +250,38 @@ final class MapScene {
                         MapProps.smallFlora(&l, glow: &g, at: w(c + Vec2(radius + 40, 0)), seed: seed &+ 7)
                     }
                 }
+            case .polygon:
+                // 多角形の壁: 外接矩形の格子のうち内側の点に崖の塊（手続き地形の予備。通常はステージの一枚岩）
+                let b = o.bounds
+                let step = 135.0
+                var y = b.minY + step / 2
+                var k = 0
+                while y < b.maxY {
+                    var x = b.minX + step / 2
+                    while x < b.maxX {
+                        let p = Vec2(x, y)
+                        if o.contains(p) {
+                            let h = rng.range(1.2, 2.0), rad = rng.range(0.85, 1.2)
+                            let s = seed &+ UInt64(k)
+                            batch.add(at: w(p)) { l, _ in MapProps.cliff(&l, at: w(p), radius: rad, height: h, seed: s) }
+                            k += 1
+                        }
+                        x += step
+                    }
+                    y += step
+                }
             }
         }
 
         // 外周の森（地図の外側 1.5〜14 m）
-        let M = MapScene.mapMeters
+        let M = extent
         let ringStep: Float = 2.6 / max(0.6, density)
         for side in 0..<4 where terrain {
             var t: Float = -14
-            while t < M + 14 {
+            while t < Float(MapDefinition.standard.size / Balance.unitsPerMeter) + 14 {
                 for row in 0..<4 {
                     let depth = 1.8 + Float(row) * 3.1 + rng.range(-0.8, 0.8)
-                    let along = t + rng.range(-0.9, 0.9) + (row % 2 == 0 ? 0 : ringStep / 2)
+                    let along = (t + 14) * (M + 28) / 148 - 14 + rng.range(-0.9, 0.9) + (row % 2 == 0 ? 0 : ringStep / 2)
                     let p: SIMD3<Float>
                     switch side {
                     case 0: p = [along, 0, depth]                 // 南（sim y < 0）
@@ -276,7 +308,7 @@ final class MapScene {
         var placed = 0, attempts = 0
         while placed < floraCount && attempts < floraCount * 8 {
             attempts += 1
-            let p = Vec2(Double(rng.range(300, 11700)), Double(rng.range(300, 11700)))
+            let p = Vec2(Double(rng.range(300, Float(map.size - 300))), Double(rng.range(300, Float(map.size - 300))))
             guard map.nearestLane(to: p).distance > 650, !map.isInRiver(p),
                   map.obstacleIndex(at: p, inflatedBy: 60) == nil, map.brushIndex(at: p) == nil else { continue }
             guard !map.camps.contains(where: { $0.pos.distance(to: p) < 650 }),
@@ -287,10 +319,59 @@ final class MapScene {
         }
 
         // 泉（台座 + 柱 + 浮遊結晶）とレーン入口の門柱
-        for team in Team.players {
+        let ruinsFountain = !fountainSockets.isEmpty
+        if ruinsFountain {
+            spireBase = 0.95
+            spireSpin = 0.35
+        }
+        for (ti, team) in Team.players.enumerated() {
             let f = map.fountain(team)
             let crystalRamp: Ramp = team == .blue ? .crystalBlue : .crystalRed
             let rune: Swatch = team == .blue ? .glowBlue : .glowRed
+            if ruinsFountain {
+                // 遺跡の台座（ステージの小物）の柱の受け皿に、チーム色の小さな結晶を 2 本ずつ
+                let sockets = ti < fountainSockets.count ? fountainSockets[ti] : []
+                batch.add(at: w(f)) { _, g in
+                    for (k, sp) in sockets.enumerated() {
+                        var crng = RenderRNG(seed: UInt64(team.rawValue * 16 + k) &+ 5)
+                        let m = MX.t(sp + SIMD3(0, -0.05, 0)) * MX.ry(crng.range(0, 6.28))
+                        g.crystal(radius: 0.085, height: 0.44, sides: 5, waist: 0.4, color: .ramp(crystalRamp, from: 0.35, to: 1),
+                                  transform: m)
+                        g.crystal(radius: 0.05, height: 0.26, sides: 4, waist: 0.4, color: .ramp(crystalRamp, from: 0.3, to: 0.9),
+                                  transform: m * MX.t(0.08, 0, 0) * MX.rz(-0.45))
+                    }
+                }
+                var sb = MeshBuilder()
+                // 浮遊結晶: 細長い両錐の大結晶 + 腰に外へ傾いた小さな結晶 3 本（中心の高さ ≈ AmbientParticles.spireHeight）
+                sb.crystal(radius: 0.3, height: 1.45, sides: 6, waist: 0.48, color: .ramp(crystalRamp, from: 0.2, to: 1))
+                for k in 0..<3 {
+                    let a = Float(k) / 3 * 2 * .pi + 0.5
+                    sb.crystal(radius: 0.08, height: 0.46, sides: 4, waist: 0.4, color: .ramp(crystalRamp, from: 0.3, to: 1),
+                               transform: MX.t(cos(a) * 0.22, 0.42, -sin(a) * 0.22) * MX.ry(a) * MX.rz(-0.55))
+                }
+                if let mesh = sb.makeMesh(name: "fountainSpire") {
+                    let spire = ModelEntity(mesh: mesh, materials: [materials.glow])
+                    spire.position = w(f, spireBase)
+                    root.addChild(spire)
+                    fountainSpires.append(spire)
+                }
+                let core = map.core(team)
+                for lane in map.lanes {
+                    let path = map.lanePath(lane, for: team)
+                    guard path.count >= 2 else { continue }
+                    let dir = (path[1] - core).normalized
+                    let gate = core + dir * 1560
+                    let nrm = dir.perpendicular
+                    for s in [-1.0, 1.0] {
+                        let p = gate + nrm * (420 * s)
+                        batch.add(at: w(p)) { l, g in
+                            MapProps.ruinPost(&l, glow: &g, at: w(p), height: 1.5, crystal: crystalRamp,
+                                              seed: UInt64(lane.rawValue * 7 + (s > 0 ? 1 : 0) + team.rawValue * 40))
+                        }
+                    }
+                }
+                continue
+            }
             batch.add(at: w(f)) { l, g in
                 l.frustum(bottomRadius: 3.4, topRadius: 3.1, height: 0.22, segments: 16, color: .solid(.stoneDark),
                           transform: MX.t(w(f)))
@@ -373,18 +454,17 @@ final class MapScene {
     // MARK: 地面の輪郭（テクスチャでは滲む細部を平面メッシュで描く）
 
     /// 高さは GroundLayer の段に分ける（重なる印を同じ高さに置くと Z-fighting でちらつく）:
-    /// 石畳 paving < 泉の輪・タワーの輪 marking < 八芒星 markingLine < Core の輪 markingTop。
+    /// 石畳 paving < ボスの巣の輪 marking < 星 markingLine。
     /// paving = false のときは広場の石畳を作らない（ステージの地面が石畳を描く）。
     private func buildGroundDecals(map: MapDefinition, materials: RenderMaterials, paving: Bool) {
         var lit = MeshBuilder(reserve: 4096), glow = MeshBuilder(reserve: 2048)
-        for team in Team.players {
-            let soft: Swatch = team == .blue ? .glowBlueSoft : .glowRedSoft
-            let strong: Swatch = team == .blue ? .glowBlue : .glowRed
-            let core = worldPosition(map.core(team)), fountain = worldPosition(map.fountain(team))
+        // Core・泉・タワー台座の光る輪と線（床のガイド線に見えた）は描かない
+        for team in Team.players where paving {
+            let core = worldPosition(map.core(team))
             // 広場の石畳（24〜44 分割 × 6 環、目地を残す）
             var r: Float = 4.6
             var ring = 0
-            while paving && r < 14.2 {
+            while r < 14.2 {
                 let r1 = r + 1.85
                 let segs = 24 + ring * 4
                 for k in 0..<segs {
@@ -399,33 +479,10 @@ final class MapScene {
                 r = r1
                 ring += 1
             }
-            let top = GroundLayer.markingTop
-            glow.annulus(inner: 13.05, outer: 13.45, segments: 72, y: top, color: .solid(strong), transform: MX.t(core))
-            glow.annulus(inner: 12.45, outer: 12.6, segments: 72, y: top, color: .solid(soft), transform: MX.t(core))
-            glow.annulus(inner: 4.35, outer: 4.55, segments: 40, y: top, color: .solid(soft), transform: MX.t(core))
-            // 泉の紋章（Core の広場と重なる: 泉と Core は 11.3 m しか離れていない）
-            glow.annulus(inner: 6.95, outer: 7.45, segments: 64, y: GroundLayer.marking, color: .solid(strong),
-                         transform: MX.t(fountain))
-            glow.annulus(inner: 5.1, outer: 5.3, segments: 56, y: GroundLayer.marking, color: .solid(soft),
-                         transform: MX.t(fountain))
-            for k in 0..<8 {
-                let a0 = Float(k) / 8 * 2 * .pi, a1 = Float(k + 3) / 8 * 2 * .pi
-                let p0 = SIMD3<Float>(cos(a0) * 7.0, 0, -sin(a0) * 7.0), p1 = SIMD3<Float>(cos(a1) * 7.0, 0, -sin(a1) * 7.0)
-                let d = p1 - p0
-                let len = simd_length(d)
-                let yaw = atan2(-d.z, d.x)
-                glow.flatRect(width: len, depth: 0.14, y: GroundLayer.markingLine, color: .solid(soft),
-                              transform: MX.t(fountain + (p0 + p1) / 2) * MX.ry(yaw))
-            }
-        }
-        // タワー台座の輪
-        for t in map.towers where !t.isCore {
-            let soft: Swatch = t.team == .blue ? .glowBlueSoft : .glowRedSoft
-            glow.annulus(inner: 2.28, outer: 2.48, segments: 40, y: GroundLayer.marking, color: .solid(soft),
-                         transform: MX.t(worldPosition(t.pos)))
         }
         // ボスの巣の紋章
         for camp in map.camps where camp.kind == .astralWyrm || camp.kind == .ancientColossus {
+            if map.size == MapDefinition.relayout.size { continue } // Sanctuary replaces the old glowing circles.
             let rune: Swatch = camp.kind == .astralWyrm ? .glowPurple : .glowGold
             let c = worldPosition(camp.pos)
             glow.annulus(inner: 4.55, outer: 4.85, segments: 64, y: GroundLayer.marking, color: .solid(rune), transform: MX.t(c))
@@ -454,7 +511,7 @@ final class MapScene {
     private func buildDetailOverlay() {
         guard let img = MapScene.detailImage(),
               let tex = try? TextureResource(image: img, options: .init(semantic: .color)) else { return }
-        let M = MapScene.mapMeters
+        let M = extent
         var d = MeshDescriptor(name: "detail")
         d.positions = MeshBuffers.Positions([[0, 0, 0], [M, 0, 0], [M, 0, -M], [0, 0, -M]])
         d.normals = MeshBuffers.Normals([[0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0]])
@@ -524,7 +581,7 @@ final class MapScene {
     // MARK: 草むら
 
     private func buildBrushes(map: MapDefinition, materials: RenderMaterials, quality: RenderQuality) {
-        for b in map.brushes {
+        for (k, b) in map.brushes.enumerated() {
             var mb = MeshBuilder(reserve: 2048)
             let r = b.rect
             let step: Float = quality.level == .low ? 0.62 : 0.5
@@ -536,6 +593,9 @@ final class MapScene {
                 for iy in 0..<ny {
                     let lx = (Float(ix) + 0.5) / Float(nx) * wM - wM / 2 + rng.range(-0.18, 0.18)
                     let lz = -((Float(iy) + 0.5) / Float(ny) * hM - hM / 2) + rng.range(-0.18, 0.18)
+                    // 細かい格子の草むらは形の中だけに房を置く（地図座標の y は −z）
+                    let p = Vec2(r.center.x + Double(lx) * Balance.unitsPerMeter, r.center.y - Double(lz) * Balance.unitsPerMeter)
+                    guard map.brush(k, contains: p) else { continue }
                     mb.grassClump(at: [lx, 0, lz], height: rng.range(0.95, 1.35), seed: rng.next())
                 }
             }
@@ -570,10 +630,9 @@ final class MapScene {
 
     /// 地面の円（sim 座標）と重なる草むらを印付けする（スキル予告を草で隠さない）。
     func markBrushes(overlapping center: Vec2, radius: Double, map: MapDefinition) {
-        for k in map.brushes.indices where k < brushWanted.count {
-            let r = map.brushes[k].rect
-            let q = Vec2(min(max(center.x, r.minX), r.maxX), min(max(center.y, r.minY), r.maxY))
-            if q.distanceSquared(to: center) <= radius * radius { brushWanted[k] = true }
+        // 細かい格子の草むらはセル単位で重なりを見る
+        for k in map.brushIndices(overlappingCircle: center, radius: radius) where k < brushWanted.count {
+            brushWanted[k] = true
         }
     }
 
@@ -611,7 +670,7 @@ final class MapScene {
     private func buildWater(map: MapDefinition) {
         guard let img = MapScene.waterHighlightImage(),
               let tex = try? TextureResource(image: img, options: .init(semantic: .color)) else { return }
-        let length: Float = MapScene.mapMeters * 1.42 + 10
+        let length: Float = extent * 1.42 + 10
         let width = Float(map.riverWidth / 100) * 0.92
         var d = MeshDescriptor(name: "water")
         let hw = width / 2, hl = length / 2
@@ -635,7 +694,7 @@ final class MapScene {
         mat.writesDepth = false
         let e = ModelEntity(mesh: mesh, materials: [mat])
         e.name = "water"
-        let M = MapScene.mapMeters
+        let M = extent
         e.position = [M / 2, GroundLayer.water, -M / 2]
         OverlayOrder.apply(e, OverlayOrder.water)
         // 河川は sim (0,12000)→(12000,0) = world (0,-120)→(120,0)（+x かつ +z 方向）
@@ -646,12 +705,13 @@ final class MapScene {
     }
 
     /// 水面のきらめきを流す（30Hz。1 段の移動は 0.7 cm ≒ 画面上 1 px 未満。マテリアルの差し替えは毎フレームだと重い）。
-    func update(dt: Float) {
+    func update(dt: Float, camera: SIMD3<Float>? = nil) {
+        if let camera { stage?.updateBrushLOD(camera: camera, dt: dt) }
         waterTime += dt
         fadeBrushes(dt: dt)
         for (k, s) in fountainSpires.enumerated() {
-            s.orientation = simd_quatf(angle: waterTime * 0.6 + Float(k), axis: [0, 1, 0])
-            s.position.y = 1.6 + sin(waterTime * 1.3 + Float(k)) * 0.12
+            s.orientation = simd_quatf(angle: waterTime * spireSpin + Float(k), axis: [0, 1, 0])
+            s.position.y = spireBase + sin(waterTime * 1.3 + Float(k)) * 0.12
         }
         waterAccumulator += dt
         guard waterAccumulator >= 1.0 / 30.0, var mat = waterMaterial, let model = waterModel, model.isEnabled else { return }

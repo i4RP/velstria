@@ -65,7 +65,7 @@ final class Kit_H025Tests: XCTestCase {
         HeroKits.testOverride = [Kit_H025(isReady: true)]
 
         let m = MasterData.shared
-        // スキル1 月弦分矢: 自己強化（照準なし）。リングは通常攻撃の射程と同じ 550、撃てる距離の目安 (reach) は 600
+        // スキル1 月弦分矢: 自己強化（照準なし）。リングは通常攻撃の射程と同じ 480（MLBB の 4.8）、撃てる距離の目安 (reach) は 600
         let t1 = SkillCatalog.targeting(for: skill(.skill1), hero: def)
         XCTAssertEqual(t1.archetype, .selfAoE)
         XCTAssertEqual(t1.aim, .none)
@@ -76,16 +76,18 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertFalse(t1.requiresTarget)
         XCTAssertFalse(t1.recastable)
 
-        // S2 月蝕の矢: 射程 650 の地点指定の円
+        // S2 月蝕の矢: 射程 545（動画で測った値。マスターの 650 ではない）・半径 170 の地点指定の円
         let t2 = SkillCatalog.targeting(for: skill(.skill2), hero: def)
         XCTAssertEqual(t2.archetype, .groundAoE)
         XCTAssertEqual(t2.aim, .point)
-        XCTAssertEqual(t2.range, 650)
+        XCTAssertEqual(T.s2Range, 545)
+        XCTAssertEqual(T.s2Radius, 170)
+        XCTAssertEqual(t2.range, T.s2Range)
         XCTAssertEqual(t2.radius, T.s2Radius)
         XCTAssertEqual(t2.shape, .circleAtPoint)
-        XCTAssertEqual(t2.reach, 650 + T.s2Radius)
+        XCTAssertEqual(t2.reach, T.s2Range + T.s2Radius)
 
-        // アルティメット 隠れ月光: 自己強化。リングは 550、撃てる距離の目安 (reach) は奥義の距離 770
+        // アルティメット 隠れ月光: 自己強化。リングは 480、撃てる距離の目安 (reach) は奥義の距離 770
         let t3 = SkillCatalog.targeting(for: skill(.ultimate), hero: def)
         XCTAssertEqual(t3.archetype, .selfAoE)
         XCTAssertEqual(t3.aim, .none)
@@ -115,13 +117,13 @@ final class Kit_H025Tests: XCTestCase {
         }
         let n1 = SkillCatalog.numbers(for: skill(.skill1), hero: def, rank: 1, stats: stats)
         let ja1 = HeroKits.text(heroID: "H025", slot: .skill1)!.filled(english: false, numbers: n1, targeting: t1)
-        XCTAssertTrue(ja1.contains("\(Int(n1.damage.rounded()))"))
-        XCTAssertTrue(ja1.contains("\(Int(T.s1Duration))秒"))
+        XCTAssertTrue(ja1.contains("\(Int(n1.damage.rounded()))(+100%物理攻撃)の物理ダメージ"), ja1)
+        XCTAssertTrue(ja1.contains("この効果は4秒間持続する"), ja1)
         let n2 = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: 1, stats: stats)
-        let minor = try XCTUnwrap(n2.extras.first { $0.key == "minorDamage" })
+        let minorBase = try XCTUnwrap(n2.extras.first { $0.key == "minorBase" })
         let en2 = HeroKits.text(heroID: "H025", slot: .skill2)!.filled(english: true, numbers: n2, targeting: t2)
-        XCTAssertTrue(en2.contains("\(Int(minor.value.rounded()))"))
-        XCTAssertTrue(en2.contains("\(T.s2Arrows) arrows"))
+        XCTAssertTrue(en2.contains("\(Int(minorBase.value.rounded())) (+"), en2)
+        XCTAssertTrue(en2.contains("\(T.s2Arrows) scattering"), en2)
         let ja3 = HeroKits.text(heroID: "H025", slot: .ultimate)!.filled(english: false, numbers: SkillCatalog.numbers(for: skill(.ultimate), hero: def, rank: 1, stats: stats), targeting: t3)
         XCTAssertTrue(ja3.contains("65%"))
         let pa = SkillCatalog.numbers(for: skill(.passive), hero: def, rank: 1, stats: stats)
@@ -139,18 +141,40 @@ final class Kit_H025Tests: XCTestCase {
             let ja = text.filled(english: false, numbers: n, targeting: t)
             XCTAssertFalse(ja.contains("S1") || ja.contains("S2") || ja.contains("奥義"), "\(slot): \(ja)")
             XCTAssertFalse(ja.contains("月矢の連弾") || ja.contains("追って"), "\(slot): \(ja)")
+            // 数値は公式の基礎と係数そのもの（Lv1）。公式の節「攻撃効果の 20% / 30% を引き継ぐ」も書く
             if slot == .passive {
-                XCTAssertTrue(ja.contains("「月影」が追撃し"), ja)
-                XCTAssertTrue(ja.contains("\(Int(T.shadowFlat))＋攻撃力の\(Int((T.shadowRatio * 100).rounded()))%"), ja)
+                XCTAssertTrue(ja.contains("「月影」を召喚して対象を攻撃し"), ja)
+                XCTAssertTrue(ja.contains("25(+20%物理攻撃)の物理ダメージ"), ja)
+                XCTAssertTrue(ja.contains("「月影」は攻撃効果の20%を引き継ぐ"), ja)
+                let en = text.filled(english: true, numbers: n, targeting: t)
+                XCTAssertTrue(en.contains("inherits 20% of attack effects"), en)
+            }
+            if slot == .skill1 {
+                XCTAssertTrue(ja.contains("各矢は攻撃効果の30%を引き継ぎ、メインターゲットに10(+100%物理攻撃)の物理ダメージ"), ja)
+                XCTAssertTrue(ja.contains("30%のダメージ"), ja)
+                let en = text.filled(english: true, numbers: n, targeting: t)
+                XCTAssertTrue(en.contains("inherits 30% of attack effects"), en)
             }
             if slot == .skill2 {
-                XCTAssertTrue(ja.contains("0.35秒"), ja)
+                // 着弾まで 0.65 秒・散るのは着弾の 0.33 秒後（動画で測った値）
+                XCTAssertTrue(ja.contains("着弾まで0.65秒"), ja)
+                XCTAssertTrue(ja.contains("着弾の0.33秒後"), ja)
+                XCTAssertTrue(ja.contains("60°おきに散る"), ja)
+                XCTAssertTrue(ja.contains("270(+45%物理攻撃)の物理ダメージ"), ja)
+                XCTAssertTrue(ja.contains("40(+20%物理攻撃)の物理ダメージ"), ja)
+                // バインド（MLBB の日本語クライアントの用語説明: 移動・ブリンク・アサルトスキル不可、スキルは中断されない）
+                XCTAssertTrue(ja.contains("1.2秒間バインド状態にする（移動・ブリンク・アサルトスキルが使えない。スキルは中断されない）"), ja)
+                XCTAssertFalse(ja.contains("移動できないが"), ja)
                 let en = text.filled(english: true, numbers: n, targeting: t)
-                XCTAssertTrue(en.contains("0.35s"), en)
+                XCTAssertTrue(en.contains("lands after 0.65s"), en)
+                XCTAssertTrue(en.contains("0.33s later"), en)
+                XCTAssertTrue(en.contains("cannot move, blink or dash"), en)
             }
-            if slot == .ultimate { XCTAssertTrue(ja.contains("アルティメットを除く"), ja) }
+            if slot == .ultimate { XCTAssertTrue(ja.contains("アルティメット以外のスキル"), ja) }
         }
         XCTAssertEqual(Kit_H025.seconds(0.35), "0.35")
+        XCTAssertEqual(Kit_H025.seconds(0.65), "0.65")
+        XCTAssertEqual(Kit_H025.seconds(0.33), "0.33")
         XCTAssertEqual(Kit_H025.seconds(4), "4")
         XCTAssertEqual(Kit_H025.seconds(1.2), "1.2")
         XCTAssertEqual(Kit_H025.seconds(0.5), "0.5")
@@ -158,55 +182,151 @@ final class Kit_H025Tests: XCTestCase {
 
     // MARK: - 数値・ダメージ予算
 
-    func testSingleSlotDamageStaysNearGenericBudget() throws {
-        for level in [1, 6, 12] {
-            let stats = HeroGrowth.baseStats(def: def, level: level)
-            for slot in SkillSlot.actives {
-                let sk = skill(slot)
-                for rank in 1...slot.maxRank {
-                    let base = SkillCatalog.genericNumbers(for: sk, hero: def, rank: rank, stats: stats)
-                    let n = SkillCatalog.numbers(for: sk, hero: def, rank: rank, stats: stats)
-                    XCTAssertEqual(n.cost, base.cost, "コストは定義から（numbers では変えられない）")
-                    XCTAssertEqual(n.resource, .mana)
-                    switch slot {
-                    case .skill1:
-                        // 標準的な本数の主矢の追加ダメージの合計が、汎用 S1 の ratio 倍
-                        let ratio = n.damage * Double(n.hits) / (base.damage * Double(base.hits))
-                        XCTAssertGreaterThanOrEqual(ratio, 0.8, "S1 rank \(rank) Lv\(level)")
-                        XCTAssertLessThanOrEqual(ratio, 1.3, "S1 rank \(rank) Lv\(level)")
-                        XCTAssertEqual(n.cooldown, 11 * 0.5 * (1 - min(0.4, stats.cooldownReduction)), accuracy: 1e-9,
-                                       "MLBB の CD 11 秒（全ランク固定）× 全体倍率")
-                    case .skill2:
-                        // 汎用の遠隔 S2 は「ブリンク + 強化攻撃」で半分: 基準は元のスキル値。6 本すべてが 1 体に当たった最悪の場合も 1.3 倍以内
-                        let reference = base.damage / Balance.Skills.empowerRatio
-                        let minor = Kit_H025.minorDamage(primary: n.damage)
-                        XCTAssertEqual(try XCTUnwrap(n.extras.first { $0.key == "minorDamage" }).value, minor.rounded())
-                        let worst = (n.damage + minor * Double(T.s2Arrows)) / reference
-                        XCTAssertLessThanOrEqual(worst, 1.3, "S2 rank \(rank) Lv\(level)")
-                        XCTAssertGreaterThanOrEqual((n.damage + minor * 2) / reference, 0.8,
-                                                    "標準的な 2 本命中でも下限を割らない")
-                        XCTAssertEqual(n.cooldown, base.cooldown, accuracy: 1e-9)
-                        XCTAssertEqual(n.cc, .root)
-                        XCTAssertEqual(n.ccDuration, 1.2)
-                        XCTAssertEqual(n.delay, T.s2Delay)
-                    case .ultimate:
-                        // 奥義は直接ダメージを持たない（ミヤの Hidden Moonlight と同じ。価値は隠密と最大の段 = docs の対応表）
-                        XCTAssertEqual(n.damage, 0)
-                        XCTAssertEqual(n.cc, .none)
-                        let want = [30.0, 25, 20][rank - 1] * 0.5 * (1 - min(0.4, stats.cooldownReduction))
-                        XCTAssertEqual(n.cooldown, want, accuracy: 1e-9, "CD 30 / 25 / 20 秒")
-                    case .passive:
-                        break
+    /// 公式の表（MLBB の日本語クライアントのスキル詳細。docs/kits/Miya.md の「公式（日本語クライアント）の数値」= REAL_DATA.md の
+    /// 「H025 ルミナ = マイヤ」）をそのまま使う: スキル1・2 = Lv1〜6、アルティメット = Lv1〜3（rank = 公式の Lv。換算・補間なし）。
+    func testDamageDurationCooldownAndManaFollowTheOfficialTables() throws {
+        // 出典: REAL_DATA.md（H025 マイヤ）。S2 の MP 90 は 2026-10-11 の無加工の原本（吹き出しの裏）
+        let s1Base: [Double] = [10, 15, 20, 25, 30, 35]
+        let s1Duration: [Double] = [4, 5, 6, 7, 8, 9]
+        let s1Mana: [Double] = [60, 65, 70, 75, 80, 85]
+        let s2Base: [Double] = [270, 300, 330, 360, 390, 420]
+        let s2Minor: [Double] = [40, 53, 66, 79, 92, 105]
+        let ultCD: [Double] = [30, 25, 20]
+        let ultMana: [Double] = [120, 145, 170]
+        XCTAssertEqual(SkillSlot.skill1.maxRank, 6)
+        XCTAssertEqual(SkillSlot.skill2.maxRank, 6)
+        XCTAssertEqual(SkillSlot.ultimate.maxRank, 3)
+        for level in [1, 6, 12, 15] {
+            var stats = HeroGrowth.baseStats(def: def, level: level)
+            for bonus in [0.0, 120] {
+                // 装備で増えた物理攻撃（追加物理攻撃）も「(+N%) = 合計の物理攻撃」に入る
+                stats.attack += bonus
+                stats.extraAttack += bonus
+                let atk = stats.attack
+                let cdr = 1 - min(stats.cooldownReductionCap, stats.cooldownReduction)
+                for slot in SkillSlot.actives {
+                    let sk = skill(slot)
+                    for rank in 1...slot.maxRank {
+                        let n = SkillCatalog.numbers(for: sk, hero: def, rank: rank, stats: stats)
+                        let r = rank - 1
+                        XCTAssertEqual(n.resource, .mana)
+                        XCTAssertEqual(SkillSystem.cost(for: sk, hero: def, rank: rank), n.cost, accuracy: 1e-9)
+                        switch slot {
+                        case .skill1:
+                            // 主矢の追加ダメージ = 公式の基礎そのまま（+100% 物理攻撃 = 通常攻撃そのもの。能力値で変わらない）
+                            XCTAssertEqual(n.damage, s1Base[r], accuracy: 1e-9, "S1 Lv\(rank)")
+                            XCTAssertEqual(n.extras.first { $0.key == "base" }?.value ?? 0, s1Base[r], accuracy: 1e-9)
+                            XCTAssertEqual(Kit_H025.s1Duration(rank: rank), s1Duration[r], accuracy: 1e-9, "持続 Lv\(rank)")
+                            XCTAssertEqual(n.extras.first { $0.key == "duration" }?.value ?? 0, s1Duration[r], accuracy: 1e-9)
+                            XCTAssertEqual(n.cooldown, 11 * cdr, accuracy: 1e-9, "CD 11 秒（全 Lv 一定）")
+                            XCTAssertEqual(n.cost, s1Mana[r], accuracy: 1e-9, "MP Lv\(rank)")
+                        case .skill2:
+                            // 着弾 = 基礎 + 45% × 合計の物理攻撃、小さな矢 = 基礎 + 20% × 合計の物理攻撃
+                            XCTAssertEqual(n.damage, s2Base[r] + 0.45 * atk, accuracy: 1e-9, "S2 Lv\(rank)")
+                            let minor = Kit_H025.minorDamage(rank: rank, stats: stats)
+                            XCTAssertEqual(minor, s2Minor[r] + 0.20 * atk, accuracy: 1e-9, "小さな矢 Lv\(rank)")
+                            XCTAssertEqual(try XCTUnwrap(n.extras.first { $0.key == "minorDamage" }).value, minor.rounded())
+                            XCTAssertEqual(n.extras.first { $0.key == "base" }?.value ?? 0, s2Base[r], accuracy: 1e-9)
+                            XCTAssertEqual(n.extras.first { $0.key == "atkPct" }?.value ?? 0, 45, accuracy: 1e-9)
+                            XCTAssertEqual(n.extras.first { $0.key == "minorBase" }?.value ?? 0, s2Minor[r], accuracy: 1e-9)
+                            XCTAssertEqual(n.extras.first { $0.key == "minorPct" }?.value ?? 0, 20, accuracy: 1e-9)
+                            XCTAssertEqual(n.cooldown, 8 * cdr, accuracy: 1e-9, "CD 8 秒（全 Lv 一定）")
+                            XCTAssertEqual(n.cost, 90, accuracy: 1e-9, "MP 90（全 Lv 一定）")
+                            XCTAssertEqual(n.cc, .root)
+                            XCTAssertEqual(n.ccDuration, 1.2)
+                            XCTAssertEqual(n.delay, T.s2Delay)
+                        case .ultimate:
+                            // 奥義は直接ダメージを持たない（隠密と最大の段）
+                            XCTAssertEqual(n.damage, 0)
+                            XCTAssertEqual(n.cc, .none)
+                            XCTAssertEqual(n.cooldown, ultCD[r] * cdr, accuracy: 1e-9, "CD Lv\(rank)")
+                            XCTAssertEqual(n.cost, ultMana[r], accuracy: 1e-9, "MP Lv\(rank)")
+                        case .passive:
+                            break
+                        }
                     }
                 }
+                // 月影 = 25 (+20% 物理攻撃)（合計の物理攻撃）
+                let pa = SkillCatalog.numbers(for: skill(.passive), hero: def, rank: 1, stats: stats)
+                XCTAssertEqual(pa.damage, 25 + 0.20 * atk, accuracy: 1e-9, "月影 Lv\(level) +\(bonus)")
+                XCTAssertEqual(Kit_H025.shadowDamage(attack: atk), 25 + 0.20 * atk, accuracy: 1e-9)
             }
         }
-        // ランクが上がると S1・S2 は強くなる
-        let stats = HeroGrowth.baseStats(def: def, level: 6)
-        for slot in [SkillSlot.skill1, .skill2] {
-            let lo = SkillCatalog.numbers(for: skill(slot), hero: def, rank: 1, stats: stats)
-            let hi = SkillCatalog.numbers(for: skill(slot), hero: def, rank: slot.maxRank, stats: stats)
-            XCTAssertGreaterThan(hi.damage, lo.damage, "\(slot)")
+        XCTAssertEqual(T.shadowFlat, 25)
+        XCTAssertEqual(T.shadowRatio, 0.20)
+        XCTAssertEqual(T.attackSpeedPerStack, 0.05)
+        XCTAssertEqual(T.splashRatio, 0.30)
+        // 表の外のランク（未習得の表示 0 / 上限の外）は端の段に丸める
+        XCTAssertEqual(Kit_H025.arrowBonus(rank: 0), 10)
+        XCTAssertEqual(Kit_H025.arrowBonus(rank: 7), 35)
+        // CD 短縮（上限は能力値の cooldownReductionCap）は公式の CD に掛かる
+        var cdrStats = HeroGrowth.baseStats(def: def, level: 6)
+        cdrStats.cooldownReduction = 0.25
+        let cdN = SkillCatalog.numbers(for: skill(.skill2), hero: def, rank: 3, stats: cdrStats)
+        XCTAssertEqual(cdN.cooldown, 8 * (1 - min(cdrStats.cooldownReductionCap, 0.25)), accuracy: 1e-9)
+    }
+
+    /// 攻撃エフェクト（公式: 月影「攻撃効果の20%を引き継ぐ」/ 分裂の矢「各矢は攻撃効果の30%を引き継ぎ」）。
+    /// 割合の命中は通常攻撃のダメージ（.basicAttack）で、通常攻撃吸収をその割合だけ乗せ、命中数・段・パッシブの命中フックには数えない。
+    func testShadowAndSplitArrowsInheritTheOfficialShareOfAttackEffects() throws {
+        var w = SkillWorld()
+        let k = addLumina(&w, level: 6)
+        let e = addFoe(&w, dx: 400)
+        let side = addFoe(&w, dx: 400, dy: 200, hero: "H004")
+        w.tick()
+        let kit = try XCTUnwrap(HeroKits.kit(of: w.s.units[k]))
+        let attack = w.s.units[k].stats.attack
+        // 月影の payload（最大の段で主矢が命中した瞬間に、術者から対象へ飛ぶ月影の矢）
+        w.s.units[k].hero!.kit!.luminaStacks = 5
+        var plan = BasicAttackPlan(payload: HitPayload(damage: attack, damageType: .physical, source: .basicAttack,
+                                                       appliesOnHit: true), ranged: true)
+        kit.shapeBasicAttack(&w.s, w.ctx, attacker: k, target: e, plan: &plan)
+        XCTAssertTrue(plan.extras.isEmpty, "月影は発射の時には足さない（主矢の命中で現れる）")
+        kit.onBasicAttackHit(&w.s, w.ctx, attacker: k, target: e, damage: attack)
+        let shadow = try XCTUnwrap(w.s.projectiles.first { !$0.done && $0.payload.attackEffect == 0.20 }?.payload)
+        XCTAssertEqual(shadow.attackEffect, 0.20)
+        XCTAssertEqual(shadow.attackEffectRatio, 0.20, accuracy: 1e-12)
+        XCTAssertFalse(shadow.appliesOnHit)
+        XCTAssertEqual(shadow.source, .basicAttack)
+        XCTAssertEqual(plan.payload.attackEffectRatio, 1, "主矢は通常攻撃そのもの（攻撃エフェクト 100%）")
+        w.s.projectiles.removeAll()
+        // 分裂の矢の payload（月矢の効果中に、周囲の敵へ飛ぶ追尾弾）
+        XCTAssertTrue(w.cast(k, .skill1))
+        var plan2 = BasicAttackPlan(payload: HitPayload(damage: attack, damageType: .physical, source: .basicAttack,
+                                                        appliesOnHit: true), ranged: true)
+        kit.shapeBasicAttack(&w.s, w.ctx, attacker: k, target: e, plan: &plan2)
+        let splash = try XCTUnwrap(w.s.projectiles.first { !$0.done && $0.payload.attackEffect != nil })
+        XCTAssertEqual(splash.payload.attackEffect, 0.30)
+        XCTAssertFalse(splash.payload.appliesOnHit)
+        XCTAssertEqual(splash.payload.source, .basicAttack)
+        XCTAssertEqual(splash.payload.damage, plan2.payload.damage * 0.30, accuracy: 1e-9)
+        XCTAssertEqual(Kit_H025.splashPayload(mainDamage: 100, isCrit: false).attackEffect, 0.30)
+
+        // 通常攻撃吸収は攻撃エフェクトの割合だけ: 回復 = 実ダメージ × 通常攻撃吸収 × 割合
+        w.s.units[k].hero!.kit!.luminaStacks = 2
+        for (payload, ratio) in [(Kit_H025.shadowPayload(attack: attack), 0.20),
+                                 (Kit_H025.splashPayload(mainDamage: attack, isCrit: false), 0.30)] {
+            w.s.units[k].stats.lifesteal = 0.25
+            w.s.units[k].hp = w.s.units[k].stats.maxHP * 0.5
+            let hp = w.s.units[k].hp
+            let count = w.s.units[k].hero!.basicAttackCount
+            let stacks = w.kit(k).luminaStacks
+            let dealt = w.hit(k, side, payload)
+            XCTAssertGreaterThan(dealt, 0)
+            XCTAssertEqual(w.s.units[k].hp - hp, dealt * 0.25 * ratio, accuracy: 1e-6, "通常攻撃吸収 × \(ratio)")
+            XCTAssertEqual(w.s.units[k].hero!.basicAttackCount, count, "命中数に数えない")
+            XCTAssertEqual(w.kit(k).luminaStacks, stacks, "段を積まない")
+        }
+    }
+
+    func testTagsFollowTheOfficialSkillTags() {
+        // Fandom: Buff / Buff・AOE / CC・AOE / Conceal・Remove CC（隠密・解除は語彙に無いので バフ・移動）
+        XCTAssertEqual(HeroKits.tags(heroID: "H025", slot: .passive), ["buff"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H025", slot: .skill1), ["buff", "aoe"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H025", slot: .skill2), ["disrupt", "aoe"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H025", slot: .ultimate), ["conceal", "cleanse"])
+        for slot in SkillSlot.allCases {
+            for tag in HeroKits.tags(heroID: "H025", slot: slot) { XCTAssertTrue(KitTag.all.contains(tag), tag) }
         }
     }
 
@@ -231,9 +351,10 @@ final class Kit_H025Tests: XCTestCase {
             if st != lastStacks {
                 stackLog.append(st)
                 lastStacks = st
-                // 攻撃速度は段 × 5%
+                // 攻撃速度は段 × 5% の追加の攻撃速度（MLBB: 基礎 + 追加 × 攻撃速度比率）
                 w.tick()
-                XCTAssertEqual(w.s.units[k].stats.attackSpeed, baseSpeed * (1 + T.attackSpeedPerStack * Double(st)), accuracy: 1e-9)
+                XCTAssertEqual(w.s.units[k].stats.attackSpeed,
+                               baseSpeed + T.attackSpeedPerStack * Double(st) * w.s.units[k].stats.attackSpeedRatio, accuracy: 1e-9)
             }
         }
         XCTAssertEqual(Array(stackLog.prefix(5)), [1, 2, 3, 4, 5], "命中ごとに 1 段")
@@ -261,31 +382,76 @@ final class Kit_H025Tests: XCTestCase {
         let tower = w.addTower(team: .red, at: skillArena + Vec2(0, 500))
         w.tick()
         let attack = w.s.units[k].stats.attack
-        XCTAssertEqual(Kit_H025.shadowDamage(attack: attack), T.shadowFlat + T.shadowRatio * attack, accuracy: 1e-9)
+        // 公式 25 (+20% 物理攻撃)
+        XCTAssertEqual(Kit_H025.shadowDamage(attack: attack), 25 + 0.20 * attack, accuracy: 1e-9)
         let kit = try XCTUnwrap(HeroKits.kit(of: w.s.units[k]))
         w.s.units[k].hero!.kit!.luminaStacks = 5
         var plan = BasicAttackPlan(payload: HitPayload(damage: 100, damageType: .physical, source: .basicAttack), ranged: true)
         kit.shapeBasicAttack(&w.s, w.ctx, attacker: k, target: e, plan: &plan)
-        XCTAssertEqual(plan.extras.count, 1)
-        XCTAssertEqual(plan.extras[0].damage, T.shadowFlat + T.shadowRatio * attack, accuracy: 1e-9)
-        XCTAssertFalse(plan.extras[0].isCrit)
-        XCTAssertFalse(plan.extras[0].appliesOnHit, "月影は命中時効果（吸血・段の加算）を持たない")
-        XCTAssertEqual(plan.extras[0].source, .basicAttack)
+        XCTAssertTrue(plan.extras.isEmpty, "発射の時には月影を足さない")
+        XCTAssertEqual(plan.projectileSpeed, T.arrowSpeed, "矢の速さは動画で測った値")
         XCTAssertEqual(plan.payload.damage, 100)
-        // 4 段では出ない
+        // 主矢の命中で月影が現れ、術者の位置から対象へ矢を放つ（動画で測った値: 主矢の命中の後に飛ぶ）
+        kit.onBasicAttackHit(&w.s, w.ctx, attacker: k, target: e, damage: 100)
+        XCTAssertEqual(w.s.projectiles.count, 1)
+        let shadow = try XCTUnwrap(w.s.projectiles.first)
+        XCTAssertEqual(shadow.pos.distance(to: w.s.units[k].pos), 0, accuracy: 1e-9, "術者の位置から")
+        XCTAssertEqual(shadow.speed, T.arrowSpeed)
+        guard case .homing(let tid) = shadow.motion else { return XCTFail("追尾弾") }
+        XCTAssertEqual(tid, w.id(e))
+        XCTAssertEqual(shadow.payload.damage, 25 + 0.20 * attack, accuracy: 1e-9)
+        XCTAssertFalse(shadow.payload.isCrit, "会心にならない（公式の文に会心の記述が無い）")
+        XCTAssertFalse(shadow.payload.appliesOnHit, "月影は通常攻撃そのものではない（段・命中数に数えない）")
+        XCTAssertEqual(shadow.payload.attackEffect, 0.20, "攻撃効果の 20% を引き継ぐ")
+        XCTAssertEqual(shadow.payload.source, .basicAttack)
+        XCTAssertEqual(w.kit(k).luminaShadows, 1)
+        w.s.projectiles.removeAll()
+        // 4 段では出ない（この命中で 5 段目を積んでも、その命中には月影は付かない）
         w.s.units[k].hero!.kit!.luminaStacks = 4
-        var plan4 = BasicAttackPlan(payload: HitPayload(damage: 100, damageType: .physical, source: .basicAttack), ranged: true)
-        kit.shapeBasicAttack(&w.s, w.ctx, attacker: k, target: e, plan: &plan4)
-        XCTAssertTrue(plan4.extras.isEmpty)
-        // 構造物には月影も月矢も働かない
+        kit.onBasicAttackHit(&w.s, w.ctx, attacker: k, target: e, damage: 100)
+        XCTAssertTrue(w.s.projectiles.isEmpty)
+        XCTAssertEqual(w.kit(k).luminaStacks, 5)
+        // 構造物には月影も月矢も働かない（公式の文に無い Velstria の推測。docs の「まだ MLBB と違うところ」）
         w.s.units[k].hero!.kit!.luminaStacks = 5
         w.s.units[k].hero!.kit!.luminaMoonArrow = 3
         w.s.units[k].hero!.kit!.luminaArrowBonus = 99
         var planT = BasicAttackPlan(payload: HitPayload(damage: 100, damageType: .physical, source: .basicAttack), ranged: true)
         kit.shapeBasicAttack(&w.s, w.ctx, attacker: k, target: tower, plan: &planT)
+        kit.onBasicAttackHit(&w.s, w.ctx, attacker: k, target: tower, damage: 100)
         XCTAssertTrue(planT.extras.isEmpty)
         XCTAssertEqual(planT.payload.damage, 100)
+        XCTAssertEqual(planT.projectileSpeed, T.arrowSpeed, "構造物への矢も同じ速さ")
         XCTAssertEqual(w.s.projectiles.count, 0)
+    }
+
+    /// 月影は主矢の命中の後に飛ぶ（動画で測った値: 約 4 の距離で主矢の 8 コマ = 0.27 秒後に着く）。主矢と同じ tick には当たらない。
+    func testShadowArrowLandsAfterTheMainArrow() throws {
+        XCTAssertEqual(T.arrowSpeed, 1650)
+        var w = SkillWorld()
+        let k = addLumina(&w)
+        let e = addFoe(&w, dx: 400)
+        w.tick()
+        Kit_H025.setStacks(&w.s, k, T.maxStacks)
+        w.s.units[k].attackTargetID = w.id(e)
+        w.tick()
+        let attack = w.s.units[k].stats.attack
+        let primary = w.mitigated(attack, .physical, on: e)
+        let shadowDamage = w.mitigated(Kit_H025.shadowDamage(attack: attack), .physical, on: e)
+        var mainTick: Int?
+        var shadowTick: Int?
+        for _ in 0..<45 where shadowTick == nil {
+            w.tick()
+            for ev in events(w, to: e, .basicAttack) {
+                if mainTick == nil, abs(ev.amount - primary) < 0.01 { mainTick = w.s.tick }
+                if shadowTick == nil, abs(ev.amount - shadowDamage) < 0.01 { shadowTick = w.s.tick }
+            }
+        }
+        let m = try XCTUnwrap(mainTick)
+        let sh = try XCTUnwrap(shadowTick)
+        // 術者から対象の縁まで（400 − 対象の半径）を毎秒 1650 で飛ぶ
+        let flight = (400 - w.s.units[e].radius) / T.arrowSpeed
+        XCTAssertGreaterThan(sh, m, "主矢より後")
+        XCTAssertEqual(Double(sh - m) * Balance.dt, flight, accuracy: 2.5 * Balance.dt)
     }
 
     func testStacksExpireAfterFourSecondsWithoutHitAndRefreshOnHit() {
@@ -364,8 +530,8 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertEqual(w.castEvents.last?.slot, .skill1)
         XCTAssertEqual(w.castEvents.last?.archetype, .selfAoE)
         XCTAssertEqual(w.castEvents.last?.shape, .selfRing)
-        XCTAssertEqual(w.castEvents.last?.duration, T.s1Duration)
-        XCTAssertEqual(w.kit(k).luminaMoonArrow, T.s1Duration, accuracy: 1e-9)
+        XCTAssertEqual(w.castEvents.last?.duration, Kit_H025.s1Duration(rank: 1))
+        XCTAssertEqual(w.kit(k).luminaMoonArrow, Kit_H025.s1Duration(rank: 1), accuracy: 1e-9)
         XCTAssertEqual(w.kit(k).luminaArrowBonus, n.damage, accuracy: 1e-9)
         w.s.units[k].attackTargetID = w.id(main)
         w.run(seconds: 1.0)
@@ -385,6 +551,28 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertEqual(w.kit(k).luminaSplashArrows, 2)
         // 副矢は段を積まない（主矢の命中 1 回 = 1 段）
         XCTAssertEqual(w.kit(k).luminaStacks, 1)
+    }
+
+    func testMoonArrowCastEventCarriesTheRanksBuffDuration() {
+        // 発動の合図（SkillCastEvent.duration）はランクの持続（4 → 9 秒）。App の演出はこれで効果の長さを決める
+        for rank in 1...Balance.basicSkillMaxRank {
+            var w = SkillWorld()
+            let k = addLumina(&w, ranks: [rank, 1, 1], level: 12)
+            w.tick()
+            XCTAssertTrue(w.cast(k, .skill1), "r\(rank)")
+            let cast = w.castEvents.last
+            XCTAssertEqual(cast?.slot, .skill1)
+            XCTAssertEqual(cast?.duration ?? 0, Kit_H025.s1Duration(rank: rank), accuracy: 1e-9, "r\(rank)")
+            XCTAssertEqual(w.kit(k).luminaMoonArrow, Kit_H025.s1Duration(rank: rank), accuracy: 1e-9, "r\(rank)")
+        }
+        XCTAssertEqual(Kit_H025.s1Duration(rank: Balance.basicSkillMaxRank), 9, accuracy: 1e-9)
+        // 奥義も持続を渡す（隠密 2 秒）
+        var w = SkillWorld()
+        let k = addLumina(&w, ranks: [1, 1, 1], level: 12)
+        w.tick()
+        XCTAssertTrue(w.cast(k, .ultimate))
+        XCTAssertEqual(w.castEvents.last?.slot, .ultimate)
+        XCTAssertEqual(w.castEvents.last?.duration ?? 0, T.ultDuration, accuracy: 1e-9)
     }
 
     func testMoonArrowSplashNeedsOthersInRangeAndSparesStructures() throws {
@@ -455,10 +643,10 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .skill1))
         XCTAssertTrue(w.cast(k, .skill1))
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill1), n.cooldown, accuracy: 1e-9)
-        XCTAssertEqual(n.cooldown, 5.5, accuracy: 1e-9)
+        XCTAssertEqual(n.cooldown, 11, accuracy: 1e-9)
         let badge = HeroKits.badge(w.s.units[k].hero!, slot: .skill1)
         XCTAssertEqual(badge?.kind, .timer)
-        XCTAssertEqual(badge?.total, T.s1Duration)
+        XCTAssertEqual(badge?.total, Kit_H025.s1Duration(rank: 1))
         XCTAssertFalse(SkillSystem.canCast(w.s, w.ctx, heroIndex: k, slot: .skill1))
         w.run(seconds: 3.9)
         XCTAssertGreaterThan(w.kit(k).luminaMoonArrow, 0)
@@ -466,8 +654,8 @@ final class Kit_H025Tests: XCTestCase {
         w.run(seconds: 0.2)
         XCTAssertEqual(w.kit(k).luminaMoonArrow, 0, accuracy: 1e-9)
         XCTAssertNil(HeroKits.badge(w.s.units[k].hero!, slot: .skill1))
-        XCTAssertFalse(w.cast(k, .skill1), "効果が終わってもクールダウン中（残り約 1.4 秒）")
-        w.run(seconds: 1.5)
+        XCTAssertFalse(w.cast(k, .skill1), "効果が終わってもクールダウン中（残り約 6.9 秒）")
+        w.run(seconds: 7.0)
         XCTAssertTrue(w.cast(k, .skill1))
 
         // 効果が切れたら通常攻撃は元に戻る
@@ -485,6 +673,8 @@ final class Kit_H025Tests: XCTestCase {
 
     // MARK: - S2 月蝕の矢
 
+    /// 着弾でバインド（MLBB の日本語クライアントの用語説明「バインド: 移動、またはブリンクやアサルトスキルの使用ができなくなる。
+    /// スキルを中断できない」= 低レベルのコントロール）。攻撃と移動しないスキルは使える。
     func testEclipseLandsAfterDelayDamagesAndRootsButTheTargetCanStillAct() throws {
         var w = SkillWorld()
         let k = addLumina(&w)
@@ -502,10 +692,12 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertEqual(cast.halfAngle, Double.pi * 5 / 6, accuracy: 1e-9)
         XCTAssertEqual(cast.radius, T.s2Radius)
         XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: T.Code.split), 1)
-        w.run(seconds: 0.25)
+        // 指を離してから 0.65 秒で着弾（動画で測った値）
+        XCTAssertEqual(T.s2Delay, 0.65)
+        w.run(seconds: 0.55)
         XCTAssertTrue(w.damageEvents.isEmpty, "着弾までは当たらない")
         XCTAssertTrue(w.s.projectiles.isEmpty)
-        w.run(seconds: 0.25)
+        w.run(seconds: 0.15)
         for e in [hit, edge] {
             let evs = events(w, to: e, .skill(.skill2)).filter { abs($0.amount - w.mitigated(n.damage, .physical, on: e)) < 0.01 }
             XCTAssertEqual(evs.count, 1, "着弾の範囲に 1 度")
@@ -513,9 +705,16 @@ final class Kit_H025Tests: XCTestCase {
             XCTAssertLessThanOrEqual(root.remaining, T.s2Root)
             XCTAssertGreaterThan(root.remaining, T.s2Root - 0.3)
             XCTAssertFalse(w.s.units[e].canMove, "移動不能")
+            XCTAssertTrue(w.s.units[e].isBound, "敵（ルミナ）が付けた root = バインド")
+            XCTAssertEqual(root.kind.ccTier, .low, "低レベルのコントロール")
             XCTAssertTrue(w.s.units[e].canAct, "攻撃とスキルは可能")
             XCTAssertTrue(w.s.units[e].canCast)
         }
+        // バインド中は瞬歩（BS01）とブリンクのスキル（汎用レンジャーのスキル2）を使えない。移動しないスキル（スキル1）は使える
+        XCTAssertFalse(w.castSpell(hit, 0, .direction(Self.east)), "バインド中は瞬歩できない")
+        XCTAssertFalse(w.cast(hit, .skill2, .direction(Self.east)), "バインド中はブリンクできない")
+        XCTAssertTrue(w.cast(hit, .skill1, .direction(Self.east)), "移動しないスキルは撃てる")
+        XCTAssertTrue(w.s.units[hit].isBound)
         XCTAssertFalse(w.s.units[out].has(.root))
         // 1.2 秒で解ける
         w.run(seconds: 1.2)
@@ -527,13 +726,23 @@ final class Kit_H025Tests: XCTestCase {
         var w = SkillWorld()
         let k = addLumina(&w)
         let target = skillArena + Vec2(500, 0)
+        let start = w.s.tick
         XCTAssertTrue(w.cast(k, .skill2, .point(target)))
-        var fired = false
-        for _ in 0..<60 where !fired {
+        // 着弾（0.65 秒）の 0.33 秒後に散る（動画で測った値。着弾の時にはまだ散らない）
+        XCTAssertEqual(T.s2SplitDelay, 0.33)
+        var firedTick: Int?
+        var arrowsAtLanding = -1
+        for _ in 0..<60 where firedTick == nil {
             w.tick()
-            fired = Kit.scheduledCount(w.s, caster: k) == 0
+            let elapsed = Double(w.s.tick - start) * Balance.dt
+            if arrowsAtLanding < 0, elapsed >= T.s2Delay + 2 * Balance.dt {
+                arrowsAtLanding = w.s.projectiles.filter { $0.visual == skill(.skill2).effectID }.count
+            }
+            if Kit.scheduledCount(w.s, caster: k) == 0 { firedTick = w.s.tick }
         }
-        XCTAssertTrue(fired)
+        let fired = try XCTUnwrap(firedTick)
+        XCTAssertEqual(arrowsAtLanding, 0, "着弾の直後はまだ散っていない")
+        XCTAssertEqual(Double(fired - start) * Balance.dt, T.s2Delay + T.s2SplitDelay, accuracy: 1.5 * Balance.dt)
         let arrows = w.s.projectiles.filter { $0.visual == skill(.skill2).effectID && !$0.done }
         XCTAssertEqual(arrows.count, 6)
         var angles: [Double] = []
@@ -547,32 +756,39 @@ final class Kit_H025Tests: XCTestCase {
             XCTAssertEqual(dir.length, 1, accuracy: 1e-9)
             angles.append(degrees(dir))
         }
-        // 発射方向（東）を中心に 60° おき: -150, -90, -30, 30, 90, 150
-        for (got, want) in zip(angles, [-150.0, -90, -30, 30, 90, 150]) {
+        // 撃った向き（東 = 0°）から 60° おき: -120, -60, 0, 60, 120, 180（動画で測った値。1 本は撃った向き）
+        XCTAssertEqual(T.s2ArrowSpeed, 1250)
+        XCTAssertEqual(T.s2ArrowRange, 400)
+        let wrap = { (a: Double) -> Double in a <= -179.999 ? a + 360 : a }
+        for (got, want) in zip(angles.map(wrap), [-120.0, -60, 0, 60, 120, 180]) {
             XCTAssertEqual(got, want, accuracy: 1e-6)
         }
         // 撃つ向きが変われば散る向きもそれに従う（北向き = 90° 回転）
         var w2 = SkillWorld()
         let k2 = addLumina(&w2)
         XCTAssertTrue(w2.cast(k2, .skill2, .point(skillArena + Vec2(0, 500))))
-        w2.run(seconds: 0.6)
+        w2.run(seconds: 1.0)
         let north = w2.s.projectiles.filter { $0.visual == skill(.skill2).effectID }
+        XCTAssertEqual(north.count, 6)
         guard case .linear(let d0, _) = north[0].motion else { return XCTFail() }
-        XCTAssertEqual(degrees(d0), -60, accuracy: 1e-6, "北 (90°) の -150°")
+        XCTAssertEqual(degrees(d0), -30, accuracy: 1e-6, "北 (90°) の -120°")
+        guard case .linear(let d2, _) = north[2].motion else { return XCTFail() }
+        XCTAssertEqual(degrees(d2), 90, accuracy: 1e-6, "3 本目は撃った向き（北）")
     }
 
     func testEachMinorArrowHitsOnlyTheFirstEnemyAndSlows() throws {
         var w = SkillWorld()
         let k = addLumina(&w)
         let n = w.numbers(k, .skill2)
-        let minor = Kit_H025.minorDamage(primary: n.damage)
+        let minor = Kit_H025.minorDamage(rank: 1, stats: w.s.units[k].stats)
         let center = Vec2(500, 0)
-        // +30° の矢の上: 近い敵と遠い敵（円の外。近い方だけに当たる）
-        let ray = Vec2.fromAngle(30 * Double.pi / 180)
+        // +60° の矢の上: 近い敵と遠い敵（円の外。近い方だけに当たる）
+        let ray = Vec2.fromAngle(60 * Double.pi / 180)
         let near = addFoe(&w, dx: center.x + ray.x * 300, dy: ray.y * 300)
         let far = addFoe(&w, dx: center.x + ray.x * 390, dy: ray.y * 390, hero: "H004")
         XCTAssertTrue(w.cast(k, .skill2, .point(skillArena + center)))
-        w.run(seconds: 1.2)
+        // 散るのは 0.98 秒、300 先まで毎秒 1250 で 0.24 秒
+        w.run(seconds: 1.5)
         let nearEvs = events(w, to: near, .skill(.skill2))
         XCTAssertEqual(nearEvs.count, 1, "矢は 1 本だけ")
         XCTAssertEqual(nearEvs[0].amount, w.mitigated(minor, .physical, on: near), accuracy: 0.01)
@@ -583,37 +799,41 @@ final class Kit_H025Tests: XCTestCase {
         let slow = try XCTUnwrap(w.s.units[near].statuses.first { $0.tag == T.slowTag })
         XCTAssertLessThanOrEqual(slow.remaining, 2.0)
         XCTAssertGreaterThan(slow.remaining, 0.4)
+        // 30% の減速。MLBB の移動速度の式（230 未満へ動いた分は逓減）の後にマップ縮尺
+        let basic = HeroGrowth.baseStats(def: MasterData.shared.hero("H003")!, level: 1).moveSpeed
         XCTAssertEqual(w.s.units[near].stats.moveSpeed,
-                       HeroGrowth.baseStats(def: MasterData.shared.hero("H003")!, level: 1).moveSpeed * 0.7, accuracy: 1.0)
+                       MoveSpeedMath.calculated(basic: basic, bonus: 0, slow: 0.3, decays: true) * Balance.mapScale, accuracy: 1.0)
         w.run(seconds: 2)
         XCTAssertNil(slowMagnitude(w, near))
     }
 
     func testTargetInsideTheBlastTakesTheBlastAndTheArrowsThatPassThroughIt() throws {
-        // 着弾点の 100 東に立つ敵: 円の中（移動不能）+ ±30° の 2 本が当たる（90° の矢は幅の外）
+        // 着弾点の 100 東に立つ敵: 円の中（移動不能）+ 0° の矢（真上を通る）と ±60° の 2 本（最も近づく所で横 86.6 < 半径 55 + 幅 35）が
+        // 当たる。±120° の矢は遠ざかる向き（出どころで 100 離れている）なので当たらない
         var w = SkillWorld()
         let k = addLumina(&w)
         let n = w.numbers(k, .skill2)
-        let minor = Kit_H025.minorDamage(primary: n.damage)
+        let minor = Kit_H025.minorDamage(rank: 1, stats: w.s.units[k].stats)
         let e = addFoe(&w, dx: 600)
         XCTAssertTrue(w.cast(k, .skill2, .point(skillArena + Vec2(500, 0))))
-        w.run(seconds: 1.2)
+        w.run(seconds: 1.5)
         let evs = events(w, to: e, .skill(.skill2)).map(\.amount)
         let blast = w.mitigated(n.damage, .physical, on: e)
         let arrow = w.mitigated(minor, .physical, on: e)
-        XCTAssertEqual(evs.count, 3, "\(evs)")
+        XCTAssertLessThan(100 * sin(Double.pi / 3), w.s.units[e].radius + T.s2ArrowWidth, "±60° の矢は幅の内側を通る")
+        XCTAssertEqual(evs.count, 4, "\(evs)")
         XCTAssertEqual(evs.filter { abs($0 - blast) < 0.01 }.count, 1)
-        XCTAssertEqual(evs.filter { abs($0 - arrow) < 0.01 }.count, 2)
+        XCTAssertEqual(evs.filter { abs($0 - arrow) < 0.01 }.count, 3)
         XCTAssertNotNil(slowMagnitude(w, e))
         XCTAssertTrue(w.s.units[e].has(.root), "円の中は移動不能（1.2 秒）")
     }
 
     func testEclipseEdgeCases() throws {
-        // 射程 650 に丸める
+        // 射程 545 に丸める（動画で測った値）
         var w = SkillWorld()
         let k = addLumina(&w)
         XCTAssertTrue(w.cast(k, .skill2, .point(skillArena + Vec2(1500, 0))))
-        XCTAssertEqual(w.castEvents.last?.target.x ?? 0, skillArena.x + 650, accuracy: 1e-6)
+        XCTAssertEqual(w.castEvents.last?.target.x ?? 0, skillArena.x + T.s2Range, accuracy: 1e-6)
 
         // 味方・自分には当たらない
         var w2 = SkillWorld()
@@ -634,6 +854,8 @@ final class Kit_H025Tests: XCTestCase {
         w3.tick(3)
         CombatSystem.addStatus(&w3.s, targetIndex: k3, StatusEffect(kind: .stun, duration: 0.6))
         w3.run(seconds: 0.5)
+        XCTAssertEqual(Kit.scheduledCount(w3.s, caster: k3), 1, "スタンでは取り消されない（非中断）")
+        w3.run(seconds: 0.5)
         XCTAssertEqual(Kit.scheduledCount(w3.s, caster: k3), 0, "非中断のタイマーは発火済み")
         w3.run(seconds: 1)
         XCTAssertFalse(w3.s.units[immune].has(.root))
@@ -653,6 +875,25 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertEqual(Kit.scheduledCount(w4.s, caster: k4), 0)
         w4.run(seconds: 1.2)
         XCTAssertTrue(w4.s.projectiles.filter { $0.visual == skill(.skill2).effectID }.isEmpty, "小さな矢は出ない")
+    }
+
+    /// ルミナのスキルはどれも術者を動かさない（自己強化・地点指定）ので、敵のバインド中も撃てる（瞬歩だけが封じられる）。
+    /// 隠れ月光はバインドも解除する（すべてのデバフを解除）。
+    func testLuminaCanCastEverySkillWhileBoundButCannotFlash() {
+        var w = SkillWorld()
+        let k = addLumina(&w)
+        let foe = addFoe(&w, dx: 600)
+        CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .root, duration: 3, sourceID: w.id(foe)))
+        XCTAssertTrue(w.s.units[k].isBound)
+        for slot in SkillSlot.actives {
+            XCTAssertFalse(HeroKits.movesCaster(w.s, k, slot: slot, targeting: w.targeting(k, slot)), "\(slot)")
+        }
+        XCTAssertFalse(w.castSpell(k, 0, .direction(Self.east)), "バインド中は瞬歩できない")
+        XCTAssertTrue(w.cast(k, .skill2, .point(skillArena + Vec2(500, 0))))
+        XCTAssertTrue(w.cast(k, .skill1))
+        XCTAssertTrue(w.cast(k, .ultimate))
+        XCTAssertFalse(w.s.units[k].has(.root), "隠れ月光でバインドも解ける")
+        XCTAssertFalse(w.s.units[k].isBound)
     }
 
     // MARK: - 奥義 隠れ月光
@@ -805,14 +1046,16 @@ final class Kit_H025Tests: XCTestCase {
         XCTAssertEqual(w.s.units[k].hp, w.s.units[k].stats.maxHP)
     }
 
-    func testCostAndCooldownFollowTheDefinitionsAndCCBlocksCasts() {
+    func testCostFollowsTheOfficialTableAndCCBlocksCasts() {
         var w = SkillWorld()
         let k = addLumina(&w)
-        for slot in SkillSlot.actives {
+        // スキル2 は日本語クライアントの原本の 90（全 Lv 一定）
+        for (slot, mp) in [(SkillSlot.skill1, 60.0), (.skill2, 90), (.ultimate, 120)] {
             let n = w.numbers(k, slot)
+            XCTAssertEqual(n.cost, mp, "公式のマナ（ランク 1）")
             let before = w.s.units[k].resource
             XCTAssertTrue(w.cast(k, slot, .point(skillArena + Vec2(400, 0))))
-            XCTAssertEqual(before - w.s.units[k].resource, skill(slot).cost, accuracy: 1e-9, "\(slot)")
+            XCTAssertEqual(before - w.s.units[k].resource, mp, accuracy: 1e-9, "\(slot)")
             XCTAssertEqual(w.s.units[k].hero!.cooldown(slot), n.cooldown, accuracy: 1e-9)
             XCTAssertFalse(w.cast(k, slot, .point(skillArena + Vec2(400, 0))), "CD 中")
         }
@@ -1128,10 +1371,13 @@ final class Kit_H025Tests: XCTestCase {
                     st.units[i].hero!.skillRanks[SkillSlot.ultimate.rawValue] = 1
                     sim.restore(from: st)
                 }
-                // 奥義は AI の判断が厳しいので、120 秒以降は 15 秒おきに自動照準で奥義・S2 を撃たせ、状態遷移も通す
+                // 奥義は AI の判断が厳しいので、120 秒以降は 15 秒おきに自動照準で奥義・S2・S1 を撃たせ、状態遷移も通す
+                // （S1 はクールダウンが MLBB の 11 秒になり、交戦の少ない序盤の 3 分では AI が一度も撃たない種がある）
                 var commands: [HeroCommand] = []
                 if sim.state.time >= 120, sim.state.tick % 450 == 0 {
                     commands.append(HeroCommand(heroID: id, command: .castSkill(slot: .ultimate, target: .none)))
+                } else if sim.state.time >= 120, sim.state.tick % 450 == 300 {
+                    commands.append(HeroCommand(heroID: id, command: .castSkill(slot: .skill1, target: .none)))
                 } else if sim.state.time >= 120, sim.state.tick % 450 == 150 {
                     commands.append(HeroCommand(heroID: id, command: .castSkill(slot: .skill2, target: .none)))
                 }

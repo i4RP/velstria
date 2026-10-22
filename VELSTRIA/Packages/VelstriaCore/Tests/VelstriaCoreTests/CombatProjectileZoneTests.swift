@@ -207,6 +207,50 @@ final class CombatProjectileZoneTests: XCTestCase {
         XCTAssertFalse(hit(5000, 4890))
     }
 
+    /// キット層の形: 内側の欠けた扇（innerRadius。距離 + 対象の半径で見る）と、端の四角い線分（squareEnds = 長方形）。
+    /// 指定しないゾーンは nil のまま（以前と同じ判定・同じ JSON）。
+    func testInnerRadiusAndSquareEndsZones() throws {
+        var w = CombatWorld()
+        let o = w.addHero(team: .blue, at: Vec2(5000, 5000))
+        let c = Vec2(5000, 5000)
+        let band = ZoneSystem.spawn(&w.s, ownerIndex: o, center: c, radius: 600,
+                                    shape: .cone(direction: Vec2(1, 0), halfAngle: .pi / 4), delay: 0, innerRadius: 300,
+                                    payload: HitPayload(damage: 0, damageType: .magic, source: .spell), visual: "")
+        let rect = ZoneSystem.spawn(&w.s, ownerIndex: o, center: c, radius: 100,
+                                    shape: .line(direction: Vec2(0, 1), length: 500), delay: 0, squareEnds: true,
+                                    payload: HitPayload(damage: 0, damageType: .magic, source: .spell), visual: "")
+        let plain = ZoneSystem.spawn(&w.s, ownerIndex: o, center: c, radius: 100, delay: 0,
+                                     payload: HitPayload(damage: 0, damageType: .magic, source: .spell), visual: "")
+        let zb = try XCTUnwrap(w.s.zones.first { $0.id == band })
+        let zr = try XCTUnwrap(w.s.zones.first { $0.id == rect })
+        let zp = try XCTUnwrap(w.s.zones.first { $0.id == plain })
+        XCTAssertEqual(zb.innerRadius, 300)
+        XCTAssertEqual(zr.squareEnds, true)
+        XCTAssertNil(zp.innerRadius)
+        XCTAssertNil(zp.squareEnds)
+        func inBand(_ x: Double, _ y: Double) -> Bool { ZoneSystem.contains(zone: zb, point: Vec2(x, y), pointRadius: 55) }
+        XCTAssertFalse(inBand(5240, 5000), "240 + 55 < 300 は内側の欠け")
+        XCTAssertTrue(inBand(5250, 5000), "250 + 55 ≥ 300")
+        XCTAssertTrue(inBand(5650, 5000), "外周は扇と同じ（600 + 55）")
+        XCTAssertFalse(inBand(5660, 5000))
+        XCTAssertFalse(inBand(4600, 5000), "背後")
+        func inRect(_ x: Double, _ y: Double) -> Bool { ZoneSystem.contains(zone: zr, point: Vec2(x, y), pointRadius: 55) }
+        XCTAssertTrue(inRect(5150, 5555), "角も入る（丸い端なら 50 + 55 と 155 の対角で外）")
+        XCTAssertFalse(ZoneSystem.contains(shape: zr.shape, center: c, radius: 100, point: Vec2(5150, 5555), pointRadius: 55))
+        XCTAssertFalse(inRect(5160, 5300), "横は半幅 100 + 55 まで")
+        XCTAssertFalse(inRect(5000, 5560), "先は 500 + 55 まで")
+        XCTAssertTrue(inRect(5000, 4950), "後ろは対象の半径まで")
+        XCTAssertFalse(inRect(5000, 4940))
+        // 形の指定の無いゾーンは shape の判定そのまま
+        XCTAssertEqual(ZoneSystem.contains(zone: zp, point: Vec2(5150, 5000), pointRadius: 55),
+                       ZoneSystem.contains(shape: .circle, center: c, radius: 100, point: Vec2(5150, 5000), pointRadius: 55))
+        // JSON の往復で残る（指定の無いゾーンは鍵を書かない）
+        let data = try JSONEncoder().encode(w.s.zones)
+        XCTAssertEqual(try JSONDecoder().decode([AreaZone].self, from: data), w.s.zones)
+        let plainJSON = String(decoding: try JSONEncoder().encode(zp), as: UTF8.self)
+        XCTAssertFalse(plainJSON.contains("innerRadius") || plainJSON.contains("squareEnds"), plainJSON)
+    }
+
     func testConeAndLineZonesSelectTargets() {
         var w = CombatWorld()
         let o = w.addHero(team: .blue, at: Vec2(5000, 5000))

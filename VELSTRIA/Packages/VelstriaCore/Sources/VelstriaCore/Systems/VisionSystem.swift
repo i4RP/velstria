@@ -3,8 +3,10 @@ import Foundation
 // 担当: core-world。チーム視界（DESIGN §9）。10Hz（Simulation が 3 tick 毎に呼ぶ）。
 // 1) 各チームの視界円（ヒーロー 1200 / ミニオン 800 / タワー・Core 1100 / 泉 1500）を 200 単位格子へ焼く。
 // 2) ユニット毎に各チームから見えるかを判定し visibleMask に書く:
-//    味方は常に可視。敵・中立は「格子が照らされている」かつ「草むら外、または同じ草むらに観測者が居る/観測者が 300 以内」
+//    味方は常に可視。敵・中立は「格子が照らされている」かつ「草むらで隠れていない」
 //    かつ「ステルスでない、または観測者が 250 以内/自軍タワーの真視界 750 内/自軍の泉内」。.revealed は両チームに可視。
+// 草むら（MLBB の Bush）: 同じ草むらに敵の観測者が居なければ、入って 0.25 秒（直前に敵に見られていたら 0.75 秒）で隠れる。
+//    草むらの外からは距離によらず見えない。攻撃して姿を晒した 3 秒（CombatSystem が brushExposedUntil を書く）は隠れない。
 //    構造物（タワー・Core）は地形として常に両チームに可視（破壊後も）。
 
 /// チーム視界格子。cells[row * cols + col] = その格子を見ているチームのビット集合（Team.visionBit）。
@@ -38,9 +40,22 @@ public enum VisionSystem {
         let rows = cols
         var cells = [UInt8](repeating: 0, count: cols * rows)
 
-        // 草むら位置の更新
+        // 草むら位置と、隠れるまでの遅延の更新
+        let step = Double(Balance.visionUpdateEveryTicks) * Balance.dt
+        let playerBits = Team.blue.visionBit | Team.red.visionBit
         for i in s.units.indices {
-            s.units[i].brushIndex = s.units[i].isAlive ? ctx.map.brushIndex(at: s.units[i].pos) : nil
+            let prev = s.units[i].brushIndex
+            let brush = s.units[i].isAlive ? ctx.map.brushIndex(at: s.units[i].pos) : nil
+            s.units[i].brushIndex = brush
+            guard brush != nil else {
+                s.units[i].brushConcealDelay = 0
+                continue
+            }
+            if brush != prev {
+                let seen = s.units[i].visibleMask & playerBits & ~s.units[i].team.visionBit != 0
+                s.units[i].brushConcealDelay = seen ? Balance.brushConcealDelaySeen : Balance.brushConcealDelay
+            }
+            s.units[i].brushConcealDelay = max(0, s.units[i].brushConcealDelay - step)
         }
 
         // 視界円の焼き込みと観測者の収集
@@ -61,6 +76,22 @@ public enum VisionSystem {
         s.vision.rows = rows
         s.vision.cells = cells
 
+        // 同じ草むらに敵の観測者が居る間は隠れない（出て行った後は 0.75 秒で隠れ直す）
+        for i in s.units.indices {
+            guard let b = s.units[i].brushIndex else {
+                s.units[i].brushConcealed = false
+                continue
+            }
+            let team = s.units[i].team
+            var spotted = false
+            for viewer in Team.players where viewer != team && observers[viewer.rawValue].contains(where: { $0.brush == b }) {
+                spotted = true
+            }
+            if spotted { s.units[i].brushConcealDelay = Balance.brushConcealDelaySeen }
+            s.units[i].brushConcealed = !spotted && s.units[i].brushConcealDelay <= 0
+                && s.time >= s.units[i].brushExposedUntil && !s.units[i].has(.revealed)
+        }
+
         // ユニットの可視判定
         for i in s.units.indices {
             let team = s.units[i].team
@@ -74,6 +105,8 @@ public enum VisionSystem {
             }
             s.units[i].visibleMask = mask
         }
+        // ロームの祝福の暴き（見えた直後に判定する）
+        GearSystem.rewardReveals(&s, ctx)
     }
 
     /// 可視判定に必要なユニットの要約。
@@ -84,11 +117,14 @@ public enum VisionSystem {
         var isStructure: Bool
         var revealed: Bool
         var stealthed: Bool
+        /// 草むらで隠れる準備ができている（遅延が済み、攻撃で姿を晒していない）。
+        var concealReady: Bool
 
         /// units[i] の要約（Unit 全体をコピーしないよう、必要な項目だけを読む）。
         init(_ s: SimState, _ i: Int) {
             pos = s.units[i].pos
             brush = s.units[i].brushIndex
+            concealReady = s.units[i].brushConcealDelay <= 0 && s.time >= s.units[i].brushExposedUntil
             alive = s.units[i].isAlive && (s.units[i].hero?.respawnTimer ?? 0) <= 0
             isStructure = s.units[i].isStructure
             var revealed = false, stealthed = false
@@ -129,15 +165,8 @@ public enum VisionSystem {
         let r = min(rows - 1, max(0, Int(u.pos.y / Balance.visionCellSize)))
         guard cells[r * cols + c] & team.visionBit != 0 else { return false }
 
-        if let b = u.brush {
-            let rr = Balance.brushRevealRadius * Balance.brushRevealRadius
-            var revealed = false
-            for o in observers where o.brush == b || o.pos.distanceSquared(to: u.pos) <= rr {
-                revealed = true
-                break
-            }
-            if !revealed { return false }
-        }
+        // 草むら: 隠れ終わっていて、同じ草むらにこのチームの観測者が居なければ見えない
+        if let b = u.brush, u.concealReady, !observers.contains(where: { $0.brush == b }) { return false }
         if u.stealthed {
             let near = Balance.stealthRevealRadius * Balance.stealthRevealRadius
             let trueSight = Balance.towerTrueSightRadius * Balance.towerTrueSightRadius

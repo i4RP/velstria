@@ -1,0 +1,151 @@
+{
+ "skill_H031_passive.caf": {
+  "kind": "passive",
+  "note": "凍りつくひび + 霜 + 氷のきしみ",
+  "seconds": 0.89,
+  "sources": [
+   "2017 / Mindful Audio - Elements - Ice",
+   "2018 / Alexander Kopeikin - The Dry Ice Library",
+   "2018 / Soundrangers - Foley Elements Ice and Snow"
+  ]
+ },
+ "skill_H031_s1_cast.caf": {
+  "kind": "cast",
+  "note": "霜が集まる → 落ちる氷塊の風 → 0.56 秒の着弾（氷塊・砕け・ひび・低音）→ 雹 5 つの砕け → 霜の床",
+  "seconds": 1.89,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Mattia Cellotto - Glacier Ice",
+   "2017 / Mindful Audio - Elements - Ice",
+   "2018 / Alexander Kopeikin - The Dry Ice Library",
+   "2018 / FLYSOUND – Ice Fury",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2023 / BluezoneCorp - Ice Cracking",
+   "2024 / Mechanical Wave - Sound Effects Collection"
+  ]
+ },
+ "skill_H031_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "氷の塊が体に当たって砕ける + 体の芯 + 凍りつくひび",
+  "seconds": 0.48,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2018 / Soundrangers - Foley Elements Ice and Snow"
+  ]
+ },
+ "skill_H031_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "氷の塊が体に当たって砕ける + 体の芯 + 凍りつくひび",
+  "seconds": 0.51,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2018 / Soundrangers - Foley Elements Ice and Snow",
+   "2019 / Soundopolis - Icy Snow 2 HD"
+  ]
+ },
+ "skill_H031_s1_hit_3.caf": {
+  "kind": "hit",
+  "note": "氷の塊が体に当たって砕ける + 体の芯 + 凍りつくひび",
+  "seconds": 0.47,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2018 / FLYSOUND – Ice Fury",
+   "2018 / Soundrangers - Foley Elements Ice and Snow"
+  ]
+ },
+ "skill_H031_s2_cast.caf": {
+  "kind": "cast",
+  "note": "払う霜 → 冷たい突風 → 0.56 秒に凍りつくひび → 0.76 秒に地面が凍る割れ",
+  "seconds": 1.42,
+  "sources": [
+   "2017 / Mindful Audio - Elements - Ice",
+   "2018 / Alexander Kopeikin - The Dry Ice Library",
+   "2018 / Soundrangers - Foley Elements Ice and Snow",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2023 / BluezoneCorp - Ice Cracking",
+   "2024 / Mechanical Wave - Sound Effects Collection",
+   "2024 / Rescopic Sound - Distinct Whooshes",
+   "2026 / Alexander Kopeikin - 100 kHz Designed Ice"
+  ]
+ },
+ "skill_H031_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "体が凍りつく（凍るひび・氷の砕け・体の芯）",
+  "seconds": 0.42,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2018 / Soundrangers - Foley Elements Ice and Snow"
+  ]
+ },
+ "skill_H031_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "体が凍りつく（凍るひび・氷の砕け・体の芯）",
+  "seconds": 0.45,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2018 / Soundrangers - Foley Elements Ice and Snow"
+  ]
+ },
+ "skill_H031_s2_hit_3.caf": {
+  "kind": "hit",
+  "note": "体が凍りつく（凍るひび・氷の砕け・体の芯）",
+  "seconds": 0.46,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2018 / Soundrangers - Foley Elements Ice and Snow"
+  ]
+ },
+ "skill_H031_ult_cast.caf": {
+  "kind": "ult",
+  "note": "霜が集まる → 0.26 秒の霜の道のひび → 氷河が育つきしみ → 1.49 秒に氷河が砕ける（氷山・氷塊・砕け）",
+  "seconds": 2.53,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Mattia Cellotto - Glacier Ice",
+   "2017 / Mindful Audio - Elements - Ice",
+   "2018 / Alexander Kopeikin - The Dry Ice Library",
+   "2018 / FLYSOUND – Ice Fury",
+   "2018 / Soundrangers - Foley Elements Ice and Snow",
+   "2023 / BluezoneCorp - Ice Cracking",
+   "2024 / Mechanical Wave - Sound Effects Collection",
+   "2026 / Alexander Kopeikin - 100 kHz Designed Ice"
+  ]
+ },
+ "skill_H031_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "大きな氷の塊が体を打つ + 氷の割れ + 体の芯",
+  "seconds": 0.57,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2017 / Mattia Cellotto - Glacier Ice",
+   "2018 / Soundrangers - Foley Elements Ice and Snow",
+   "2019 / Soundopolis - Icy Snow 2 HD"
+  ]
+ },
+ "skill_H031_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "大きな氷の塊が体を打つ + 氷の割れ + 体の芯",
+  "seconds": 0.57,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2017 / Mattia Cellotto - Glacier Ice",
+   "2018 / FLYSOUND – Ice Fury",
+   "2018 / Soundrangers - Foley Elements Ice and Snow"
+  ]
+ },
+ "skill_H031_ult_hit_3.caf": {
+  "kind": "hit",
+  "note": "大きな氷の塊が体を打つ + 氷の割れ + 体の芯",
+  "seconds": 0.57,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2017 / Mattia Cellotto - Glacier Ice",
+   "2018 / Soundrangers - Foley Elements Ice and Snow"
+  ]
+ }
+}

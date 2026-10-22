@@ -5,7 +5,7 @@ import VelstriaCore
 
 // 担当: battle-renderer。頭上の HP バー（画面に平行なビルボード）。
 // 深度テストなしで常に最前面に描き、描画順は ModelSortGroup で固定する（背景 → 遅延 → HP → シールド → 文字）。
-// 1 m ≒ 36pt（cameraZoom = 1、iPhone 横画面）を目安に寸法を決める。
+// 参照画像1368×630上でヒーローHP約104×9px。敵味方・距離・画面端で同じ寸法を保つ。
 
 enum OverlayOrder {
     /// 地面デカール・頭上 UI の描画順グループ。半透明で深度を書かない地面の表示は全てこのグループに入れ、
@@ -87,7 +87,7 @@ final class OverheadBar {
     enum Style {
         case hero(isSelf: Bool, showResource: Bool)
         case minion
-        case monster(boss: Bool)
+        case monster(boss: Bool, sentinel: Bool = false)
         case structure(core: Bool)
     }
 
@@ -98,9 +98,18 @@ final class OverheadBar {
     private let shield: ModelEntity
     private var resource: ModelEntity?
     private var levelText: ModelEntity?
+    private var executeMark: ModelEntity?
+    func setExecutable(_ value: Bool) { executeMark?.isEnabled = value }
     private var nameText: ModelEntity?
+    /// 草むらで隠れている印（ヒーローのみ。HP バーの右端。setConcealed で切り替える）。
+    private var concealIcon: ModelEntity?
+    /// HP の区切り目盛り（ヒーローのみ。MLBB のように一定量ごとの細い線。最大 tickPool 本を使い回す）。
+    private var ticks: [ModelEntity] = []
+    private var tickMaxHP: Float = -1
     private let width: Float
     private let height: Float
+    /// 左のレベル章を含む全体をキャラの上に寄せる（HP部分の中心は少し右）。
+    private let horizontalOffset: Float
     private var shownHP: Float = -1
     private var lagHP: Float = 1
     private var lagHold: Float = 0
@@ -115,15 +124,24 @@ final class OverheadBar {
          name: String? = nil, resourceColor: RGB? = nil) {
         self.text = text
         self.materials = materials
+        if case .hero = style { horizontalOffset = 0.2 } else { horizontalOffset = 0 }
         root.name = "bar"
+        root.position.x = horizontalOffset
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-stageLayoutReference") {
+            root.components.set(OpacityComponent(opacity: 0))
+        }
+        #endif
         // 画面に平行なビルボード。カメラは回転しないので姿勢は一定（親は回転させない）。
         // BillboardComponent はワールド上方向を保つため、俯角 56° の画面端でバーが傾いて見える。
         root.orientation = CameraRig.orientation
         var w: Float, h: Float
         switch style {
-        case .hero: w = 1.9; h = 0.22
-        case .minion: w = 0.95; h = 0.11
-        case .monster(let boss): w = boss ? 2.4 : 1.25; h = boss ? 0.2 : 0.13
+        case .hero: w = 1.9; h = 0.16
+        case .minion: w = 0.95; h = 0.09
+        case .monster(let boss, let sentinel):
+            w = boss ? 3.1 : (sentinel ? 2.2 : 1.8)
+            h = boss ? 0.18 : (sentinel ? 0.12 : 0.09)
         case .structure(let core): w = core ? 2.2 : 1.7; h = core ? 0.2 : 0.17
         }
         width = w
@@ -177,53 +195,119 @@ final class OverheadBar {
             resource = r
         }
 
-        levelMaterial = materials.unlit(RGB(1, 0.94, 0.72), alpha: 1, depthTest: false)
+        levelMaterial = materials.unlit(RGB(1, 0.97, 0.9), alpha: 1, depthTest: false)
         if case .hero(let isSelf, _) = style {
-            // レベル章（左端）
-            let badgeSize: Float = 0.4
-            let badge = ModelEntity(mesh: quad, materials: [materials.unlit(RGB(0.03, 0.04, 0.08), alpha: 0.95, depthTest: false)])
-            badge.position = [-w / 2 - pad - badgeSize, -(totalH - h) / 2, 0]
-            badge.scale = [badgeSize, totalH + pad * 2 + 0.06, 1]
-            OverlayOrder.apply(badge, OverlayOrder.barBack)
+            // レベルの丸い章（左端。MLBB のように縁取りの丸の中に数字。バーの端に少し重ねる）
+            let disc = meshes.barDisc ?? quad
+            let badgeD: Float = 0.46
+            let badgeX = -w / 2 - pad - 0.2
+            let badgeY = -(totalH - h) / 2
+            let rim = ModelEntity(mesh: disc, materials: [materials.unlit(isSelf ? TeamColors.gold : RGB(0.92, 0.94, 1.0),
+                                                                           alpha: 0.95, depthTest: false)])
+            rim.position = [badgeX, badgeY, 0]
+            rim.scale = [badgeD + 0.06, badgeD + 0.06, 1]
+            OverlayOrder.apply(rim, OverlayOrder.barBack)
+            root.addChild(rim)
+            let badge = ModelEntity(mesh: disc, materials: [materials.unlit(RGB(0.03, 0.04, 0.08), alpha: 1, depthTest: false)])
+            badge.position = [badgeX, badgeY, 0]
+            badge.scale = [badgeD, badgeD, 1]
+            OverlayOrder.apply(badge, OverlayOrder.barLag)
             root.addChild(badge)
-            let edge = ModelEntity(mesh: quad, materials: [materials.unlit(isSelf ? TeamColors.gold : fillColor, alpha: 1,
-                                                                            depthTest: false)])
-            edge.position = [-w / 2 - pad - badgeSize, -(totalH - h) / 2 - (totalH + pad * 2 + 0.06) / 2 + 0.02, 0]
-            edge.scale = [badgeSize, 0.04, 1]
-            OverlayOrder.apply(edge, OverlayOrder.barFront)
-            root.addChild(edge)
+            // HP の区切り目盛り（使う本数は最大 HP で決まる。update で並べ直す）
+            let tickMaterial = materials.unlit(RGB(0.02, 0.03, 0.05), alpha: 0.7, depthTest: false)
+            for _ in 0..<OverheadBar.tickPool {
+                let t = ModelEntity(mesh: quad, materials: [tickMaterial])
+                t.scale = [0.022, h, 1]
+                t.isEnabled = false
+                OverlayOrder.apply(t, OverlayOrder.barFront)
+                root.addChild(t)
+                ticks.append(t)
+            }
             let lt = ModelEntity()
-            lt.position = [-w / 2 - pad - badgeSize / 2, -(totalH - h) / 2 + 0.01, 0.001]
+            lt.position = [badgeX, badgeY + 0.01, 0.001]
             OverlayOrder.apply(lt, OverlayOrder.barText)
             root.addChild(lt)
             levelText = lt
+            let mark = ModelEntity(mesh: quad, materials: [materials.unlit(RGB(1, 0.12, 0.12), alpha: 1, depthTest: false)])
+            mark.position = [badgeX, badgeY, 0.004]
+            mark.scale = [0.62, 0.05, 1]
+            mark.orientation = simd_quatf(angle: .pi / 4, axis: [0, 0, 1])
+            mark.isEnabled = false
+            OverlayOrder.apply(mark, OverlayOrder.barText + 1)
+            root.addChild(mark)
+            executeMark = mark
             if let name, let e = text.mesh(name, size: OverheadBar.nameTextSize) {
                 let nt = ModelEntity(mesh: e.mesh, materials: [materials.unlit(isSelf ? RGB(1, 0.95, 0.78) : RGB(0.96, 0.97, 1.0),
                                                                              alpha: 1, depthTest: false)])
                 let scale: Float = e.width > w + 0.3 ? (w + 0.3) / e.width : 1
                 nt.scale = [scale, scale, 1]
-                nt.position = [e.offsetX * scale - 0.2, h / 2 + 0.2 + e.offsetY * scale, 0.001]
+                nt.position = [e.offsetX * scale, h / 2 + 0.2 + e.offsetY * scale, 0.001]
                 OverlayOrder.apply(nt, OverlayOrder.barText)
                 root.addChild(nt)
                 nameText = nt
             }
+            if let eye = materials.concealEye {
+                let e = ModelEntity(mesh: eye.mesh, materials: [eye.material])
+                e.position = [w / 2 + pad + 0.26, badgeY, 0.002]
+                e.scale = [OverheadBar.concealIconSize, OverheadBar.concealIconSize, 1]
+                e.isEnabled = false
+                OverlayOrder.apply(e, OverlayOrder.barText)
+                root.addChild(e)
+                concealIcon = e
+            }
         }
+    }
+
+    /// 草むらで隠れている印の直径（m。レベルの章と同じくらい）。
+    static let concealIconSize: Float = 0.46
+
+    /// 草むらで隠れている印を出すか。
+    func setConcealed(_ on: Bool) {
+        guard let e = concealIcon, e.isEnabled != on else { return }
+        e.isEnabled = on
+    }
+
+    var isConcealIconShown: Bool { concealIcon?.isEnabled == true }
+
+    /// HP の区切り目盛りの最大本数（ヒーロー 1 人あたりのエンティティ数の上限）。
+    static let tickPool = 6
+
+    /// 区切り目盛りの間隔（HP）。500 から始め、本数が tickPool を超えないよう 500 単位で広げる。
+    static func tickStep(maxHP: Float) -> Float {
+        let units = max(1, (maxHP / (Float(tickPool + 1) * 500)).rounded(.up))
+        return 500 * units
+    }
+
+    /// 区切り目盛りの位置（最大 HP 比 0〜1。端と重なる目盛りは出さない）。
+    static func tickFractions(maxHP: Float) -> [Float] {
+        guard maxHP > 1 else { return [] }
+        let step = tickStep(maxHP: maxHP)
+        var out: [Float] = []
+        var v = step
+        while v < maxHP - step * 0.25, out.count < tickPool {
+            out.append(v / maxHP)
+            v += step
+        }
+        return out
     }
 
     /// レベル・名前の文字の大きさ（TextMeshCache のキー。事前生成と同じ値を使う）。
     static let levelTextSize: Float = 0.26
     static let nameTextSize: Float = 0.24
     /// バーの色（マテリアルの事前生成に使う）。
-    static let monsterFill = RGB(0.95, 0.62, 0.28)
+    static let monsterFill = RGB(0.96, 0.18, 0.14)
     static let dummyFill = RGB(0.95, 0.4, 0.4)
 
     /// この距離（m）で設計寸法どおりの大きさに見える。
-    static let referenceDistance: Float = 11
+    static let referenceDistance: Float = 19.8
     /// 拡縮の上限（プレイヤーの倍率範囲。画面上端の遠いバーはこれ以上大きくしない）。
     static let maxScreenScale: Float = 1.8
     /// 観戦者が大きく引いた時に上限を広げる倍率（BattleWorld がカメラの実際の倍率から毎フレーム設定する。
     /// プレイヤーの倍率範囲では 1 で従来どおり）。
     static var zoomScale: Float = 1
+    /// 演出のカメラ（Star Core の終幕の低い視点・引きの構図）の間は隠す（画面に平行な板はゲームカメラの向き専用）。
+    /// BattleRenderer が毎フレーム設定し、試合を出る時に戻す。
+    static var cinematicHidden = false
     private var screenScale: Float = 1
 
     /// カメラの倍率 → 上限の広げ方。引くほどバーも少しずつ小さく見えるよう、倍率の平方根で広げる
@@ -238,13 +322,20 @@ final class OverheadBar {
         max(0.5, min(maxScreenScale * max(1, k), distance / referenceDistance))
     }
 
-    /// 画面上の大きさを一定に保つ（カメラからの距離に比例して拡縮。手前の構造物のバーが巨大化しない）。
+    /// 透視投影の深度。直線距離を使うと画面端のバーだけ大きくなる。
+    static func viewDepth(world: SIMD3<Float>, camera: SIMD3<Float>) -> Float {
+        simd_dot(world - camera, CameraRig.orientation.act(SIMD3(0, 0, -1)))
+    }
+
+    /// 光軸方向の深度に比例して拡縮し、画面上の大きさを一定に保つ。
     func keepScreenSize(camera: SIMD3<Float>) {
         let world = (root.parent?.position ?? .zero) + root.position
-        let s = OverheadBar.screenScale(distance: simd_distance(world, camera), zoomScale: OverheadBar.zoomScale)
+        let s = OverheadBar.cinematicHidden ? 0.0001
+            : OverheadBar.screenScale(distance: Self.viewDepth(world: world, camera: camera), zoomScale: OverheadBar.zoomScale)
         guard abs(s - screenScale) > 0.01 else { return }
         screenScale = s
         root.scale = SIMD3(repeating: s)
+        root.position.x = horizontalOffset * s
     }
 
     /// 表示中の値（テスト・デバッグ用）。
@@ -253,7 +344,20 @@ final class OverheadBar {
     var displayedLevel: Int { shownLevel }
 
     /// 値を反映する（変化時のみエンティティを更新）。hp/shield は最大 HP 比（shield は hp + shield ≤ 1 に収める）。
-    func update(hp: Float, shield sh: Float, resource res: Float?, level: Int?, dt: Float) {
+    /// maxHP を渡すとヒーローの区切り目盛りを並べ直す（最大 HP が変わった時だけ）。
+    func update(hp: Float, shield sh: Float, resource res: Float?, level: Int?, dt: Float, maxHP: Float? = nil) {
+        if let maxHP, !ticks.isEmpty, abs(maxHP - tickMaxHP) > 0.5 {
+            tickMaxHP = maxHP
+            let fractions = OverheadBar.tickFractions(maxHP: maxHP)
+            for (k, t) in ticks.enumerated() {
+                if k < fractions.count {
+                    t.position = [-width / 2 + width * fractions[k] - 0.011, 0, 0]
+                    t.isEnabled = true
+                } else {
+                    t.isEnabled = false
+                }
+            }
+        }
         let hpC = max(0, min(1, hp))
         let shC = max(0, min(1 - hpC, sh))
         if abs(hpC - shownHP) > 0.001 {

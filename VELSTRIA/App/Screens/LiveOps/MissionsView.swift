@@ -149,7 +149,7 @@ struct LiveOpsMissionRow: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
                 HStack(spacing: 8) {
-                    LiveOpsProgressBar(fraction: entry.fraction, tint: entry.isComplete ? Theme.gold : Theme.cyan)
+                    CelestialProgressBar(value: entry.fraction, tint: entry.isComplete ? Theme.gold : Theme.cyan)
                         .frame(maxWidth: 220)
                     Text("\(min(entry.progress, entry.def.target).formatted()) / \(entry.def.target.formatted())")
                         .font(Theme.mono(12))
@@ -160,7 +160,7 @@ struct LiveOpsMissionRow: View {
                 }
                 LiveOpsFlowLayout(spacing: 6, lineSpacing: 4) {
                     ForEach(Array(entry.rewards.enumerated()), id: \.offset) { _, reward in
-                        LiveOpsRewardChip(attachment: reward)
+                        RewardChip(attachment: reward)
                     }
                 }
             }
@@ -244,10 +244,10 @@ struct MissionsView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Panel(padding: 10) {
                     VStack(alignment: .leading, spacing: 8) {
-                        LiveOpsSegmented(options: [
-                            LiveOpsSegmentOption(value: Tab.daily, title: L("デイリー", "Daily"), symbol: "sun.max.fill",
+                        CelestialTabs(options: [
+                            CelestialTab(value: Tab.daily, title: L("デイリー", "Daily"), symbol: "sun.max.fill",
                                                  badge: daily.filter { $0.state == .claimable }.count, identifier: "missions_tab_daily"),
-                            LiveOpsSegmentOption(value: Tab.weekly, title: L("ウィークリー", "Weekly"), symbol: "calendar",
+                            CelestialTab(value: Tab.weekly, title: L("ウィークリー", "Weekly"), symbol: "calendar",
                                                  badge: weekly.filter { $0.state == .claimable }.count, identifier: "missions_tab_weekly"),
                         ], selection: $tab, axis: .vertical, onChange: { _ in app.audio.play(.uiTap) })
                         SettingsDivider()
@@ -328,7 +328,7 @@ struct MissionsView: View {
     private func missionList(_ entries: [LiveOpsMissionEntry]) -> some View {
         if entries.isEmpty {
             Panel {
-                LiveOpsEmptyState(symbol: "checklist",
+                EmptyStateView(symbol: "checklist",
                                   title: tab == .daily ? L("デイリーミッションはありません", "No daily missions")
                                                        : L("ウィークリーミッションはありません", "No weekly missions"),
                                   message: L("ミッションは更新時刻に新しく配布されます。対戦をプレイしてお待ちください。",

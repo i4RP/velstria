@@ -2,7 +2,9 @@ import Foundation
 
 // 担当: core-combat
 // 地面の範囲効果: 予告（delay）→ 発動 → 持続中は tickInterval 毎に再適用。
-// 形状は円 / 扇形 / 線分（いずれも対象の半径を含めて判定）。視界に関係なく当たり、構造物には当たらない。
+// 形状は円 / 扇形 / 線分（いずれも対象の半径を含めて判定）。キット層は内側を欠いた形（innerRadius）と端の四角い線分（squareEnds）も使う
+// （contains(zone:)）。視界に関係なく当たり、構造物には当たらない
+// （例外: HitPayload.kitHitsStructures のゾーンは、範囲内の敵の構造物にキットの onHit だけを呼ぶ）。
 // 所有者が死亡・消滅しても発動・持続は続く（followsOwner は生存中のみ追従）。
 
 public enum ZoneSystem {
@@ -11,12 +13,16 @@ public enum ZoneSystem {
     public static func spawn(_ s: inout SimState, ownerIndex i: Int, center: Vec2, radius: Double,
                              shape: ZoneShape = .circle, delay: Double, duration: Double = 0,
                              tickInterval: Double = 0.5, followsOwner: Bool = false,
-                             followsTargetID: EntityID? = nil, payload: HitPayload, visual: String) -> EntityID {
+                             followsTargetID: EntityID? = nil, innerRadius: Double? = nil, squareEnds: Bool = false,
+                             payload: HitPayload, visual: String) -> EntityID {
         let id = s.allocateID()
-        let z = AreaZone(id: id, ownerID: s.units[i].id, team: s.units[i].team, center: center, radius: radius,
+        var z = AreaZone(id: id, ownerID: s.units[i].id, team: s.units[i].team, center: center, radius: radius,
                          shape: shape, delay: delay, duration: duration, tickInterval: tickInterval,
                          followsOwner: followsOwner, followsTargetID: followsTargetID, payload: payload,
                          visual: visual)
+        // 指定の無いゾーンは nil のまま（JSON・状態の比較は以前と同じ）
+        if let innerRadius, innerRadius > 0 { z.innerRadius = innerRadius }
+        if squareEnds { z.squareEnds = true }
         s.zones.append(z)
         s.emit(.zoneCreated(zoneID: id, ownerID: s.units[i].id, team: s.units[i].team, visual: visual, center: center,
                             radius: radius, delay: delay, duration: duration,
@@ -66,6 +72,10 @@ public enum ZoneSystem {
     /// ゾーン k の範囲内の対象に payload を適用する（添字昇順）。
     static func applyZone(_ s: inout SimState, _ ctx: SimContext, _ k: Int) {
         let z = s.zones[k]
+        // 検証用の観測（受け口が無ければ何もしない。docs/vfx/RANGES.md）。見た目だけのゾーン（誰にも当たらない）は判定ではないので出さない
+        if HitShapeProbe.isActive, z.payload.affectsEnemies || z.payload.affectsAllies || z.payload.kitHitsStructures {
+            HitShapeProbe.emit(.zone(z, time: s.time))
+        }
         let bounds = boundingCircle(shape: z.shape, center: z.center, radius: z.radius)
         var targets: [Int] = []
         for i in s.units.indices {
@@ -80,14 +90,29 @@ public enum ZoneSystem {
             let r = s.units[i].radius
             let reach = bounds.radius + r
             guard pos.distanceSquared(to: bounds.center) <= reach * reach else { continue }
-            guard contains(shape: z.shape, center: z.center, radius: z.radius, point: pos, pointRadius: r) else { continue }
+            guard contains(zone: z, point: pos, pointRadius: r) else { continue }
             targets.append(i)
         }
+        // キット層: 構造物にはキットの onHit だけを呼ぶ（HitPayload.kitHitsStructures。ダメージ・CC は与えない）
+        if z.payload.kitHitsStructures, z.payload.kitEvent != 0 { KitDamage.notifyStructures(&s, ctx, zone: z) }
         guard !targets.isEmpty else { return }
         if z.duration <= 0 {
             for t in targets { s.zones[k].hitIDs.append(s.units[t].id) }
         }
         for t in targets {
+            if z.visual == "spell.BS16" {
+                // Overlapping fountains share one pulse stream (lowest live zone ID wins).
+                let overlaps = s.zones.contains { other in
+                    other.id < z.id && other.visual == z.visual && other.team == z.team
+                    && other.center.distance(to: s.units[t].pos) <= other.radius + s.units[t].radius
+                }
+                if !overlaps {
+                    CombatSystem.heal(&s, ctx, sourceID: z.ownerID, targetIndex: t,
+                                      amount: s.units[t].stats.maxHP * 0.025 / SpellSystem.fountainMultiplier(s, target: t),
+                                      bySkill: false)
+                }
+                continue
+            }
             CombatSystem.applyHit(&s, ctx, sourceID: z.ownerID, team: z.team, targetIndex: t, payload: z.payload,
                                   from: z.center)
         }
@@ -136,5 +161,21 @@ public enum ZoneSystem {
             let end = center + dir * max(0, length)
             return distancePointToSegment(point, center, end) <= radius + pointRadius
         }
+    }
+
+    /// 半径 pointRadius の円（ユニット）がゾーン z と重なるか。形状（contains(shape:)）に、キット層の 2 つを足す:
+    /// - innerRadius: 中心からの距離 + 対象の半径がこれ未満の対象は除く（扇の先の帯 = 内側の欠けた扇など）
+    /// - squareEnds: .line の両端を丸めない長方形（向きに沿って −対象の半径〜length + 対象の半径、横は radius + 対象の半径）
+    public static func contains(zone z: AreaZone, point: Vec2, pointRadius: Double) -> Bool {
+        if let inner = z.innerRadius, inner > 0, point.distance(to: z.center) + pointRadius < inner { return false }
+        if z.squareEnds == true, case .line(let direction, let length) = z.shape {
+            let dir = direction.normalized
+            guard dir != .zero else { return false }
+            let rel = point - z.center
+            let along = rel.dot(dir)
+            let lateral = abs(rel.x * dir.y - rel.y * dir.x)
+            return along >= -pointRadius && along <= max(0, length) + pointRadius && lateral <= z.radius + pointRadius
+        }
+        return contains(shape: z.shape, center: z.center, radius: z.radius, point: point, pointRadius: pointRadius)
     }
 }

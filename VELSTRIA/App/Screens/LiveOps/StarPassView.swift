@@ -90,7 +90,7 @@ struct StarPassView: View {
                 summary(rewards)
                 if rewards.isEmpty {
                     Panel {
-                        LiveOpsEmptyState(symbol: "star.slash",
+                        EmptyStateView(symbol: "star.slash",
                                           title: L("報酬トラックを準備中です", "Reward track unavailable"),
                                           message: L("スターパスの報酬情報を読み込めませんでした。アプリを再起動してもう一度お試しください。",
                                                      "Star Pass rewards could not be loaded. Please restart the app and try again."))
@@ -153,7 +153,7 @@ struct StarPassView: View {
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
-                    LiveOpsProgressBar(fraction: Double(progress.current) / Double(max(1, progress.needed)), tint: Theme.gold)
+                    CelestialProgressBar(value: Double(progress.current) / Double(max(1, progress.needed)), tint: Theme.gold)
                         .frame(maxWidth: 220)
                     Text(level >= LiveOpsService.passMaxLevel ? L("最大レベル到達", "Max level reached")
                                                               : L("\(progress.current.formatted()) / \(progress.needed.formatted()) XP · 対戦とミッションで獲得",

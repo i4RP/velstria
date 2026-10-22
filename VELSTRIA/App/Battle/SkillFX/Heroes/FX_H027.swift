@@ -1,168 +1,362 @@
 import Foundation
 import VelstriaCore
 
-// スキル演出: H027 竜槍のジャルド（Duelist / 竜の意匠の長槍・銀青の鎧・赤い房飾り。MLBB の Zilong の Velstria 版）。
-// 主題: 銀青の竜槍。白銀の芯 × 銀青（主）× 白（副）× 赤の房（差し色）。鋭い突きの線と、地から突き上がる竜牙・天へ昇る竜の渦。
-// sim の実際の挙動（Systems/Kits/Kit_H027.swift）に合わせた演出:
-//   パッシブ 竜の三連突き     — 竜気をまとう銀の鱗（竜気が増えるたび = パッシブのバッジが増えるたびに再生される）。
-//                              三連突き自体は通常攻撃の 3 連続ヒット（0.13 秒おき。ヒット演出は通常攻撃のダメージごとに出る）
-//   S1 槍の跳ね上げ（対象指定）— 低く構えた槍で掬い上げ、敵を頭上へ跳ね上げて術者の背後へ放り投げる
-//                                （打ち上げ 0.8 秒。背後 1.7 m に 0.7 秒後に着地 → 着地の衝撃）
-//   S2 竜牙の踏み込み（対象指定の突進）— 銀の尾を引いて踏み込み（約 0.2 秒）、到着の瞬間に槍を突き込む。
-//                                竜牙が突き上がり、鎧の鱗が砕けて防御が落ちる（防御ダウン 2 秒）
-//   奥義 至高の武人（自己強化 7.5 秒）— 足元に竜の紋、銀青の渦が立ち昇り咆哮。強化の間は風を切る銀の線と光が追従する
-// SkillCastEvent の shape / duration / count: S1 = lockOn・0.8（打ち上げ）、S2 = lockOn・突進の秒数、奥義 = selfRing・7.5・2（三連突きの必要回数）。
+// スキル演出: H027 竜槍のジャルド（Duelist / 竜の意匠の長槍・青緑の鎧・赤いマントと房。MLBB の Zilong の Velstria 版）。
+// 主題: 水色に光る槍。白い芯 × 水色（主。MLBB の画面収録の槍の光 #28B6E5〜#28B9BE / #83F9FA）× 青緑（副。突進の尾 #36E4B4）×
+// 房の深紅（差し色 #A90D14）× 灰色の土煙。奥義だけ白い風 → 黄緑（#94E853）→ 青緑（#1ED2AA）→ 水色の泡と色が移る。
+// 上から見下ろすカメラで「対象へ伸びる光の槍と、背に流れる羽根の尾」「頭上を越えて背後へ描く大きな三日月」「対象を貫く 3 本の突き」
+// 「身を包む風の渦と、強化の間に体から立ちのぼる水色の筋」が読めるよう、全周の輪を主役にせず、光の帯・縦の弧・渦で形を見せる。
+// 見た目の対応（コマ・色）は docs/vfx/H027.md（MLBB の画面収録 vid5、2026-10-16 の訓練場、Lv15）。
+// sim の実際の挙動（Systems/Kits/Kit_H027.swift の Tune。幾何と時間は MLBB の画面収録で測った値: docs/kits/Zilong.md
+// 「動画で測った値（2026-10-16）」）に合わせたタイミング:
+//   パッシブ 竜の三連突き — cast: 竜気が 1 つたまるたび（0.4 秒に 1 回まで）に、槍の穂先に小さな水色の閃き（MLBB は数を足元の射程の円で
+//                          示すだけで、たまる瞬間の演出は見えない。小さく短く）。
+//                          empoweredAttack（SimEvent.empoweredAttack = 三連突きの 1 発目の命中）: sim の 3 発の命中の時刻
+//                          （0 / flurryInterval / 2 × flurryInterval = 4 tick おき）に、穂先から伸びた射程の端まで届く白水色の長い突き
+//                          （1 本ごとに向きが少しずれる）・対象の白い閃きと水色の輪・腕の後ろへ流れる水色の羽根・足元の青緑の筋。
+//                          普段の通常攻撃の演出（Effekseer）の上に重ねる。
+//                          empoweredReady: 竜気が満タン（次の通常攻撃が三連突き）の間、自分だけに足元の届く距離の水色の細い輪
+//                          （MLBB の足元の射程の円 1.78 → 2.48 と同じ見せ方）。武器の先の光は HeroModelHandle.setEmpoweredReady
+//   スキル1 跳槍撃       — 扇（近接）のアーキタイプなので発動と同時に cast と impact（術者の位置、前方 = 対象）。0 秒: 低い水色の弧で
+//                          対象の足元を掬い、被弾者に白い閃きと灰色の土煙。0〜0.4 秒（持ち上げ）は被弾者の腰の下に穂先の水色の光。
+//                          0.4 秒（放り投げ）: 対象が頭上を越える軌跡 = 水色の大きな縦の三日月（芯の白・残る細い線。0.6 秒で細い線だけ）。
+//                          0.4〜0.6 秒は被弾者に追従する白水色の光の尾 → 0.6 秒で着地（追従するので実際の着地点）に灰色の土煙
+//   スキル2 竜牙突き     — 対象指定の突進（ブリンクのアーキタイプ: impact は発動時に対象の位置）。cast: 蹴り出しの土煙、前に構えた槍の
+//                          白水色の光と、背に流れる青緑の羽根の尾・白い光の筋・深紅の房の帯（突進の秒数 = 発動のイベントの長さ:
+//                          durationFromCast）。impact: 術者から対象へ伸びる光の槍（穂先 = 対象。0.2 秒で薄れる）。
+//                          被弾（到着の瞬間 = 実際に当たった時刻）: 白い閃き（青い光条）→ 青い縁の弾け・突き通す白い光・火花
+//   アルティメット 至高の武人 — 自己強化（selfAoE: 発動と同時に cast と impact）。0 秒: 白い風の筋が渦を巻いて身を包み、0.04 秒で
+//                          黄緑の渦 → 0.12 秒で胸の高さに青緑の光 → 0.2〜0.7 秒で水色の半透明の泡と縁の明るい地面の円が薄れる。
+//                          7.5 秒の強化の間（発動のイベントの長さ: durationFromCast）は体から水色の筋と淡い炎が立ちのぼる（追従の継続放出）
+// 光る部品（光の槍・三日月・閃光・渦・泡）は加算（glowing）、土煙・房の帯はアルファ合成。
 // 再使用の段（stage）は Zilong に無いので使わない。
 
 enum FX_H027: HeroFXSet {
-    static let palette = FXPalette(core: RGB(0.97, 0.99, 1.0), primary: RGB(0.5, 0.72, 1.0),
-                                   secondary: RGB(0.84, 0.92, 1.0), accent: RGB(1.0, 0.32, 0.28),
-                                   dark: RGB(0.04, 0.07, 0.16))
+    static let palette = FXPalette(core: RGB(0.92, 1.0, 1.0), primary: RGB(0.16, 0.74, 0.84),
+                                   secondary: RGB(0.24, 0.9, 0.74), accent: RGB(0.68, 0.06, 0.1),
+                                   dark: RGB(0.05, 0.1, 0.12))
 
-    /// 突き上がる竜牙（地から伸びる半透明の尖塔）。
-    private static func fang(_ h: Float, life: Float = 0.8) -> FXMesh {
-        FXMesh(shape: .spire, tex: .shard, tint: .secondary, alpha: 0.85, size: [0.5, 0.1, 0.5], sizeEnd: [0.42, h, 0.42],
-               ease: .outBack, life: life, fadeIn: 0.02, fadeOut: 0.6)
+    /// 土煙（MLBB の蹴り出し・着地の灰色の煙。アルファ合成）。
+    private static let dust = FXTint.rgb(0.6, 0.62, 0.58)
+    /// 槍の光の明るい層（MLBB の三日月・持ち上げの光の明るい側 #83F9FA〜#9EF4FA）。
+    private static let glowCyan = FXTint.rgb(0.55, 0.97, 0.98)
+    /// 突進の到着の閃きの青い光条（#4679B4）。
+    private static let hitBlue = FXTint.rgb(0.27, 0.47, 0.71)
+    /// 奥義: 白い風（#E5F9EC）→ 黄緑（#94E853）→ 青緑（#1ED2AA）、強化の間の体の光（#40AAA7）。
+    private static let wind = FXTint.rgb(0.9, 0.98, 0.93)
+    private static let lime = FXTint.rgb(0.58, 0.91, 0.33)
+    private static let teal = FXTint.rgb(0.12, 0.82, 0.66)
+    private static let aura = FXTint.rgb(0.25, 0.67, 0.66)
+    /// 構えた槍の穂先（局所座標。右手に立てた槍）。
+    private static let spearTip: SIMD3<Float> = [0.3, 1.7, 0.35]
+
+    // MARK: - sim の時刻（Kit_H027.Tune と同じ値。sim の値を変えたらここも合わせる）
+
+    /// スキル1: 持ち上げている時間（flipHold）・背後へ飛ぶ時間（flipFlight）・着地点（術者の中心から背後、flipLandingGap）。
+    private static let flipHold: Float = 0.4
+    private static let flipFlight: Float = 0.2
+    private static let flipLanding: Float = 1.44
+    /// スキル2: 突進の所要の目安（画面収録の 3.4〜3.7m を毎秒 15.2m ≈ 0.22〜0.24 秒。最長 450 / 1520 ≈ 0.30 秒）。
+    private static let strikeTime: Float = 0.24
+    /// アルティメット: 強化の秒数。
+    private static let ultDuration: Float = 7.5
+
+    // MARK: - 見た目の寸法（MLBB の画面収録から。sim の値ではない）
+
+    /// スキル1: 投げる前の対象の距離（画面収録 2.07〜2.23m）。三日月の弦は前方のこの点から背後 flipLanding まで。
+    private static let flipFront: Float = 2.1
+    /// スキル2: 対象へ伸びる光の槍の長さ（画面収録の 1 コマ目 f130 で術者から対象の手前まで ≈ 3.4m。推定）。
+    private static let lanceLength: Float = 3.4
+    /// 三連突き: 1 本ごとの突きの向きの差（度。画面収録 f484 / f488 / f492 で突きの向きが少しずつ変わる。推定）。
+    private static let flurryFan: Float = 12
+
+    // MARK: - 部品
+
+    /// 頭上を越える縦の三日月（三日月を立てる: pitch −90 で弧の膨らみを真上へ、roll で弦の向きを決める）。前方やや左から
+    /// 頭上を越えて背後やや右へ。弦を前後の軸から 40° ずらし、真上から見下ろすカメラの視線と弧の面が重ならない（細い線にならない）ようにする。
+    /// MLBB（f471〜f477）: 現れて 0.03 秒で最も太く、0.15 秒で細り、0.2 秒で細い線だけが残る。
+    private static func flipArc(_ r: Float, _ tint: FXTint, life: Float, tex: FXTex = .slash, alpha: Float = 1) -> FXMesh {
+        FXMesh(shape: .disc, tex: tex, tint: tint, alpha: alpha, size: [r * 1.7, 1, r * 1.7], sizeEnd: [r * 2.0, 1, r * 2.0],
+               ease: .out, life: life, fadeIn: 0.15, fadeOut: 0.45, pitch: -90, roll: 50)
     }
 
-    /// 槍の突きの線（前方へ走る細い光条。x は左右のずらし、y は高さ、z0 は線の始まりの前後位置）。
-    private static func lance(_ length: Float, _ tint: FXTint, at t: Float, x: Float = 0, y: Float = 1.0,
-                              z0: Float = 0.3) -> FXCue {
-        FXCue.mesh(FXMesh.ray(.streak, length: length, width: 0.55, tint, life: 0.22), at: t,
-                   offset: [x, y, length / 2 + z0])
-    }
+    /// 三日月の中心（弦の中点: 前方 flipFront と背後 flipLanding の間。弧の両端が持ち上げた対象の高さに来るよう少し上げる）。
+    private static var arcCenter: SIMD3<Float> { [0, 0.55, (flipFront - flipLanding) * 0.5] }
 
     static func recipe(_ slot: SkillSlot, _ s: FXSkillInfo) -> SkillFXRecipe {
-        var r = SkillFXRecipe()
-        // 奥義の radius（3.5 m）はボットが「近くに敵が居る」と数える目安なので、演出の大きさは 2 m に抑える
-        let R = slot == .ultimate ? min(s.radius, 2.0) : s.radius
-        let L = s.range
         switch slot {
-        case .passive:
-            r.cast = [
-                .mesh(.dome(1.1, .primary, life: 0.8, tex: .hexShield, alpha: 0.45), .follow, offset: [0, 0.1, 0]),
-                .emit(.flutter(.shard, 10, radius: 0.6, .secondary, speed: 1.6, life: 0.8, size: 0.14), .follow,
-                      offset: [0, 1.1, 0]),
-                .mesh(.halo(0.8, .secondary, life: 0.6, spin: 200, tex: .ringDouble), .follow, offset: [0, 0.9, 0]),
-                .emit(.flare(0.9, .accent, life: 0.16), .follow, offset: [0, 1.2, 0]),
-            ]
-            r.hit = []
-        case .skill1:
-            // 槍の跳ね上げ: 低い構え（0.05）→ 掬い上げ → 敵が頭上を越えて背後へ（着地は 0.7 秒後、術者の背後 1.7 m）
-            r.cast = [
-                .emit(.gather(10, radius: 0.6, .primary, life: 0.12), offset: [0.2, 0.7, 0.6]),
-                .emit(.flare(1.0, .core, life: 0.12), at: 0.05, offset: [0, 0.6, 0.9]),
-            ]
-            r.impact = [
-                // 低い突き上げの線と、掬い上げる三日月
-                lance(L * 0.9, .core, at: 0.04, y: 0.6),
-                .mesh(.slash(R * 1.1, .primary, from: 95, to: -95, height: 0.8, tilt: -35, life: 0.26), at: 0.05,
-                      offset: [0, 0.8, 0.3]),
-                // 跳ね上げられた敵の軌跡（前 → 頭上 → 背後）
-                .emit(.flare(1.3, .core, life: 0.18), at: 0.06, offset: [0, 0.7, L * 0.8]),
-                .emit(.flare(1.1, .secondary, life: 0.2), at: 0.2, offset: [0, 2.2, L * 0.3]),
-                .emit(.flare(1.3, .core, life: 0.2), at: 0.34, offset: [0, 2.1, -0.4]),
-                .emit(.flare(1.0, .secondary, life: 0.2), at: 0.5, offset: [0, 1.0, -1.3]),
-                .mesh(.pillar(0.35, height: 3.0, .secondary, life: 0.45), at: 0.05, offset: [0, 0, L * 0.8]),
-                .emit(.sparks(12, speed: 6, .accent, end: .primary), at: 0.06, offset: [0, 1.0, L * 0.8]),
-                // 背後への着地
-                .mesh(.shockRing(R * 0.9, .primary, life: 0.4), at: 0.7, offset: [0, 0, -1.7]),
-                .emit(.wave(R * 1.1, .secondary, life: 0.4), at: 0.7, offset: [0, 0.1, -1.7]),
-                .emit(.debris(8, speed: 5), at: 0.7, offset: [0, 0, -1.7]),
-                .shake(0.2, at: 0.7),
-            ]
-            r.hit = [
-                // 打ち上げ（0.8 秒）: 頭上に銀の輪
-                .emit(.flare(0.9, .core, life: 0.14), offset: [0, 1.1, 0]),
-                .mesh(.halo(0.45, .secondary, life: 0.8, spin: 320), offset: [0, 1.5, 0]),
-                .emit(.sparks(8, speed: 5, .secondary, end: .primary), offset: [0, 1.0, 0]),
-            ]
-        case .skill2:
-            // 竜牙の踏み込み: 銀の尾を引いて駆け（約 0.2 秒）、到着の瞬間（0.19 秒）に突き込む。impact は対象の足元で再生される
-            r.cast = [
-                .emit(.bloom(1.2, .primary, life: 0.3), offset: [0, 1.0, 0]),
-                .emit(.trail(.streak, .secondary, rate: 80, life: 0.3, size: 0.5).with {
-                    $0.duration = 0.25; $0.stretch = 3; $0.dir = .backward; $0.speed = 3
-                }, .follow, offset: [0, 1.0, 0]),
-                .emit(.trail(.glow, .primary, rate: 60, life: 0.35, size: 0.5).with { $0.duration = 0.25 }, .follow,
-                      offset: [0, 1.0, 0]),
-            ]
-            r.impact = [
-                // 手前から対象へ突き込む光条と閃光
-                lance(2.2, .core, at: 0.17, y: 1.0, z0: -1.2),
-                .emit(.flare(1.8, .core, life: 0.18, tex: .flare6), at: 0.19, offset: [0, 1.0, -0.1]),
-                // 地から突き上がる竜牙
-                .mesh(fang(2.2), at: 0.2).ringed(5, radius: R * 0.45, every: 0.03),
-                .mesh(.decal(.crack, R * 2.0, .primary, life: 1.0, spin: 0, grow: 1.0, alpha: 0.7), at: 0.2),
-                .mesh(.shockRing(R * 1.2, .secondary, life: 0.4), at: 0.2),
-                .emit(.wave(R * 1.3, .primary, life: 0.5), at: 0.2, offset: [0, 0.1, 0]),
-                // 防御ダウン: 砕けた鱗が散る
-                .emit(.flutter(.shard, 10, radius: 0.5, .accent, speed: 3.5, life: 0.7, size: 0.14), at: 0.2,
-                      offset: [0, 1.0, 0]),
-                .emit(.sparks(14, speed: 7, .accent, end: .primary), at: 0.2, offset: [0, 0.8, 0]),
-                .shake(0.2, at: 0.2),
-            ]
-            r.hit = [
-                .emit(.flare(1.0, .core, life: 0.14), offset: [0, 1.0, 0]),
-                // 防御ダウン 2 秒: 足元に割れた紋
-                .mesh(.decal(.crack, 1.5, .accent, life: 1.6, spin: 0, grow: 1.0, alpha: 0.7)),
-                .emit(.rising(8, radius: 0.4, .secondary, speed: 3, life: 0.5), quality: 1),
-            ]
-        case .ultimate:
-            // 至高の武人: 足元に竜の紋 → 銀青の渦が立ち昇り咆哮。7.5 秒の強化の間は風を切る線と光が術者に追従する
-            r.cast = [
-                .emit(.gather(20, radius: 1.2, .primary, life: 0.3), offset: [0, 1.0, 0]),
-                .mesh(.decal(.runeCircle, R * 1.6, .secondary, life: 0.7, spin: 200, alpha: 0.7)),
-                .mesh(.halo(0.9, .accent, life: 0.9, spin: 260, tex: .ringDouble), .follow, offset: [0, 0.9, 0]),
-                // 強化の間（7.5 秒）追従: 後方へ流れる銀の線（移動速度）と、立ちのぼる光（攻撃速度）
-                .emit(.trail(.streak, .secondary, rate: 22, life: 0.45, size: 0.4).with {
-                    $0.duration = 7.5; $0.stretch = 3; $0.dir = .backward; $0.speed = 4
-                }, .follow, offset: [0, 0.9, -0.2], quality: 1),
-                .emit(.trail(.twinkle, .accent, rate: 10, life: 0.8, size: 0.14).with {
-                    $0.duration = 7.5; $0.dir = .up; $0.speed = 1.2
-                }, .follow, offset: [0, 0.3, 0], quality: 1),
-            ]
-            r.impact = [
-                .mesh(.tornado(R * 0.6, height: 4.0, .primary, life: 0.9, spin: 540), at: 0.05),
-                .mesh(.tornado(R * 0.45, height: 3.4, .secondary, life: 0.8, spin: -720), at: 0.08),
-                .emit(.vortex(24, radius: R * 0.6, .secondary, life: 0.9, speed: 4), at: 0.05, quality: 1),
-                // 竜の咆哮
-                .emit(.flare(2.6, .core, life: 0.26, tex: .flare6), at: 0.12, offset: [0, 1.3, 0]),
-                .mesh(.pillar(R * 0.4, height: 5.5, .secondary, life: 0.7), at: 0.12),
-                .mesh(.shockRing(R * 1.4, .core, life: 0.4), at: 0.12),
-                .mesh(.shockRing(R * 1.9, .accent, life: 0.6), at: 0.18),
-                .mesh(.decal(.runeCircle, R * 2.4, .primary, life: 1.3, spin: 70, alpha: 0.8), at: 0.05),
-                .emit(.sparks(16, speed: 7, .accent, end: .primary), at: 0.12, offset: [0, 1.0, 0]),
-                .shake(0.4, at: 0.12),
-            ]
-            r.hit = []
+        case .passive: return chargeRecipe(s)
+        case .skill1: return flipRecipe(s)
+        case .skill2: return strikeRecipe(s)
+        case .ultimate: return warriorRecipe(s)
         }
+    }
+
+    // MARK: - パッシブ 竜の三連突き
+
+    /// 竜気が 1 つたまるたび: 穂先の小さな水色の閃き（頻繁に出るので小さく短く）。
+    private static func chargeRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
+        var r = SkillFXRecipe()
+        r.cast = [
+            .emit(.flare(0.55, .primary, life: 0.12, tex: .flare4), .follow, offset: spearTip),
+            .emit(.motes(4, radius: 0.12, .primary, life: 0.35, size: 0.07), .follow, offset: spearTip),
+        ]
+        // パッシブのダメージは通常攻撃（Effekseer）。既定の被弾演出で補われないよう小さな合図だけ置く
+        r.hit = [.mesh(.halo(0.3, .primary, life: 0.2, spin: 200, tex: .ring), .follow, offset: [0, 0.2, 0])]
         return r
     }
+
+    // MARK: - パッシブ 三連突き（強い通常攻撃。SimEvent.empoweredAttack）
+
+    /// 三連突きが届く距離（m。術者の中心から対象の縁まで = 通常攻撃の射程 1.8 + 三連突きの伸び 0.7 + 術者の半径。
+    /// sim の通常攻撃は「縁と縁の距離 ≤ 射程」で当たるので、対象の縁がこの円の中なら届く）。
+    static func flurryReach(_ s: FXSkillInfo) -> Float {
+        s.attackRange + s.meters("flurryRangeBonus") + Float(Balance.heroRadius / Balance.unitsPerMeter)
+    }
+
+    /// 突きの筋の手前の端（術者の中心から m。構えた穂先の位置）。
+    static let thrustNear: Float = 0.45
+    /// 筋の板の横（横長の模様の見える長さは板の横の 2 × linearHalfLength）。手前の端から届く距離までちょうど見える。
+    private static func thrustPlate(_ s: FXSkillInfo) -> (length: Float, center: Float) {
+        let far = flurryReach(s)
+        return ((far - thrustNear) / (2 * FXEdge.linearHalfLength), (far + thrustNear) / 2)
+    }
+
+    /// 三連突き: 1 発目の命中の瞬間から、sim の命中の時刻（0 / flurryInterval / 2 × flurryInterval）ごとに、
+    /// 穂先から伸びた射程の端（flurryReach）まで届く白水色の長い突きの筋（1 本ごとに向きが少し変わる）・対象の白い閃き・水色の輪・
+    /// 腕の後ろへ流れる水色の羽根。MLBB（f484 / f488 / f492）: 白い芯に水色の縁の細長い光の帯が、穂先から対象を貫いて伸びる。
+    static func empoweredAttack(_ s: FXSkillInfo) -> [FXCue]? {
+        let g = s.seconds("flurryInterval")
+        let n = max(1, s.count("flurryHits"))
+        let fan = flurryFan * 0.6
+        let plate = thrustPlate(s)
+        return [
+            // 突きの筋（水色の外層・光る・筋の模様が前へ流れる）と白い芯。術者に追従（突きの間に少し動いても穂先から出る）。
+            // streak の見える幅は板の縦の 0.16 倍なので、外層 0.26m・芯 0.1m（2026-10-21 の撮影で 0.55 / 0.18 は細すぎて読めなかった）
+            .mesh(.ray(.streak, length: plate.length, width: 1.6, .primary, life: 0.13).glowing()
+                .flowing(.streaks, scroll: [-3.5, 0], tiling: 1.5, strength: 0.5, erosion: 0.3, edge: .core)
+                .with { $0.yaw = 90 - fan; $0.fadeIn = 0 }, .follow, offset: [0.05, 1.05, plate.center])
+                .repeated(n, every: g, yaw: fan),
+            .mesh(.ray(.streak, length: plate.length * 0.96, width: 0.6, .core, life: 0.1).glowing()
+                .with { $0.yaw = 90 - fan; $0.fadeIn = 0 }, .follow, offset: [0.05, 1.07, plate.center])
+                .repeated(n, every: g, yaw: fan),
+            // 足元を走る青緑の細い筋（地面に届く距離を示す。上から見て突きの筋と重なる）
+            .mesh(.ray(.streak, length: plate.length, width: 1.1, .secondary, life: 0.22, height: 0, alpha: 0.75).glowing()
+                .with { $0.fadeIn = 0 }, .follow, offset: [0, 0.05, plate.center]),
+            // 突くたびに穂先の閃きと、対象の白い閃き・水色の輪
+            .mesh(.sprite(.flare4, 0.9, .core, life: 0.09, grow: 1.2).glowing(), .follow, offset: [0.05, 1.05, thrustNear + 0.6])
+                .repeated(n, every: g),
+            .mesh(.sprite(.flare4, 1.3, .core, life: 0.11, grow: 1.3).glowing(), .target, offset: [0, 1.0, 0])
+                .repeated(n, every: g),
+            .mesh(FXMesh.halo(0.55, .primary, life: 0.16, spin: 480, tex: .ringDouble).glowing()
+                .with { $0.size = [0.4, 1, 0.4]; $0.fadeIn = 0 }, .target, offset: [0, 1.0, 0])
+                .repeated(n, every: g),
+            .emit(.sheet(.hitFlash, 1.2, .core, end: .primary, life: 0.16), .target, offset: [0, 1.0, 0])
+                .repeated(n, every: g),
+            // 槍を振る腕の後ろへ流れる水色の羽根（槍の鰭の残像）と、3 発目の火花
+            .emit(FXEmit(tex: .feather, tint: .primary, tintEnd: .secondary, count: 9, emit: Float(n) * g, life: 0.3, size: 0.3,
+                         sizeVar: 0.4, grow: 0.6, shape: .box([0.3, 0.2, 1.2]), dir: .backward, speed: 1.2, spread: 20,
+                         angleVar: 40, fade: .gradualFadeInOut), .follow, offset: [0.1, 1.05, 0.9]),
+            .emit(.sparks(12, speed: 7, .core, end: .primary).with { $0.dir = .forward; $0.spread = 25 }, at: g * Float(n - 1),
+                  .target, offset: [0, 1.0, 0]),
+            .shake(0.1),
+        ]
+    }
+
+    /// 次の通常攻撃が三連突きの間（竜気が満タン）: 足元に三連突きの届く距離の水色の細い輪（MLBB は足元の射程の円が 1.78 → 2.48 に
+    /// 広がって示す）と、内側の淡い光の輪。自分だけに出す（SkillFXDirector.observeEmpoweredReady）。
+    static func empoweredReady(_ s: FXSkillInfo) -> [FXCue]? {
+        let r = flurryReach(s)
+        let side = r / (FXEdge.radial(.thinRing) ?? 0.48)
+        return [
+            .mesh(FXMesh(shape: .disc, tex: .thinRing, tint: glowCyan, alpha: 0.75, size: [side, 1, side], sizeEnd: [side, 1, side],
+                         ease: .linear, life: 2.0, fadeIn: 0.1, fadeOut: 0.85).glowing(), .follow, offset: [0, 0.03, 0]),
+            .mesh(FXMesh(shape: .disc, tex: .glow, tint: .primary, alpha: 0.18, size: [r * 0.7, 1, r * 0.7],
+                         sizeEnd: [r * 0.7, 1, r * 0.7], ease: .linear, life: 2.0, fadeIn: 0.1, fadeOut: 0.85, spin: 40).glowing(),
+                  .follow, offset: [0, 0.02, 0]),
+        ]
+    }
+
+    // MARK: - スキル1 跳槍撃
+
+    /// 掬い上げ（0 秒）→ 持ち上げ（0〜0.4 秒）→ 対象が頭上を越えて背後へ（0.4〜0.6 秒）→ 着地（0.6 秒）。打ち上げは 1.0 秒まで。
+    private static func flipRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
+        var r = SkillFXRecipe()
+        let hold = flipHold
+        let flight = flipFlight
+        let land = hold + flight
+        // 0 秒: 低く構えた槍で対象の足元を掬う（水色の低い弧・光る）と、穂先の閃き・蹴った土煙（MLBB f459〜f460）
+        r.cast = [
+            .mesh(.slash(1.7, .primary, from: -70, to: 5, life: 0.2, tex: .slashThin).glowing(), offset: [0.1, 0.35, 0.2]),
+            .emit(.flare(0.8, .core, life: 0.1, tex: .flare4), offset: [0.25, 0.4, 1.0]),
+            .emit(.sheet(.smokePuff, 0.9, dust, count: 2, life: 0.55, additive: false, radius: 0.3), offset: [0.2, 0.2, 0.9],
+                  quality: 1),
+        ]
+        // 0.4 秒（放り投げ）: 術者の位置（前方 = 対象）から頭上を越える水色の大きな縦の三日月（MLBB f471〜f477）。
+        // 外の水色（光る。筋の模様が弧に沿って流れ、縁から欠ける）+ 芯の白 + 0.6 秒まで残る細い線
+        r.impact = [
+            .mesh(flipArc(2.1, .primary, life: 0.22).glowing()
+                .flowing(.streaks, scroll: [2.4, 0], tiling: 1.5, strength: 0.55, erosion: 0.35, edge: glowCyan),
+                  at: hold, offset: arcCenter),
+            .mesh(flipArc(2.0, .core, life: 0.15, tex: .slashThin).glowing(), at: hold + 0.02, offset: arcCenter),
+            .mesh(flipArc(2.05, glowCyan, life: 0.3, tex: .slashThin, alpha: 0.7).glowing(), at: hold + 0.06, offset: arcCenter),
+        ]
+        // 被弾（打ち上げ 1.0 秒）: 被弾者に追従
+        r.hit = [
+            // 0 秒: 命中の白い閃き・上へ跳ねる水色の火花・足元の灰色の土煙（f459）
+            .emit(.sheet(.hitFlash, 1.6, .core, end: .primary, life: 0.2), offset: [0, 1.0, 0]),
+            .emit(.sparks(12, speed: 6, .core, end: .primary, gravity: 8).with { $0.dir = .up; $0.spread = 30 },
+                  offset: [0, 0.5, 0]),
+            .emit(.sheet(.smokePuff, 1.0, dust, count: 2, life: 0.6, additive: false, radius: 0.3), offset: [0, 0.25, 0],
+                  quality: 1),
+            // 0〜0.4 秒（持ち上げ）: 被弾者の腰の下に穂先の水色の光ときらめき（f462〜f470）
+            .mesh(.sprite(.glow, 1.3, glowCyan, life: hold, grow: 1.1, alpha: 0.75).glowing().with {
+                $0.fadeIn = 0.15; $0.fadeOut = 0.7
+            }, .follow, offset: [0, 0.6, 0]),
+            .emit(.flare(0.9, glowCyan, life: 0.3, tex: .flare4), at: 0.04, .follow, offset: [0, 0.55, 0]),
+            .emit(FXEmit(tex: .twinkle, tint: .primary, tintEnd: .core, rate: 16, duration: hold, life: 0.35, size: 0.1,
+                         sizeVar: 0.4, grow: 0.4, shape: .sphere(0.35), dir: .up, speed: 1.2, fade: .gradualFadeInOut),
+                  .follow, offset: [0, 0.8, 0], quality: 1),
+            // 0.4〜0.6 秒（飛ぶ間）: 被弾者に追従する白水色の光の尾（三日月の軌跡に沿う）
+            .emit(FXEmit(tex: .streak, tint: .core, tintEnd: .primary, rate: 70, duration: flight, life: 0.25, size: 0.18,
+                         sizeVar: 0.3, grow: 0.4, shape: .sphere(0.3), dir: .up, speed: 1.0, stretch: 1.6,
+                         fade: .linearFadeOut), at: hold, .follow, offset: [0, 1.0, 0]),
+            // 0.6 秒（着地。追従しているので実際の着地点）: 灰色の土煙と淡い水色の輪（MLBB に地割れは無い）
+            .emit(.sheet(.smokePuff, 1.2, dust, count: 3, life: 0.7, additive: false, radius: 0.4), at: land, .follow,
+                  offset: [0, 0.3, 0], quality: 1),
+            .mesh(.shockRing(0.9, .primary, life: 0.28, tex: .ring).glowing(), at: land, .follow),
+            .shake(0.15, at: land),
+        ]
+        return r
+    }
+
+    // MARK: - スキル2 竜牙突き
+
+    /// 対象へ踏み込み（≈ 0.2 秒）、到着の瞬間に突き通す（被弾の時刻 = 実際に当たった時刻）。
+    /// 突進の間だけの部品は durationFromCast（発動のイベントの長さ = 実際の突進の秒数。0 なら書いた strikeTime）。
+    private static func strikeRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
+        var r = SkillFXRecipe()
+        let t = strikeTime
+        let L = lanceLength
+        r.cast = [
+            // 蹴り出しの灰色の土煙（MLBB f349〜f353）
+            .emit(.sheet(.smokePuff, 1.1, dust, count: 2, life: 0.65, additive: false, radius: 0.25), offset: [0, 0.25, -0.1],
+                  quality: 1),
+            // 前に構えた槍の白水色の光（術者と一緒に走る）
+            .mesh(.ray(.streak, length: 1.9, width: 0.55, glowCyan, life: t).glowing().with {
+                $0.fadeOut = 0.7; $0.durationFromCast = true
+            }, .follow, offset: [0.1, 1.05, 1.2]),
+            // 背に流れる青緑の羽根の尾（f131〜f134）・白い光の筋・深紅の房の帯（アルファ合成）
+            .emit(.trail(.feather, .secondary, rate: 70, life: 0.32, size: 0.42).with {
+                $0.duration = t; $0.durationFromCast = true; $0.tintEnd = .primary; $0.dir = .backward; $0.speed = 1.6
+                $0.stretch = 1.2; $0.grow = 0.6; $0.angleVar = 25; $0.shape = .sphere(0.25); $0.fade = .gradualFadeInOut
+            }, .follow, offset: [0, 1.0, -0.25]),
+            .emit(.trail(.streak, .core, rate: 60, life: 0.22, size: 0.22).with {
+                $0.duration = t; $0.durationFromCast = true; $0.stretch = 3; $0.dir = .backward; $0.speed = 3
+                $0.tintEnd = .primary
+            }, .follow, offset: [0, 1.1, 0]),
+            .emit(.trail(.streak, .accent, rate: 36, life: 0.3, size: 0.16).with {
+                $0.duration = t; $0.durationFromCast = true; $0.stretch = 4; $0.dir = .backward; $0.speed = 1.5
+                $0.tintEnd = .accent; $0.additive = false
+            }, .follow, offset: [-0.2, 1.25, -0.35]),
+        ]
+        // 発動時に対象の位置（前方 = 術者 → 対象）: 術者から対象へ伸びる光の槍（穂先 = 対象。f130 で最も明るく、f134 で消える）。
+        // 水色の外層（光る。筋の模様が対象へ流れる）+ 白い芯 + 穂先の白い閃き
+        r.impact = [
+            .mesh(.ray(.streak, length: L, width: 1.0, .primary, life: 0.2).glowing()
+                .flowing(.streaks, scroll: [-3, 0], tiling: 1.5, strength: 0.6, erosion: 0.3, edge: .core),
+                  offset: [0, 1.0, -L * 0.5]),
+            .mesh(.ray(.streak, length: L * 0.75, width: 0.38, .core, life: 0.16).glowing(), offset: [0, 1.02, -L * 0.4]),
+            .emit(.flare(1.2, .core, life: 0.14, tex: .flare4), offset: [0, 1.0, -0.35]),
+        ]
+        // 到着の瞬間（被弾）: 白い閃き（青い光条。f136 / f356）→ 青い縁の弾け・突き通す白い光・前へ散る火花。
+        // 物理防御ダウン（2 秒）の印は MLBB の画面にも出ない（HUD の状態の表示に任せる）
+        r.hit = [
+            .emit(.sheet(.hitFlash, 2.0, .core, end: hitBlue, life: 0.22), offset: [0, 1.0, 0]),
+            .emit(.sheet(.energyBurst, 1.7, .primary, end: hitBlue, life: 0.3), at: 0.02, offset: [0, 1.0, 0]),
+            .mesh(.ray(.streak, length: 2.4, width: 0.42, .core, life: 0.14).glowing(), offset: [0, 1.0, 0.5]),
+            .emit(.sparks(12, speed: 7, .core, end: .primary).with { $0.dir = .forward; $0.spread = 35 }, offset: [0, 1.0, 0.2]),
+            .shake(0.16),
+        ]
+        return r
+    }
+
+    // MARK: - アルティメット 至高の武人
+
+    /// 風の渦が身を包む（0〜0.3 秒）→ 青緑の光（0.12 秒）→ 水色の泡（0.2〜0.7 秒）→ 7.5 秒の強化の間、体から立ちのぼる水色の筋。
+    private static func warriorRecipe(_ s: FXSkillInfo) -> SkillFXRecipe {
+        var r = SkillFXRecipe()
+        let d = ultDuration
+        // 強化の間（発動のイベントの長さ = 7.5 秒。0 なら書いた ultDuration）追従: 体から立ちのぼる水色の細い筋と淡い炎（f600〜f740）
+        r.cast = [
+            .emit(FXEmit(tex: .streak, tint: aura, tintEnd: .core, rate: 18, duration: d, life: 0.5, size: 0.14, sizeVar: 0.4,
+                         grow: 0.6, shape: .disc(0.42), dir: .up, speed: 1.9, speedVar: 0.35, stretch: 2.6,
+                         fade: .gradualFadeInOut).with { $0.durationFromCast = true }, .follow, offset: [0, 0.35, 0]),
+            .emit(FXEmit(tex: .flame, tint: .primary, tintEnd: aura, rate: 10, duration: d, life: 0.55, size: 0.5, sizeVar: 0.35,
+                         grow: 0.7, shape: .ring(0.3), surface: true, dir: .up, speed: 0.9, orient: .upright,
+                         fade: .gradualFadeInOut).with { $0.durationFromCast = true }, .follow, offset: [0, 0.5, 0],
+                  quality: 1),
+        ]
+        // 発動と同時（MLBB f526〜f541）
+        r.impact = [
+            // 0 秒: 白い風の筋が渦を巻いて身を包む（コマ送りの渦巻く筋 + 白い竜巻。光る・縁から欠ける）
+            .emit(.sheet(.darkWisp, 3.4, wind, end: lime, life: 0.3), offset: [0, 1.0, 0]),
+            .mesh(.tornado(1.5, height: 2.4, wind, life: 0.3, spin: 720).glowing()
+                .flowing(.noise, scroll: [1.5, -1.2], tiling: 2, strength: 0.6, erosion: 0.5, edge: .core), offset: [0, 0.05, 0]),
+            .emit(.flare(1.6, wind, life: 0.18, tex: .flare6), at: 0.02, offset: [0, 1.3, 0]),
+            // 0.04 秒: 黄緑の渦（逆回り）
+            .emit(.sheet(.darkWisp, 2.9, lime, end: teal, life: 0.3), at: 0.04, offset: [0, 0.9, 0]),
+            .mesh(.tornado(1.25, height: 2.0, lime, life: 0.28, spin: -900).glowing()
+                .flowing(.streaks, scroll: [-1.8, -1.0], tiling: 2, strength: 0.6, erosion: 0.45, edge: wind), at: 0.04,
+                  offset: [0, 0.05, 0]),
+            .emit(.vortex(14, radius: 1.1, teal, life: 0.55, speed: 2.5), at: 0.05, quality: 1),
+            // 0.12 秒: 胸の高さに青緑の光が膨らむ
+            .mesh(.sprite(.glow, 2.6, teal, life: 0.3, grow: 1.35, alpha: 0.85).glowing(), at: 0.12, offset: [0, 1.0, 0]),
+            // 0.2〜0.7 秒: 水色の半透明の泡（縁が明るいドーム）と、縁の明るい地面の円が広がって薄れる・水色のきらめき
+            .mesh(.dome(1.9, .primary, life: 0.5, tex: .beam, alpha: 0.4).glowing(), at: 0.2),
+            .mesh(FXMesh(shape: .disc, tex: .shockwave, tint: .primary, alpha: 0.75, size: [2.9, 1, 2.9],
+                         sizeEnd: [3.9, 1, 3.9], ease: .out, life: 0.5, fadeIn: 0.1, fadeOut: 0.45).glowing(), at: 0.2),
+            .emit(.motes(14, radius: 1.3, .primary, life: 0.8, size: 0.09), at: 0.18, offset: [0, 0.8, 0], quality: 1),
+            .shake(0.25, at: 0.05),
+        ]
+        // ダメージは無い。既定の被弾演出で補われないよう小さな合図だけ置く
+        r.hit = [.mesh(.halo(0.4, .primary, life: 0.3, spin: 160, tex: .ring), .follow, offset: [0, 0.2, 0])]
+        return r
+    }
+
+    // MARK: - 詠唱モーション
 
     static func motion(_ slot: SkillSlot, _ m: inout MotionBuilder) {
         switch slot {
         case .passive:
             break
         case .skill1:
-            // 低く構え、槍を切り上げて敵を放り投げる
+            // 低く構え、槍を下から頭上へ掬い上げ（〜0.17 秒）、敵を頭上に掲げたまま持ち上げ（〜0.4 秒）、胸を反らして頭上を越えて
+            // 背後へ振り抜き放り投げる（0.4〜0.55 秒。sim の flipHold / flipFlight）。全体 0.67 秒 + 戻り 0.25 秒
             m.brace(0.05, depth: 0.15)
             m.uppercut(0.12)
-            m.hold(0.12)
-            m.settle(0.1)
+            m.hold(0.23) { $0.glow = 1.6 }
+            m.key(0.15, .snap) { p in
+                p.armR = ArmPose(pitch: 3.3, out: 0.2, yaw: 0, elbow: 0.15)
+                p.weaponR = 1.0
+                p.torsoPitch = -0.4
+                p.headPitch = -0.35
+                p.glow = 1.8
+            }
+            m.settle(0.12)
         case .skill2:
-            // 前傾で駆け、踏み込みざまに槍を突き込む
-            m.dash(0.06, lean: 0.55)
-            m.lunge(0.06, distance: 0.5, lean: 0.3)
+            // 前傾で駆け（毎秒 15.2m ≈ 0.22〜0.24 秒）、着く瞬間に踏み込みざまに槍を突き通す。全体 0.43 秒 + 戻り 0.25 秒
+            m.dash(0.1, lean: 0.6)
+            m.lunge(0.08, distance: 0.6, lean: 0.35)
             m.thrust(0.05)
-            m.hold(0.1)
+            m.hold(0.1) { $0.glow = 1.6 }
             m.settle(0.1)
         case .ultimate:
-            // 低く構え、槍を回して高く掲げ、咆哮する（自己強化なので踏み込みも跳躍もしない）
-            m.brace(0.06, depth: 0.2)
-            m.spin(0.2, turns: 1)
-            m.uppercut(0.1)
-            m.hold(0.18) { $0.glow = 2.0; $0.ring = 1.2 }
+            // 低く構えて槍を頭上で回し、胸を張って咆哮する（自己強化なので踏み込みも跳躍もしない）
+            m.brace(0.06, depth: 0.18)
+            m.twirl(0.22, turns: 1.5)
+            m.roar(0.12)
+            m.hold(0.2) { $0.glow = 2.2 }
             m.settle(0.12)
         }
     }

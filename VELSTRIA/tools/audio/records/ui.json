@@ -1,0 +1,125 @@
+{
+ "sfx_ban.caf": {
+  "kind": "ui",
+  "note": "バン: 重い打撃 + 太鼓の低音",
+  "seconds": 0.9,
+  "sources": [
+   "2016 / Bottle Rocket Fx - Impact Collection",
+   "2016 / Game Audio Factory - GAFSFX01 - Dark Materials"
+  ]
+ },
+ "sfx_countdown.caf": {
+  "kind": "ui",
+  "note": "秒読み: 木の短い打音",
+  "seconds": 0.12,
+  "sources": [
+   "2016 / The AudioVille - Wooden Staffs and Sword Fight"
+  ]
+ },
+ "sfx_defeat.caf": {
+  "kind": "stinger",
+  "note": "敗北: 低い角笛のブラーム + 低いティンパニ",
+  "seconds": 2.86,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2026 / Jake Fielding - Cinematic Horn Braams"
+  ]
+ },
+ "sfx_lock_in.caf": {
+  "kind": "ui",
+  "note": "ピックの確定: 金属の留め金 + 刃の鳴り",
+  "seconds": 0.58,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2019 / Sound Spark LLC – Metal Hits, Scrapes and Squeaks"
+  ]
+ },
+ "sfx_match_found.caf": {
+  "kind": "ui",
+  "note": "マッチ成立: 鉢の一打 + 卓上ベル",
+  "seconds": 1.33,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2019 / Prismo Sound - Singing Bowls"
+  ]
+ },
+ "sfx_match_start.caf": {
+  "kind": "stinger",
+  "note": "試合開始: 銅鑼 + ティンパニ + 角笛",
+  "seconds": 2.19,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2020 / Eiravaein Works - 48Kilos",
+   "2026 / Jake Fielding - Cinematic Horn Braams"
+  ]
+ },
+ "sfx_purchase.caf": {
+  "kind": "ui",
+  "note": "購入: 硬貨が革袋に落ちる + 古いレジ",
+  "seconds": 0.72,
+  "sources": [
+   "2018 / Effectsworks - COINAGE",
+   "2019 / SoundBits - Antiques"
+  ]
+ },
+ "sfx_reward.caf": {
+  "kind": "ui",
+  "note": "報酬: 硬貨の鳴り + 磁器の風鈴",
+  "seconds": 0.86,
+  "sources": [
+   "2018 / Effectsworks - COINAGE",
+   "2019 / Eiravaein Works - Helina"
+  ]
+ },
+ "sfx_ui_back.caf": {
+  "kind": "ui",
+  "note": "戻る: 羊皮紙をめくる音",
+  "seconds": 0.27,
+  "sources": [
+   "2017 / The Soundcatcher - Paperlife"
+  ]
+ },
+ "sfx_ui_confirm.caf": {
+  "kind": "ui",
+  "note": "決定: 鍵の打鍵 + 卓上ベルの鳴り",
+  "seconds": 0.37,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2026 / 344 Audio - Antique Typewriter"
+  ]
+ },
+ "sfx_ui_error.caf": {
+  "kind": "ui",
+  "note": "失敗: 木の鈍い打音を 2 つ",
+  "seconds": 0.33,
+  "sources": [
+   "2016 / The AudioVille - Wooden Staffs and Sword Fight"
+  ]
+ },
+ "sfx_ui_tab.caf": {
+  "kind": "ui",
+  "note": "タブ: カードをフェルトに置く音",
+  "seconds": 0.21,
+  "sources": [
+   "2016 / Timothy McHugh - Playing Cards & Betting Chips"
+  ]
+ },
+ "sfx_ui_tap.caf": {
+  "kind": "ui",
+  "note": "タップ: タイプライターの鍵の軽い打鍵",
+  "seconds": 0.1,
+  "sources": [
+   "2026 / 344 Audio - Antique Typewriter"
+  ]
+ },
+ "sfx_victory.caf": {
+  "kind": "stinger",
+  "note": "勝利: ティンパニ + 銅鑼 + ベルツリー",
+  "seconds": 2.58,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2018 / The Chris Alan - Musical Oddities - Bells, Whistles, Horns, Percussion and More",
+   "2024 / Orbital Emitter - Cinematic Transitions for Editors Volume 2"
+  ]
+ }
+}

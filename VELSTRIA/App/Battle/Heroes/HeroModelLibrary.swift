@@ -380,6 +380,7 @@ final class HeroModel: HeroDisplayModel {
         animator = HeroAnimator(profile: HeroMotionProfile(blueprint: bp, metrics: ms.metrics, heroID: heroID),
                                 defaultRunSpeed: defaultRunSpeed)
         animator.legLength = (ms.metrics.thigh + ms.metrics.shin) * bp.scale
+        animator.legRig = HeroLegRig(metrics: ms.metrics, scale: bp.scale, rest: animator.profile.rest)
         entityCount = HeroEffects.countEntities(root)
         apply(animator.current, time: 0)
     }
@@ -398,6 +399,10 @@ final class HeroModel: HeroDisplayModel {
     }
 
     func castDuration(_ slot: SkillSlot) -> Float { animator.castDuration(slot) }
+    func castDuration(_ slot: SkillSlot, stage: Int) -> Float { animator.castDuration(slot, stage: stage) }
+    func castRestarts(_ slot: SkillSlot, stage: Int) -> Bool { animator.castRestarts(slot, stage: stage) }
+    func playCast(_ slot: SkillSlot, stage: Int) { animator.playCast(slot, stage: stage) }
+    func playCastHit(_ slot: SkillSlot) -> Float? { animator.playCastHit(slot) }
 
     func update(dt: Double, moveSpeed: Double) {
         // moveSpeed は sim ユニット/秒（HeroDef.moveSpeed と同じ単位）。20 以下は m/s とみなす。
@@ -425,7 +430,7 @@ final class HeroModel: HeroDisplayModel {
         motion.position = p.offset
         motion.orientation = ry(p.yaw) * rx(-p.pitch) * rz(p.roll)
         hips.position = V3(0, metrics.hipY - p.hipsDrop, 0)
-        hips.orientation = ry(p.hipsYaw) * rz(p.hipsRoll)
+        hips.orientation = ry(p.hipsYaw) * rx(-p.hipsPitch) * rz(p.hipsRoll)
         torso.orientation = ry(p.torsoYaw - p.hipsYaw) * rx(-p.torsoPitch) * rz(p.torsoRoll)
         head.orientation = ry(p.headYaw) * rx(-p.headPitch) * rz(p.headRoll)
         // 開き（out）は腕のローカルで先に回すので、腕を上げても外側へ開く
@@ -477,6 +482,9 @@ final class HeroModel: HeroDisplayModel {
 struct HeroEffects {
     let castGlow: Entity
     let groundRing: ModelEntity
+    /// 次の通常攻撃がキットの強い通常攻撃の間に、武器の先の光（castGlow）を灯す強さ（HeroPose.glow の下限。
+    /// 詠唱の光より控えめ: 0.03 で灯り、0.6 + 0.6 × 0.7 の大きさ）。
+    static let empoweredGlow: Float = 0.7
     let teamRing: ModelEntity?
     let aura: Entity?
     private var appliedOpacity: Float = 1

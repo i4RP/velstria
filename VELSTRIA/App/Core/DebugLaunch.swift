@@ -9,8 +9,10 @@ import VelstriaCore
 // （規約同意・年齢区分の省略）・-heroGallery などの隠し機能はバイナリに含まれない（ガイドライン 2.3.1）。
 //
 //   -uiTesting            一時ディレクトリの新規プロフィールで起動（実データに触れない）
-//   -skipOnboarding       オンボーディング完了済みにする
-//   -grant                Coin 100000 / Gem 10000 を付与し全ヒーロー解放
+//   -skipOnboarding       オンボーディング完了済みにする（オンラインのルールにも同意済みにする）
+//   -onlineRulesPending   -skipOnboarding でもオンラインのルールは未同意のまま（同意の画面の確認用）
+//   -grant                Coin 100000 / Gem 10000 を付与し全ヒーロー解放。エンブレムは全セット解放済みの Lv60（マジックダスト 30000）
+//   -emblemFresh          エンブレムを新規のプレイヤーの状態に（通常共通だけ Lv1・マジックダスト 2000・アサシンの欠片 10・宝箱 1 回分）
 //   -route <name>         起動後に画面へ直行（例: heroes, heroDetail:H003, store, settings）
 //   -battle <mode>        起動後に戦闘開始（standard / ranked / practice / tutorial / spectate / replay）
 //                         replay = 保存済みの最新のリプレイ（無ければ AI 同士 5 分の合成リプレイ）
@@ -22,17 +24,24 @@ import VelstriaCore
 //   -sampleReplays        リプレイ一覧の確認用に見本のリプレイを保存する（AI 観戦・自分の試合・乱闘・別バージョン）
 //   -practiceNoCD / -practiceLevel <n>  -battle practice の設定（クールダウン無し / 開始レベル）
 //   -efkAuto <atk|s1|s2|ult>  -battle practice で、人形へ近づいて 2 秒ごとに通常攻撃 / スキルを撃ち続ける（Effekseer の確認用）
+//   -fxCapture <s1,s2,ult|all>  -battle practice で、人形の前でスキルを順に撃ち、発動からの決まった時刻の戦闘画面を書き出す
+//                         （スキル演出の比較撮影。FXCapture・.github/workflows/fx-capture.yml）。-fxCaptureRings / -fxCaptureExit も読む
+//   -cameraPreset <legacy|mlbb>  戦闘カメラの組（CameraRig.Preset。比較の撮影用）
+//   -coreFinaleDemo <red|blue>  幕が上がって 2 秒後にその Core を数秒で壊させ、Star Core の終幕を流す（BattleRenderer。
+//                         -battle spectate、または -battle standard -botControl と併せる。sim の規則は変えず状態を置き換えるだけ）
+//   -autoAdvance          試合終了のバナーとランク戦のリザルトの各画面を数秒ごとに自動で進める（画面の確認用）
 //   -hero <heroID>        -battle で自分が使うヒーロー（省略時は最後に選んだヒーロー、無ければ H003）
 //   -language <ja|en>     表示言語
 //   -graphics <low|medium|high>  画質
 //   -heroGallery          ヒーロー 3D モデル一覧（hero-models の目視確認用）
-//   -homeRail collapsed   ホームの右レール（モード一覧）を畳んだ状態で開く
+//   -homeRail collapsed   ホームのフレンド欄を畳んだ状態で開く
+//   -flowSeed <n>         対戦フローのシードを固定する（ドラフトの AI の選択を再現する）
+//   -draftSlot <1〜5>      ランクのドラフトの自分の手番を固定する（既定は試合ごとに変わる）
 //   -homeMenu             ホームのメニュードロワーを開いた状態で開く
-//   -homeHero <heroID>    ホーム中央のショーケースに最初に出すヒーロー
-//   -home3D               ホーム中央のショーケースを 3D 表示で開く
 //   -onlineHost [port]    起動後にオンライン対戦の部屋を作る（待ち受けポート省略時は既定）。LAN の待ち受けと中継（部屋コード）の両方を開く
 //   -relayCode <CODE>     -onlineHost の部屋コードを決める（自動検証用。使われていても作り直さない）
 //   -relayURL <ws(s)://…> 中継サーバーの URL を差し替える（既定は OnlineRelayConfig.defaultBaseURL。例 ws://127.0.0.1:8787）
+//   -onlineParty          -onlineHost の部屋をパーティの画面（メンバー集め）から始める（既定は座席の画面から）
 //   -onlineJoin <host:port>  起動後に部屋へ接続する（LAN）
 //   -onlineJoinCode <CODE>   起動後に部屋コードで部屋へ入る（中継経由）
 //   -onlineAuto           部屋で自動的に着席・ヒーロー選択・準備完了にし、ホストは全員揃ったら開始する（2 台のシミュレータでの検証用）
@@ -50,6 +59,7 @@ enum DebugLaunch {
     static var args: [String] { [] }
     #endif
     static var isUITesting: Bool { args.contains("-uiTesting") }
+    static var autoAdvance: Bool { args.contains("-autoAdvance") }
 
     static func value(after flag: String) -> String? {
         guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }
@@ -78,11 +88,24 @@ enum DebugLaunch {
             p.acceptedTermsVersion = FeatureFlags.currentTermsVersion
             p.ageBracket = p.ageBracket ?? .adult
             if p.displayName.isEmpty { p.displayName = "Tester" }
+            // オンラインのルールにも同意済みにする（-onlineRulesPending なら同意の画面を確かめられるよう未同意のまま）
+            if !args.contains("-onlineRulesPending") { p.acceptedOnlineRulesVersion = FeatureFlags.currentOnlineRulesVersion }
         }
         if args.contains("-grant") {
             p.starlightCoin = max(p.starlightCoin, 100_000)
             p.freeGem = max(p.freeGem, 10_000)
             p.ownedHeroIDs = app.master.heroes.map(\.heroID)
+            // エンブレムは全セット解放済みの Lv60（旧版から引き継いだプレイヤーと同じ）と、強化を試せる量のマジックダスト
+            EmblemService.grandfather(&p)
+            p.magicDust = max(p.magicDust, 30_000)
+        }
+        if args.contains("-emblemFresh") {
+            // 新規のプレイヤーのエンブレム（通常共通だけ解放済みの Lv1）と、解放・強化を試せるマジックダスト・欠片・宝箱 1 回分
+            p.emblemGrandfathered = false
+            p.emblemSetProgress = [:]
+            p.emblemFragments = [EmblemSetID.assassin.rawValue: 10]
+            p.magicDust = 2_000
+            p.emblemChest = EmblemChestState()
         }
         if let lang = value(after: "-language"), let l = AppLanguage(rawValue: lang) {
             p.settings.language = l
@@ -92,6 +115,7 @@ enum DebugLaunch {
         }
         app.profile = p
         if args.contains("-sampleReplays") { addSampleReplays(to: app) }
+        if args.contains("-sampleRecords") { addSampleRecords(to: app) }
 
         if let r = value(after: "-route"), let route = parseRoute(r) {
             app.router.path = [route]
@@ -100,6 +124,8 @@ enum DebugLaunch {
             let port = value(after: "-onlineHost").flatMap { UInt16($0) } ?? OnlineProtocol.defaultPort
             let code: String? = value(after: "-relayCode").flatMap { try? RelayRoomCode.parse($0).get() }
             app.hostOnlineRoom(name: "\(p.displayName.isEmpty ? "Host" : p.displayName) (sim)", port: port, relayCode: code)
+            // 検証用の部屋はパーティを経ずに座席（ピック）から始める（-onlineParty ならパーティの画面）
+            if !args.contains("-onlineParty") { app.online?.enterPickStage() }
             app.router.path = [.onlineLobby]
         } else if let raw = value(after: "-onlineJoinCode") {
             switch RelayRoomCode.parse(raw) {
@@ -120,10 +146,17 @@ enum DebugLaunch {
             let name = p.displayName.isEmpty ? "Tester" : p.displayName
             switch mode {
             case "practice", "tutorial":
-                app.startBattle(BattleLaunch(config: MatchFactory.practiceMatch(
+                var config = MatchFactory.practiceMatch(
                     humanHeroID: hero, humanName: name,
                     options: PracticeOptions(noCooldowns: args.contains("-practiceNoCD"), startLevel: value(after: "-practiceLevel").flatMap { Int($0) } ?? 1),
-                    tutorial: mode == "tutorial", seed: seed)))
+                    tutorial: mode == "tutorial", seed: seed)
+                // 比較撮影（FXCapture）: 英雄にだけ撃てるスキル（FXCheckDriver.heroOnly）の的に、敵の Bot の英雄を 1 体足す
+                // （演出チェックの FXCheckSession.config と同じ。撮影の間は人間の操作扱いにして動かさない）
+                if mode == "practice", value(after: "-fxCapture") != nil {
+                    config.players.append(PlayerSlot(team: .red, heroID: hero == "H029" ? "H034" : "H029", controller: .bot,
+                                                     position: .mid, displayName: "FX Capture", botDifficulty: .easy))
+                }
+                app.startBattle(BattleLaunch(config: config))
             case "spectate":
                 let config = value(after: "-spectateMap") == "brawl"
                     ? MatchFactory.spectateMatch(options: SpectateMatchOptions(map: .brawl), seed: seed)
@@ -221,6 +254,37 @@ enum DebugLaunch {
         app.profile = p
     }
 
+    /// 過去の戦績の見本（ランク戦の勝ち負けと段位の前後・マッチング・乱闘）。スクリーンショット用。
+    @MainActor
+    static func addSampleRecords(to app: AppModel) {
+        guard app.profile.matchHistory.isEmpty else { return }
+        var p = app.profile
+        let now = Date()
+        let items = Array(app.master.items.prefix(6).map(\.itemID))
+        func record(_ minutesAgo: Double, _ mode: MatchMode, _ hero: String, won: Bool, k: Int, d: Int, a: Int, grade: String,
+                    mvp: Bool = false, ranks: (PublicRank, PublicRank)? = nil, itemCount: Int = 6) -> MatchRecord {
+            var r = MatchRecord(date: now.addingTimeInterval(-minutesAgo * 60), mode: mode, difficulty: .normal, won: won,
+                                duration: 11 * 60 + minutesAgo, heroID: hero, kills: k, deaths: d, assists: a, creepScore: 120,
+                                gold: 9800, damageToHeroes: 52_000, grade: grade, isMVP: mvp, items: Array(items.prefix(itemCount)),
+                                replayID: nil, summary: nil)
+            r.rankBefore = ranks?.0
+            r.rankAfter = ranks?.1
+            return r
+        }
+        let epic = RankTier.epic.rawValue
+        p.matchHistory = [
+            record(19, .ranked, "H025", won: true, k: 7, d: 3, a: 4, grade: "S", mvp: true,
+                   ranks: (PublicRank(tier: epic, division: 4, stars: 0), PublicRank(tier: epic, division: 4, stars: 1))),
+            record(43, .ranked, "H025", won: false, k: 1, d: 7, a: 5, grade: "C",
+                   ranks: (PublicRank(tier: epic, division: 4, stars: 1), PublicRank(tier: epic, division: 4, stars: 0)), itemCount: 5),
+            record(95, .ranked, "H030", won: false, k: 4, d: 3, a: 11, grade: "A",
+                   ranks: (PublicRank(tier: epic, division: 4, stars: 2), PublicRank(tier: epic, division: 4, stars: 1))),
+            record(140, .standard, "H027", won: true, k: 4, d: 5, a: 1, grade: "B"),
+            record(300, .brawl, "H031", won: true, k: 12, d: 6, a: 9, grade: "A"),
+        ]
+        app.profile = p
+    }
+
     static func parseRoute(_ s: String) -> Route? {
         let parts = s.split(separator: ":", maxSplits: 1).map(String.init)
         let name = parts[0]
@@ -236,12 +300,13 @@ enum DebugLaunch {
         case "rankRewards": return .rankRewards
         case "accountLink": return .accountLink
         case "heroes": return .heroes
-        case "heroDetail": return .heroDetail(arg.isEmpty ? "H001" : arg)
+        case "heroDetail": return .heroDetail(arg.isEmpty ? HeroRoster.defaultHeroID : arg)
         case "skillDetail": return .skillDetail(arg.isEmpty ? "SK001_2" : arg)
         case "items": return .items
         case "itemDetail": return .itemDetail(arg.isEmpty ? "EQ101" : arg)
-        case "buildEditor": return .buildEditor(arg.isEmpty ? "H001" : arg)
-        case "runes": return .runes
+        case "buildEditor": return .buildEditor(arg.isEmpty ? HeroRoster.defaultHeroID : arg)
+        // 旧ルーンの画面はエンブレムに置き換えた（"runes" も受け付ける）
+        case "emblems", "runes": return .emblems
         case "spells": return .spells
         case "store": return .store
         case "skinStore": return .skinStore
@@ -271,7 +336,6 @@ enum DebugLaunch {
         case "credits": return .credits
         case "replays": return .replays
         case "spectateSetup": return .spectateSetup
-        case "arcade": return .arcade
         case "rising": return .rising
         case "customSetup": return .customSetup
         case "magicChess": return .magicChess

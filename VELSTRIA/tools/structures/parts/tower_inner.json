@@ -1,0 +1,904 @@
+{
+  "id": "tower_inner",
+  "file": "Struct_tower_inner.usdz",
+  "axes": "USD / RealityKit: +Y up, ground y = 0 at the footprint centre, +Z faces the game camera (south)",
+  "rawTriangles": 5000,
+  "triangles": 5392,
+  "budget": 6000,
+  "scale": 4.56939,
+  "yaw": -90.0,
+  "size": [
+    4.096,
+    4.56,
+    3.818
+  ],
+  "min": [
+    -2.048,
+    0.0,
+    -1.909
+  ],
+  "max": [
+    2.048,
+    4.56,
+    1.909
+  ],
+  "cuts": [
+    {
+      "z": 2.1,
+      "radius": 1
+    },
+    {
+      "z": 3.25
+    }
+  ],
+  "parts": {
+    "part_plinth": {
+      "min": [
+        -2.048,
+        0.0,
+        -1.909
+      ],
+      "max": [
+        2.048,
+        3.008,
+        1.909
+      ],
+      "center": [
+        0.0,
+        1.504,
+        0.0
+      ],
+      "triangles": 2623,
+      "vertices": 1361,
+      "capTriangles": 0,
+      "openEdgesBeforeCaps": 43,
+      "openEdges": 43,
+      "openCutChains": 0,
+      "openCutLength": 0
+    },
+    "part_lower": {
+      "min": [
+        -0.602,
+        0.901,
+        -0.625
+      ],
+      "max": [
+        0.647,
+        2.1,
+        0.589
+      ],
+      "center": [
+        0.023,
+        1.501,
+        -0.018
+      ],
+      "triangles": 475,
+      "vertices": 253,
+      "capTriangles": 70,
+      "openEdgesBeforeCaps": 87,
+      "openEdges": 9,
+      "openCutChains": 0,
+      "openCutLength": 0
+    },
+    "part_upper": {
+      "min": [
+        -0.763,
+        2.1,
+        -0.706
+      ],
+      "max": [
+        0.781,
+        3.25,
+        0.669
+      ],
+      "center": [
+        0.009,
+        2.675,
+        -0.018
+      ],
+      "triangles": 926,
+      "vertices": 491,
+      "capTriangles": 87,
+      "openEdgesBeforeCaps": 97,
+      "openEdges": 0,
+      "openCutChains": 0,
+      "openCutLength": 0
+    },
+    "part_crown": {
+      "min": [
+        -0.852,
+        3.25,
+        -0.921
+      ],
+      "max": [
+        0.843,
+        4.212,
+        0.846
+      ],
+      "center": [
+        -0.005,
+        3.731,
+        -0.038
+      ],
+      "triangles": 1292,
+      "vertices": 677,
+      "capTriangles": 17,
+      "openEdgesBeforeCaps": 71,
+      "openEdges": 52,
+      "openCutChains": 0,
+      "openCutLength": 0
+    },
+    "part_crystal": {
+      "min": [
+        -0.346,
+        3.561,
+        -0.321
+      ],
+      "max": [
+        0.378,
+        4.56,
+        0.185
+      ],
+      "center": [
+        0.016,
+        4.06,
+        -0.068
+      ],
+      "triangles": 76,
+      "vertices": 44,
+      "capTriangles": 0,
+      "openEdgesBeforeCaps": 0,
+      "openEdges": 0,
+      "openCutChains": 0,
+      "openCutLength": 0
+    }
+  },
+  "usdPrims": [
+    {
+      "path": "/root/part_crown",
+      "triangles": 1292
+    },
+    {
+      "path": "/root/part_plinth",
+      "triangles": 2623
+    },
+    {
+      "path": "/root/part_lower",
+      "triangles": 475
+    },
+    {
+      "path": "/root/part_crystal",
+      "triangles": 76
+    },
+    {
+      "path": "/root/part_upper",
+      "triangles": 926
+    }
+  ],
+  "openEdgesInput": 104,
+  "capUV": {
+    "stone": {
+      "u": 0.591796875,
+      "v": 0.7841796875,
+      "half": 0.0234375,
+      "px": 48,
+      "rgb": [
+        0.349,
+        0.383,
+        0.352
+      ]
+    },
+    "dark": {
+      "u": 0.591796875,
+      "v": 0.7841796875,
+      "half": 0.0234375,
+      "px": 48,
+      "rgb": [
+        0.349,
+        0.383,
+        0.352
+      ]
+    }
+  },
+  "components": [
+    {
+      "part": "part_plinth",
+      "faces": 389,
+      "area": 5.045,
+      "cz": 1.427,
+      "radius": 1.291,
+      "top": 3.008,
+      "bottom": 0.25,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 386,
+      "area": 5.06,
+      "cz": 1.427,
+      "radius": 1.265,
+      "top": 3.008,
+      "bottom": 0.25,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 194,
+      "area": 28.613,
+      "cz": 0.248,
+      "radius": 0.003,
+      "top": 0.651,
+      "bottom": 0.0,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 110,
+      "area": 0.052,
+      "cz": 2.228,
+      "radius": 0.992,
+      "top": 2.303,
+      "bottom": 2.151,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 106,
+      "area": 0.052,
+      "cz": 2.23,
+      "radius": 1.032,
+      "top": 2.303,
+      "bottom": 2.151,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 90,
+      "area": 0.029,
+      "cz": 2.258,
+      "radius": 0.783,
+      "top": 2.311,
+      "bottom": 2.204,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 76,
+      "area": 0.027,
+      "cz": 2.259,
+      "radius": 0.819,
+      "top": 2.311,
+      "bottom": 2.213,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 74,
+      "area": 0.039,
+      "cz": 2.261,
+      "radius": 0.815,
+      "top": 2.32,
+      "bottom": 2.204,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 73,
+      "area": 0.039,
+      "cz": 2.264,
+      "radius": 0.851,
+      "top": 2.32,
+      "bottom": 2.204,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 68,
+      "area": 3.498,
+      "cz": 0.861,
+      "radius": 0.035,
+      "top": 0.928,
+      "bottom": 0.643,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 68,
+      "area": 0.03,
+      "cz": 2.499,
+      "radius": 0.717,
+      "top": 2.561,
+      "bottom": 2.436,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 63,
+      "area": 0.031,
+      "cz": 2.407,
+      "radius": 0.741,
+      "top": 2.472,
+      "bottom": 2.347,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 62,
+      "area": 0.033,
+      "cz": 2.31,
+      "radius": 0.733,
+      "top": 2.383,
+      "bottom": 2.24,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 62,
+      "area": 0.027,
+      "cz": 2.406,
+      "radius": 0.7,
+      "top": 2.472,
+      "bottom": 2.347,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 60,
+      "area": 0.893,
+      "cz": 1.668,
+      "radius": 0.89,
+      "top": 2.258,
+      "bottom": 0.875,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 55,
+      "area": 0.909,
+      "cz": 1.682,
+      "radius": 0.945,
+      "top": 2.276,
+      "bottom": 0.892,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 53,
+      "area": 0.027,
+      "cz": 2.501,
+      "radius": 0.743,
+      "top": 2.561,
+      "bottom": 2.436,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 52,
+      "area": 0.031,
+      "cz": 2.31,
+      "radius": 0.763,
+      "top": 2.383,
+      "bottom": 2.24,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 44,
+      "area": 0.517,
+      "cz": 0.155,
+      "radius": 1.666,
+      "top": 0.321,
+      "bottom": 0.0,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 44,
+      "area": 0.643,
+      "cz": 0.154,
+      "radius": 1.7,
+      "top": 0.321,
+      "bottom": 0.0,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 44,
+      "area": 0.484,
+      "cz": 0.783,
+      "radius": 0.698,
+      "top": 0.955,
+      "bottom": 0.625,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 44,
+      "area": 0.52,
+      "cz": 0.155,
+      "radius": 1.703,
+      "top": 0.321,
+      "bottom": 0.0,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 44,
+      "area": 0.52,
+      "cz": 0.154,
+      "radius": 1.668,
+      "top": 0.321,
+      "bottom": 0.0,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 44,
+      "area": 0.515,
+      "cz": 0.155,
+      "radius": 1.705,
+      "top": 0.321,
+      "bottom": 0.0,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 30,
+      "area": 0.083,
+      "cz": 0.485,
+      "radius": 1.778,
+      "top": 0.562,
+      "bottom": 0.411,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 30,
+      "area": 0.062,
+      "cz": 2.398,
+      "radius": 1.233,
+      "top": 2.49,
+      "bottom": 2.303,
+      "glow": 0.064
+    },
+    {
+      "part": "part_plinth",
+      "faces": 30,
+      "area": 0.082,
+      "cz": 0.486,
+      "radius": 1.812,
+      "top": 0.562,
+      "bottom": 0.411,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 30,
+      "area": 0.062,
+      "cz": 2.398,
+      "radius": 1.271,
+      "top": 2.49,
+      "bottom": 2.303,
+      "glow": 0.014
+    },
+    {
+      "part": "part_plinth",
+      "faces": 28,
+      "area": 0.044,
+      "cz": 0.306,
+      "radius": 1.665,
+      "top": 0.33,
+      "bottom": 0.295,
+      "glow": 0.007
+    },
+    {
+      "part": "part_plinth",
+      "faces": 27,
+      "area": 0.064,
+      "cz": 0.305,
+      "radius": 1.699,
+      "top": 0.33,
+      "bottom": 0.295,
+      "glow": 0.018
+    },
+    {
+      "part": "part_plinth",
+      "faces": 27,
+      "area": 0.044,
+      "cz": 0.305,
+      "radius": 1.705,
+      "top": 0.33,
+      "bottom": 0.295,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 26,
+      "area": 0.038,
+      "cz": 0.939,
+      "radius": 0.693,
+      "top": 0.964,
+      "bottom": 0.928,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 26,
+      "area": 0.045,
+      "cz": 0.305,
+      "radius": 1.701,
+      "top": 0.33,
+      "bottom": 0.295,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 26,
+      "area": 0.043,
+      "cz": 0.305,
+      "radius": 1.665,
+      "top": 0.33,
+      "bottom": 0.295,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 12,
+      "area": 0.017,
+      "cz": 2.41,
+      "radius": 0.726,
+      "top": 2.463,
+      "bottom": 2.365,
+      "glow": 0.0
+    },
+    {
+      "part": "part_plinth",
+      "faces": 12,
+      "area": 0.03,
+      "cz": 2.41,
+      "radius": 0.768,
+      "top": 2.463,
+      "bottom": 2.356,
+      "glow": 0.0
+    },
+    {
+      "part": "part_lower",
+      "faces": 104,
+      "area": 1.051,
+      "cz": 1.478,
+      "radius": 0.515,
+      "top": 2.1,
+      "bottom": 0.901,
+      "glow": 0.061
+    },
+    {
+      "part": "part_lower",
+      "faces": 92,
+      "area": 4.987,
+      "cz": 1.512,
+      "radius": 0.023,
+      "top": 2.1,
+      "bottom": 0.928,
+      "glow": 0.002
+    },
+    {
+      "part": "part_lower",
+      "faces": 62,
+      "area": 0.418,
+      "cz": 1.548,
+      "radius": 0.561,
+      "top": 1.714,
+      "bottom": 1.383,
+      "glow": 0.0
+    },
+    {
+      "part": "part_lower",
+      "faces": 58,
+      "area": 0.416,
+      "cz": 1.551,
+      "radius": 0.513,
+      "top": 1.714,
+      "bottom": 1.383,
+      "glow": 0.0
+    },
+    {
+      "part": "part_lower",
+      "faces": 26,
+      "area": 0.913,
+      "cz": 1.531,
+      "radius": 0.513,
+      "top": 2.1,
+      "bottom": 0.91,
+      "glow": 0.0
+    },
+    {
+      "part": "part_lower",
+      "faces": 26,
+      "area": 0.93,
+      "cz": 1.533,
+      "radius": 0.563,
+      "top": 2.1,
+      "bottom": 0.91,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 104,
+      "area": 0.054,
+      "cz": 2.574,
+      "radius": 0.756,
+      "top": 2.651,
+      "bottom": 2.49,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 100,
+      "area": 0.052,
+      "cz": 2.577,
+      "radius": 0.728,
+      "top": 2.651,
+      "bottom": 2.49,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 76,
+      "area": 3.621,
+      "cz": 2.695,
+      "radius": 0.025,
+      "top": 2.82,
+      "bottom": 2.579,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 72,
+      "area": 0.413,
+      "cz": 2.592,
+      "radius": 0.501,
+      "top": 2.758,
+      "bottom": 2.427,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 63,
+      "area": 4.684,
+      "cz": 2.704,
+      "radius": 0.012,
+      "top": 3.25,
+      "bottom": 2.1,
+      "glow": 0.001
+    },
+    {
+      "part": "part_upper",
+      "faces": 62,
+      "area": 0.414,
+      "cz": 2.592,
+      "radius": 0.549,
+      "top": 2.758,
+      "bottom": 2.427,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 44,
+      "area": 0.48,
+      "cz": 2.338,
+      "radius": 0.513,
+      "top": 2.606,
+      "bottom": 2.1,
+      "glow": 0.077
+    },
+    {
+      "part": "part_upper",
+      "faces": 28,
+      "area": 0.009,
+      "cz": 2.675,
+      "radius": 0.631,
+      "top": 2.704,
+      "bottom": 2.642,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 28,
+      "area": 0.009,
+      "cz": 2.688,
+      "radius": 0.674,
+      "top": 2.722,
+      "bottom": 2.66,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 28,
+      "area": 0.009,
+      "cz": 2.685,
+      "radius": 0.668,
+      "top": 2.713,
+      "bottom": 2.66,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 28,
+      "area": 0.009,
+      "cz": 2.677,
+      "radius": 0.709,
+      "top": 2.704,
+      "bottom": 2.651,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 28,
+      "area": 0.009,
+      "cz": 2.689,
+      "radius": 0.678,
+      "top": 2.722,
+      "bottom": 2.66,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 28,
+      "area": 0.008,
+      "cz": 2.693,
+      "radius": 0.647,
+      "top": 2.722,
+      "bottom": 2.668,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 28,
+      "area": 0.01,
+      "cz": 2.678,
+      "radius": 0.676,
+      "top": 2.713,
+      "bottom": 2.651,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 28,
+      "area": 0.009,
+      "cz": 2.665,
+      "radius": 0.717,
+      "top": 2.695,
+      "bottom": 2.633,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 22,
+      "area": 0.4,
+      "cz": 2.35,
+      "radius": 0.511,
+      "top": 2.597,
+      "bottom": 2.1,
+      "glow": 0.0
+    },
+    {
+      "part": "part_upper",
+      "faces": 22,
+      "area": 0.401,
+      "cz": 2.349,
+      "radius": 0.558,
+      "top": 2.597,
+      "bottom": 2.1,
+      "glow": 0.0
+    },
+    {
+      "part": "part_crown",
+      "faces": 841,
+      "area": 6.904,
+      "cz": 3.846,
+      "radius": 0.023,
+      "top": 4.186,
+      "bottom": 3.25,
+      "glow": 0.0
+    },
+    {
+      "part": "part_crown",
+      "faces": 316,
+      "area": 0.927,
+      "cz": 3.341,
+      "radius": 0.025,
+      "top": 3.382,
+      "bottom": 3.275,
+      "glow": 0.001
+    },
+    {
+      "part": "part_crown",
+      "faces": 39,
+      "area": 0.051,
+      "cz": 4.187,
+      "radius": 0.779,
+      "top": 4.212,
+      "bottom": 4.168,
+      "glow": 0.229
+    },
+    {
+      "part": "part_crown",
+      "faces": 35,
+      "area": 0.05,
+      "cz": 4.186,
+      "radius": 0.803,
+      "top": 4.212,
+      "bottom": 4.168,
+      "glow": 0.012
+    },
+    {
+      "part": "part_crown",
+      "faces": 34,
+      "area": 0.047,
+      "cz": 4.186,
+      "radius": 0.777,
+      "top": 4.212,
+      "bottom": 4.168,
+      "glow": 0.016
+    },
+    {
+      "part": "part_crystal",
+      "faces": 26,
+      "area": 0.687,
+      "cz": 4.084,
+      "radius": 0.019,
+      "top": 4.56,
+      "bottom": 3.561,
+      "glow": 1.0
+    },
+    {
+      "part": "part_crystal",
+      "faces": 26,
+      "area": 0.081,
+      "cz": 3.766,
+      "radius": 0.38,
+      "top": 3.927,
+      "bottom": 3.588,
+      "glow": 1.0
+    },
+    {
+      "part": "part_crystal",
+      "faces": 24,
+      "area": 0.079,
+      "cz": 3.766,
+      "radius": 0.382,
+      "top": 3.927,
+      "bottom": 3.579,
+      "glow": 1.0
+    }
+  ],
+  "junkComponents": 0,
+  "textures": [
+    {
+      "name": "textures/Struct_tower_inner_emit.jpg",
+      "size": [
+        1024,
+        1024
+      ],
+      "bytes": 42142
+    },
+    {
+      "name": "textures/Struct_tower_inner_base.jpg",
+      "size": [
+        1024,
+        1024
+      ],
+      "bytes": 268441
+    }
+  ],
+  "bytes": 662593,
+  "previews": [
+    "parts_front.png",
+    "parts_game.png",
+    "parts_top.png",
+    "parts_exploded_above.png",
+    "parts_exploded_side.png",
+    "parts_exploded_below.png",
+    "parts_red_game.png"
+  ]
+}

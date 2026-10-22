@@ -1,0 +1,282 @@
+{
+ "sfx_announcement.caf": {
+  "kind": "event",
+  "note": "告知: 銅鑼の一打",
+  "seconds": 1.43,
+  "sources": [
+   "2020 / Eiravaein Works - 48Kilos"
+  ]
+ },
+ "sfx_attack_melee_1.caf": {
+  "kind": "atk",
+  "note": "汎用の近接攻撃: 刃の風切り → 斬り",
+  "seconds": 0.45,
+  "sources": [
+   "2018 / Gamemaster Audio - Punch and Combat Sounds",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1"
+  ]
+ },
+ "sfx_attack_melee_2.caf": {
+  "kind": "atk",
+  "note": "汎用の近接攻撃: 刃の風切り → 斬り",
+  "seconds": 0.44,
+  "sources": [
+   "2018 / Gamemaster Audio - Punch and Combat Sounds",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1"
+  ]
+ },
+ "sfx_attack_ranged_1.caf": {
+  "kind": "atk",
+  "note": "汎用の遠隔攻撃: 弦の鳴り → 矢の風切り",
+  "seconds": 0.28,
+  "sources": [
+   "2019 / Eiravaein Works - Nocked",
+   "2020 / SoundFxwizard - PARTICLES An Organic & Granular Journey"
+  ]
+ },
+ "sfx_attack_ranged_2.caf": {
+  "kind": "atk",
+  "note": "汎用の遠隔攻撃: 弦の鳴り → 矢の風切り",
+  "seconds": 0.29,
+  "sources": [
+   "2019 / Eiravaein Works - Nocked",
+   "2020 / SoundFxwizard - PARTICLES An Organic & Granular Journey"
+  ]
+ },
+ "sfx_crit_1.caf": {
+  "kind": "crit",
+  "note": "汎用の会心: 刃の鋭い鳴り + 低い芯",
+  "seconds": 0.54,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "sfx_crit_2.caf": {
+  "kind": "crit",
+  "note": "汎用の会心: 刃の鋭い鳴り + 低い芯",
+  "seconds": 0.56,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "sfx_crystal_fade.caf": {
+  "kind": "world",
+  "note": "結晶の消失: 水晶のグラスの鳴り + ガラスの逆再生",
+  "seconds": 1.79,
+  "sources": [
+   "2017 / Raconteur Sound - Crystal Glasses- Tones and Drones_",
+   "2024 / Mechanical Wave - Glass"
+  ]
+ },
+ "sfx_death.caf": {
+  "kind": "event",
+  "note": "死亡: 体が倒れる音 + 低いブーム + 暗い金属の尾",
+  "seconds": 1.42,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Booms",
+   "2019 / Red Libraries - Bodyfall",
+   "2024 / Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts"
+  ]
+ },
+ "sfx_gold_1.caf": {
+  "kind": "ui",
+  "note": "ゴールド: 硬貨の鳴り",
+  "seconds": 0.16,
+  "sources": [
+   "2018 / Effectsworks - COINAGE"
+  ]
+ },
+ "sfx_gold_2.caf": {
+  "kind": "ui",
+  "note": "ゴールド: 硬貨の鳴り",
+  "seconds": 0.12,
+  "sources": [
+   "2018 / Effectsworks - COINAGE"
+  ]
+ },
+ "sfx_gold_3.caf": {
+  "kind": "ui",
+  "note": "ゴールド: 硬貨の鳴り",
+  "seconds": 0.29,
+  "sources": [
+   "2017 / Hzandbits - Money"
+  ]
+ },
+ "sfx_heal.caf": {
+  "kind": "event",
+  "note": "回復: 磁器の風鈴 + 柔らかい風",
+  "seconds": 1.0,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Eiravaein Works - Helina"
+  ]
+ },
+ "sfx_hit_1.caf": {
+  "kind": "atkhit",
+  "note": "汎用の命中: 体への衝撃",
+  "seconds": 0.34,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "sfx_hit_2.caf": {
+  "kind": "atkhit",
+  "note": "汎用の命中: 体への衝撃",
+  "seconds": 0.32,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "sfx_hit_3.caf": {
+  "kind": "atkhit",
+  "note": "汎用の命中: 体への衝撃",
+  "seconds": 0.33,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "sfx_kill.caf": {
+  "kind": "event",
+  "note": "キル: 刃の鋭い鳴り + 一撃 + 抜き身の刃",
+  "seconds": 0.85,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2019 / Rock The Speakerbox - Hero"
+  ]
+ },
+ "sfx_level_up.caf": {
+  "kind": "event",
+  "note": "レベルアップ: ベルツリー + 鉢",
+  "seconds": 1.19,
+  "sources": [
+   "2018 / The Chris Alan - Musical Oddities - Bells, Whistles, Horns, Percussion and More",
+   "2019 / Prismo Sound - Singing Bowls"
+  ]
+ },
+ "sfx_multi_kill.caf": {
+  "kind": "event",
+  "note": "連続キル: 銅鑼 + 重い一撃 + 刃の鳴り",
+  "seconds": 1.64,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2024 / Orbital Emitter - Cinematic Transitions for Editors Volume 2"
+  ]
+ },
+ "sfx_objective.caf": {
+  "kind": "stinger",
+  "note": "目標: 角笛のブラーム + 銅鑼",
+  "seconds": 2.19,
+  "sources": [
+   "2020 / Eiravaein Works - 48Kilos",
+   "2026 / Jake Fielding - Cinematic Horn Braams"
+  ]
+ },
+ "sfx_recall.caf": {
+  "kind": "event",
+  "note": "リコール: 柔らかい風 + 風鈴",
+  "seconds": 1.57,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Eiravaein Works - Helina"
+  ]
+ },
+ "sfx_respawn.caf": {
+  "kind": "event",
+  "note": "復活: 鉢の一打 + 風",
+  "seconds": 1.5,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Prismo Sound - Singing Bowls"
+  ]
+ },
+ "sfx_shield.caf": {
+  "kind": "event",
+  "note": "シールド: 盾の受けの金属 + 盾の響き",
+  "seconds": 0.56,
+  "sources": [
+   "2024 / Justsoundeffects - Melee Weapons",
+   "2026 / 344 Audio - Historical Weapons Vol. 2"
+  ]
+ },
+ "sfx_skill_cast.caf": {
+  "kind": "cast",
+  "note": "汎用のスキル: 渦の風 → 衝撃",
+  "seconds": 0.71,
+  "sources": [
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "sfx_tower_collapse.caf": {
+  "kind": "world",
+  "note": "塔の倒壊: 石の崩落 + 低いブーム",
+  "seconds": 2.76,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Booms",
+   "2023 / BluezoneCorp - Building Collapse"
+  ]
+ },
+ "sfx_tower_crack.caf": {
+  "kind": "world",
+  "note": "塔の亀裂: 石の打撃 + 割れ",
+  "seconds": 1.0,
+  "sources": [
+   "2017 / Mattia Cellotto - Glacier Ice",
+   "2024 / BluezoneCorp - Stone Impact"
+  ]
+ },
+ "sfx_tower_destroyed.caf": {
+  "kind": "event",
+  "note": "塔の破壊: 爆発 + 石の崩落 + 低いブーム",
+  "seconds": 2.13,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Booms",
+   "2023 / BluezoneCorp - Building Collapse",
+   "2024 / DavidDumais - Explosion SFX Pack"
+  ]
+ },
+ "sfx_tower_impact.caf": {
+  "kind": "world",
+  "note": "塔の着地: 地面への重い衝撃 + 低音",
+  "seconds": 1.41,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Articulated Sounds - Magic Elements vol.1"
+  ]
+ },
+ "sfx_tower_lock.caf": {
+  "kind": "world",
+  "note": "塔のロック: 重い鉄の打撃 + ボルトの音",
+  "seconds": 0.62,
+  "sources": [
+   "2019 / Sound Spark LLC – Metal Hits, Scrapes and Squeaks",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library"
+  ]
+ },
+ "sfx_tower_rise.caf": {
+  "kind": "world",
+  "note": "塔の立ち上がり: 地鳴り + 石の擦れ",
+  "seconds": 1.99,
+  "sources": [
+   "2023 / BluezoneCorp - Building Collapse",
+   "2024 / BluezoneCorp - Alien Tripod"
+  ]
+ },
+ "sfx_ultimate_cast.caf": {
+  "kind": "ult",
+  "note": "汎用の奥義: 大きな溜めの風 → 重い一撃 + 金属の低音",
+  "seconds": 1.35,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2019 / Federico Soler Fernández - Effective Trailer Whooshes",
+   "2024 / Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts"
+  ]
+ }
+}

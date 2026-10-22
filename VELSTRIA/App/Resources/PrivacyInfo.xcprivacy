@@ -3,12 +3,18 @@
 <!--
   VELSIA プライバシーマニフェスト。
   - トラッキングなし・トラッキングドメインなし。
-  - 収集データなし（プロフィール・リプレイ・購入台帳はすべて端末内の Application Support に保存し、外部送信しない）。
+  - 収集データ: プロフィール・リプレイ・購入台帳は端末内の Application Support に保存し、外部送信しない。
+    オンライン機能（同意した場合のみ）は対戦データを部屋の参加者へ送り、フレンドの受信箱（フレンドコード・鍵のハッシュ・
+    最後に接続した日時、不在時のフレンド申請〈差出人のフレンドコードと表示名〉受け付けから 14 日）を中継サーバーに保存する。
+    これを ID > ユーザ ID（ユーザーに関連付け・トラッキングなし・App の機能）として宣言する。
+    NSPrivacyCollectedDataTypes は App Store Connect の「App のプライバシー」の回答（docs/appstore/app_privacy.md）と同じ内容にすること
+    （tools/privacy_audit.py と AppStoreAssetsTests が、この 1 件だけであることを確かめる）。
   - Required Reason API は tools/privacy_audit.py でコードを走査して宣言漏れがないことを確認する。
     UserDefaults (CA92.1): アプリ自身の設定値の読み書きのみ。
     File timestamp (C617.1): アプリコンテナ内のセーブ/リプレイファイルの日時・サイズ参照のみ。
     System boot time (35F9.1): 効果音・触覚の再生間隔など、アプリ内のイベント間の経過時間の計測のみ
-      （ProcessInfo.systemUptime。端末の起動時刻そのものは扱わず、外部送信もしない）。
+      （ProcessInfo.systemUptime。端末の起動時刻そのものは扱わない。オンライン対戦の往復遅延＝アプリ内のイベント間の
+      経過時間は部屋の参加者へ送る。35F9.1 が外部送信を認めている範囲）。
 -->
 <plist version="1.0">
 <dict>
@@ -17,7 +23,20 @@
 	<key>NSPrivacyTrackingDomains</key>
 	<array/>
 	<key>NSPrivacyCollectedDataTypes</key>
-	<array/>
+	<array>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
 		<dict>

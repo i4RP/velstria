@@ -306,8 +306,10 @@ final class LiveOpsScreensTests: XCTestCase {
         var p = Profile()
         p.displayName = "Nova"
         p.heroSpells["H013"] = ["BS02", "BS07"]
-        p.runePages = [RunePage(name: "A", primaryPath: .valor, runeIDs: [MasterData.shared.runes[0].runeID, "", "INVALID"])]
-        p.selectedRunePage = 0
+        // エンブレムの一括設定（H013 はプランが無いので、無ければロール別の既定）。全セット解放済みの Lv60 で
+        EmblemService.grandfather(&p)
+        EmblemMath.equip(.fatal, set: .assassin, profile: &p)
+        EmblemMath.apply(set: .assassin, to: ["H013"], profile: &p)
         p.equippedSkins["H013"] = "CO_NOT_OWNED"
         p.settings.autoLevelSkills = false
         let options = PracticeOptions(infiniteGold: true, noCooldowns: true, spawnMinions: false, spawnDummies: true, startLevel: 40)
@@ -320,7 +322,7 @@ final class LiveOpsScreensTests: XCTestCase {
         XCTAssertEqual(human?.heroID, "H013")
         XCTAssertEqual(human?.displayName, "Nova")
         XCTAssertEqual(human?.spells, ["BS02", "BS03"])
-        XCTAssertEqual(human?.runes, [MasterData.shared.runes[0].runeID])
+        XCTAssertEqual(human?.emblem, EmblemLoadout(.assassin, .fatal, .masterAssassin, .killingSpree))
         XCTAssertNil(human?.skinID)
         XCTAssertEqual(human?.autoLevelSkills, false)
     }
@@ -329,11 +331,11 @@ final class LiveOpsScreensTests: XCTestCase {
         var p = Profile()
         p.heroSpells["H001"] = ["BS01", "BS01"]
         XCTAssertNil(PracticeSetup.spells(heroID: "H001", profile: p))
-        XCTAssertEqual(PracticeSetup.defaultHeroID(profile: p), "H001")
+        XCTAssertEqual(PracticeSetup.defaultHeroID(profile: p), HeroRoster.defaultHeroID)
         p.lastPickedHeroID = "H020"
         XCTAssertEqual(PracticeSetup.defaultHeroID(profile: p), "H020")
         p.lastPickedHeroID = "HXXX"
-        XCTAssertEqual(PracticeSetup.defaultHeroID(profile: p), "H001")
+        XCTAssertEqual(PracticeSetup.defaultHeroID(profile: p), HeroRoster.defaultHeroID)
         let config = PracticeSetup.config(heroID: "H001", options: PracticeOptions(startLevel: 0), profile: p, seed: 1)
         XCTAssertEqual(config.practice?.startLevel, 1)
         XCTAssertEqual(config.humanSlot?.spells.count, 2)

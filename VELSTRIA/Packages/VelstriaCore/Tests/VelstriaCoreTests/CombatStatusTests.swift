@@ -104,7 +104,8 @@ final class CombatStatusTests: XCTestCase {
         XCTAssertNil(w.s.units[t].displacement)
     }
 
-    func testSlowUsesStrongestOnlyAndBoostsAdd() {
+    /// MLBB の用語注釈「移動速度」: 計算移動速度 = 基礎 × (100% + 全加速% − 全減速%)。減速は足し合わせ、最大 90%（Fandom「Slow」）。
+    func testSlowsAndBoostsAddUpWithNinetyPercentCap() {
         var st = CombatWorld.stats(moveSpeed: 300)
         let statuses = [
             StatusEffect(kind: .slow, duration: 2, magnitude: 0.30, tag: "a"),
@@ -114,22 +115,53 @@ final class CombatStatusTests: XCTestCase {
             StatusEffect(kind: .speedBoost, duration: 2, magnitude: 0.10, tag: "y"),
         ]
         StatusModifiers.apply(statuses, to: &st)
-        XCTAssertEqual(st.moveSpeed, 300 * 1.3 * 0.55, accuracy: 1e-9)
+        XCTAssertEqual(st.moveSpeedSlow, 0.85, accuracy: 1e-9)
+        XCTAssertEqual(st.moveSpeedBonus, 0.30, accuracy: 1e-9)
+        var unit = st
+        StatCalculator.finalize(&unit, isHero: false)
+        XCTAssertEqual(unit.moveSpeed, 300 * (1 + 0.30 - 0.85), accuracy: 1e-9)
+        // 減速の合計は 90% まで
+        var capped = CombatWorld.stats(moveSpeed: 300)
+        StatusModifiers.apply(statuses + [StatusEffect(kind: .slow, duration: 2, magnitude: 0.5, tag: "d")], to: &capped)
+        StatCalculator.finalize(&capped, isHero: false)
+        XCTAssertEqual(capped.moveSpeed, 300 * (1 + 0.30 - Balance.maxSlow), accuracy: 1e-9)
 
-        // 実際の再計算経路（非ヒーロー）でも同じ
+        // 実際の再計算経路（非ヒーロー）でも同じ。汎用のスロー（30%）と ULT のスロー（45%）は足し合わせる
         var w = CombatWorld()
         let m = w.addUnit(.monster, team: .neutral, at: Vec2(3000, 3000), stats: CombatWorld.stats(moveSpeed: 300))
         CombatSystem.applyCC(&w.s, w.ctx, sourceID: nil, targetIndex: m, cc: .slow, isUltimate: false, from: .zero)
         CombatSystem.applyCC(&w.s, w.ctx, sourceID: nil, targetIndex: m, cc: .slow, isUltimate: true, from: .zero)
         StatCalculator.recompute(&w.s, m, w.ctx)
-        XCTAssertEqual(w.s.units[m].stats.moveSpeed, 300 * (1 - Balance.ultSlowPct), accuracy: 1e-9)
-        // 強いスロー（2.0s）が切れると弱いスローだけが残る
+        XCTAssertEqual(w.s.units[m].stats.moveSpeed, 300 * (1 - Balance.slowPct - Balance.ultSlowPct), accuracy: 1e-9)
+        // 短いスロー（1.5s）が切れると ULT のスローだけが残る
         w.tick(Int((Balance.slowDuration / Balance.dt).rounded(.up)))
         StatCalculator.recompute(&w.s, m, w.ctx)
         XCTAssertEqual(w.s.units[m].stats.moveSpeed, 300 * (1 - Balance.ultSlowPct), accuracy: 1e-9)
         w.tick(Int(((Balance.ultSlowDuration - Balance.slowDuration) / Balance.dt).rounded(.up)))
         StatCalculator.recompute(&w.s, m, w.ctx)
         XCTAssertEqual(w.s.units[m].stats.moveSpeed, 300, accuracy: 1e-9)
+    }
+
+    /// ヒーローの移動速度: 230 未満・420 超へ効果で動いた分は逓減（率は資料に無く Balance.moveSpeedDecayRate の仮の値）し、
+    /// 最後にマップ縮尺（Balance.mapScale）を掛ける。効果の無い基礎はそのまま（225 のヒーローも 225）。
+    func testHeroMoveSpeedDecaysOutsideThresholdsAndUsesMapScale() {
+        let k = Balance.moveSpeedDecayRate
+        XCTAssertEqual(MoveSpeedMath.calculated(basic: 250, bonus: 0, slow: 0, decays: true), 250, accuracy: 1e-9)
+        XCTAssertEqual(MoveSpeedMath.calculated(basic: 225, bonus: 0, slow: 0, decays: true), 225, accuracy: 1e-9)
+        // 250 × (1 − 0.9) = 25 → 230 − 205 × k
+        XCTAssertEqual(MoveSpeedMath.calculated(basic: 250, bonus: 0, slow: 0.95, decays: true), 230 - 205 * k, accuracy: 1e-9)
+        // 250 × 2 = 500 → 420 + 80 × k
+        XCTAssertEqual(MoveSpeedMath.calculated(basic: 250, bonus: 1, slow: 0, decays: true), 420 + 80 * k, accuracy: 1e-9)
+        // 230〜420 の間はそのまま（250 × 1.3 = 325）
+        XCTAssertEqual(MoveSpeedMath.calculated(basic: 250, bonus: 0.3, slow: 0, decays: true), 325, accuracy: 1e-9)
+        // 減速軽減（ラピッドブーツ）は合計した減速を割合で弱めてから上限を見る
+        XCTAssertEqual(MoveSpeedMath.calculated(basic: 300, bonus: 0, slow: 0.5, slowReduction: 0.4, decays: false), 300 * 0.7,
+                       accuracy: 1e-9)
+        var st = CombatWorld.stats(moveSpeed: 250)
+        st.moveSpeedBonus = 0.2
+        StatCalculator.finalize(&st, isHero: true)
+        XCTAssertEqual(st.moveSpeed, 300 * Balance.mapScale, accuracy: 1e-9)
+        XCTAssertEqual(st.moveSpeedBonus, 0)
     }
 
     func testStatusWithSameTagRefreshesInsteadOfStacking() {
@@ -227,7 +259,19 @@ final class CombatStatusTests: XCTestCase {
         XCTAssertEqual(st.damageBonus, 0.15 + 0.05 - 0.3, accuracy: 1e-9)
         XCTAssertEqual(st.healingReceivedMultiplier, 0.5, accuracy: 1e-9)
         XCTAssertEqual(st.damageReduction, 0.25, accuracy: 1e-9)
+        // 攻撃速度 +50% は追加の攻撃速度 +0.5 回/秒（MLBB: 基礎 + 追加 × 攻撃速度比率。確定は StatCalculator.finalize）
+        XCTAssertEqual(st.extraAttackSpeed, 0.5, accuracy: 1e-9)
+        StatCalculator.finalize(&st, isHero: false)
         XCTAssertEqual(st.attackSpeed, 1.5, accuracy: 1e-9)
+        var slowRatio = CombatWorld.stats(attackSpeed: 1.2)
+        slowRatio.attackSpeedRatio = 0.5
+        slowRatio.extraAttackSpeed = 0.5
+        StatCalculator.finalize(&slowRatio, isHero: false)
+        XCTAssertEqual(slowRatio.attackSpeed, 1.2 + 0.5 * 0.5, accuracy: 1e-9)
+        var capped = CombatWorld.stats(attackSpeed: 1.2)
+        capped.extraAttackSpeed = 5
+        StatCalculator.finalize(&capped, isHero: false)
+        XCTAssertEqual(capped.attackSpeed, Balance.maxAttackSpeed, "毎秒 3 回まで")
     }
 
     func testStunCancelsEnemyChannel() {

@@ -203,7 +203,7 @@ struct HeroSegmentRotations {
     init() {}
 
     init(_ p: HeroPose) {
-        hips = ry(p.hipsYaw) * rz(p.hipsRoll)
+        hips = ry(p.hipsYaw) * rx(-p.hipsPitch) * rz(p.hipsRoll)
         torso = hips * ry(p.torsoYaw - p.hipsYaw) * rx(-p.torsoPitch) * rz(p.torsoRoll)
         head = torso * ry(p.headYaw) * rx(-p.headPitch) * rz(p.headRoll)
         armR = torso * ry(p.armR.yaw) * rx(p.armR.pitch) * rz(p.armR.out)

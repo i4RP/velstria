@@ -64,6 +64,14 @@ protocol HeroModelHandle: AnyObject {
     func setState(_ state: HeroAnimState)
     /// スキルの詠唱モーションの長さ（秒。詠唱状態をこの間保つ）。
     func castDuration(_ slot: SkillSlot) -> Float
+    /// 再使用の段（キット層の stage）の詠唱モーションの長さ（秒）。段に固有のモーションが無ければ castDuration(slot)。
+    func castDuration(_ slot: SkillSlot, stage: Int) -> Float
+    /// 段に固有のモーションがあり、同じスロットの詠唱中でも始め直す段か（docs/HERO_MOTION.md「全身のモーション」）。
+    func castRestarts(_ slot: SkillSlot, stage: Int) -> Bool
+    /// 段の詠唱モーションを今すぐ始める（castRestarts が真の段だけ描画側が呼ぶ）。
+    func playCast(_ slot: SkillSlot, stage: Int)
+    /// 詠唱中のスロットのスキルが最初に当たった時（sim のダメージ）。命中の後のモーションを始めたらその長さ（秒）、無ければ nil。
+    func playCastHit(_ slot: SkillSlot) -> Float?
     /// 手続きアニメーションを進める（毎フレーム）。
     func update(dt: Double, moveSpeed: Double)
     /// 通常攻撃を 1 回振る（シムの攻撃開始時に呼ぶ。windup = 発射・命中までの秒、interval = 次の攻撃までの秒）。
@@ -71,6 +79,11 @@ protocol HeroModelHandle: AnyObject {
     func playAttack(windup: Double, interval: Double)
     /// Synchronize a visual release to the simulation event without changing game timing.
     func synchronizeAttackRelease()
+    /// 通常攻撃を 1 回振る。empowered = その攻撃がキットの強い通常攻撃（三連突き・円撃。HeroKits.empoweredAttackReady）。
+    /// 強い通常攻撃の全身のモーション（HeroSkillMotions）を持つモデルはそれを振り、無ければ playAttack(windup:interval:) と同じ。
+    func playAttack(windup: Double, interval: Double, empowered: Bool)
+    /// 次の通常攻撃が強い（キットの強い通常攻撃の準備ができている）間、武器の先の光（詠唱の光）を灯す。描画だけ。
+    func setEmpoweredReady(_ ready: Bool)
     /// 遠隔の通常攻撃の発射位置（ワールド座標・m、最後の update 時点の姿勢 = クリップが動かす手・武器）。
     /// 武器の先端（杖・槍・銃口・掌の炎）。素手で副手に弓を持つヒーロー（H003）は弓の握り、体に付ける籠手・爪は手のひら。
     /// 左右に同じ武器（爪・拳・二刀）を持ち、再生中のクリップが左手で打つ時（hook_l 等）は左手の側。nil = 対応していない。
@@ -83,6 +96,13 @@ extension HeroModelHandle {
     /// 既定は何もしない（手続きモデルは setState(.attack) の手続きの振りのまま）。
     func playAttack(windup: Double, interval: Double) {}
     func synchronizeAttackRelease() {}
+    func playAttack(windup: Double, interval: Double, empowered: Bool) { playAttack(windup: windup, interval: interval) }
+    func setEmpoweredReady(_ ready: Bool) {}
+    /// 既定: 段のモーションは無い（従来どおり setState(.cast) だけ）。
+    func castDuration(_ slot: SkillSlot, stage: Int) -> Float { castDuration(slot) }
+    func castRestarts(_ slot: SkillSlot, stage: Int) -> Bool { false }
+    func playCast(_ slot: SkillSlot, stage: Int) { setState(.cast(slot)) }
+    func playCastHit(_ slot: SkillSlot) -> Float? { nil }
     /// 既定は無し（描画側は従来どおり頭上の高さなどから出す）。
     func attackLaunchPoint() -> SIMD3<Float>? { nil }
     func weaponTrailSample() -> HeroWeaponTrailSample? { nil }

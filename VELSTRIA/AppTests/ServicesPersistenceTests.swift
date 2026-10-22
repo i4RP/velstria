@@ -148,7 +148,8 @@ final class ServicesPersistenceTests: XCTestCase {
         XCTAssertEqual(decoded.playerID, p.playerID)
     }
 
-    func testMigrationV1MutesBGMAndSFX() throws {
+    /// v1（10-05 より前）の保存: 10-05 の移行で 0 にした後、v4 → v5 で新しい既定（効果音 70%・BGM 50%）になる。声はそのまま。
+    func testMigrationV1EndsAtTheNewAudioDefaults() throws {
         let s = make()
         var p = profile(coins: 7)
         p.settings.bgmVolume = 0.7
@@ -157,8 +158,8 @@ final class ServicesPersistenceTests: XCTestCase {
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
         object["schemaVersion"] = 1
         let decoded = try s.decodeProfile(JSONSerialization.data(withJSONObject: object))
-        XCTAssertEqual(decoded.settings.bgmVolume, 0)
-        XCTAssertEqual(decoded.settings.sfxVolume, 0)
+        XCTAssertEqual(decoded.settings.bgmVolume, GameSettings.defaultBGMVolume)
+        XCTAssertEqual(decoded.settings.sfxVolume, GameSettings.defaultSFXVolume)
         XCTAssertEqual(decoded.settings.voiceVolume, 0.6)
         XCTAssertEqual(decoded.starlightCoin, 7)
         XCTAssertEqual(decoded.schemaVersion, PersistenceService.currentSchemaVersion)
@@ -171,8 +172,8 @@ final class ServicesPersistenceTests: XCTestCase {
         XCTAssertEqual(current.settings.sfxVolume, 0.4)
     }
 
-    /// v2（BGM だけミュート済み）からは効果音だけを 0 にし、ユーザーが上げた BGM 音量は保つ。
-    func testMigrationV2MutesSFXOnly() throws {
+    /// v2（BGM だけミュート済み）: ユーザーが上げた BGM 音量は保ち、効果音は 0 にされた後 v4 → v5 で既定の 70% になる。
+    func testMigrationV2KeepsRaisedBGMAndRestoresSFX() throws {
         let s = make()
         var p = profile(coins: 3)
         p.settings.bgmVolume = 0.5
@@ -181,8 +182,29 @@ final class ServicesPersistenceTests: XCTestCase {
         object["schemaVersion"] = 2
         let decoded = try s.decodeProfile(JSONSerialization.data(withJSONObject: object))
         XCTAssertEqual(decoded.settings.bgmVolume, 0.5)
-        XCTAssertEqual(decoded.settings.sfxVolume, 0)
+        XCTAssertEqual(decoded.settings.sfxVolume, GameSettings.defaultSFXVolume)
         XCTAssertEqual(decoded.schemaVersion, PersistenceService.currentSchemaVersion)
+    }
+
+    /// v4（10-05〜10-20 の既定 0 のまま）: 0 の音量は新しい既定に上げ、ユーザーが自分で上げた音量はそのまま。
+    func testMigrationV4RaisesSilentVolumesOnly() throws {
+        let s = make()
+        var p = profile(coins: 1)
+        p.settings.bgmVolume = 0
+        p.settings.sfxVolume = 0
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
+        object["schemaVersion"] = 4
+        let raised = try s.decodeProfile(JSONSerialization.data(withJSONObject: object))
+        XCTAssertEqual(raised.settings.bgmVolume, GameSettings.defaultBGMVolume)
+        XCTAssertEqual(raised.settings.sfxVolume, GameSettings.defaultSFXVolume)
+        p.settings.bgmVolume = 0.3
+        p.settings.sfxVolume = 0.2
+        object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
+        object["schemaVersion"] = 4
+        let kept = try s.decodeProfile(JSONSerialization.data(withJSONObject: object))
+        XCTAssertEqual(kept.settings.bgmVolume, 0.3)
+        XCTAssertEqual(kept.settings.sfxVolume, 0.2)
+        XCTAssertEqual(kept.schemaVersion, PersistenceService.currentSchemaVersion)
     }
 
     /// 配列の要素・辞書の値に欠けたキー（旧版の MailItem などにフィールドが追加された場合）も既定値で補い、
@@ -195,7 +217,9 @@ final class ServicesPersistenceTests: XCTestCase {
         p.achievements["ACH_FIRST_WIN"] = AchievementProgress(progress: 1, unlockedAt: Date(timeIntervalSince1970: 1_800_000_000))
         p.career.perHero["H003"] = HeroCareer(matches: 4, wins: 3, kills: 10, deaths: 2, assists: 5, mvps: 1)
         p.missions.daily = [MissionProgress(id: "D01", progress: 2, claimed: false)]
-        p.runePages = [RunePage(name: "Page", primaryPath: .arcana, runeIDs: ["R1", "R2", "R3"])]
+        p.emblemTalents[EmblemSetID.tank.rawValue] = EmblemLoadout(.tank, .fatal, .tenacity, .warCry)
+        p.emblemSetProgress[EmblemSetID.mage.rawValue] = EmblemSetProgress(unlocked: true, level: 37)
+        p.heroEmblems["H027"] = EmblemLoadout(.fighter, .thrill, .festivalOfBlood, .braveSmite)
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(p)) as? [String: Any])
         func strip(_ key: String, from value: Any?) -> Any? {
             guard var o = value as? [String: Any] else { return value }
@@ -217,7 +241,15 @@ final class ServicesPersistenceTests: XCTestCase {
         var missions = try XCTUnwrap(object["missions"] as? [String: Any])
         missions["daily"] = (missions["daily"] as? [Any])?.map { strip("claimed", from: $0) as Any }
         object["missions"] = missions
-        object["runePages"] = (object["runePages"] as? [Any])?.map { strip("id", from: $0) as Any }
+        // エンブレムの欠けたキー（レベル）と、旧版のルーン（もう読まない）
+        var talents = try XCTUnwrap(object["emblemTalents"] as? [String: Any])
+        talents["EM_TANK"] = strip("level", from: talents["EM_TANK"])
+        object["emblemTalents"] = talents
+        var progress = try XCTUnwrap(object["emblemSetProgress"] as? [String: Any])
+        progress["EM_MAGE"] = strip("level", from: progress["EM_MAGE"])
+        object["emblemSetProgress"] = progress
+        object["runePages"] = [["name": "Page", "primaryPath": "Arcana", "runeIDs": ["R1", "R2", "R3"]]]
+        object["selectedRunePage"] = 0
 
         let data = try JSONSerialization.data(withJSONObject: object)
         XCTAssertThrowsError(try JSONDecoder().decode(Profile.self, from: data), "前提: そのままでは読めない")
@@ -232,8 +264,10 @@ final class ServicesPersistenceTests: XCTestCase {
         XCTAssertEqual(decoded.career.perHero["H003"]?.wins, 3)
         XCTAssertEqual(decoded.career.perHero["H003"]?.mvps, 0)
         XCTAssertEqual(decoded.missions.daily, [MissionProgress(id: "D01", progress: 2, claimed: false)])
-        XCTAssertEqual(decoded.runePages.first?.name, "Page")
-        XCTAssertEqual(decoded.runePages.first?.runeIDs, ["R1", "R2", "R3"])
+        XCTAssertEqual(decoded.emblemTalents["EM_TANK"], EmblemLoadout(.tank, .fatal, .tenacity, .warCry, level: 60))
+        XCTAssertEqual(decoded.emblemSetProgress["EM_MAGE"], EmblemSetProgress(unlocked: true, level: 1),
+                       "欠けたレベルは Lv1（旧版のデータは ProfileMigrator が全セットを書いてから読む）")
+        XCTAssertEqual(decoded.heroEmblems["H027"], EmblemLoadout(.fighter, .thrill, .festivalOfBlood, .braveSmite))
     }
 
     func testExportImport() throws {

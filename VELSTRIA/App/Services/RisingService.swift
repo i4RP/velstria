@@ -35,11 +35,12 @@ enum RisingService {
                        master: MasterData = .shared) -> MatchConfig {
         let name = profile.displayName.isEmpty ? "Player" : profile.displayName
         let spells = PracticeSetup.spells(heroID: heroID, profile: profile, master: master)
-        let runes = PracticeSetup.runes(profile: profile, master: master)
+        let emblem = PracticeSetup.emblem(heroID: heroID, profile: profile, master: master)
         let skin = profile.equippedSkins[heroID].flatMap { profile.ownedCosmeticIDs.contains($0) ? $0 : nil }
         return MatchFactory.standardMatch(mode: .standard, humanHeroID: heroID, humanName: name,
-                                          humanSpells: spells, humanRunes: runes, humanSkin: skin,
+                                          humanSpells: spells, humanEmblem: emblem, humanSkin: skin,
                                           allyDifficulty: .normal, enemyDifficulty: stage.enemyDifficulty,
+                                          humanBuildPlan: profile.heroBuildPlans[heroID],
                                           seed: seed, master: master)
     }
 

@@ -18,10 +18,25 @@ public struct HeroDef: Codable, Hashable, Sendable, Identifiable {
     public let defenseGrowth: Double
     public let baseMagicDefense: Double
     public let magicDefenseGrowth: Double
+    /// 移動速度（MLBB の値そのまま。ワールドの速さは Balance.mapScale を掛けたもの）。
     public let moveSpeed: Double
+    /// 通常攻撃の射程（MLBB の値 × 100。近接 1.8 → 180）。
     public let attackRange: Double
+    // 攻撃速度・HP 回復・リソースの成長（2026-10-14 に MLBB の能力値へ揃えた時に足した列。docs/HERO_STATS.md）。
+    /// 攻撃速度（Lv1 の毎秒の攻撃回数）とレベル毎の成長、攻撃速度比率（追加の攻撃速度が効く割合。1 = 100%）。
+    public let attackSpeed: Double
+    public let attackSpeedGrowth: Double
+    public let attackSpeedRatio: Double
+    /// HP 回復（Lv1 の毎秒の回復量）とレベル毎の成長。
+    public let hpRegen: Double
+    public let hpRegenGrowth: Double
     public let resource: ResourceKind
+    /// リソースの最大値（Lv1）とレベル毎の成長（Mana は 500 + 100/Lv、エナジーは 100 固定、怒り・なしは 0）。
     public let resourceMax: Double
+    public let resourceGrowth: Double
+    /// リソースの回復（Lv1 の毎秒の回復量）とレベル毎の成長（Mana は 4 + 0.2/Lv）。
+    public let resourceRegen: Double
+    public let resourceRegenGrowth: Double
     public let lore: String
     public let strengths: String
     public let weaknesses: String
@@ -37,8 +52,12 @@ public struct HeroDef: Codable, Hashable, Sendable, Identifiable {
         case baseAttack = "base_attack", attackGrowth = "attack_growth", baseDefense = "base_defense"
         case defenseGrowth = "defense_growth", baseMagicDefense = "base_magic_defense"
         case magicDefenseGrowth = "magic_defense_growth", moveSpeed = "move_speed"
-        case attackRange = "attack_range", resource, resourceMax = "resource_max", lore, strengths
-        case weaknesses, counterplay
+        case attackRange = "attack_range"
+        case attackSpeed = "attack_speed", attackSpeedGrowth = "attack_speed_growth", attackSpeedRatio = "attack_speed_ratio"
+        case hpRegen = "hp_regen", hpRegenGrowth = "hp_regen_growth"
+        case resource, resourceMax = "resource_max", resourceGrowth = "resource_growth"
+        case resourceRegen = "resource_regen", resourceRegenGrowth = "resource_regen_growth"
+        case lore, strengths, weaknesses, counterplay
     }
 }
 
@@ -134,7 +153,7 @@ public struct ItemDef: Codable, Hashable, Sendable, Identifiable {
     /// 最初の固有効果の種類（無ければ空）。
     public var effectID: String { effects.first?.id ?? "" }
     public var isConsumable: Bool { consumableSec > 0 }
-    /// 靴（移動カテゴリの装備。祝福を付けられるのは Tier 2 以上の靴）。
+    /// 靴（移動カテゴリの装備。祝福はスピードブーツ（Tier 1）から付けられ、上位の靴に引き継ぐ）。
     public var isBoots: Bool { category == .movement }
 
     /// passive_text 中の「N%」の N（見つからなければ 0）。
@@ -233,22 +252,6 @@ public struct SpellDef: Codable, Hashable, Sendable, Identifiable {
     }
 }
 
-public struct RuneDef: Codable, Hashable, Sendable, Identifiable {
-    public var id: String { runeID }
-    public let runeID: String
-    public let nameJa: String
-    public let path: RunePath
-    public let tier: Int
-    public let effect: String
-
-    /// effect 中の「N%」の N。
-    public var percent: Double { MasterData.firstPercent(in: effect) }
-
-    enum CodingKeys: String, CodingKey {
-        case runeID = "rune_id", nameJa = "name_ja", path, tier, effect
-    }
-}
-
 public struct EffectDef: Codable, Hashable, Sendable, Identifiable {
     public var id: String { effectID }
     public let effectID: String
@@ -335,21 +338,26 @@ public struct MasterMeta: Codable, Hashable, Sendable {
 public final class MasterData: @unchecked Sendable {
     public let meta: MasterMeta
     public let gameRules: [GameRuleDef]
+    /// ゲームに出すヒーロー（HeroRoster.activeHeroIDs。一覧・ボット・ドラフトはこれを使う）。
     public let heroes: [HeroDef]
+    /// マスターの全ヒーロー（非表示のヒーローを含む。データの検査・ツール用）。
+    public let allHeroes: [HeroDef]
     public let skills: [SkillDef]
     public let items: [ItemDef]
     public let spells: [SpellDef]
-    public let runes: [RuneDef]
     public let effects: [EffectDef]
+    /// 出すヒーローのコスメ（非表示のヒーローのスキンは除く）と、ヒーローに依らないコスメ。
     public let cosmetics: [CosmeticDef]
+    /// ストアの商品（ヒーロー解放は売らない = 全員が全ヒーローを使える。非表示のヒーローのコスメも除く）。
     public let store: [StoreItemDef]
+    public let allCosmetics: [CosmeticDef]
+    public let allStore: [StoreItemDef]
 
     private let heroByID: [String: HeroDef]
     private let skillByID: [String: SkillDef]
     private let skillsByHero: [String: [SkillDef]]
     private let itemByID: [String: ItemDef]
     private let spellByID: [String: SpellDef]
-    private let runeByID: [String: RuneDef]
     private let effectByID: [String: EffectDef]
     private let cosmeticByID: [String: CosmeticDef]
     private let storeBySKU: [String: StoreItemDef]
@@ -361,13 +369,12 @@ public final class MasterData: @unchecked Sendable {
         let skills: [SkillDef]
         let equipment: [ItemDef]
         let battleSpells: [SpellDef]
-        let runes: [RuneDef]
         let effects: [EffectDef]
         let cosmetics: [CosmeticDef]
         let store: [StoreItemDef]
         enum CodingKeys: String, CodingKey {
             case meta, gameRules = "game_rules", heroes, skills, equipment
-            case battleSpells = "battle_spells", runes, effects, cosmetics, store
+            case battleSpells = "battle_spells", effects, cosmetics, store
         }
     }
 
@@ -375,25 +382,34 @@ public final class MasterData: @unchecked Sendable {
         let raw = try JSONDecoder().decode(Raw.self, from: jsonData)
         meta = raw.meta
         gameRules = raw.gameRules
-        heroes = raw.heroes.sorted { $0.heroID < $1.heroID }
+        allHeroes = raw.heroes.sorted { $0.heroID < $1.heroID }
+        heroes = allHeroes.filter { HeroRoster.isActive($0.heroID) }
         skills = raw.skills.sorted { $0.skillID < $1.skillID }
         items = raw.equipment.sorted { $0.itemID < $1.itemID }
         spells = raw.battleSpells.sorted { $0.spellID < $1.spellID }
-        runes = raw.runes.sorted { $0.runeID < $1.runeID }
         effects = raw.effects.sorted { $0.effectID < $1.effectID }
-        cosmetics = raw.cosmetics.sorted { $0.cosmeticID < $1.cosmeticID }
-        store = raw.store.sorted { $0.sku < $1.sku }
+        allCosmetics = raw.cosmetics.sorted { $0.cosmeticID < $1.cosmeticID }
+        allStore = raw.store.sorted { $0.sku < $1.sku }
+        let shownCosmetic: (CosmeticDef) -> Bool = { $0.heroID.isEmpty || HeroRoster.isActive($0.heroID) }
+        cosmetics = allCosmetics.filter(shownCosmetic)
+        let hiddenCosmetics = Set(allCosmetics.filter { !shownCosmetic($0) }.map(\.cosmeticID))
+        store = allStore.filter { item in
+            switch item.type {
+            case .heroUnlock: return false
+            case .cosmetic: return !hiddenCosmetics.contains(item.grantID)
+            default: return true
+            }
+        }
 
-        heroByID = Dictionary(uniqueKeysWithValues: heroes.map { ($0.heroID, $0) })
+        heroByID = Dictionary(uniqueKeysWithValues: allHeroes.map { ($0.heroID, $0) })
         skillByID = Dictionary(uniqueKeysWithValues: skills.map { ($0.skillID, $0) })
         skillsByHero = Dictionary(grouping: skills, by: { $0.heroID })
             .mapValues { $0.sorted { $0.slot.rawValue < $1.slot.rawValue } }
         itemByID = Dictionary(uniqueKeysWithValues: items.map { ($0.itemID, $0) })
         spellByID = Dictionary(uniqueKeysWithValues: spells.map { ($0.spellID, $0) })
-        runeByID = Dictionary(uniqueKeysWithValues: runes.map { ($0.runeID, $0) })
         effectByID = Dictionary(uniqueKeysWithValues: effects.map { ($0.effectID, $0) })
-        cosmeticByID = Dictionary(uniqueKeysWithValues: cosmetics.map { ($0.cosmeticID, $0) })
-        storeBySKU = Dictionary(uniqueKeysWithValues: store.map { ($0.sku, $0) })
+        cosmeticByID = Dictionary(uniqueKeysWithValues: allCosmetics.map { ($0.cosmeticID, $0) })
+        storeBySKU = Dictionary(uniqueKeysWithValues: allStore.map { ($0.sku, $0) })
     }
 
     /// パッケージ同梱の master_runtime.json を読み込む（アプリ・テスト共通）。
@@ -415,7 +431,6 @@ public final class MasterData: @unchecked Sendable {
     }
     public func item(_ id: String) -> ItemDef? { itemByID[id] }
     public func spell(_ id: String) -> SpellDef? { spellByID[id] }
-    public func rune(_ id: String) -> RuneDef? { runeByID[id] }
     public func effect(_ id: String) -> EffectDef? { effectByID[id] }
     public func cosmetic(_ id: String) -> CosmeticDef? { cosmeticByID[id] }
     public func storeItem(_ sku: String) -> StoreItemDef? { storeBySKU[sku] }

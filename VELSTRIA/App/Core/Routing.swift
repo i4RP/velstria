@@ -23,7 +23,7 @@ enum Route: Hashable {
     case items                   // UI040
     case itemDetail(String)      // UI041
     case buildEditor(String)     // UI042（heroID）
-    case runes                   // UI043
+    case emblems                 // UI043（旧ルーン。MLBB のエンブレム）
     case spells                  // UI044
     case store                   // UI045
     case skinStore               // UI046
@@ -54,11 +54,10 @@ enum Route: Hashable {
     case credits                 // UI073
     case replays                 // UI035
     case spectateSetup           // UI036
-    // ゲームモード（モバイルレジェンド風の選択画面）
-    case arcade                  // アーケード（遊べる変種のハブ）
+    // ゲームモード（入口は対戦フローのモード選択。MatchModeCategory）
     case rising                  // ライジング（対 AI の勝ち上がりラダー）
     case customSetup             // AI 対戦とカスタム
-    case magicChess              // マジックチェス（オートバトラー）
+    case magicChess              // マジックチェス
     // online
     case onlineLobby
 }
@@ -81,20 +80,21 @@ struct RouteDestination: View {
         switch route {
         case .notices: NoticesView()
         case .mail: MailView()
-        case .profile: ProfileView()
-        case .records: RecordsView()
+        // プロフィール・過去の戦績・アカウントは 1 つの画面の左のメニュー（MLBB と同じ。ProfileHubView）
+        case .profile: ProfileHubView(section: .profile)
+        case .records: ProfileHubView(section: .records)
         case .achievements: AchievementsView()
         case .ranking: RankingView()
         case .rankOverview: RankOverviewView()
         case .rankRewards: RankRewardsView()
-        case .accountLink: AccountLinkView()
+        case .accountLink: ProfileHubView(section: .account)
         case .heroes: HeroListView()
         case .heroDetail(let id): HeroDetailView(heroID: id)
         case .skillDetail(let id): SkillDetailView(skillID: id)
         case .items: ItemListView()
         case .itemDetail(let id): ItemDetailView(itemID: id)
         case .buildEditor(let id): BuildEditorView(heroID: id)
-        case .runes: RunePageView()
+        case .emblems: EmblemView()
         case .spells: SpellLoadoutView()
         case .store: StoreHomeView()
         case .skinStore: SkinStoreView()
@@ -124,7 +124,6 @@ struct RouteDestination: View {
         case .credits: CreditsView()
         case .replays: ReplayListView()
         case .spectateSetup: SpectateSetupView()
-        case .arcade: ArcadeHubView()
         case .rising: RisingBracketView()
         case .customSetup: CustomSetupView()
         case .magicChess: MagicChessSetupView()

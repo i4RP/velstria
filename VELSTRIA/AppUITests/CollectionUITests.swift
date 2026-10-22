@@ -8,11 +8,12 @@ final class CollectionUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func launch(route: String, grant: Bool = true, language: String = "ja") -> XCUIApplication {
+    private func launch(route: String, grant: Bool = true, language: String = "ja", extra: [String] = []) -> XCUIApplication {
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication()
         app.launchArguments += ["-uiTesting", "-skipOnboarding", "-route", route, "-language", language]
         if grant { app.launchArguments.append("-grant") }
+        app.launchArguments += extra
         app.launch()
         return app
     }
@@ -32,10 +33,10 @@ final class CollectionUITests: XCTestCase {
 
     func testHeroListToDetailToSkill() {
         let app = launch(route: "heroes")
-        let card = element(app, "hero_H007")
+        let card = element(app, "hero_H029")
         XCTAssertTrue(card.waitForExistence(timeout: 10))
-        element(app, "heroes_role_Vanguard").tap()
-        snapshot(app, "heroes_vanguard")
+        element(app, "heroes_role_Support").tap()
+        snapshot(app, "heroes_support")
         card.tap()
         let skillsTab = element(app, "herodetail_tab_skills")
         XCTAssertTrue(skillsTab.waitForExistence(timeout: 5))
@@ -49,7 +50,7 @@ final class CollectionUITests: XCTestCase {
         skillsTab.tap()
         snapshot(app, "hero_detail_skills")
         // 左のスキルアイコン列（ヒーロー詳細の左パネル）を押すと、右にそのスキルの詳細（説明・レベル表）が出る
-        let ult = element(app, "skill_SK007_5")
+        let ult = element(app, "skill_SK029_5")
         XCTAssertTrue(ult.waitForExistence(timeout: 5))
         ult.tap()
         XCTAssertTrue(element(app, "skilldetail_description").waitForExistence(timeout: 5))
@@ -98,30 +99,6 @@ final class CollectionUITests: XCTestCase {
         XCTAssertTrue(previewIsAnimating(preview), "スキルを選んだ後に 3D プレビューが止まっている")
     }
 
-    func testSkillDetailShowsSimulationHealForTeamHeal() {
-        // SK005_5 ヴォスの Ult（味方全体回復）: 実戦の回復量 205 × 2.4 × 1.2 = 590 を表と説明に出す
-        let app = launch(route: "skillDetail:SK005_5", language: "en")
-        let description = element(app, "skilldetail_description")
-        XCTAssertTrue(description.waitForExistence(timeout: 10))
-        XCTAssertTrue(description.label.contains("590 HP"), description.label)
-        // ランク 1 の回復量（表）
-        XCTAssertTrue(app.staticTexts["590"].exists)
-        app.scrollViews.containing(.any, identifier: "skilldetail_description").firstMatch.swipeUp(velocity: .slow)
-        snapshot(app, "skill_detail_team_heal_scaling")
-    }
-
-    func testLockedHeroUnlockFlowShowsConfirmation() {
-        // -grant なしは Coin 0 → 確認シートで残高不足を表示
-        let app = launch(route: "heroDetail:H007", grant: false)
-        let unlock = element(app, "herodetail_unlock")
-        XCTAssertTrue(unlock.waitForExistence(timeout: 10))
-        unlock.tap()
-        XCTAssertTrue(element(app, "purchase_cancel").waitForExistence(timeout: 5))
-        XCTAssertFalse(element(app, "purchase_confirm").exists)
-        snapshot(app, "hero_unlock_insufficient")
-        element(app, "purchase_cancel").tap()
-        XCTAssertTrue(unlock.waitForExistence(timeout: 5))
-    }
 
     func testPurchaseCosmeticAndEquip() {
         let app = launch(route: "productDetail:SKU002")
@@ -205,43 +182,76 @@ final class CollectionUITests: XCTestCase {
         XCTAssertTrue(buy.waitForExistence(timeout: 5))
     }
 
-    func testRunePageNameIsRestoredWhenCleared() {
-        let app = launch(route: "runes")
-        let field = element(app, "rune_page_name")
-        XCTAssertTrue(field.waitForExistence(timeout: 10))
-        field.tap()
-        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 12))
-        XCTAssertNotEqual(field.value as? String, "ページ1", "名前が消去されていない")
-        // 空のままページを追加して切り替えても、元のページ名は既定名に戻る
-        element(app, "rune_page_add").tap()
-        let first = element(app, "rune_page_0")
-        XCTAssertTrue(first.waitForExistence(timeout: 5))
-        XCTAssertTrue(first.label.hasPrefix("ページ1"), first.label)
+    /// エンブレム: タブでセットを切り替え、天賦の枠から別の天賦を装備し、一括設定でヒーローに付ける。
+    func testEmblemTalentPickAndBulkApply() {
+        let app = launch(route: "emblems")
+        let tank = element(app, "emblem_tab_EM_TANK")
+        XCTAssertTrue(tank.waitForExistence(timeout: 10))
+        // 横画面の iPhone で中身が高すぎると「戻る」の行が画面の外へ押し出されていた
+        XCTAssertTrue(element(app, "nav_back").isHittable, "エンブレム画面に戻るボタンが見えない")
+        XCTAssertTrue(element(app, "emblem_bulk").isHittable, "一括設定が画面の外にある")
+        tank.tap()
+        element(app, "emblem_slot_3").tap()
+        let finder = element(app, "emblem_talent_TL_WEAKNESS_FINDER")
+        XCTAssertTrue(finder.waitForExistence(timeout: 5))
+        finder.tap()
+        let equip = element(app, "emblem_equip")
+        XCTAssertTrue(equip.waitForExistence(timeout: 5))
+        equip.tap()
+        XCTAssertTrue(element(app, "emblem_equipped").waitForExistence(timeout: 5), "装備すると「装備中」になる")
+        snapshot(app, "emblem_picker_core")
+        element(app, "emblem_picker_back").tap()
+        element(app, "emblem_detail").tap()
+        XCTAssertTrue(element(app, "emblem_detail_close").waitForExistence(timeout: 5))
+        snapshot(app, "emblem_detail")
+        element(app, "emblem_detail_close").tap()
+        element(app, "emblem_bulk").tap()
+        let all = element(app, "emblem_bulk_all")
+        XCTAssertTrue(all.waitForExistence(timeout: 5))
+        element(app, "emblem_bulk_filter_support").tap()
+        all.tap()
+        snapshot(app, "emblem_bulk")
+        element(app, "emblem_bulk_ok").tap()
+        XCTAssertTrue(tank.waitForExistence(timeout: 5))
     }
 
-    func testRunePageEditing() {
-        let app = launch(route: "runes")
-        let arcana = element(app, "rune_path_Arcana")
-        XCTAssertTrue(arcana.waitForExistence(timeout: 10))
-        arcana.tap()
-        element(app, "rune_RN27").tap()
-        snapshot(app, "runes_arcana")
-        element(app, "rune_page_add").tap()
-        XCTAssertTrue(element(app, "rune_page_1").waitForExistence(timeout: 5))
-        XCTAssertTrue(element(app, "rune_page_activate").exists)
-        snapshot(app, "runes_second_page")
+    /// エンブレムの宝箱・解放・強化（新規のプレイヤー: -emblemFresh = 通常共通だけ Lv1、マジックダスト 2,000、宝箱 1 回分）。
+    func testEmblemChestUnlockAndUpgradeForANewPlayer() {
+        let app = launch(route: "emblems", extra: ["-emblemFresh"])
+        let chest = element(app, "emblem_chest")
+        XCTAssertTrue(chest.waitForExistence(timeout: 10))
+        snapshot(app, "emblem_fresh_common")
+        chest.tap()
+        let ok = element(app, "reward_claim_ok")
+        XCTAssertTrue(ok.waitForExistence(timeout: 5), "宝箱の中身の受取ポップアップ")
+        snapshot(app, "emblem_chest_reward")
+        ok.tap()
+        element(app, "emblem_tab_EM_ASSASSIN").tap()
+        let unlock = element(app, "emblem_unlock")
+        XCTAssertTrue(unlock.waitForExistence(timeout: 5), "未解放のセットは「解放」")
+        snapshot(app, "emblem_locked")
+        unlock.tap()
+        let upgrade = element(app, "emblem_upgrade")
+        XCTAssertTrue(upgrade.waitForExistence(timeout: 5), "解放すると Lv1 から強化できる")
+        XCTAssertTrue(element(app, "emblem_upgrade_cost").exists)
+        upgrade.tap()
+        XCTAssertTrue(element(app, "emblem_next_key").waitForExistence(timeout: 5))
+        snapshot(app, "emblem_upgraded")
     }
 
     func testSpellLoadoutAssignment() {
         let app = launch(route: "spells")
-        let ignite = element(app, "spell_BS07")
-        XCTAssertTrue(ignite.waitForExistence(timeout: 10))
-        element(app, "spell_slot_0").tap()
-        ignite.tap()
-        element(app, "spells_scope_H006").tap()
+        // バトルスキルは 1 枠（BattleSkillPicker）。新規のアカウント Lv1 では瞬歩（BS01）だけ装備できる
+        let blink = element(app, "spell_BS01")
+        XCTAssertTrue(blink.waitForExistence(timeout: 10))
         element(app, "spell_BS05").tap()
-        XCTAssertTrue(element(app, "spells_reset_hero").waitForExistence(timeout: 5))
-        snapshot(app, "spells_hero_override")
+        XCTAssertFalse(element(app, "battle_skill_confirm").isEnabled, "未解放のスキルは装備できない")
+        snapshot(app, "spells_locked")
+        blink.tap()
+        let confirm = element(app, "battle_skill_confirm")
+        XCTAssertTrue(confirm.isEnabled)
+        confirm.tap()
+        snapshot(app, "spells_equipped")
     }
 
     func testStoreScreensOpen() {
@@ -287,8 +297,10 @@ final class CollectionUITests: XCTestCase {
     func testEnglishInventoryAndCosmetics() {
         let app = launch(route: "inventory", language: "en")
         XCTAssertTrue(element(app, "inventory_tab_emote").waitForExistence(timeout: 10))
-        element(app, "inventory_tab_heroSkin").tap()
-        snapshot(app, "inventory_skins_empty_en")
+        // スキンは出しているヒーローの分が無い間はタブを出さない（空のスキンストアへ案内しない）
+        XCTAssertFalse(element(app, "inventory_tab_heroSkin").exists)
+        element(app, "inventory_tab_recall").tap()
+        snapshot(app, "inventory_recall_empty_en")
         element(app, "inventory_customize").tap()
         XCTAssertTrue(element(app, "cosmetics_type_Recall").waitForExistence(timeout: 5))
         element(app, "cosmetics_type_Recall").tap()

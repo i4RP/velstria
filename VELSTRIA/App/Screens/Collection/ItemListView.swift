@@ -48,7 +48,7 @@ struct ItemListView: View {
                             }
                             .padding(.bottom, 12)
                         } else if items.isEmpty {
-                            CollectionEmptyState(symbol: "shippingbox", title: L("該当する装備がありません", "No items match"))
+                            EmptyStateView(symbol: "shippingbox", title: L("該当する装備がありません", "No items match"))
                         } else {
                             LazyVGrid(columns: columns, spacing: 8) {
                                 ForEach(items) { item in
@@ -235,7 +235,7 @@ struct BlessingRulesPanel: View {
     var body: some View {
         let color = CollectionStyle.categoryColor(category)
         VStack(alignment: .leading, spacing: 5) {
-            CollectionSectionTitle(title: L("\(CollectionStyle.categoryName(category))の祝福のルール",
+            SectionTitle(title: L("\(CollectionStyle.categoryName(category))の祝福のルール",
                                             "\(CollectionStyle.categoryName(category)) blessing rules"),
                                    symbol: CollectionStyle.categorySymbol(category))
             ForEach(Array((GearInfo.rules(category) + GearInfo.commonRules).enumerated()), id: \.offset) { _, rule in

@@ -1,17 +1,47 @@
 import XCTest
 @testable import VelstriaCore
 
-/// キットのヒーロー（H025–H034）の勝率を、同じロールの汎用ヒーロー（キットなし）の中央値と比べる（ハーネス: KitBalanceHarness.swift）。
-/// 重い集計は Release のみ: swift test -c release --filter KitBalanceTests
+/// キットのヒーロー（H025–H034 = MLBB のヒーロー）の勝率を、同じ MLBB のロールの汎用ヒーロー（キットなし）の中央値と比べる
+/// （ハーネス: KitBalanceHarness.swift）。重い集計は Release のみ: swift test -c release --filter KitBalanceTests
+///
+/// 2026-10-14（スキルの段階）からキットは公式の表そのまま（換算なし）なので、勝率を帯に合わせる調整はしない。この表は
+/// 「MLBB のヒーロー」と「MLBB のスキルの中央値の型を持つ汎用ヒーロー（docs/GENERIC_SKILLS.md）」の差を見る物差しになった。
+/// 帯（±45 / ±35）は変えていない。外れた組は理由を書いて knownOutliers に置く（新しい外れ値は即失敗になる）。
 final class KitBalanceTests: XCTestCase {
-    /// 許容する差（勝率のパーセントポイント）。最初は広めに取り、キットの調整が済んだら絞る。
+    /// 許容する差（勝率のパーセントポイント）。
     static let bandLv1 = 45.0
     static let bandOther = 35.0
-    /// 導入時点（キット調整前）で帯を外れていた組。"H026:12" = H026 の Lv12。表には出すが失敗にはしない。
-    /// 各キットの調整が済んだら該当行を消して帯を守らせる（新しい外れ値は即失敗になる）。
-    static let knownOutliers: Set<String> = []
+    /// 帯を外れているが許している組（"H026:12" = H026 の Lv12）。表には出すが失敗にはしない。2026-10-14 の Release の計測（差、pt）:
+    /// - H026 エウドラ Lv6 +75.8・Lv12 +75.8、H031 オーロラ Lv1 +81.6・Lv6 +75.0・Lv12 +77.0: 汎用のアルカニスト（MLBB のメイジの型）は
+    ///   ダメージのスキルが実質スキル1 と奥義だけ（遠隔のスキル2 はブリンク + 強化通常攻撃）で、装備なしでは魔法攻撃 0 なので基礎値だけ。
+    ///   MLBB のメイジの 2 体はスキル1・2 とも多段のダメージ（エウドラの鎖・オーロラの雹と凍結エリア）を持つので大きく勝ち越す（汎用の中央値 4.5〜10.4%）。
+    /// - H028 セイバー Lv6 +63.4・Lv12 +62.5、H033 アルカード Lv6 +53.3・Lv12 +56.4: MLBB のアサシンの 2 体は多段（剣の接触 9 回・剣撃・三連撃、
+    ///   S2 の 4〜6 秒の CD と奥義後の CD 半減・混合吸収）。汎用のアサシンは扇形・突進・背後への各 1 撃（中央値 31%）。
+    ///   アルカードは 2026-10-16 に幾何と時間を動画の値にした後 Lv6 +51.3・Lv12 +55.9（吸収が向きの帯・衝撃波に振りかぶり。docs/kits/Alucard.md）。
+    /// - H029 ティグラル Lv12 +43.4: MLBB のタンク（HP 成長 307）で奥義 3 段目の 1000 (+130%)。比べるのは MLBB のタンクの型の汎用ヒーロー
+    ///   （ヴァンガード。Velstria のロールはサポートのまま: peerRole）。以前の基準（汎用サポート）では Lv1 +66.7・Lv6 +65.7・Lv12 +61.7。
+    /// （H034 フランコはヴァンガードと比べると Lv6 +22.0・Lv12 +24.7 で帯の中。以前の H034:6 / H034:12 の外れ値は外した）
+    /// - H028 セイバー Lv1 +79.0（2026-10-16、MLBB の画面収録で測った幾何に変えた後。以前は +31.8）: S1 の届く距離が剣の帯の外縁 445
+    ///   （動画の照準の円 4.45）になり、台本の対戦は開始の距離（300〜600）から S1 を撃つようになった。以前の 230 は近接の止まる距離
+    ///   （相手の縁から通常攻撃の射程 180 + 術者の半径 55 = 235）より短く、Lv1（覚えているのは S1 だけ）の台本ではほとんど撃てていなかった。Lv1 の剣撃は
+    ///   1 本 200（通常攻撃の 1.7 倍）で、剣が回る 4.8 秒の間は通常攻撃のたびに飛ぶ。Lv6 +59.3・Lv12 +54.9 は以前からの外れ値
+    ///   （接触が輪の帯 325〜445 だけになり、隣の相手に当たらなくなったぶん下がった）。docs/kits/Saber.md「動画で測った値」。
+    ///   2026-10-16（剣の本数、sim 40）: 剣撃 1 本ごとに輪の剣を 1 本使い（使った剣の接触も無くなる）、5 本で効果が終わるようにした後は
+    ///   Lv1 +77.0・Lv6 +56.8・Lv12 +51.9（直前 +79.0 / +57.8 / +55.4）。3 つとも以前からの外れ値のまま（帯は変えていない）。
+    static let knownOutliers: Set<String> = ["H026:6", "H026:12", "H028:1", "H028:6", "H028:12", "H029:12", "H031:1", "H031:6",
+                                             "H031:12", "H033:6", "H033:12"]
 
-    static var kitIDs: [String] { MasterData.shared.heroes.map(\.heroID).filter { HeroKits.hasKit($0) } }
+    static var kitIDs: [String] { MasterData.shared.allHeroes.map(\.heroID).filter { HeroKits.hasKit($0) } }
+
+    /// 比べる汎用ヒーローのロール = MLBB のロール（2026-10-14）。ティグラル（H029）とフランコ（H034）は MLBB ではタンクで、能力値も
+    /// MLBB のタンクの値（HP 成長 307 / 281）。Velstria のロールはサポートのままだが、汎用のサポートは MLBB のサポートの中央値（遠隔・HP 成長 174）なので、
+    /// MLBB のタンクの中央値の汎用ヒーロー（ヴァンガード）と比べる。ほかの 8 体は Velstria のロールが MLBB のロールと同じ。
+    static func peerRole(_ kit: String) -> Role {
+        switch kit {
+        case "H029", "H034": return .vanguard
+        default: return MasterData.shared.hero(kit)!.role
+        }
+    }
 
     // MARK: - ハーネスの健全性（Debug でも走る軽いもの）
 
@@ -35,7 +65,7 @@ final class KitBalanceTests: XCTestCase {
     }
 
     func testKitHeroesAreInTheRosterAndRolesHaveGenericPeers() {
-        let ids = MasterData.shared.heroes.map(\.heroID)
+        let ids = MasterData.shared.allHeroes.map(\.heroID)
         XCTAssertEqual(Self.kitIDs.count, 10)
         for kit in Self.kitIDs {
             let role = MasterData.shared.hero(kit)!.role
@@ -59,7 +89,7 @@ final class KitBalanceTests: XCTestCase {
         #else
         let started = Date()
         let master = MasterData.shared
-        let ids = master.heroes.map(\.heroID)
+        let ids = master.allHeroes.map(\.heroID)
         let kits = Self.kitIDs
         var rates: [Int: [String: Double]] = [:]
         for level in BalanceHarness.levels {
@@ -75,7 +105,7 @@ final class KitBalanceTests: XCTestCase {
         var failures: [String] = []
         var knownOut: [String] = []
         for kit in kits {
-            let role = master.hero(kit)!.role
+            let role = Self.peerRole(kit)
             var line = "\(kit)  " + role.rawValue.padding(toLength: 10, withPad: " ", startingAt: 0)
             for level in BalanceHarness.levels {
                 let r = rates[level]![kit]! * 100
@@ -110,6 +140,26 @@ final class KitBalanceTests: XCTestCase {
         #endif
     }
 
+    // MARK: - ゲームに出す 10 体（MLBB のヒーロー）同士の総当たり（Release のみ）
+
+    /// ゲームに出すヒーロー（HeroRoster.activeHeroIDs = H025–H034。全員 MLBB の公式の値）同士の総当たりの勝率（報告のみ。
+    /// 公式の値の組み合わせの結果なので帯で縛らない。2026-10-14: ディアス 100 / 100 / 100%、ミヤ 30 / 0 / 0%（Lv1 / 6 / 12）。docs/SKILL_KITS.md）。
+    func testActiveRosterRoundRobin() throws {
+        #if DEBUG
+        throw XCTSkip("Release で実行する: swift test -c release --filter KitBalanceTests")
+        #else
+        let ids = HeroRoster.activeHeroIDs
+        var table = "Active roster: 勝率 % (H025–H034 同士の総当たり、両陣営 x 距離 300/450/600 x 種 \(BalanceHarness.seeds.count))\n"
+        table += "hero  | Lv1   | Lv6   | Lv12\n"
+        var rates: [Int: [String: Double]] = [:]
+        for level in BalanceHarness.levels { rates[level] = BalanceHarness.roundRobin(ids, level: level) }
+        for id in ids {
+            table += id + " " + BalanceHarness.levels.map { String(format: " | %5.1f", rates[$0]![id]! * 100) }.joined() + "\n"
+        }
+        print(table)
+        #endif
+    }
+
     // MARK: - 瞬間火力（報告のみ）
 
     func testBurstReport() throws {
@@ -117,11 +167,11 @@ final class KitBalanceTests: XCTestCase {
         throw XCTSkip("Release で実行する: swift test -c release --filter KitBalanceTests")
         #else
         let master = MasterData.shared
-        let ids = master.heroes.map(\.heroID)
+        let ids = master.allHeroes.map(\.heroID)
         var table = "KitBurst: 開幕 3 秒にダミー(H001)へ与える実ダメージ（開始距離 300/450 の平均）。比 = 同ロール汎用ヒーローの中央値に対する倍率\n"
         table += "kit    role       | Lv1 dmg  ratio | Lv6 dmg  ratio | Lv12 dmg ratio\n"
         for kit in Self.kitIDs {
-            let role = master.hero(kit)!.role
+            let role = Self.peerRole(kit)
             var line = "\(kit)  " + role.rawValue.padding(toLength: 10, withPad: " ", startingAt: 0)
             for level in BalanceHarness.levels {
                 let dmg = BalanceHarness.burstAverage(kit, level: level)

@@ -188,8 +188,9 @@ def bake_usd_axes(objs):
     apply_transforms(objs)
 
 
-def export_usdz(objs, out_path, skinned, texture_size):
-    """objs だけを USDZ へ。テクスチャは usdz_downscale で縮小、upAxis/metersPerUnit は pxr で確定する。"""
+def export_usdz(objs, out_path, skinned, texture_size, merge_xform=False, animated=False):
+    """objs だけを USDZ へ。テクスチャは usdz_downscale で縮小、upAxis/metersPerUnit は pxr で確定する。
+    merge_xform: メッシュを親の Xform に畳み、/root/<物体名> を Mesh にする（部品名で子メッシュを引く塔の部品分け用）。"""
     from pxr import Sdf, Usd, UsdGeom, UsdUtils
 
     emission = emission_strengths(objs)
@@ -219,7 +220,7 @@ def export_usdz(objs, out_path, skinned, texture_size):
     bpy.ops.wm.usd_export(
         filepath=raw,
         selected_objects_only=True,
-        export_animation=False,
+        export_animation=animated,
         export_hair=False,
         export_uvmaps=True,
         rename_uvmaps=True,
@@ -249,7 +250,7 @@ def export_usdz(objs, out_path, skinned, texture_size):
         export_points=False,
         export_volumes=False,
         triangulate_meshes=True,
-        merge_parent_xform=False,
+        merge_parent_xform=merge_xform,
         convert_scene_units='METERS',
         **down,
     )

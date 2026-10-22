@@ -18,6 +18,9 @@ struct RenderFrame {
     var focusID: EntityID?
     var ended: Bool
     var winner: Team?
+    /// 演出の時刻（秒）: 試合中は sim の時刻、試合終了後（sim は止まる）はそこから実時間で進む。
+    /// 塔の倒壊・Core の終幕は「この時刻 − きっかけの時刻」で求める（TowerTimeline）。
+    var presentationTime: Double = 0
     /// カメラの world 位置（HP バーの画面サイズ一定化に使う）。
     var camera: SIMD3<Float> = SIMD3(60, 10, -50)
 
@@ -123,6 +126,13 @@ final class StatusIndicators {
         }
         if iceReady { iceRing = makeIceRing() }
         reset()
+    }
+
+    /// キットの状態表示（マーク・凍結の氷）を事前に作る（ヒーロー以外のユニット用。ヒーローは init で作る）。
+    /// 試合にマークを付けるキット・凍結させるキットが居る時だけ呼ぶ（WorldWarmup → UnitLayer.prepareKitStatus）。
+    func prepareKitStatus(mark withMark: Bool, ice withIce: Bool) {
+        if withMark && mark == nil { mark = makeMark("") }
+        if withIce && iceShell == nil { makeIce() }
     }
 
     /// 帰還リングの色（転移は紫、帰還はチームの明色）。
@@ -351,6 +361,22 @@ enum CreatureKey: Hashable {
 
 @MainActor
 final class CreatureVisual {
+    /// 参照画面の見かけ寸法。描画だけに適用し、当たり判定・射程・移動は変更しない。
+    static func referenceScale(_ kind: MonsterKind) -> SIMD3<Float> {
+        switch kind {
+        case .blueSentinel: return [1.58, 1.45, 1.58]
+        case .redSentinel: return SIMD3(repeating: 1.65)
+        case .azureWhelp: return [1.45, 1.15, 1.45]
+        case .hornLizard: return [1.10, 2.0, 1.10]
+        case .magmaGolem: return [1.00, 0.80, 0.80]
+        case .emberBeetle: return [0.62, 0.53, 0.62]
+        case .treasureCrab: return SIMD3(repeating: 0.80)
+        case .mossWanderer: return [0.80, 1.0, 0.80]
+        case .ancientColossus: return [1.55, 1, 1]
+        default: return SIMD3(repeating: 1)
+        }
+    }
+
     let key: CreatureKey
     let root = Entity()
     /// アニメーションで動かす胴体（root 直下）。
@@ -363,7 +389,7 @@ final class CreatureVisual {
     let bar: OverheadBar
     let status: StatusIndicators
     let headHeight: Float
-    let scale: Float
+    let scale: SIMD3<Float>
 
     var id: EntityID = 0
     var lastSeen = 0
@@ -375,6 +401,12 @@ final class CreatureVisual {
     private var idlePhase: Float = 0
     private(set) var dyingT: Float?
     private var opacityApplied: Float = 1
+    /// 生成 3D モデルで表示しているか（テスト用）。
+    private(set) var isGenerated = false
+    /// 動く生成モデルの動作（中立モンスター。無ければ手続きの揺れだけ）。
+    private var animator: CreatureAnimator?
+    /// 個体ごとの大きさ（精鋭兵（スーパーミニオン）は当たりの半径と同じ倍率で大きく見せる）。
+    private var unitScale: Float = 1
 
     init(key: CreatureKey, meshes: UnitMeshLibrary, materials: RenderMaterials, text: TextMeshCache) {
         self.key = key
@@ -384,36 +416,67 @@ final class CreatureVisual {
         let pm: PartMeshes
         var barColor = OverheadBar.monsterFill
         var barStyle: OverheadBar.Style = .monster(boss: false)
+        /// 生成 3D モデル（StructureAssets。読み込み済みのミニオンのみ）。部位を分けない 1 メッシュで、揺れ・傾き・突進で動かす。
+        var generated: ModelEntity?
+        /// 動く生成モデル（CreatureAssets。中立モンスター）。
+        var creatureRoot: Entity?
         switch key {
         case .minion(let type, let team):
-            pm = meshes.minion(type, team: team)
-            scale = 1
+            if let model = StructureAssets.model(.minion(type)) {
+                generated = model.makeEntity(team: team)
+                pm = PartMeshes()
+            } else {
+                pm = meshes.minion(type, team: team)
+            }
+            scale = SIMD3(repeating: 1)
             headHeight = type == .siege ? 1.45 : 1.25
             barColor = materials.teams.main(team)
             barStyle = .minion
         case .monster(let kind):
-            pm = meshes.monster(kind)
-            switch kind {
-            case .campSmall, .emberGrub, .crablet: scale = 0.62; headHeight = 0.95
-            case .azureWhelp: scale = 0.75; headHeight = 1.1
-            case .campLarge, .hornLizard, .emberBeetle, .treasureCrab, .mossWanderer: scale = 1.05; headHeight = 1.5
-            case .magmaGolem: scale = 0.95; headHeight = 2.4
-            case .blueSentinel, .redSentinel: scale = 1.2; headHeight = 2.95
-            case .astralWyrm: scale = 1.2; headHeight = 2.9
-            case .ancientColossus: scale = 2.05; headHeight = 5.0
+            if let model = CreatureAssets.model(kind) {
+                let inst = model.makeInstance()
+                creatureRoot = inst.root
+                animator = CreatureAnimator(model: model, target: inst.animTarget)
+                pm = PartMeshes()
+            } else {
+                pm = meshes.monster(kind)
             }
-            barStyle = .monster(boss: kind.isBoss)
+            var ms: Float = 1
+            var hh: Float
+            switch kind {
+            case .campSmall, .emberGrub, .crablet: ms = 0.62; hh = 0.95
+            case .azureWhelp: ms = 0.75; hh = 1.1
+            case .campLarge, .hornLizard, .emberBeetle, .treasureCrab, .mossWanderer: ms = 1.05; hh = 1.5
+            case .magmaGolem: ms = 0.95; hh = 2.4
+            case .blueSentinel, .redSentinel: ms = 1.2; hh = 2.95
+            case .astralWyrm: ms = 1.2; hh = 2.9
+            case .ancientColossus: ms = 2.05; hh = 5.0
+            }
+            barStyle = .monster(boss: kind.isBoss, sentinel: kind.isSentinel)
+            let fit = Self.referenceScale(kind)
+            scale = (creatureRoot != nil ? 1 : ms) * fit
+            // Wings, tails and weapons do not define the HP anchor. Keep it over the torso/head.
+            headHeight = switch kind {
+            case .blueSentinel, .redSentinel: 2.7
+            case .azureWhelp: 1.65
+            case .hornLizard: 1.9
+            case .ancientColossus: 4.4
+            default: hh * fit.y
+            }
         case .dummy:
             pm = meshes.dummy
-            scale = 1
+            scale = SIMD3(repeating: 1)
             headHeight = 2.0
             barColor = OverheadBar.dummyFill
             barStyle = .minion
         }
-        body.scale = SIMD3(repeating: scale)
+        body.scale = scale
+        if let generated { body.addChild(generated) }
+        if let creatureRoot { body.addChild(creatureRoot) }
+        isGenerated = generated != nil || creatureRoot != nil
         if let m = pm.body { body.addChild(ModelEntity(mesh: m, materials: [materials.lit])) }
         if let m = pm.bodyGlow { body.addChild(ModelEntity(mesh: m, materials: [materials.glow])) }
-        if case .monster(.astralWyrm) = key {
+        if case .monster(.astralWyrm) = key, creatureRoot == nil {
             // 頭（body メッシュ）を持ち上げ、胴の節を後ろへ並べる
             for child in body.children {
                 child.position = [0, 1.6, -0.8]
@@ -450,7 +513,7 @@ final class CreatureVisual {
         bar = OverheadBar(style: barStyle, fillColor: barColor, materials: materials, meshes: meshes, text: text)
         bar.root.position.y = headHeight + 0.25
         root.addChild(bar.root)
-        let footprint: Float
+        var footprint: Float
         switch key {
         case .minion(let t, _): footprint = t == .siege ? 0.9 : 0.6
         case .monster(let k):
@@ -461,6 +524,10 @@ final class CreatureVisual {
             default: footprint = 1.2
             }
         case .dummy: footprint = 0.7
+        }
+        if case .monster(let kind) = key {
+            let fit = Self.referenceScale(kind)
+            footprint *= max(fit.x, fit.z)
         }
         status = StatusIndicators(meshes: meshes, materials: materials, headHeight: headHeight, size: footprint)
         root.addChild(status.root)
@@ -480,6 +547,7 @@ final class CreatureVisual {
     func activate(id: EntityID, at p: Vec2, facing: Double) {
         self.id = id
         dyingT = nil
+        animator?.reset()
         attackT = 1
         hitT = 1
         walkPhase = 0
@@ -518,8 +586,15 @@ final class CreatureVisual {
         applyOpacity(opacity)
     }
 
-    func beginAttack() { attackT = 0 }
-    func hit() { hitT = 0 }
+    func beginAttack() {
+        attackT = 0
+        animator?.trigger(.attack)
+    }
+
+    func hit() {
+        hitT = 0
+        animator?.trigger(.hit)
+    }
 
     func beginDying() {
         guard dyingT == nil else { return }
@@ -541,11 +616,13 @@ final class CreatureVisual {
         // Keep event anchors/camera tracking current even when presentation is culled.
         root.position = worldPosition(p)
         root.isEnabled = visibility > 0.01 && f.needsDetail(i)
-        guard root.isEnabled else { return }
         let speed = Float(u.pos.distance(to: u.prevPos) / Balance.dt)
         let moving = speed > 20
+        animator?.update(dt: dt, moving: moving, visible: root.isEnabled)
+        guard root.isEnabled else { return }
         yaw = approachAngle(yaw, yawForFacing(u.facing), rate: 9, dt: dt)
         yawNode.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0])
+        unitScale = u.minion?.isSuper == true ? Float(Balance.superMinionRadiusMultiplier) : 1
         animate(time: f.time, dt: dt, speed: speed, moving: moving)
         // HP バー
         let maxHP = max(1, u.stats.maxHP)
@@ -612,10 +689,16 @@ final class CreatureVisual {
                 part.orientation = partRest[k] * simd_quatf(angle: swing, axis: [1, 0, 0])
             }
         }
+        if animator != nil {
+            // 動く生成モデルは骨の動作に任せる（手続きの揺れ・突進は重ねない）
+            offset = .zero
+            roll = 0
+            pitch = 0
+        }
         body.position = offset
         body.orientation = simd_quatf(angle: roll, axis: [0, 0, 1]) * simd_quatf(angle: pitch, axis: [1, 0, 0])
         let hitScale: Float = hitT < 1 ? 1 + sin(hitT * .pi) * 0.07 : 1
-        body.scale = SIMD3(repeating: scale * hitScale)
+        body.scale = scale * unitScale * hitScale
     }
 
     /// 死亡演出（沈み込み + 傾き + フェード）。終了で true。
@@ -661,11 +744,13 @@ final class HeroVisual {
     private var yaw: Float = 0
     var visibility: Float = 1
     private var opacityApplied: Float = 1
-    /// モデル本体（modelRoot）の不透明度。草むらの中の自分とステルス中の自分・味方で下げる（HP バー・足元リングは薄くしない）。
+    /// モデル本体（modelRoot）の不透明度。草むらで隠れている自分・味方とステルス中の自分・味方で下げる（HP バー・足元リングは薄くしない）。
     private var modelOpacity: Float = 1
     private var castUntil: Float = -1
     private var castSlot: SkillSlot = .skill1
     private var attackUntil: Float = -1
+    /// 次の通常攻撃がキットの強い通常攻撃か（前のフレームの値。変わった時だけ武器の光を切り替える）。
+    private var empoweredReady = false
     private var deadTime: Float = 0
     private var ringPulse: Float = 0
     private var focusPulse: Float = 0
@@ -683,7 +768,7 @@ final class HeroVisual {
         team = u.team
         self.isSelf = isSelf
         let h = u.hero
-        handle = HeroModelFactory.make(heroID: h?.heroID ?? "H001", skinID: h?.skinID, team: u.team, master: master)
+        handle = HeroModelFactory.make(heroID: h?.heroID ?? HeroRoster.defaultHeroID, skinID: h?.skinID, team: u.team, master: master)
         root.name = "hero_\(u.id)"
         root.addChild(modelRoot)
         modelRoot.addChild(handle.root)
@@ -715,8 +800,8 @@ final class HeroVisual {
         let fill = isSelf ? TeamColors.selfColor : materials.teams.main(u.team)
         let resColor = h?.resourceKind == .energy ? RGB(1.0, 0.84, 0.3) : RGB(0.35, 0.62, 1.0)
         bar = OverheadBar(style: .hero(isSelf: isSelf, showResource: isSelf), fillColor: fill, materials: materials,
-                          meshes: meshes, text: text, name: h?.displayName, resourceColor: resColor)
-        bar.root.position.y = handle.overheadHeight + 0.45
+                          meshes: meshes, text: text, name: h.map { PlayerNameRules.shown($0.displayName) }, resourceColor: resColor)
+        bar.root.position.y = handle.overheadHeight + 0.60
         root.addChild(bar.root)
         status = StatusIndicators(meshes: meshes, materials: materials, headHeight: handle.overheadHeight, size: 0.85,
                                   recallTeam: u.team, iceReady: h?.heroID == KitStatusVisuals.freezeHeroID)
@@ -735,23 +820,41 @@ final class HeroVisual {
         !dead && f.focusID == id && f.humanID != id
     }
 
-    func noteCast(_ slot: SkillSlot, time: Float) {
+    func noteCast(_ slot: SkillSlot, stage: Int = 0, time: Float) {
         castSlot = slot
         // スキル固有の詠唱モーションの長さだけ詠唱状態を保つ（最短 0.4 秒）
-        castUntil = time + max(0.4, handle.castDuration(slot))
+        castUntil = time + max(0.4, handle.castDuration(slot, stage: stage))
+        // 段に固有のモーションがある再使用（HeroSkillMotions のヒーロー）は、同じスロットの詠唱中でも今すぐ始め直す。
+        // それ以外は従来どおり、次の update が詠唱状態へ移す（同じスロットの詠唱中なら続ける）
+        if stage > 0, animState != .dead, handle.castRestarts(slot, stage: stage) {
+            animState = .cast(slot)
+            handle.playCast(slot, stage: stage)
+        }
+    }
+
+    /// このヒーローのスキル（slot）が当たった（sim のダメージ）。詠唱中なら命中の後のモーション（鎖鉤の引き寄せなど）を始め、
+    /// 詠唱状態をその長さだけ延ばす。モーションの無いヒーロー・スロットは何もしない。
+    func noteSkillHit(_ slot: SkillSlot, time: Float) {
+        guard animState == .cast(slot), let d = handle.playCastHit(slot) else { return }
+        castUntil = max(castUntil, time + d)
     }
 
     func noteAttack(time: Float) { attackUntil = time + 0.32 }
 
     /// 通常攻撃の振り始め。状態を先に攻撃へ移してから振る（HeroAnimator は setState → playAttack の順を前提に巡回する）。
-    func beginAttack(windup: Double, interval: Double, time: Float) {
+    /// empowered = この攻撃がキットの強い通常攻撃（三連突き・円撃）。全身のモーションがあればそれを振る。
+    func beginAttack(windup: Double, interval: Double, time: Float, empowered: Bool = false) {
         attackUntil = max(attackUntil, time + Float(windup) + 0.12)
         if animState != .attack && !(castUntil > time) && animState != .dead {
             animState = .attack
             handle.setState(.attack)
         }
         guard animState == .attack else { return }
-        handle.playAttack(windup: windup, interval: interval)
+        if empowered {
+            handle.playAttack(windup: windup, interval: interval, empowered: true)
+        } else {
+            handle.playAttack(windup: windup, interval: interval)
+        }
     }
 
     func update(_ f: RenderFrame, index i: Int, visible: Bool) {
@@ -767,9 +870,11 @@ final class HeroVisual {
         let deathFade: Float = dead ? max(0, 1 - max(0, deadTime - 2.2) / 0.6) : 1
         let alpha = visibility * deathFade
         applyOpacity(alpha)
-        // 草むらの中では操作中のヒーロー本体だけを薄くし、HP バー・足元リングは読みやすく保つ。
+        // 草むらで敵から隠れている自分・味方のヒーローは本体を薄くし、頭上に斜線の目を出す（MLBB）。
+        // HP バー・足元リングは読みやすく保つ。
         // ステルス中は自分・味方（と観戦）にだけ薄く見せる。敵の視点では何も変えない（敵のステルスは視界の判定で消える）。
-        let brushTarget: Float = id == f.humanID && f.viewerTeam != nil && !dead && u.brushIndex != nil ? 0.65 : 1
+        let concealed = HeroVisual.showsBrushConceal(unit: u, viewerTeam: f.viewerTeam, dead: dead)
+        let brushTarget: Float = concealed ? HeroVisual.brushOpacity : 1
         let stealthTarget = KitStatusVisuals.stealthOpacity(stealthed: u.has(.stealth), dead: dead, unitTeam: u.team,
                                                             viewerTeam: f.viewerTeam)
         let modelTarget = min(brushTarget, stealthTarget)
@@ -789,6 +894,12 @@ final class HeroVisual {
         if !dead {
             yaw = approachAngle(yaw, yawForFacing(u.facing), rate: 13, dt: dt)
             modelRoot.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0])
+        }
+        // 次の通常攻撃が強い間は武器の先を光らせる（キットのヒーローだけ。変わった時だけ切り替える）
+        let ready = !dead && u.hero.map { $0.kit != nil && HeroKits.empoweredAttackReady($0) } == true
+        if ready != empoweredReady {
+            empoweredReady = ready
+            handle.setEmpoweredReady(ready)
         }
         // アニメーション状態
         let state = Self.animState(unit: u, time: f.time, castUntil: castUntil, castSlot: castSlot,
@@ -822,13 +933,29 @@ final class HeroVisual {
             let maxHP = max(1, u.stats.maxHP)
             var res: Float?
             if isSelf, u.stats.maxResource > 0 { res = Float(u.resource / u.stats.maxResource) }
+            if let player = f.state.unit(f.humanID), player.team != u.team,
+               player.hero?.spells.contains("BS11") == true {
+                let damage = 100 + 10 * Double(player.hero?.level ?? 1) + max(0, maxHP - u.hp) * 0.13
+                bar.setExecutable(u.hp <= damage * CombatSystem.damageReductionMultiplier(u.stats.damageReduction))
+            } else { bar.setExecutable(false) }
             bar.update(hp: Float(u.hp / maxHP), shield: Float(u.totalShield / maxHP), resource: res,
-                       level: u.hero?.level, dt: dt)
+                       level: u.hero?.level, dt: dt, maxHP: Float(maxHP))
             bar.keepScreenSize(camera: f.camera)
+            bar.setConcealed(concealed)
             status.update(StatusIndicators.flags(of: u), dt: dt)
         } else {
+            bar.setConcealed(false)
             status.reset()
         }
+    }
+
+    /// 草むらで隠れている間のヒーロー本体の不透明度。
+    static let brushOpacity: Float = 0.5
+
+    /// 草むらで隠れている表示（半透明・斜線の目）を出すか: 自分・味方のヒーローで、敵から隠れている間だけ。
+    /// 観戦（viewerTeam = nil）と敵の視点では出さない。
+    static func showsBrushConceal(unit u: VelstriaCore.Unit, viewerTeam: Team?, dead: Bool) -> Bool {
+        !dead && u.brushConcealed && viewerTeam == u.team
     }
 
     /// 武器の軌跡（ハンドルの更新の後 = 今フレームの姿勢の刃）。見えない・死亡・画質で切った間は消して標本を捨てる。

@@ -105,7 +105,7 @@ struct CosmeticsView: View {
                 let equippedID = app.profile.equippedSkins[heroID]
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
-                        CollectionSectionTitle(title: MasterText.hero(hero), symbol: Theme.roleSymbol(hero.role),
+                        SectionTitle(title: MasterText.hero(hero), symbol: Theme.roleSymbol(hero.role),
                                                trailing: L("スキン \(skins.count + 1) 種", "\(skins.count + 1) looks"))
                         LazyVGrid(columns: columns, spacing: 10) {
                             optionCell(preview: AnyView(HeroPortraitView(heroID: heroID, size: 64)), name: L("デフォルト", "Default"),
@@ -190,7 +190,7 @@ struct CosmeticsView: View {
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.panelStroke, lineWidth: 1))
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
-                    CollectionSectionTitle(title: CollectionStyle.cosmeticTypeName(type), symbol: CollectionStyle.cosmeticTypeSymbol(type),
+                    SectionTitle(title: CollectionStyle.cosmeticTypeName(type), symbol: CollectionStyle.cosmeticTypeSymbol(type),
                                            trailing: L("所持 \(owned.count)/\(all.count)", "Owned \(owned.count)/\(all.count)"))
                     LazyVGrid(columns: columns, spacing: 10) {
                         optionCell(preview: AnyView(defaultPreview(type, size: 64)), name: L("デフォルト", "Default"),

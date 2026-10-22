@@ -4,14 +4,16 @@ import simd
 import VelstriaCore
 
 // 担当: battle-renderer（ステージ）。地面の配合マップと補助マップを地図データから作る（純粋関数、背景スレッド可）。
-// 範囲は地図座標（m）で x, y とも −20…140（地図の外 20 m を含む）。画像の上端が北（y = 140）。
+// 範囲は地図座標（m）で x, y とも −20…152（地図の外 20 m を含む）。画像の上端が北（y = 152）。
 //   配合マップ RGBA: R 土 / G 石畳 / B 川 / A 森の下草（草地は残り）
-//   補助マップ RGBA: R 遮蔽 / G 大きな色むら（0.5 中立）/ B 川の深さ / A 予備
+//   補助マップ RGBA: R 遮蔽 / G 大きな色むら（0.5 中立）/ B 川の深さ / A 石畳の風化（新セットだけ。0 = 中央のきれいな床）
+// 新セット（StageArtSet.ruins）は拠点の石畳を一様に敷き詰めない: 泉・Core・参道の中央はきれいな床のまま、外へ行くほど
+// 縁が不規則に崩れ、踏み固めた土と苔が入り込む（風化は A に入れ、シェーダーが石の色を苔寄りに変える）。
 // 意味は docs/STAGE.md の 3.4、シェーダーは tools/stage/shaders/StageShaders.metal の stageGroundSurface。
 
 enum StageSplat {
     static let origin: Float = -20
-    static let span: Float = 160
+    static let span: Float = 172
 
     /// 地面に落ちる影（木の樹冠など）。中心は地図座標（m）。
     struct Shade: Sendable {
@@ -28,32 +30,57 @@ enum StageSplat {
     /// 太陽（左上の奥）の影が伸びる向き（地図座標、南東）。
     static let shadowDirection = simd_normalize(SIMD2<Float>(0.75, -0.66))
 
-    static func make(map: MapDefinition, shades: [Shade], controlSize n: Int = 1024, auxSize na: Int = 512) -> Maps? {
+    static func make(map: MapDefinition, shades: [Shade], controlSize n: Int = 1024, auxSize na: Int = 512,
+                     set: StageArtSet = .ruins) -> Maps? {
         let geo = StageGeometry(map: map)
+        let ruins = set == .ruins
         // MARK: 配合マップ
         var dirt = Field(n), pave = Field(n), river = Field(n), forest = Field(n)
-        // 土: レーン
+        // 土: レーン（新セットは縁を広く揺らし、草地へなじませる）
         for path in geo.lanes {
             for k in 0..<(path.count - 1) {
-                dirt.stampSegment(path[k], path[k + 1], inner: 2.3, outer: 3.6, wobble: 0.7, seed: 11)
+                if ruins {
+                    dirt.stampSegment(path[k], path[k + 1], inner: 2.1, outer: 4.0, wobble: 0.95, seed: 11)
+                } else {
+                    dirt.stampSegment(path[k], path[k + 1], inner: 2.3, outer: 3.6, wobble: 0.7, seed: 11)
+                }
             }
         }
         // 土: キャンプの空き地
         for c in map.camps {
             let p = geo.m(c.pos)
             switch c.kind {
-            case .small, .hornLizard, .emberBeetle, .magmaGolem: dirt.stampDisc(p, inner: 0.9, outer: 2.3, wobble: 0.8, seed: 23)
+            // 新セットはキャンプの空き地の縁を広く揺らす（丸い土の染みに見えないように）
+            case .small, .hornLizard, .emberBeetle, .magmaGolem:
+                if ruins {
+                    // 踏み荒らした草地: 中心だけ土が出て、縁は草が島のように残る
+                    dirt.stamp(minX: p.x - 4, maxX: p.x + 4, minY: p.y - 4, maxY: p.y + 4) { q in
+                        let d = simd_distance(q, p) + (valueNoise(q * 0.7, seed: 23) - 0.5) * 2.0
+                        let patch = 0.5 + 0.5 * smoothstep(0.3, 0.65, fbm(q * 0.9, seed: 27))
+                        return (1 - smoothstep(0.4, 2.7, d)) * patch
+                    }
+                } else {
+                    dirt.stampDisc(p, inner: 0.9, outer: 2.3, wobble: 0.8, seed: 23)
+                }
             case .blueSentinel, .redSentinel: dirt.stampDisc(p, inner: 2.4, outer: 3.3, wobble: 0.5, seed: 29)
             // 川の中立・宝殻蟹・ボスは土の空き地を作らない（川・祭壇の床）
             case .astralWyrm, .ancientColossus, .treasureCrab, .mossWanderer: break
             }
         }
         // 石畳: 拠点（泉・Core・参道）、タワーの台座、祭壇
-        for team in Team.players {
-            let f = geo.m(map.fountain(team)), c = geo.m(map.core(team))
-            pave.stampDisc(f, inner: 8.4, outer: 9.4, wobble: 0.5, seed: 31)
-            pave.stampDisc(c, inner: 12.6, outer: 13.8, wobble: 0.7, seed: 37)
-            pave.stampSegment(f, c, inner: 4.6, outer: 5.6, wobble: 0.4, seed: 41)
+        let plazas = Team.players.map { BasePlaza(fountain: geo.m(map.fountain($0)), core: geo.m(map.core($0))) }
+        for b in plazas {
+            if ruins {
+                // 縁は 3 m ほどかけて不規則に崩れる。崩れた所は踏み固めた土と苔（森の下草）が分け合う
+                let pad: Float = 4
+                pave.stamp(minX: b.minX - pad, maxX: b.maxX + pad, minY: b.minY - pad, maxY: b.maxY + pad) { p in b.paving(p) }
+                dirt.stamp(minX: b.minX - pad, maxX: b.maxX + pad, minY: b.minY - pad, maxY: b.maxY + pad) { p in b.earth(p) }
+                forest.stamp(minX: b.minX - pad, maxX: b.maxX + pad, minY: b.minY - pad, maxY: b.maxY + pad) { p in b.moss(p) }
+            } else {
+                pave.stampDisc(b.fountain, inner: 8.4, outer: 9.4, wobble: 0.5, seed: 31)
+                pave.stampDisc(b.core, inner: 12.6, outer: 13.8, wobble: 0.7, seed: 37)
+                pave.stampSegment(b.fountain, b.core, inner: 4.6, outer: 5.6, wobble: 0.4, seed: 41)
+            }
         }
         for t in map.towers where !t.isCore {
             pave.stampDisc(geo.m(t.pos), inner: 2.5, outer: 3.2, wobble: 0.35, seed: 43)
@@ -61,24 +88,57 @@ enum StageSplat {
         for c in map.camps {
             let p = geo.m(c.pos)
             switch c.kind {
-            case .astralWyrm, .ancientColossus: pave.stampDisc(p, inner: 7.0, outer: 8.2, wobble: 0.6, seed: 47)
-            case .blueSentinel, .redSentinel: pave.stampDisc(p, inner: 2.6, outer: 3.2, wobble: 0.3, seed: 53)
+            case .astralWyrm, .ancientColossus:
+                if map.size != MapDefinition.relayout.size {
+                    pave.stampDisc(p, inner: 2.8, outer: 3.9, wobble: 0.3, seed: 47)
+                }
+            case .blueSentinel, .redSentinel:
+                if map.size != 9_720 || c.kind == .blueSentinel {
+                    pave.stampDisc(p, inner: 2.6, outer: 3.2, wobble: 0.5, seed: 53)
+                }
             case .small, .hornLizard, .emberBeetle, .magmaGolem, .treasureCrab, .mossWanderer: break
             }
+        }
+        // ミッド交差点は水面ではなく、川底と同じ青緑の遺跡広場。
+        if ruins && map.size != 9_720 {
+            let center = SIMD2<Float>(repeating: geo.mapMeters / 2)
+            pave.stampDisc(center, inner: 6.8, outer: 8.1, wobble: 0.2, seed: 59)
+            let along = SIMD2<Float>(repeating: 9.0)
+            pave.stampSegment(center - along, center + along, inner: 2.6, outer: 3.5, wobble: 0.25, seed: 57)
         }
         // 川（祭壇の床では途切れる）
         let pits = map.camps.filter { $0.kind == .astralWyrm || $0.kind == .ancientColossus }.map { geo.m($0.pos) }
         let halfWidth = Float(map.riverWidth / 100) / 2
-        river.fillDiagonalBand(sum: geo.mapMeters, halfWidth: halfWidth + 1.2) { p in
+        // Outer riverbank traced in IMG_6720. A capsule leaves an erroneous strip
+        // of water between the crab approach and the east lane; clip the whole bank.
+        let crabBank: [SIMD2<Float>] = [
+            [60,20.5],[63.78,20.535],[67.222,20.120],[70.430,20.418],
+            [73.670,21.532],[75.975,23.833],[77.871,27.516],[78.978,29.945],[82,34],[97.2,34]
+        ]
+        func outerRiverWeight(_ p: SIMD2<Float>) -> Float {
+            let q = p.x < 37.2 ? SIMD2<Float>(97.2-p.x,97.2-p.y) : p
+            guard q.x > crabBank[0].x else { return 1 }
+            for i in 1..<crabBank.count where q.x <= crabBank[i].x {
+                let a=crabBank[i-1],b=crabBank[i]
+                let y=a.y+(b.y-a.y)*(q.x-a.x)/(b.x-a.x)
+                return smoothstep(y-0.4,y+0.4,q.y)
+            }
+            return 0
+        }
+        river.fillDiagonalBand(sum: geo.mapMeters, halfWidth: max(halfWidth, geo.riverReach) + 1.2) { p in
             let d = geo.riverDistance(p) + (valueNoise(p * 0.35, seed: 61) - 0.5) * 0.9
             var w = 1 - smoothstep(halfWidth - 0.6, halfWidth + 0.5, d)
-            for c in pits { w *= smoothstep(7.4, 8.6, simd_distance(p, c)) }
+            if ruins && map.size == 9_720 {
+                w *= outerRiverWeight(p)
+            }
+            for c in pits { w = max(w, 1 - smoothstep(3.0, 4.5, simd_distance(p, c))) }
             return w
         }
         // 森の下草: 壁際・草むらの下・地図の外・ジャングルの奥のまだら（なだらかなので 1/4 の解像度で求めて拡大）
+        let obstacleGrid = ObstacleGrid(geo: geo)
         forest.fillCoarse(factor: 4) { p in
             var w: Float = 0
-            let dObs = geo.obstacleDistance(p) + (valueNoise(p * 0.45, seed: 67) - 0.5) * 1.4
+            let dObs = obstacleGrid.distance(p, limit: 3.5) + (valueNoise(p * 0.45, seed: 67) - 0.5) * 1.4
             w = max(w, 1 - smoothstep(0.4, 2.8, dObs))
             let out = geo.outsideDistance(p)
             w = max(w, smoothstep(-1.5, 2.5, out))
@@ -90,7 +150,7 @@ enum StageSplat {
                 let patch = smoothstep(0.54, 0.72, fbm(p * 0.06, seed: 71)) * smoothstep(8, 13, dl)
                 w = max(w, patch * 0.55)
             }
-            return w
+            return ruins && map.size == 9_720 && out < -1.5 ? w * 0.22 : w
         }
         var control = [UInt8](repeating: 0, count: n * n * 4)
         for i in 0..<(n * n) {
@@ -106,7 +166,6 @@ enum StageSplat {
         // MARK: 補助マップ
         var aux = [UInt8](repeating: 0, count: na * na * 4)
         let shadeGrid = ShadeGrid(shades: shades)
-        let obstacleGrid = ObstacleGrid(geo: geo)
         for row in 0..<na {
             for col in 0..<na {
                 let p = Field.point(col, row, na)
@@ -115,25 +174,92 @@ enum StageSplat {
                 let dObs = obstacleGrid.distance(ps, limit: 3.5)
                 var ao: Float = (1 - smoothstep(0, 1.6, dObs)) * 0.75 + (1 - smoothstep(0, 3.4, dObs)) * 0.25
                 ao = max(ao, shadeGrid.shade(at: p))
+                if ruins && map.size == 9_720 { ao *= 0.65 }
                 if obstacleGrid.inBrush(p, margin: 0.2) { ao = max(ao, 0.32) }
-                ao = max(ao, smoothstep(0, 10, geo.outsideDistance(p)) * 0.55)
+                // 地図の外は崖の帯（縁から 1〜7 m）へ向かって暗く（その外は StageLayout.edgeSkirt の暗がり）
+                ao = max(ao, smoothstep(0, 7, geo.outsideDistance(p)))
                 let macro = fbm(p * 0.035, seed: 83) * 0.85 + valueNoise(p * 0.21, seed: 89) * 0.15
                 let rd = geo.riverDistance(p)
                 var depth = 1 - smoothstep(0, halfWidth, rd)
                 if depth > 0 {
-                    for c in pits { depth *= smoothstep(6.5, 9, simd_distance(p, c)) }
+                    for c in pits { depth *= 0.4 + 0.6 * smoothstep(3.0, 5, simd_distance(p, c)) }
                     // レーンが川を渡る所は浅瀬
                     depth *= 0.45 + 0.55 * smoothstep(2.5, 5.5, geo.laneDistance(p))
+                }
+                var wear: Float = 0
+                if ruins {
+                    // 拠点の広場は中央ほどきれい（0）。ほかの石畳（塔の台座・祭壇のまわり）は中くらいに風化
+                    wear = 0.55 + 0.25 * valueNoise(p * 0.55, seed: 157)
+                    for b in plazas where b.edge(p) < 6 { wear = min(wear, b.wear(p)) }
                 }
                 let i = (row * na + col) * 4
                 aux[i] = q(min(1, ao))
                 aux[i + 1] = q(macro)
                 aux[i + 2] = q(depth)
-                aux[i + 3] = 0
+                aux[i + 3] = q(wear)
             }
         }
         guard let c = image(control, n), let a = image(aux, na) else { return nil }
         return Maps(control: c, aux: a)
+    }
+
+    // MARK: 拠点の石畳（新セット）
+
+    /// 拠点の広場（泉の円・Core の円・その間の参道）。地図座標（m）。
+    struct BasePlaza {
+        let fountain: SIMD2<Float>
+        let core: SIMD2<Float>
+
+        var minX: Float { min(fountain.x - 9.4, core.x - 13.8) }
+        var maxX: Float { max(fountain.x + 9.4, core.x + 13.8) }
+        var minY: Float { min(fountain.y - 9.4, core.y - 13.8) }
+        var maxY: Float { max(fountain.y + 9.4, core.y + 13.8) }
+
+        /// 広場の縁からの距離（内側は負）。縁 = 旧セットの石畳の外周（泉 8.9 m・Core 13.2 m・参道 5.1 m）。
+        func edge(_ p: SIMD2<Float>) -> Float {
+            min(simd_distance(p, fountain) - 8.9, simd_distance(p, core) - 13.2, segmentDistance(p, fountain, core) - 5.1)
+        }
+
+        /// きれいな床（泉の台座・Core のまわりと参道の中央）の縁からの距離（内側は負）。
+        func clean(_ p: SIMD2<Float>) -> Float {
+            min(simd_distance(p, fountain) - 5.0, simd_distance(p, core) - 6.8, segmentDistance(p, fountain, core) - 2.2)
+        }
+
+        /// 縁の揺れ（大きな入り江と細かな欠け）。
+        func ragged(_ p: SIMD2<Float>) -> Float {
+            (fbm(p * 0.16, seed: 131) - 0.5) * 4.2 + (valueNoise(p * 0.9, seed: 137) - 0.5) * 0.9
+        }
+
+        /// 石畳の重み。中央は 1、縁は不規則に崩れ、縁に近い所には石の抜けた穴が点々と空く（きれいな床には空けない）。
+        func paving(_ p: SIMD2<Float>) -> Float {
+            let d = edge(p) + ragged(p)
+            let w = 1 - smoothstep(-2.4, 0.3, d)
+            let cl = clean(p)
+            let hole = smoothstep(0.52, 0.66, fbm(p * 0.42 + 3.7, seed: 139)) * smoothstep(-0.5, 2.0, cl)
+            // きれいな床の内側は縁の揺れに関わらず石畳
+            return max(w * (1 - hole * smoothstep(-8, -1.5, d)), 1 - smoothstep(-0.6, 0.4, cl))
+        }
+
+        /// 崩れた所を土と苔のどちらが埋めるか（1 = 土）。
+        func earthPatch(_ p: SIMD2<Float>) -> Float { smoothstep(0.38, 0.6, fbm(p * 0.21 + 9.1, seed: 149)) }
+
+        /// 崩れた所の踏み固めた土（縁の内側と、穴の中）。
+        func earth(_ p: SIMD2<Float>) -> Float {
+            let d = edge(p) + ragged(p)
+            return (1 - smoothstep(-0.8, 2.6, d)) * earthPatch(p) * smoothstep(-1, 1.5, clean(p))
+        }
+
+        /// 崩れた所の苔（土の無い所）。
+        func moss(_ p: SIMD2<Float>) -> Float {
+            let d = edge(p) + ragged(p)
+            return (1 - smoothstep(0.5, 3.4, d)) * 0.85 * (1 - earthPatch(p)) * smoothstep(-1, 1.5, clean(p))
+        }
+
+        /// 石畳の風化（0 = 中央のきれいな床、1 = 縁の苔むした石）。
+        func wear(_ p: SIMD2<Float>) -> Float {
+            let w = smoothstep(-0.5, 4.0, clean(p) + (fbm(p * 0.3 + 1.3, seed: 151) - 0.5) * 2.5)
+            return w * (0.65 + 0.35 * valueNoise(p * 0.55, seed: 157))
+        }
     }
 
     // MARK: 内部
@@ -267,6 +393,7 @@ enum StageSplat {
         let geo: StageGeometry
         var rectCells: [Int: [Int]] = [:]
         var circleCells: [Int: [Int]] = [:]
+        var polygonCells: [Int: [Int]] = [:]
         var brushCells: [Int: [Int]] = [:]
 
         init(geo: StageGeometry) {
@@ -283,7 +410,10 @@ enum StageSplat {
             for (i, c) in geo.circles.enumerated() {
                 cover(c.center - c.radius, c.center + c.radius) { circleCells[$0, default: []].append(i) }
             }
-            for (i, b) in geo.brushes.enumerated() { cover(b.min, b.max) { brushCells[$0, default: []].append(i) } }
+            for (i, b) in geo.polygonBounds.enumerated() { cover(b.min, b.max) { polygonCells[$0, default: []].append(i) } }
+            if geo.brushField == nil {
+                for (i, b) in geo.brushes.enumerated() { cover(b.min, b.max) { brushCells[$0, default: []].append(i) } }
+            }
         }
 
         func key(_ p: SIMD2<Float>) -> Int {
@@ -295,10 +425,14 @@ enum StageSplat {
             var d = limit
             for i in rectCells[k] ?? [] { d = min(d, rectDistance(p, geo.rects[i].min, geo.rects[i].max)) }
             for i in circleCells[k] ?? [] { d = min(d, simd_distance(p, geo.circles[i].center) - geo.circles[i].radius) }
+            for i in polygonCells[k] ?? [] where rectDistance(p, geo.polygonBounds[i].min, geo.polygonBounds[i].max) < d {
+                d = min(d, polygonDistance(p, geo.polygons[i]))
+            }
             return d
         }
 
         func inBrush(_ p: SIMD2<Float>, margin: Float) -> Bool {
+            if geo.brushField != nil { return geo.brushDistance(p) < margin }
             for i in brushCells[key(p)] ?? [] where rectDistance(p, geo.brushes[i].min, geo.brushes[i].max) < margin { return true }
             return false
         }
@@ -336,24 +470,67 @@ struct StageGeometry {
     let lanes: [[SIMD2<Float>]]
     let rects: [(min: SIMD2<Float>, max: SIMD2<Float>)]
     let circles: [(center: SIMD2<Float>, radius: Float)]
+    /// 多角形の壁（反時計回り、地図座標 m）と外接矩形。
+    let polygons: [[SIMD2<Float>]]
+    let polygonBounds: [(min: SIMD2<Float>, max: SIMD2<Float>)]
     let brushes: [(min: SIMD2<Float>, max: SIMD2<Float>)]
+    /// 草むらが細かい格子（MapDefinition.bushMask）のとき: 格子と、各セルから最も近い草むらのセルまでの距離（m）。
+    let brushField: (mask: BushMask, meters: [Float])?
     let mapMeters: Float
+    /// 川の半幅（m。riverWidth / 2）。`riverDistance` はこの値から岸までの距離を足した「帯の中心線からの距離」と同じ物差し。
+    let riverHalf: Float
+    /// 川が多角形（MapDefinition.river）のとき: 岸の輪郭（反時計回り、m）と、0.5 m 格子の岸までの符号付き距離。
+    let riverBank: [SIMD2<Float>]
+    private let riverField: (cell: Float, n: Int, d: [Float])?
+    /// 川が対角線（x + y = 地図の一辺）から最も離れる距離（m）。対角の帯だけを塗る処理の幅。
+    let riverReach: Float
 
     init(map: MapDefinition) {
         func m(_ v: Vec2) -> SIMD2<Float> { SIMD2(Float(v.x / Balance.unitsPerMeter), Float(v.y / Balance.unitsPerMeter)) }
         lanes = map.lanes.map { lane in map.lanePath(lane, for: .blue).map(m) }
         var rects: [(SIMD2<Float>, SIMD2<Float>)] = []
         var circles: [(SIMD2<Float>, Float)] = []
+        var polygons: [[SIMD2<Float>]] = []
         for o in map.obstacles {
             switch o {
             case .rect(let r): rects.append((m(Vec2(r.minX, r.minY)), m(Vec2(r.maxX, r.maxY))))
             case .circle(let c, let radius): circles.append((m(c), Float(radius / Balance.unitsPerMeter)))
+            case .polygon(let points): polygons.append(points.map(m))
             }
         }
         self.rects = rects.map { (min: $0.0, max: $0.1) }
         self.circles = circles.map { (center: $0.0, radius: $0.1) }
+        self.polygons = polygons
+        polygonBounds = polygons.map { pts in
+            (min: pts.reduce(SIMD2<Float>(repeating: .greatestFiniteMagnitude)) { simd_min($0, $1) },
+             max: pts.reduce(SIMD2<Float>(repeating: -.greatestFiniteMagnitude)) { simd_max($0, $1) })
+        }
         brushes = map.brushes.map { (min: m(Vec2($0.rect.minX, $0.rect.minY)), max: m(Vec2($0.rect.maxX, $0.rect.maxY))) }
+        if let mask = map.bushMask {
+            let cellMeters = Float(mask.cell / Balance.unitsPerMeter)
+            brushField = (mask, mask.distanceField().map { $0 * cellMeters })
+        } else {
+            brushField = nil
+        }
         mapMeters = Float(map.size / Balance.unitsPerMeter)
+        riverHalf = Float(map.riverWidth / Balance.unitsPerMeter) / 2
+        if case .polygon(let points)? = map.river {
+            let bank = points.map(m)
+            let cell: Float = 0.5
+            let n = Int((mapMeters / cell).rounded(.up)) + 1
+            var d = [Float](repeating: 0, count: n * n)
+            for row in 0..<n {
+                for col in 0..<n { d[row * n + col] = polygonDistance(SIMD2(Float(col) * cell, Float(row) * cell), bank) }
+            }
+            riverBank = bank
+            riverField = (cell, n, d)
+            let sum = mapMeters
+            riverReach = bank.reduce(Float(0)) { max($0, abs($1.x + $1.y - sum) * 0.70710678) }
+        } else {
+            riverBank = []
+            riverField = nil
+            riverReach = riverHalf
+        }
     }
 
     func m(_ v: Vec2) -> SIMD2<Float> { SIMD2(Float(v.x / Balance.unitsPerMeter), Float(v.y / Balance.unitsPerMeter)) }
@@ -363,10 +540,20 @@ struct StageGeometry {
         var d = Float.greatestFiniteMagnitude
         for r in rects { d = min(d, rectDistance(p, r.min, r.max)) }
         for c in circles { d = min(d, simd_distance(p, c.center) - c.radius) }
+        for (i, poly) in polygons.enumerated() where rectDistance(p, polygonBounds[i].min, polygonBounds[i].max) < d {
+            d = min(d, polygonDistance(p, poly))
+        }
         return d
     }
 
     func brushDistance(_ p: SIMD2<Float>) -> Float {
+        if let f = brushField {
+            // 格子: セルの中心どうしの距離から半セル引いて、草むらの縁までの距離にする（草むらの中は負）
+            let sim = Vec2(Double(p.x) * Balance.unitsPerMeter, Double(p.y) * Balance.unitsPerMeter)
+            guard let q = f.mask.index(at: sim) else { return .greatestFiniteMagnitude }
+            let half = Float(f.mask.cell / Balance.unitsPerMeter) / 2
+            return f.mask.cells[q] != 0 ? -half : f.meters[q] - half
+        }
         var d = Float.greatestFiniteMagnitude
         for b in brushes { d = min(d, rectDistance(p, b.min, b.max)) }
         return d
@@ -380,8 +567,20 @@ struct StageGeometry {
         return d
     }
 
-    /// 川の中心線（x + y = 地図の一辺）からの距離。
-    func riverDistance(_ p: SIMD2<Float>) -> Float { abs(p.x + p.y - mapMeters) * 0.70710678 }
+    /// 川の中心線（x + y = 地図の一辺）からの距離。川が多角形なら「岸までの符号付き距離 + riverHalf」
+    /// （岸が riverHalf、池の奥ほど小さく負にもなる。帯のときと同じ比べ方で使える）。
+    func riverDistance(_ p: SIMD2<Float>) -> Float {
+        guard let f = riverField else { return abs(p.x + p.y - mapMeters) * 0.70710678 }
+        let fx = min(max(p.x / f.cell, 0), Float(f.n - 1)), fy = min(max(p.y / f.cell, 0), Float(f.n - 1))
+        let x0 = min(Int(fx), f.n - 2), y0 = min(Int(fy), f.n - 2)
+        let tx = fx - Float(x0), ty = fy - Float(y0)
+        let a = f.d[y0 * f.n + x0], b = f.d[y0 * f.n + x0 + 1]
+        let c = f.d[(y0 + 1) * f.n + x0], e = f.d[(y0 + 1) * f.n + x0 + 1]
+        let d = (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + e * tx) * ty
+        // 地図の外は格子の端の値に近い点までの距離を足す
+        let out = simd_length(p - SIMD2(fx, fy) * f.cell)
+        return d + out + riverHalf
+    }
 
     /// 地図の外へはみ出した距離（内側は負）。
     func outsideDistance(_ p: SIMD2<Float>) -> Float {
@@ -404,6 +603,20 @@ func segmentDistance(_ p: SIMD2<Float>, _ a: SIMD2<Float>, _ b: SIMD2<Float>) ->
     let len2 = simd_length_squared(ab)
     let t = len2 > 0 ? max(0, min(1, simd_dot(p - a, ab) / len2)) : 0
     return simd_distance(p, a + ab * t)
+}
+
+/// 多角形までの距離（内側は負: 最も近い辺までの距離）。
+func polygonDistance(_ p: SIMD2<Float>, _ poly: [SIMD2<Float>]) -> Float {
+    var d = Float.greatestFiniteMagnitude
+    var inside = false
+    var j = poly.count - 1
+    for i in poly.indices {
+        let a = poly[i], b = poly[j]
+        d = min(d, segmentDistance(p, a, b))
+        if (a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x { inside.toggle() }
+        j = i
+    }
+    return inside ? -d : d
 }
 
 /// 矩形までの距離（内側は負: 最も近い辺までの距離）。

@@ -28,10 +28,44 @@ enum StagePropKind: String, CaseIterable, Sendable {
     case treeTall = "tree_tall"
     case bush
     case ruinPillar = "ruin_pillar"
+    /// 旧セットだけ（配置には使っていない）。
     case ruinArch = "ruin_arch"
+    /// 新セットだけ: 泉（出撃地点）の遺跡の台座。歩ける所に置く飾りなので、硬い物の配置（placements）には入れない。
+    case spawnDais = "spawn_dais"
+    case sanctuary
+    case rootWall = "root_wall"
+    case campCrescent = "camp_crescent"
+    case campGate = "camp_gate"
+    case riverWall = "river_wall"
+
+    static let fieldKinds: [StagePropKind] = [.rootWall, .campCrescent, .campGate, .riverWall]
 
     /// 風で揺れるか（木・茂み）。
     var isFoliage: Bool { self == .treeRound || self == .treeTall || self == .bush }
+}
+
+/// ステージの素材のセット（docs/STAGE.md 2 章）。App/Resources/Stage/ はバンドルの直下に平らに入るので、
+/// ファイル名の頭でセットを分ける。祭壇の模様（StageDecal_rune.jpg）とシェーダーは共用。
+enum StageArtSet: String, CaseIterable, Sendable {
+    /// 2026-10-12 の「遺跡と森」（既定）。灰緑の花崗岩・苔・踏み固めた土・遺跡の石畳。小物は Tripo 製。
+    case ruins
+    /// 2026-10-05 の旧セット（Meshy 製）。起動引数 -legacyStage で選ぶ（DEBUG / SCREENSHOTS ビルド）。
+    case legacy
+
+    /// 起動引数で選ばれたセット。
+    static var current: StageArtSet { DebugLaunch.args.contains("-legacyStage") ? .legacy : .ruins }
+
+    var tilePrefix: String { self == .legacy ? "StageTile_" : "StageRuinsTile_" }
+    var propsResource: String { self == .legacy ? "StageProps" : "StageRuinsProps" }
+    var atlasResource: String { self == .legacy ? "StagePropsAtlas" : "StageRuinsPropsAtlas" }
+
+    /// 小物の種類（StageProps.bin の並び = アトラスのセル順）。
+    var propKinds: [StagePropKind] {
+        switch self {
+        case .legacy: return [.cliffRockA, .cliffRockB, .boulder, .treeRound, .treeTall, .bush, .ruinPillar, .ruinArch]
+        case .ruins: return [.cliffRockA, .cliffRockB, .boulder, .treeRound, .treeTall, .bush, .ruinPillar, .spawnDais]
+        }
+    }
 }
 
 enum StageTile: String, CaseIterable, Sendable {
@@ -40,14 +74,20 @@ enum StageTile: String, CaseIterable, Sendable {
 
 /// ステージの素材一式。読み込みは 1 度だけ（以後はキャッシュ）。
 final class StageAssets: @unchecked Sendable {
+    let set: StageArtSet
     let props: [StagePropKind: StagePropMesh]
     let atlas: CGImage
     let tiles: [StageTile: CGImage]
     let rune: CGImage
     let shaderURL: URL
+    var sanctuary: StagePropMesh?
+    var sanctuaryAtlas: CGImage?
+    var fieldProps: [StagePropKind: StagePropMesh] = [:]
+    var fieldAtlas: CGImage?
 
-    private init(props: [StagePropKind: StagePropMesh], atlas: CGImage, tiles: [StageTile: CGImage], rune: CGImage,
-                 shaderURL: URL) {
+    private init(set: StageArtSet, props: [StagePropKind: StagePropMesh], atlas: CGImage, tiles: [StageTile: CGImage],
+                 rune: CGImage, shaderURL: URL) {
+        self.set = set
         self.props = props
         self.atlas = atlas
         self.tiles = tiles
@@ -56,18 +96,20 @@ final class StageAssets: @unchecked Sendable {
     }
 
     private static let lock = NSLock()
-    /// 小物のメッシュだけを覚えておく（数 MB）。展開した画像（約 40 MB）は試合ごとに読み直し、試合が終われば解放する。
-    nonisolated(unsafe) private static var cachedProps: [StagePropKind: StagePropMesh]?
+    /// 小物のメッシュだけを覚えておく（セットごとに数 MB）。展開した画像（約 40 MB）は試合ごとに読み直し、試合が終われば解放する。
+    nonisolated(unsafe) private static var cachedProps: [StageArtSet: [StagePropKind: StagePropMesh]] = [:]
 
     /// バンドルにステージの素材があるか（読み込みはしない。どちらの地形を準備するかの判断用）。
-    static var isBundled: Bool {
-        Bundle.main.url(forResource: "StageProps", withExtension: "bin") != nil
+    static var isBundled: Bool { isBundled(.current) }
+
+    static func isBundled(_ set: StageArtSet) -> Bool {
+        Bundle.main.url(forResource: set.propsResource, withExtension: "bin") != nil
             && Bundle.main.url(forResource: shaderResourceName, withExtension: "metallib") != nil
     }
 
     /// 素材を読む。欠けていれば nil。
-    static func load(bundle: Bundle = .main) -> StageAssets? {
-        make(bundle: bundle)
+    static func load(set: StageArtSet = .current, bundle: Bundle = .main) -> StageAssets? {
+        make(set: set, bundle: bundle)
     }
 
     static var shaderResourceName: String {
@@ -80,28 +122,49 @@ final class StageAssets: @unchecked Sendable {
         #endif
     }
 
-    private static func make(bundle: Bundle) -> StageAssets? {
-        guard let atlas = image(bundle, "StagePropsAtlas", "jpg"),
+    private static func make(set: StageArtSet, bundle: Bundle) -> StageAssets? {
+        guard let atlas = image(bundle, set.atlasResource, "jpg"),
               let rune = image(bundle, "StageDecal_rune", "jpg"),
               let shaderURL = bundle.url(forResource: shaderResourceName, withExtension: "metallib"),
-              let props = props(bundle: bundle, atlas: atlas) else { return nil }
+              let props = props(set: set, bundle: bundle, atlas: atlas) else { return nil }
         var tiles: [StageTile: CGImage] = [:]
         for t in StageTile.allCases {
-            guard let img = image(bundle, "StageTile_\(t.rawValue)", "jpg") else { return nil }
+            guard let img = image(bundle, "\(set.tilePrefix)\(t.rawValue)", "jpg") else { return nil }
             tiles[t] = img
         }
-        return StageAssets(props: props, atlas: atlas, tiles: tiles, rune: rune, shaderURL: shaderURL)
+        let assets = StageAssets(set: set, props: props, atlas: atlas, tiles: tiles, rune: rune, shaderURL: shaderURL)
+        if set == .ruins,
+           let url = bundle.url(forResource: "StageFieldProps", withExtension: "bin"),
+           let data = try? Data(contentsOf: url),
+           let meshes = parseProps(data, kinds: StagePropKind.fieldKinds),
+           meshes.values.allSatisfy({ $0.indices.count / 3 <= 6000 }),
+           let texture = image(bundle, "StageFieldAtlas", "jpg"),
+           texture.width <= 2048, texture.height <= 1024 {
+            assets.fieldProps = meshes
+            assets.fieldAtlas = texture
+        }
+        if set == .ruins,
+           let url = bundle.url(forResource: "StageSanctuary", withExtension: "bin"),
+           let data = try? Data(contentsOf: url),
+           let mesh = parseProps(data, kinds: [.sanctuary])?[.sanctuary],
+           mesh.indices.count / 3 <= 12000,
+           let texture = image(bundle, "StageSanctuaryAtlas", "jpg"),
+           texture.width <= 1024, texture.height <= 1024 {
+            assets.sanctuary = mesh
+            assets.sanctuaryAtlas = texture
+        }
+        return assets
     }
 
-    private static func props(bundle: Bundle, atlas: CGImage) -> [StagePropKind: StagePropMesh]? {
+    private static func props(set: StageArtSet, bundle: Bundle, atlas: CGImage) -> [StagePropKind: StagePropMesh]? {
         lock.lock()
         defer { lock.unlock() }
-        if let cachedProps { return cachedProps }
-        guard let binURL = bundle.url(forResource: "StageProps", withExtension: "bin"),
+        if let cached = cachedProps[set] { return cached }
+        guard let binURL = bundle.url(forResource: set.propsResource, withExtension: "bin"),
               let data = try? Data(contentsOf: binURL),
-              let parsed = parseProps(data) else { return nil }
+              let parsed = parseProps(data, kinds: set.propKinds) else { return nil }
         let props = softenFoliage(parsed, atlas: atlas)
-        cachedProps = props
+        cachedProps[set] = props
         return props
     }
 
@@ -174,7 +237,8 @@ final class StageAssets: @unchecked Sendable {
         let props: [Prop]
     }
 
-    static func parseProps(_ data: Data) -> [StagePropKind: StagePropMesh]? {
+    /// kinds: セットの小物の種類（全部そろっていなければ nil）。
+    static func parseProps(_ data: Data, kinds: [StagePropKind]) -> [StagePropKind: StagePropMesh]? {
         guard data.count >= 12, data.prefix(4) == Data("VSP1".utf8) else { return nil }
         func u32(_ at: Int) -> Int {
             data.withUnsafeBytes { Int($0.loadUnaligned(fromByteOffset: at, as: UInt32.self).littleEndian) }
@@ -186,7 +250,8 @@ final class StageAssets: @unchecked Sendable {
         let dataStart = (12 + jsonLength + 15) / 16 * 16
         var out: [StagePropKind: StagePropMesh] = [:]
         for p in header.props {
-            guard let kind = StagePropKind(rawValue: p.id), p.boundsMin.count == 3, p.boundsMax.count == 3 else { continue }
+            guard let kind = StagePropKind(rawValue: p.id), kinds.contains(kind), p.boundsMin.count == 3,
+                  p.boundsMax.count == 3 else { continue }
             let vStart = dataStart + p.vertexOffset, iStart = dataStart + p.indexOffset
             guard vStart >= dataStart, iStart >= dataStart, vStart + p.vertexCount * 32 <= data.count,
                   iStart + p.indexCount * 4 <= data.count, p.indexCount % 3 == 0 else { return nil }
@@ -215,6 +280,6 @@ final class StageAssets: @unchecked Sendable {
                                       boundsMin: SIMD3(p.boundsMin[0], p.boundsMin[1], p.boundsMin[2]),
                                       boundsMax: SIMD3(p.boundsMax[0], p.boundsMax[1], p.boundsMax[2]))
         }
-        return out.count == StagePropKind.allCases.count ? out : nil
+        return Set(out.keys) == Set(kinds) ? out : nil
     }
 }

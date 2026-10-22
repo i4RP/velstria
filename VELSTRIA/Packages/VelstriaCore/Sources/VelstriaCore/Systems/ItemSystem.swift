@@ -1,7 +1,7 @@
 import Foundation
 
 // 担当: core-economy
-// 装備の購入（多段の合成）・売却・推奨ビルド、装備・ルーンの能力値反映（DESIGN §8）。
+// 装備の購入（多段の合成）・売却・推奨ビルド、装備・エンブレムの能力値反映（DESIGN §8）。
 // 装備は Mobile Legends の図鑑をそのまま写したもの（tools/equipment_spec.mjs）。
 
 /// 購入できない理由（.purchaseFailed の reason 文字列 = rawValue）。
@@ -164,7 +164,10 @@ public enum ItemSystem {
         for comp in item.buildFrom { take(comp, depth: 1) }
         consumed.sort()
         let floor = (item.priceGold * Balance.minCombineCostRatio).rounded()
-        return (max(floor, item.priceGold - componentValue), consumed)
+        let cost = max(floor, item.priceGold - componentValue)
+        // エンブレム（掘り出し上手）: 装備は基本価格の 95%（素材も 95% で買っているので、合成の差額にも同じ倍率）
+        let mult = EmblemEffects.purchasePriceMultiplier(hero)
+        return (mult == 1 ? cost : (cost * mult).rounded(), consumed)
     }
 
     /// itemInvested を items と同じ長さに揃える（外部で items だけ変更された場合は定価を投資額とみなす）。
@@ -195,29 +198,15 @@ public enum ItemSystem {
         .support: ["EQ405", "EQ202", "EQ305", "EQ307", "EQ306", "EQ304"],
     ]
 
-    /// ヒーロー固有の推奨ビルド（MLBB の元ヒーローの定番構成）。無いヒーローはロール別。
-    static let heroBuilds: [String: [String]] = [
-        // ルミナ（ミヤ）: スイフトブーツ → ラスティサイズ → デモンハント → 如意棒 → ナチュラルウィンド → スピリットシャウト
-        "H025": ["EQ403", "EQ119", "EQ120", "EQ118", "EQ117", "EQ112"],
-        // エウリア（エウドラ）: アーケインブーツ → ボルトロッド → ジーニアスワンド → ガーディアンレリック → 魔法の聖剣 → ウィンタークラウン
-        "H026": ["EQ404", "EQ204", "EQ203", "EQ210", "EQ211", "EQ113"],
-        // ジャルド（趙子龍）: スイフトブーツ → ラスティサイズ → ブラッドクロウ → バーサーク → ディスペアブレイド → ナチュラルウィンド
-        "H027": ["EQ403", "EQ119", "EQ111", "EQ110", "EQ106", "EQ117"],
-        // ザイル（セイバー）: 狩猟印のジャングラー。タフブーツ（ジャングルの祝福）→ ハンターストライク → オーシャンエッジ → スピリットシャウト → ディスペアブレイド → イモータル
-        "H028": ["EQ406", "EQ105", "EQ107", "EQ112", "EQ106", "EQ304"],
-        // ボルグ（ティグリアル）: タフブーツ（ロームの祝福）→ ドミナントシールド → ヴァルキュリアブレス → 上古の鎧 → イモータル → 聖光の鎧
-        "H029": ["EQ406", "EQ305", "EQ306", "EQ308", "EQ304", "EQ301"],
-        // ライナ（ライラ）: スイフトブーツ → マジックガン → ウィンドテラー → バーサーク → ディスペアブレイド → ナチュラルウィンド
-        "H030": ["EQ403", "EQ101", "EQ108", "EQ110", "EQ106", "EQ117"],
-        // オーリア（オーロラ）: アーケインブーツ → タリスマン → ボルトロッド → ガーディアンレリック → 魔法の聖剣 → ブラッドウィング
-        "H031": ["EQ404", "EQ214", "EQ204", "EQ210", "EQ211", "EQ205"],
-        // ディアス（ディロス）: ウォリアーブーツ → 常勝の神斧 → ハンターストライク → スピリットシャウト → ディスペアブレイド → イモータル
-        "H032": ["EQ407", "EQ116", "EQ105", "EQ112", "EQ106", "EQ304"],
-        // ヴァルド（アルカード）: 狩猟印のジャングラー。ウォリアーブーツ（ジャングルの祝福）→ 常勝の神斧 → ブラッドクロウ → ラスティサイズ → ディスペアブレイド → イモータル
-        "H033": ["EQ407", "EQ116", "EQ111", "EQ119", "EQ106", "EQ304"],
-        // ゴルム（フランコ）: タフブーツ（ロームの祝福）→ ドミナントシールド → ヴァルキュリアブレス → 上古の鎧 → イモータル → カースヘルム
-        "H034": ["EQ406", "EQ305", "EQ306", "EQ308", "EQ304", "EQ310"],
-    ]
+    /// ヒーロー固有の推奨ビルド = バトルプラン（BuildPlans.swift の heroPlans）の「有効」のプランの装備。無いヒーローはロール別。
+    /// 例: ルミナ（ミヤ）は「ヒット＆アウェイ」、ジャルド（趙子龍）は「爆発力」、ヴァルド（アルカード）は「DPS」。
+    static let heroBuilds: [String: [String]] = {
+        var out: [String: [String]] = [:]
+        for heroID in ItemSystem.heroPlans.keys {
+            if let p = ItemSystem.plan(heroID: heroID, chosen: nil) { out[heroID] = p.items }
+        }
+        return out
+    }()
 
     /// ロール別の推奨ビルド（購入順の item ID。マスターに無い ID は除く）。
     public static func recommendedBuild(role: Role, master: MasterData) -> [String] {
@@ -225,16 +214,18 @@ public enum ItemSystem {
     }
 
     /// ヒーロー別（無ければロール別）の推奨ビルド。heroID のロールと role が食い違う時（テストの差し替えなど）はロール別。
-    public static func recommendedBuild(heroID: String, role: Role, master: MasterData) -> [String] {
-        if let build = heroBuilds[heroID], master.hero(heroID)?.role == role {
-            return build.filter { master.item($0) != nil }
+    /// plan = 選んだバトルプランの添字（nil・範囲外は「有効」のプラン）。
+    public static func recommendedBuild(heroID: String, role: Role, master: MasterData, plan chosen: Int? = nil) -> [String] {
+        if master.hero(heroID)?.role == role, let p = ItemSystem.plan(heroID: heroID, chosen: chosen) {
+            return p.items.filter { master.item($0) != nil }
         }
         return recommendedBuild(role: role, master: master)
     }
 
-    /// ヒーローの推奨ビルド（AI と HUD の「おすすめ購入」）。祝福は靴に付くので、ジャングル・ロームでも装備の並びは変わらない。
+    /// ヒーローの推奨ビルド（AI と HUD の「おすすめ購入」）。人間が選んだバトルプラン（HeroData.buildPlan）があればそれ、
+    /// 無ければ「有効」のプラン。祝福は靴に付くので、ジャングル・ロームでも装備の並びは変わらない。
     public static func recommendedBuild(for hero: HeroData, master: MasterData) -> [String] {
-        recommendedBuild(heroID: hero.heroID, role: hero.role, master: master)
+        recommendedBuild(heroID: hero.heroID, role: hero.role, master: master, plan: hero.buildPlan)
     }
 
     /// カテゴリ内の完成品候補を評価順に並べる（上位 Tier → 評価値 → ID 昇順。消耗品は除く）。
@@ -292,22 +283,19 @@ public enum ItemSystem {
     }
 }
 
-/// 装備・ルーンの能力値反映。
+/// 装備・エンブレムの能力値反映。
 public enum ItemStats {
-    /// 装備の固定値 → 固有の能力値（重ならない）→ 適応攻撃 → ルーン（割合）の順で加算する。
-    /// hero を渡すと、MP（Mana のヒーローだけ）・適応攻撃の振り分け・ポーション・レベルで変わる固有効果も反映する。
-    public static func apply(items: [String], runes: [String], to stats: inout Stats, ctx: SimContext,
+    /// 装備の固定値 → 固有の能力値（重ならない）→ エンブレム（セットの能力値・タレント）→ 適応攻撃・適応貫通の順で加算する。
+    /// hero を渡すと、MP（Mana のヒーローだけ）・適応攻撃の振り分け・ポーション・レベルで変わる固有効果・
+    /// エンブレムのスタック（血の祭典）も反映する。emblem = nil はエンブレム無し。
+    public static func apply(items: [String], emblem: EmblemLoadout? = nil, to stats: inout Stats, ctx: SimContext,
                              hero: HeroData? = nil, time: Double = 0) {
-        apply(items: items, runes: runes, to: &stats, master: ctx.master, hero: hero, time: time)
+        apply(items: items, emblem: emblem, to: &stats, master: ctx.master, hero: hero, time: time)
     }
 
-    public static func apply(items: [String], runes: [String], to stats: inout Stats, master: MasterData,
+    public static func apply(items: [String], emblem: EmblemLoadout? = nil, to stats: inout Stats, master: MasterData,
                              hero: HeroData? = nil, time: Double = 0) {
-        // 毎 tick 全ヒーローで呼ばれるため、% 値は事前計算表から引く
-        let table = EconomyItemTable.table(for: master)
         let base = stats
-        var resourceRegenPct: Double = 0
-        var hpRegenPct: Double = 0
 
         // 効果中のポーションは所持品と同じように能力値を足す
         var all = items
@@ -321,6 +309,8 @@ public enum ItemStats {
         var mana: Double = 0, slowReduction: Double = 0, critChancePct: Double = 0
         var unique: [String: Double] = [:]
         var seen: [String] = []
+        // 強靭（コントロール時間短縮）: 同じ装備は加算、違う装備は掛け算で重ねる（MLBB の Resilience）
+        var resilience: [(id: String, r: Double)] = []
         for id in all {
             guard let it = master.item(id) else { continue }
             itemAttack += it.attack
@@ -348,7 +338,13 @@ public enum ItemStats {
             stats.outOfCombatMoveSpeedBonus += it.outOfCombatMovePct / 100
             stats.healShieldPower += it.healShieldPowerPct / 100
             stats.monsterDamageBonus += it.monsterDamagePct / 100
-            stats.ccReduction += it.ccReductionPct / 100
+            if it.ccReductionPct != 0 {
+                if let k = resilience.firstIndex(where: { $0.id == id }) {
+                    resilience[k].r += it.ccReductionPct / 100
+                } else {
+                    resilience.append((id, it.ccReductionPct / 100))
+                }
+            }
             slowReduction = max(slowReduction, it.slowReductionPct / 100)
             stats.healingReceivedMultiplier += it.healReceivedPct / 100
             stats.critDamageReduction += it.critDamageReductionPct / 100
@@ -359,6 +355,7 @@ public enum ItemStats {
                 for (k, v) in it.uniqueStats { unique[k] = max(unique[k] ?? 0, v) }
             }
         }
+        for src in resilience { stats.addResilience(src.r) }
         for (k, v) in unique.sorted(by: { $0.key < $1.key }) {
             switch k {
             case "armor_pen_flat": stats.armorPenFlat += v
@@ -378,73 +375,59 @@ public enum ItemStats {
             default: break
             }
         }
-        // 適応攻撃: 装備で増えた攻撃力と魔力の多い方。同じなら（どちらも 0 を含む）ヒーローのスキルのダメージの種類
+        // エンブレム（セットのレベルの能力値と、能力値だけのタレント）。固定の物理攻撃・魔法攻撃は装備と同じく適応の判定に入る
+        let emb = emblem.map { EmblemEffects.statBlock($0, hero: hero) } ?? EmblemEffects.StatBlock()
+        itemAttack += emb.attack
+        itemPower += emb.power
+        adaptive += emb.adaptiveAttack
+        stats.maxHP += emb.hp
+        stats.armor += emb.defense
+        stats.magicResist += emb.defense
+        stats.hpRegen += emb.hpRegen
+        // MP 回復（混合回復・啓発）は MP を使うヒーローだけ
+        if hero?.resourceKind == .mana { stats.resourceRegen += emb.manaRegen }
+        stats.cooldownReduction += emb.cooldownReduction
+        attackSpeedPct += emb.attackSpeedPct
+        critChancePct += emb.critChance * 100
+        stats.critMultiplier += emb.critDamage
+        stats.lifesteal += emb.lifesteal
+        stats.spellVamp += emb.spellVamp
+        stats.healShieldPower += emb.healShieldPower
+        stats.magicPenFlat += emb.magicPenFlat
+
+        // 適応攻撃・適応貫通: 装備とエンブレムで増えた物理攻撃と魔法攻撃の多い方。同じなら（どちらも 0 を含む）
+        // ヒーローのスキルのダメージの種類（MLBB の規則）
+        let adaptiveMagic: Bool
+        if itemPower != itemAttack {
+            adaptiveMagic = itemPower > itemAttack
+        } else {
+            adaptiveMagic = hero.map { master.skills(forHero: $0.heroID).first?.damageType == .magic } ?? false
+        }
         if adaptive > 0 {
-            let magic: Bool
-            if itemPower != itemAttack {
-                magic = itemPower > itemAttack
-            } else {
-                magic = hero.map { master.skills(forHero: $0.heroID).first?.damageType == .magic } ?? false
-            }
-            if magic { itemPower += adaptive } else { itemAttack += adaptive }
+            if adaptiveMagic { itemPower += adaptive } else { itemAttack += adaptive }
         }
         stats.attack += itemAttack
         stats.abilityPower += itemPower
         if hero?.resourceKind == .mana { stats.maxResource += mana }
-        stats.armorPenPct = armorPenPct
-        stats.magicPenPct = magicPenPct
+        // 割合貫通: 装備は同名の固有効果なので最大値、エンブレム（ハンター = マークスマンのセット）はその上に足す
+        stats.armorPenPct = armorPenPct + (adaptiveMagic ? 0 : emb.adaptivePenPct)
+        stats.magicPenPct = magicPenPct + (adaptiveMagic ? emb.adaptivePenPct : 0)
+        if adaptiveMagic { stats.magicPenFlat += emb.adaptivePenFlat } else { stats.armorPenFlat += emb.adaptivePenFlat }
         stats.slowReduction = slowReduction
         stats.critChance += critChancePct / 100
-        stats.attackSpeed *= 1 + attackSpeedPct
+        // 攻撃速度の「+30%」は追加の攻撃速度 +0.30（毎秒の攻撃回数。基礎への掛け算ではない。MLBB の用語注釈
+        // 「現在の攻撃速度 = 基礎 + 追加 × 攻撃速度比率」。比率と上限は StatCalculator.finalize）
+        stats.extraAttackSpeed += attackSpeedPct
         stats.abilityPower *= 1 + abilityPowerPct
         stats.critChance = min(1, stats.critChance)
-
-        // ルーン（X = effect の %）
-        var attackPct: Double = 0
-        var powerPct: Double = 0
-        var hpPct: Double = 0
-        var defensePct: Double = 0
-        var moveSpeedPct: Double = 0
-        for rune in validRunes(runes, master: master) {
-            let x = table.percent(rune: rune) / 100
-            switch rune.path {
-            case .valor:
-                attackPct += x
-            case .arcana:
-                powerPct += x
-                stats.skillDamageBonus += x / 2
-            case .resolve:
-                hpPct += x
-                defensePct += x
-            case .cunning:
-                moveSpeedPct += x / 2
-                stats.cooldownReduction += x / 2
-            case .harmony:
-                hpRegenPct += 3 * x
-                resourceRegenPct += 3 * x
-                stats.healShieldPower += x
-            }
+        // 武器マスター: 装備・エンブレム・天賦で得た物理攻撃・魔法攻撃 +8%（スキルの強化は状態効果の後なので含めない）
+        if emb.weaponMaster > 0 {
+            stats.attack += max(0, stats.attack - base.attack) * emb.weaponMaster
+            stats.abilityPower += max(0, stats.abilityPower - base.abilityPower) * emb.weaponMaster
         }
-        stats.attack *= 1 + attackPct
-        stats.abilityPower *= 1 + powerPct
-        stats.maxHP *= 1 + hpPct
-        stats.armor *= 1 + defensePct
-        stats.magicResist *= 1 + defensePct
-        stats.moveSpeed *= 1 + moveSpeedPct + moveSpeedItemPct
-        stats.hpRegen *= 1 + hpRegenPct
-        stats.resourceRegen *= 1 + resourceRegenPct
-        // 能力値で決まる固有効果（射程・魔力の割合・クリティカルの換算・混合防御など）。ルーンの後の値で計算する
+        // 移動速度の割合は加速として足す（MLBB: 基礎 × (100% + 全加速% − 全減速%)。StatCalculator.finalize）
+        stats.moveSpeedBonus += emb.moveSpeedPct + moveSpeedItemPct
+        // 能力値で決まる固有効果（射程・魔力の割合・クリティカルの換算・混合防御など）。エンブレムの後の値で計算する
         ItemEffects.applyStatEffects(items: all, hero: hero, to: &stats, base: base, master: master)
-    }
-
-    /// 有効なルーン（マスターに存在する ID のみ、各 Tier 先頭の 1 個、最大 3 個）。
-    public static func validRunes(_ runes: [String], master: MasterData) -> [RuneDef] {
-        var out: [RuneDef] = []
-        for id in runes {
-            guard let r = master.rune(id), !out.contains(where: { $0.tier == r.tier }) else { continue }
-            out.append(r)
-            if out.count == 3 { break }
-        }
-        return out
     }
 }

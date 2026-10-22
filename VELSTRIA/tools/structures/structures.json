@@ -1,0 +1,489 @@
+{
+  "notes": "タワー・本拠地のクリスタル・ミニオンの生成 3D モデルの仕様。concept は Codex（ChatGPT ログインの画像生成）で作り、model は Tripo（P1）か Meshy（smart-topology meshy-t2）で作る。画像・GLB は build/structures/<id>/（git 管理外）。チーム色は青チームの配色で作り、赤チームは bake の色相の付け替え（青〜紫 → 赤〜マゼンタ）で別テクスチャにする（メッシュは 1 つ）。塔の再デザイン（tower_outer / tower_inner / tower_base / star_core）は採用済みのマスター画像（conceptSource、tools/structures/redesign.mjs で作成）から Tripo で作り、tools/structures/tower_parts.py で部品（part_plinth〜part_crystal）に分ける（parts。cuts・rules の高さは正規化後の m）。旧 tower / tower_orb / core_base / core_crystal はそのまま残す（読み込めない時の代替）。塔の再デザインの yaw -90 は、Tripo の GLB でマスター画像の視点が +X 側に来るのを、ゲームのカメラ側（南 = USD +Z）へ向けるため。 中立モンスター（monster_*）は creature の仕様で動く Creature_<id>.usdz にする（tools/structures/creature_rig.mjs で Tripo のリグ・動作、creature_bake.py で書き出し。legs 4 / 2 は Tripo のリグを使わず自前の骨と手付けの動作、0 は Tripo の人型リグの動作。yaw はリグ側の向きなので size.yaw と別）。",
+  "style": "Single 3D game asset concept render for a stylized fantasy x sci-fi mobile MOBA (Mobile Legends: Bang Bang / Honor of Kings art direction): hand-painted stylized PBR textures, chunky readable silhouette, clean bevelled shapes, polished gold/brass metal combined with deep navy-blue enamel armor plates, and glowing cyan-blue crystal energy as the accent color (the team color). Show exactly ONE object, whole and uncropped, centered, three-quarter view from slightly above (about 30 degrees), isolated on a plain flat light-grey (#d8d8d8) background, evenly lit, no ground plane, no cast shadow on the background, no other objects, no particles, no text, no frame. Original design (do not copy any existing game asset).",
+  "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_tower.jpg",
+  "assets": [
+    {
+      "id": "tower",
+      "use": "タワー（外塔・内塔・基地塔で共用）の本体。頂部の結晶球は tower_orb（浮遊・回転・破壊で落下）",
+      "provider": "tripo",
+      "faces": 5000,
+      "useStyleReference": true,
+      "size": {
+        "height": 4.35
+      },
+      "prompt": "a lane defense guard tower: a wide round stepped base platform made of gold/brass and navy-blue metal with four short curved brass pipe feet around its rim and small glowing cyan light gems set into the rim; from its center rises a tall tapering dark navy-blue clockwork column wrapped with gold gear rings and spiral grooves, a large golden cog wheel mounted on one side of the column and a slim vertical brass lever arm on the other side; at the very top an open four-pronged golden claw cradle pointing upward that is EMPTY (nothing inside or above it: no orb, no crystal, no ball). Total height about 1.5 times the base diameter."
+    },
+    {
+      "id": "tower_orb",
+      "use": "タワー頂部の浮遊する結晶球（チーム色。回転・上下・破壊で落下）",
+      "provider": "tripo",
+      "faces": 900,
+      "size": {
+        "height": 1.15,
+        "origin": "center",
+        "texture": 512
+      },
+      "prompt": "a floating spherical crystal orb power core: a faceted glowing cyan-blue gemstone sphere (low-poly faceted surface, bright glowing inner light) held inside two thin crossing golden ring bands, with a small ornate golden cap on the top and the bottom of the sphere. Nothing else.",
+      "textureQuality": "standard"
+    },
+    {
+      "id": "core_base",
+      "use": "本拠地（Core）の台座。中央の結晶は core_crystal",
+      "provider": "tripo",
+      "faces": 5500,
+      "size": {
+        "diameter": 6.8
+      },
+      "prompt": "the base platform of a MOBA team's home crystal nexus: a large wide circular stepped pedestal of pale cream stone with gold trim and deep navy-blue enamel panels, six short golden mechanical pylons evenly spaced around the outer rim, each pylon topped with a small glowing cyan crystal, glowing cyan rune lines inlaid in the steps, and a raised round central socket in the middle that is EMPTY (nothing on it: no crystal, no orb). Wide and low: the height is about one quarter of the diameter."
+    },
+    {
+      "id": "core_crystal",
+      "use": "本拠地（Core）の浮遊する大結晶（チーム色。回転・上下・破壊で落下）",
+      "provider": "tripo",
+      "faces": 1800,
+      "size": {
+        "height": 3.3,
+        "origin": "center"
+      },
+      "prompt": "a giant floating energy crystal for a MOBA base nexus: one big tall double-pointed faceted gem crystal (elongated octahedron shape), glowing bright cyan-blue from inside with lighter cyan-white facet edges, several smaller crystal shards clustered around its waist, and an ornate golden band with navy-blue inlays around its middle. Nothing else, no base, no stand."
+    },
+    {
+      "id": "minion_melee",
+      "use": "近接ミニオン（剣と盾の兵士）",
+      "provider": "tripo",
+      "faces": 2200,
+      "size": {
+        "height": 1.15,
+        "texture": 512,
+        "yaw": 120
+      },
+      "prompt": "a small sturdy armored soldier minion with chibi proportions (big head about one third of the height): a stocky little knight in gold-trimmed navy-blue plate armor, a round helmet with a glowing cyan visor slit, a round navy-blue shield with a gold rim on the left arm, a short broad sword held down at the right side, standing in a neutral pose, full body including feet.",
+      "textureQuality": "standard"
+    },
+    {
+      "id": "minion_ranged",
+      "use": "遠隔ミニオン（杖を持つ魔術師）",
+      "provider": "tripo",
+      "faces": 2000,
+      "size": {
+        "height": 1.2,
+        "texture": 512,
+        "yaw": 90
+      },
+      "prompt": "a small robed mage minion with chibi proportions: a hooded navy-blue robe with gold trim and a pointed hood, the face hidden in shadow with two glowing cyan eyes, holding a slim golden staff topped with a glowing cyan crystal upright in the right hand, the robe flares out at the bottom like a bell (no visible legs), full body.",
+      "textureQuality": "standard"
+    },
+    {
+      "id": "minion_siege",
+      "use": "攻城ミニオン（大砲の車）",
+      "provider": "tripo",
+      "faces": 2400,
+      "size": {
+        "length": 1.35,
+        "texture": 512,
+        "yaw": 135
+      },
+      "prompt": "a small siege cannon war machine minion: a compact four-wheeled cart built of dark wood and brass with navy-blue armored side plates and gold trim, one big brass cannon barrel on top pointing forward, a glowing cyan crystal power core mounted on the back, four chunky round wheels. Seen from the front-left three-quarter view so the cannon points toward the lower left."
+    },
+    {
+      "id": "tower_outer",
+      "use": "外塔（1 番目のタワー）。部品に分けて書き出す（part_plinth / part_lower / part_upper / part_crown / part_crystal）",
+      "provider": "tripo",
+      "faces": 5200,
+      "conceptSource": "build/tower_redesign/outer_blue.png",
+      "size": {
+        "height": 5.4,
+        "maxRadius": 1.9,
+        "yaw": -90
+      },
+      "prompt": "Approved master design (build/tower_redesign/, tools/structures/redesign.json): ancient grey-green granite ruins with moss, dark aged bronze fittings, team-color crystal and rune channels as the only glowing parts. OUTER lane tower: square 2-step plinth with four corner posts, slim tapered square pillar with two bronze bands and rune channels, four curved stone fangs cradling a floating crystal, one banner.",
+      "budget": 6000,
+      "parts": {
+        "notes": "高さは正規化後の m。台座の上面 0.75 の少し上（竪穴の中の支柱だけ切る）、下の帯（1.45〜1.7）と旗（2.0〜）の間、上の帯（〜3.85）の上",
+        "faces": 4700,
+        "cuts": [
+          {
+            "z": 0.8,
+            "radius": 0.9,
+            "shaft": true
+          },
+          {
+            "z": 1.95
+          },
+          {
+            "z": 3.9
+          }
+        ],
+        "rules": [
+          {
+            "part": "part_crystal",
+            "minGlow": 0.6,
+            "minZ": 4.0,
+            "maxRadius": 0.4
+          },
+          {
+            "part": "part_crown",
+            "minZ": 3.9
+          },
+          {
+            "part": "part_upper",
+            "minZ": 1.95
+          },
+          {
+            "part": "part_lower",
+            "minZ": 0.8,
+            "maxRadius": 0.9
+          },
+          {
+            "part": "part_plinth"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tower_inner",
+      "use": "内塔（2 番目）。部品に分けて書き出す",
+      "provider": "tripo",
+      "faces": 5200,
+      "conceptSource": "build/tower_redesign/inner_blue.png",
+      "size": {
+        "height": 5.2,
+        "maxRadius": 2.1,
+        "yaw": -90
+      },
+      "prompt": "Approved master design (build/tower_redesign/, tools/structures/redesign.json): ancient grey-green granite ruins with moss, dark aged bronze fittings, team-color crystal and rune channels as the only glowing parts. INNER lane tower: octagonal 3-step plinth, thick octagonal pillar, two curved buttress arches with banners, a broken stone halo ring on bronze arms holding a crystal cluster.",
+      "budget": 6000,
+      "parts": {
+        "notes": "八角の台座が広いので maxRadius で足跡を抑える（高さ約 4.57 m）。控え壁の弧・旗・鎖・弧の金具は台座側に残す（radius 1.0 の外は切らない。高さ 2.52 m より下で中心から 0.69 m より外の塊は台座）",
+        "cuts": [
+          {
+            "z": 2.1,
+            "radius": 1.0
+          },
+          {
+            "z": 3.25
+          }
+        ],
+        "rules": [
+          {
+            "part": "part_crystal",
+            "minGlow": 0.6,
+            "minZ": 3.3,
+            "maxRadius": 0.6
+          },
+          {
+            "part": "part_crown",
+            "minZ": 3.25
+          },
+          {
+            "part": "part_plinth",
+            "maxZ": 2.52,
+            "minRadius": 0.69
+          },
+          {
+            "part": "part_upper",
+            "minZ": 2.1,
+            "maxRadius": 1.0
+          },
+          {
+            "part": "part_lower",
+            "minZ": 0.9,
+            "maxRadius": 1.0
+          },
+          {
+            "part": "part_plinth"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tower_base",
+      "use": "基地塔（3 番目）。部品に分けて書き出す",
+      "provider": "tripo",
+      "faces": 5200,
+      "conceptSource": "build/tower_redesign/base_blue.png",
+      "size": {
+        "height": 5.4,
+        "maxRadius": 2.4,
+        "yaw": -90
+      },
+      "prompt": "Approved master design (build/tower_redesign/, tools/structures/redesign.json): ancient grey-green granite ruins with moss, dark aged bronze fittings, team-color crystal and rune channels as the only glowing parts. BASE tower: wide square 3-step plinth, massive keep with four corner columns, crenellated parapet with four bronze spires around a large floating crystal and small shards, two banners.",
+      "budget": 6000,
+      "parts": {
+        "notes": "台座が最も広いので maxRadius で足跡を抑える（高さ約 4.66 m）。壁・角柱・胸壁は別の殻なので切るのは柱の中ほどだけ。天守の中は空洞で内側の面が無い壁もあるので、切り口は全体の凸包でも塞ぐ（hull）",
+        "cuts": [
+          {
+            "z": 2.0,
+            "hull": true
+          }
+        ],
+        "rules": [
+          {
+            "part": "part_crystal",
+            "minGlow": 0.6,
+            "minZ": 3.3,
+            "maxRadius": 0.8
+          },
+          {
+            "part": "part_crown",
+            "minZ": 3.2
+          },
+          {
+            "part": "part_upper",
+            "minZ": 2.0
+          },
+          {
+            "part": "part_lower",
+            "minZ": 0.55
+          },
+          {
+            "part": "part_plinth"
+          }
+        ]
+      }
+    },
+    {
+      "id": "star_core",
+      "use": "Star Core（本拠地）。部品に分けて書き出す（part_plinth = 聖域の台座と祭壇、part_upper = 石柱・弧・輪、part_crystal = 大結晶）",
+      "provider": "tripo",
+      "faces": 7800,
+      "conceptSource": "build/tower_redesign/core_blue.png",
+      "size": {
+        "diameter": 7.0,
+        "yaw": -90
+      },
+      "prompt": "Approved master design (build/tower_redesign/, tools/structures/redesign.json): ancient grey-green granite ruins with moss, dark aged bronze fittings, team-color crystal and rune channels as the only glowing parts. STAR CORE: wide round 3-step sanctuary platform with four stairways and glowing rune circles, six monoliths with small crystals and banners, a central altar socket, two broken stone arches and a bronze ring around a giant floating crystal cluster.",
+      "budget": 8500,
+      "parts": {
+        "notes": "殻が分かれているので切らない。上端 1.5 m 以上（石柱・弧・輪）と弧の根元の金具（重心 1.1 m 以上、中心から 1.2〜1.9 m）が part_upper、中央の光る塊が part_crystal、残り（台座・祭壇・弧の台石）が part_plinth",
+        "cuts": [],
+        "rules": [
+          {
+            "part": "part_crystal",
+            "minGlow": 0.6,
+            "minZ": 1.0,
+            "maxRadius": 1.0
+          },
+          {
+            "part": "part_upper",
+            "minTop": 1.5
+          },
+          {
+            "part": "part_upper",
+            "minZ": 1.1,
+            "minRadius": 1.2,
+            "maxRadius": 1.9
+          },
+          {
+            "part": "part_plinth"
+          }
+        ]
+      }
+    },
+    {
+      "id": "monster_turtle",
+      "use": "中立ボス astralWyrm（タートル）の見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 5000,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_turtle.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the big blue turtle on the right). Recreate a creature with the same overall design language (proportions, shell plating, colors, beard, horned helmet) as a clean standalone concept render, but as your own original variation; ignore the UI, the arena and the other character",
+      "size": {
+        "length": 4.6,
+        "yaw": 140
+      },
+      "prompt": "a giant ancient sea-turtle guardian boss monster for a MOBA jungle: a massive quadruped turtle standing on four thick stumpy clawed legs, a huge high-domed shell made of large glossy deep-teal/ocean-blue hexagonal plates outlined with raised bronze-orange ridges and short spikes along the rim, a long thick neck, a wise old head with a long flowing white beard and white mane on its chest, wearing an ornate teal-and-bronze horned helmet crown with one tall curved horn, glowing blue eyes, bronze armored plates on the legs and the front of the shell, a short spiky tail. Side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 140,
+        "legs": 4
+      }
+    },
+    {
+      "id": "monster_lord",
+      "use": "中立ボス ancientColossus（ロード）の見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 6000,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_lord.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the giant blue water titan holding a trident). Recreate a creature with the same overall design language (proportions, gold armor, water body, trident) as a clean standalone concept render, but as your own original variation; ignore the UI, the arena and the other character",
+      "size": {
+        "height": 4.8,
+        "yaw": 110
+      },
+      "prompt": "a colossal water-elemental titan lord boss for a MOBA: a hulking muscular humanoid giant whose body is made of translucent glowing deep-blue water and ice, broad massive shoulders and huge fists, wearing ornate heavy golden armor (a tall spiked golden crown-helmet with swept-back fins, big golden pauldrons with blade-like flares, a golden chest plate and belt), the lower body dissolving into a swirling column of water instead of legs, holding upright in its right hand a very long dark staff topped with a large glowing icy-blue trident head with gold trim. Front three-quarter view, full body, standing upright.",
+      "creature": {
+        "yaw": 90,
+        "legs": 0
+      }
+    },
+    {
+      "id": "monster_red",
+      "use": "赤バフ redSentinel（紅焔の番人）の見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 4500,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_redbuff.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the orange flaming lion-like beast on the right). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 3.8,
+        "yaw": 0
+      },
+      "prompt": "a fiery red-buff jungle guardian beast for a MOBA: a powerful lion-like quadruped demon beast with a huge mane of stylized orange-yellow flame-shaped spikes, dark brown-red scaly hide with glowing orange cracks, bronze armor plates on its shoulders and back, big curved claws, glowing orange eyes, a fierce fanged snout, a flame-tipped tail. Standing in a neutral relaxed pose on four legs that are clearly separated from each other and from the body, mouth closed, tail extended straight behind (not curled around the body), side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 124,
+        "legs": 4
+      }
+    },
+    {
+      "id": "monster_purple",
+      "use": "紫バフ（青バフ）blueSentinel（蒼晶の番人）の見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 4500,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_purplebuff.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the large purple-blue winged dragon beast). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 4.2,
+        "yaw": 0
+      },
+      "prompt": "an arcane purple-buff jungle guardian beast for a MOBA: an elegant slender wolf-dragon quadruped with lavender-purple and pale violet scales and fur, long feathered fin-like wings folded along its back sweeping upward, a long head with two swept-back horns and a white-violet mane, glowing magenta eyes, translucent violet fin crests on its legs, a long feathered tail. Standing in a neutral relaxed pose on four legs that are clearly separated from each other and from the body, mouth closed, tail extended straight behind (not curled around the body), side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 137,
+        "legs": 4
+      }
+    },
+    {
+      "id": "monster_whelp",
+      "use": "紫バフの仔 azureWhelp（蒼晶の仔。倒すと回復）の見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 2500,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_purplebuff.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the small purple cub creature at the bottom, next to the big dragon). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 1.6,
+        "yaw": 0
+      },
+      "prompt": "a small cute baby purple-buff whelp creature for a MOBA: a chubby little wolf-dragon cub quadruped with lavender-purple scales and fluffy pale violet fur, oversized head with big glowing violet eyes, two tiny nub horns, small folded fin wings, short sturdy legs, a fluffy short tail. Standing in a neutral relaxed pose on four legs that are clearly separated from each other and from the body, mouth closed, tail extended straight behind (not curled around the body), side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 141,
+        "legs": 4
+      }
+    },
+    {
+      "id": "monster_wanderer",
+      "use": "川の苔甲の徘徊者 mossWanderer（倒すと回復）の見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 2500,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_lithowanderer.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the small green leafy creature standing in the river on the right). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 1.5,
+        "yaw": 0
+      },
+      "prompt": "a small harmless river spirit creature for a MOBA: a round chubby little creature with a big bulbous body covered by a huge leafy green moss-and-leaf shell like a lettuce bud, a glowing cyan-teal crystal core peeking out from between the leaves, a small grey stone face with two tiny glowing eyes, two short stubby grey stone legs. Standing in a neutral pose with the legs clearly separated, side three-quarter view, facing left.",
+      "creature": {
+        "yaw": 180,
+        "legs": 2
+      }
+    },
+    {
+      "id": "monster_golem",
+      "use": "熔岩の岩人 magmaGolemの見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 4500,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_rockgolem.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the rock golem with a glowing lava core on the right). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "height": 2.3,
+        "yaw": 0
+      },
+      "prompt": "a hulking rock golem jungle monster for a MOBA: a massive humanoid made of chunky grey-brown boulders held together, a molten glowing orange-red lava core with an X-shaped crack in its chest, huge heavy boulder fists and long arms, short thick legs, a small head sunk between huge rock shoulders, moss patches on top of the rocks. Standing in a neutral A-pose with the arms held clearly away from the body and the legs apart, front three-quarter view, full body.",
+      "creature": {
+        "yaw": 90,
+        "legs": 0
+      }
+    },
+    {
+      "id": "monster_beetle",
+      "use": "熾甲虫 emberBeetleの見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 4000,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_beetle.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the crimson beetle-like creature with a flaming crest). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 2.2,
+        "yaw": 0
+      },
+      "prompt": "a fire beetle jungle monster for a MOBA: a crimson-red armored insect beast with a glossy segmented carapace, a big flame-shaped crest of orange-yellow fire plumes and pale violet crystal fins rising from its back, six spindly crimson legs with dark claw tips, a small head with two curved mandibles and glowing orange eyes. Standing in a neutral relaxed pose with all legs clearly separated from each other and from the body, side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 135,
+        "legs": 4
+      }
+    },
+    {
+      "id": "monster_grub",
+      "use": "熾甲虫の幼体 emberGrubの見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 2500,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_beetle.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the crimson beetle-like creature with a flaming crest; make a tiny cute baby larva version of it). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 0.9,
+        "yaw": 0
+      },
+      "prompt": "a tiny cute baby fire beetle larva for a MOBA: a chubby round crimson-red grub with a soft segmented body, a small glowing orange flame tuft on its back, six very short stubby legs, big round glowing orange eyes, tiny mandibles. Standing in a neutral relaxed pose with all legs clearly separated from each other and from the body, side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 135,
+        "legs": 4
+      }
+    },
+    {
+      "id": "monster_crab",
+      "use": "宝殻蟹 treasureCrabの見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 4000,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_crab.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the bronze crab carrying a crystal and a scroll on its back). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 2.2,
+        "yaw": 0
+      },
+      "prompt": "a treasure crab jungle monster for a MOBA: a sturdy bronze-orange crab with a wide flat shell, carrying on its back a bundle of a rolled golden parchment scroll strapped with brass bands and a cluster of glowing violet-blue crystals, two big pincers raised slightly, six pointed walking legs, small eyes on stalks. Standing in a neutral relaxed pose with all legs clearly separated from each other and from the body, side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 120,
+        "legs": 4
+      }
+    },
+    {
+      "id": "monster_crablet",
+      "use": "宝殻蟹の子 crabletの見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 2500,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_crab.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the bronze crab carrying a crystal and a scroll on its back; make a tiny cute baby version of it). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 0.9,
+        "yaw": 0
+      },
+      "prompt": "a tiny cute baby treasure crab for a MOBA: a small round bronze-orange crab with oversized googly eyes on stalks, one small glowing violet crystal and a tiny gold coin pouch on its back, two little pincers, six short pointed legs. Standing in a neutral relaxed pose with all legs clearly separated from each other and from the body, side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 160,
+        "legs": 4
+      }
+    },
+    {
+      "id": "monster_lizard",
+      "use": "棘角トカゲ hornLizardの見た目。チーム色なし",
+      "provider": "tripo",
+      "faces": 4000,
+      "styleReference": "/Users/i4rp/gh2/vel-refs/mlbb_lizard.png",
+      "referenceNote": "the attached screenshot shows the reference creature (the pink-headed blue spiky lizard creature on the left). Recreate a creature with the same overall design language (body shape, proportions, colors, materials) as a clean standalone concept render, but as your own original variation; ignore the UI, the hero character, the terrain and any other creature",
+      "size": {
+        "length": 2.4,
+        "yaw": 0
+      },
+      "prompt": "a spiny horned lizard jungle monster for a MOBA: a lean quadruped lizard with dark teal-blue scaly body, a row of long translucent pale-blue spikes along its back and tail, a big frilled magenta-pink head crest with fins and two horns, glowing pink eyes, a long spiky tail, four clawed legs. Standing in a neutral relaxed pose with all legs clearly separated from each other and from the body, side three-quarter view showing the whole body, head facing left.",
+      "creature": {
+        "yaw": 133,
+        "legs": 4
+      }
+    }
+  ]
+}

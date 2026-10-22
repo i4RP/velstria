@@ -171,7 +171,7 @@ struct CurrencyStoreView: View {
 
     private func balanceRow(_ label: String, _ amount: Int, color: Color) -> some View {
         HStack {
-            Image(systemName: "diamond.fill").font(.system(size: 10)).foregroundStyle(color)
+            CurrencyIcon(kind: color == Theme.cyan ? .gem : .paidGem, size: 12)
             Text(label).font(Theme.body(12)).foregroundStyle(Theme.textSecondary)
             Spacer()
             Text(amount.formatted()).font(Theme.mono(13)).foregroundStyle(Theme.textPrimary).monospacedDigit()
@@ -226,7 +226,7 @@ struct StoreGemPackCard: View {
                     .frame(height: 46)
                     .padding(.top, 18)
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Image(systemName: "diamond.fill").font(.system(size: 11)).foregroundStyle(Theme.cyan)
+                    CurrencyIcon(kind: .gem, size: 14)
                     Text(product.gems.formatted())
                         .font(.system(size: 20, weight: .heavy, design: .rounded))
                         .foregroundStyle(Theme.textPrimary)

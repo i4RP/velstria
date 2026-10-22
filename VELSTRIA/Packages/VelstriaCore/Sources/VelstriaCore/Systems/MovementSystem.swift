@@ -38,13 +38,10 @@ public enum MovementSystem {
         if hasMinions { separateMinions(&s, ctx) }
     }
 
-    /// 現在の移動速度（ヒーローは非戦闘時に outOfCombatMoveSpeedBonus の割合を加算）。
+    /// 現在の移動速度（ワールドの単位/秒）。非戦闘時の装備の加速は StatCalculator がほかの加速と合わせて足してある
+    /// （MLBB の移動速度の式は加速の合計）。
     public static func currentMoveSpeed(_ s: SimState, _ i: Int) -> Double {
-        var speed = s.units[i].stats.moveSpeed
-        if s.units[i].kind == .hero, s.time - s.units[i].lastCombatTime > Balance.combatTimeout {
-            speed *= 1 + max(0, s.units[i].stats.outOfCombatMoveSpeedBonus)
-        }
-        return max(0, speed)
+        max(0, s.units[i].stats.moveSpeed)
     }
 
     // MARK: - 強制移動
@@ -90,16 +87,13 @@ public enum MovementSystem {
     }
 
     /// ノックバック（障害物・マップ端の手前で止まる）。構造物は動かない。
-    /// overWallsFrom を渡すと壁を越える（着地点が壁の中なら、その点の側へ戻って最初の歩行可能点）。
     public static func knockback(_ s: inout SimState, _ ctx: SimContext, unitIndex i: Int, direction: Vec2,
-                                 distance: Double, duration: Double, overWallsFrom anchor: Vec2? = nil) {
+                                 distance: Double, duration: Double) {
         guard s.units[i].isAlive, !s.units[i].isStructure, distance > 0 else { return }
         let dir = direction.normalized
         guard dir != .zero else { return }
         let from = s.units[i].pos
-        let goal = from + dir * distance
-        let to = anchor.map { ctx.nav.blinkLanding(from: $0, to: goal, radius: s.units[i].radius) }
-            ?? ctx.nav.raycast(from: from, to: goal, radius: s.units[i].radius)
+        let to = ctx.nav.raycast(from: from, to: from + dir * distance, radius: s.units[i].radius)
         let d = Displacement(kind: .knockback, from: from, to: to, duration: duration)
         s.units[i].displacement = d
         s.units[i].windupRemaining = nil

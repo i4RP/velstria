@@ -1,0 +1,110 @@
+name: FX Capture
+
+# スキル演出の比較撮影（docs/vfx/）。fxcap-* のタグの push（または手動）で、シミュレータ用の Debug をビルドし、練習場で
+# 10 体のスキルを撃って戦闘画面を撮り、成果物に保存する（tools/fx_capture/run_ci.sh）。TestFlight への配信はしない。
+# タグの push はブランチの push ではないので、TestFlight のワークフロー（branches-ignore だけを書いている）は動かない。
+on:
+  push:
+    tags: ["fxcap-*"]
+  workflow_dispatch:
+    inputs:
+      heroes:
+        description: 撮るヒーロー（空白区切り）
+        default: "H025 H026 H027 H028 H029 H030 H031 H032 H033 H034"
+      presets:
+        description: カメラの組（legacy / mlbb、空白区切り）
+        default: "legacy mlbb"
+
+concurrency:
+  group: fx-capture-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: スキル演出の撮影
+    runs-on: macos-26
+    timeout-minutes: 150
+    env:
+      HEROES: ${{ inputs.heroes || 'H025 H026 H027 H028 H029 H030 H031 H032 H033 H034' }}
+      PRESETS: ${{ inputs.presets || 'legacy mlbb' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # タグの名前で絞れる: fxcap-<名前>--H029_H030@mlbb（-- の後 = ヒーロー、@ の後 = カメラの組。どちらも _ 区切り）
+      - name: 撮る範囲
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          spec="$TAG"
+          if [[ "$spec" == *"@"* ]]; then
+            echo "PRESETS=${spec##*@}" | tr '_' ' ' >> "$GITHUB_ENV"
+            spec="${spec%@*}"
+          fi
+          if [[ "$spec" == *"--"* ]]; then
+            echo "HEROES=${spec##*--}" | tr '_' ' ' >> "$GITHUB_ENV"
+          fi
+          # 名前に probe を含むタグは、スキルの代わりに部品の種類を 1 つずつ足して撮る（描画の切り分け）
+          if [[ "$TAG" == *probe* ]]; then echo "PROBE=1" >> "$GITHUB_ENV"; fi
+          # 名前に moving を含むタグは、撮る間も粒子を止めない（粒子が映るかの切り分け）
+          if [[ "$TAG" == *moving* ]]; then echo "MOVING=1" >> "$GITHUB_ENV"; fi
+          # 名前に motion を含むタグは、全身のモーションの確認（細かい時刻・体の横が見える向き・通常攻撃）
+          if [[ "$TAG" == *motion* ]]; then echo "MOTION=1" >> "$GITHUB_ENV"; fi
+          # 名前に clean を含むタグは、判定の形の線（docs/vfx/RANGES.md。撮影では既定で出す）を出さない
+          if [[ "$TAG" == *clean* ]]; then echo "NOHITSHAPES=1" >> "$GITHUB_ENV"; fi
+          # 名前に angleNN を含むタグは、人形を北から NN 度東へ回した所に見て撃つ（MLBB の画面収録の右上へ撃つ場面に合わせる）
+          if [[ "$TAG" =~ angle([0-9]+) ]]; then echo "ANGLE=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"; fi
+          cat "$GITHUB_ENV" || true
+
+      - name: ツール準備
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
+          xcodebuild -version
+          brew install xcodegen
+
+      - name: シミュレータ用にビルド
+        working-directory: VELSTRIA
+        run: |
+          xcodegen generate --quiet
+          mkdir -p build
+          xcodebuild build -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO > build/xcodebuild.log 2>&1 || true
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" build/xcodebuild.log | head -80 || true
+          grep -q "BUILD SUCCEEDED" build/xcodebuild.log
+
+      # 名前に apptests を含むタグは、撮影の前に演出の範囲・スキル演出・演出チェック・Effekseer（後処理の中・段に重ねる効果）・
+      # 全身のモーション（握り・クリップ・軌跡を含む）のアプリのテストも回す（docs/vfx/RANGES.md・docs/EFFEKSEER.md・docs/HERO_MOTION.md。
+      # 結果は成果物の apptests.log。落ちても撮影は続ける）
+      - name: 演出のアプリのテスト（apptests のタグだけ）
+        if: contains(github.ref_name, 'apptests')
+        working-directory: VELSTRIA
+        run: |
+          mkdir -p build/fxcapture
+          xcodebuild test -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' -destination-timeout 120 \
+            -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO \
+            -only-testing:VELSTRIATests/SkillFXRangeTests -only-testing:VELSTRIATests/SkillFXTests \
+            -only-testing:VELSTRIATests/FXCheckTests -only-testing:VELSTRIATests/EffekseerPostTests \
+            -only-testing:VELSTRIATests/EffekseerKitStackTests -only-testing:VELSTRIATests/HeroFullBodyMotionTests \
+            -only-testing:VELSTRIATests/HeroGripTests -only-testing:VELSTRIATests/HeroMotionClipTests \
+            -only-testing:VELSTRIATests/HeroWeaponTrailTests -only-testing:VELSTRIATests/EmpoweredAttackFXTests \
+            -only-testing:VELSTRIATests/BattleFeelTests -only-testing:VELSTRIATests/AudioFilesTests > build/fxcapture/apptests.log 2>&1 || echo "アプリのテストが落ちた（apptests.log）"
+          grep -E "error:|Test Case .*(passed|failed)|Executed|TEST (SUCCEEDED|FAILED)" build/fxcapture/apptests.log | tail -120 || true
+          # テストの後のシミュレータを止める（撮影は起動し直したシミュレータで。テストの残りで画面の撮影が遅くならないように）
+          xcrun simctl shutdown all || true
+
+      - name: 撮影
+        working-directory: VELSTRIA
+        run: bash tools/fx_capture/run_ci.sh
+
+      - name: 撮影結果を保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fx-capture-${{ github.run_id }}-${{ github.run_attempt }}
+          path: VELSTRIA/build/fxcapture
+          if-no-files-found: warn
+          retention-days: 30

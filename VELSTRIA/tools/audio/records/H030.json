@@ -1,0 +1,151 @@
+{
+ "skill_H030_passive.caf": {
+  "kind": "passive",
+  "note": "砲口の小さな火花 + 細かい放電 + 撃鉄の金属音",
+  "seconds": 0.3,
+  "sources": [
+   "2017 / Gamemaster Audio -  Gun Sound Pack",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H030_s1_cast.caf": {
+  "kind": "cast",
+  "note": "撃鉄と放電の溜め → 0.1 秒の発射（機関砲・放電の弾け・戦車砲の低音）→ 飛ぶ弾の放電",
+  "seconds": 0.7,
+  "sources": [
+   "2016 / Fascinated Sound - The Gun Locker SFX Pack",
+   "2017 / Double Trouble Audio - Tanks and Jet",
+   "2017 / Gamemaster Audio -  Gun Sound Pack",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H030_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "放電の弾け + 弾が体に当たる音 + 低い芯 + 火花",
+  "seconds": 0.46,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2020 / PMSFX - Bullet Bys &Impacts",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H030_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "放電の弾け + 弾が体に当たる音 + 低い芯 + 火花",
+  "seconds": 0.57,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2020 / PMSFX - Bullet Bys &Impacts",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H030_s1_hit_3.caf": {
+  "kind": "hit",
+  "note": "放電の弾け + 弾が体に当たる音 + 低い芯 + 火花",
+  "seconds": 0.44,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2020 / PMSFX - Bullet Bys &Impacts",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H030_s2_cast.caf": {
+  "kind": "cast",
+  "note": "装填 → 0.1 秒の発射（空気砲・榴弾砲の低音）→ 飛ぶ球の電気のうなり",
+  "seconds": 0.66,
+  "sources": [
+   "2016 / TS Sound - 12 Gauge Shotgun",
+   "2017 / RedSonic - Hums Light Machines",
+   "2018 / Wakerone - Electric Deluxe",
+   "2019 / Airborne Sound - Battlefield Howitzers",
+   "2023 / Dramatic Cat - Potato Gun – Pipe-based Cannon"
+  ]
+ },
+ "skill_H030_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "放電の大きな弾け + 爆発 + 砲弾の着弾 + 放電の尾 + 低音",
+  "seconds": 0.57,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / Airborne Sound - Battlefield Howitzers",
+   "2023 / Gladestock Studios - Naval Warfare",
+   "2024 / BluezoneCorp - High Voltage",
+   "2024 / DavidDumais - Explosion SFX Pack"
+  ]
+ },
+ "skill_H030_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "放電の大きな弾け + 爆発 + 砲弾の着弾 + 放電の尾 + 低音",
+  "seconds": 0.6,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / Airborne Sound - Battlefield Howitzers",
+   "2023 / Gladestock Studios - Naval Warfare",
+   "2024 / BluezoneCorp - High Voltage",
+   "2024 / DavidDumais - Explosion SFX Pack"
+  ]
+ },
+ "skill_H030_s2_hit_3.caf": {
+  "kind": "hit",
+  "note": "放電の大きな弾け + 爆発 + 砲弾の着弾 + 放電の尾 + 低音",
+  "seconds": 0.54,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / Airborne Sound - Battlefield Howitzers",
+   "2023 / Gladestock Studios - Naval Warfare",
+   "2024 / BluezoneCorp - High Voltage",
+   "2024 / DavidDumais - Explosion SFX Pack"
+  ]
+ },
+ "skill_H030_ult_cast.caf": {
+  "kind": "ult",
+  "note": "砲身を引く → 変圧器のうなりと放電の溜め → 0.55 秒の発射（戦車砲・放電・榴弾砲）→ ビームの放電 → 砲の尾",
+  "seconds": 1.8,
+  "sources": [
+   "2016 / TS Sound - 12 Gauge Shotgun",
+   "2017 / Double Trouble Audio - Tanks and Jet",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2018 / Wakerone - Electric Deluxe",
+   "2019 / Airborne Sound - Battlefield Howitzers",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H030_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "放電の弾け + 体の打撃 + 着弾の低音 + 放電の尾",
+  "seconds": 0.51,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2020 / PMSFX - Bullet Bys &Impacts",
+   "2023 / Gladestock Studios - Naval Warfare",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H030_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "放電の弾け + 体の打撃 + 着弾の低音 + 放電の尾",
+  "seconds": 0.49,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2020 / PMSFX - Bullet Bys &Impacts",
+   "2023 / Gladestock Studios - Naval Warfare",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ },
+ "skill_H030_ult_hit_3.caf": {
+  "kind": "hit",
+  "note": "放電の弾け + 体の打撃 + 着弾の低音 + 放電の尾",
+  "seconds": 0.46,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2020 / PMSFX - Bullet Bys &Impacts",
+   "2023 / Gladestock Studios - Naval Warfare",
+   "2024 / BluezoneCorp - High Voltage"
+  ]
+ }
+}

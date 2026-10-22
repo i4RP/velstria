@@ -1,0 +1,1962 @@
+{
+ "skill_H001_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H001 城門の誓衛アルデン（holy・sword） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.74,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2019 / Airborne Sound - Airy Whooshes"
+  ]
+ },
+ "skill_H001_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H001 城門の誓衛アルデン（holy・sword） S1 の命中: 属性の当たり",
+  "seconds": 0.63,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "skill_H001_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H001 城門の誓衛アルデン（holy・sword） S1 の命中: 属性の当たり",
+  "seconds": 0.63,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "skill_H001_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H001 城門の誓衛アルデン（holy・sword） S2: 属性の放ち + 風切り",
+  "seconds": 0.62,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2019 / Airborne Sound - Airy Whooshes"
+  ]
+ },
+ "skill_H001_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H001 城門の誓衛アルデン（holy・sword） S2 の命中: 属性の当たり",
+  "seconds": 0.67,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "skill_H001_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H001 城門の誓衛アルデン（holy・sword） S2 の命中: 属性の当たり",
+  "seconds": 0.67,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "skill_H001_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H001 城門の誓衛アルデン（holy・sword） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.53,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2020 / Soundopolis - Bowed Cymbal 2 HD",
+   "2024 / Orbital Emitter - Cinematic Transitions for Editors Volume 2"
+  ]
+ },
+ "skill_H001_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H001 城門の誓衛アルデン（holy・sword） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2024 / Orbital Emitter - Cinematic Transitions for Editors Volume 2"
+  ]
+ },
+ "skill_H001_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H001 城門の誓衛アルデン（holy・sword） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2024 / Orbital Emitter - Cinematic Transitions for Editors Volume 2"
+  ]
+ },
+ "skill_H002_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H002 星弦のリラ（crystal・sword） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.44,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2024 / Mechanical Wave - Glass"
+  ]
+ },
+ "skill_H002_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H002 星弦のリラ（crystal・sword） S1 の命中: 属性の当たり",
+  "seconds": 0.46,
+  "sources": [
+   "2017 / Double Trouble Audio - Shards"
+  ]
+ },
+ "skill_H002_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H002 星弦のリラ（crystal・sword） S1 の命中: 属性の当たり",
+  "seconds": 0.4,
+  "sources": [
+   "2017 / Double Trouble Audio - Shards"
+  ]
+ },
+ "skill_H002_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H002 星弦のリラ（crystal・sword） S2: 属性の放ち + 風切り",
+  "seconds": 0.44,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2024 / Mechanical Wave - Glass"
+  ]
+ },
+ "skill_H002_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H002 星弦のリラ（crystal・sword） S2 の命中: 属性の当たり",
+  "seconds": 0.49,
+  "sources": [
+   "2017 / Double Trouble Audio - Shards"
+  ]
+ },
+ "skill_H002_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H002 星弦のリラ（crystal・sword） S2 の命中: 属性の当たり",
+  "seconds": 0.43,
+  "sources": [
+   "2017 / Double Trouble Audio - Shards"
+  ]
+ },
+ "skill_H002_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H002 星弦のリラ（crystal・sword） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.37,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2017 / Raconteur Sound - Crystal Glasses- Tones and Drones_",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "skill_H002_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H002 星弦のリラ（crystal・sword） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.69,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "skill_H002_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H002 星弦のリラ（crystal・sword） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "skill_H003_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H003 月弓のフィリエル（moon・bow） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.73,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2024 / Mechanical Wave - Glass"
+  ]
+ },
+ "skill_H003_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H003 月弓のフィリエル（moon・bow） S1 の命中: 属性の当たり",
+  "seconds": 0.48,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H003_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H003 月弓のフィリエル（moon・bow） S1 の命中: 属性の当たり",
+  "seconds": 0.58,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H003_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H003 月弓のフィリエル（moon・bow） S2: 属性の放ち + 風切り",
+  "seconds": 0.66,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2024 / Mechanical Wave - Glass"
+  ]
+ },
+ "skill_H003_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H003 月弓のフィリエル（moon・bow） S2 の命中: 属性の当たり",
+  "seconds": 0.51,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H003_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H003 月弓のフィリエル（moon・bow） S2 の命中: 属性の当たり",
+  "seconds": 0.61,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H003_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H003 月弓のフィリエル（moon・bow） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.49,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2017 / Raconteur Sound - Crystal Glasses- Tones and Drones_",
+   "2019 / Prismo Sound - Singing Bowls"
+  ]
+ },
+ "skill_H003_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H003 月弓のフィリエル（moon・bow） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Prismo Sound - Singing Bowls"
+  ]
+ },
+ "skill_H003_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H003 月弓のフィリエル（moon・bow） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Prismo Sound - Singing Bowls"
+  ]
+ },
+ "skill_H004_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H004 潮祈のミレア（water・magic_water） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.52,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "skill_H004_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H004 潮祈のミレア（water・magic_water） S1 の命中: 属性の当たり",
+  "seconds": 0.5,
+  "sources": [
+   "2020 / Articulated Sounds - Magic Elements vol.2"
+  ]
+ },
+ "skill_H004_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H004 潮祈のミレア（water・magic_water） S1 の命中: 属性の当たり",
+  "seconds": 0.5,
+  "sources": [
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "skill_H004_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H004 潮祈のミレア（water・magic_water） S2: 属性の放ち + 風切り",
+  "seconds": 0.53,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "skill_H004_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H004 潮祈のミレア（water・magic_water） S2 の命中: 属性の当たり",
+  "seconds": 0.53,
+  "sources": [
+   "2020 / Articulated Sounds - Magic Elements vol.2"
+  ]
+ },
+ "skill_H004_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H004 潮祈のミレア（water・magic_water） S2 の命中: 属性の当たり",
+  "seconds": 0.53,
+  "sources": [
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "skill_H004_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H004 潮祈のミレア（water・magic_water） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.59,
+  "sources": [
+   "2017 / Chris Skyes - The Black Sea",
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "skill_H004_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H004 潮祈のミレア（water・magic_water） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "skill_H004_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H004 潮祈のミレア（water・magic_water） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / Bluezone - Splash"
+  ]
+ },
+ "skill_H005_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H005 黒雷のヴォス（lightning・magic_lightning） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.46,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "skill_H005_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H005 黒雷のヴォス（lightning・magic_lightning） S1 の命中: 属性の当たり",
+  "seconds": 0.39,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "skill_H005_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H005 黒雷のヴォス（lightning・magic_lightning） S1 の命中: 属性の当たり",
+  "seconds": 0.39,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "skill_H005_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H005 黒雷のヴォス（lightning・magic_lightning） S2: 属性の放ち + 風切り",
+  "seconds": 0.52,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "skill_H005_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H005 黒雷のヴォス（lightning・magic_lightning） S2 の命中: 属性の当たり",
+  "seconds": 0.41,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "skill_H005_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H005 黒雷のヴォス（lightning・magic_lightning） S2 の命中: 属性の当たり",
+  "seconds": 0.41,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "skill_H005_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H005 黒雷のヴォス（lightning・magic_lightning） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.75,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2017 / RedSonic - Hums Light Machines",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "skill_H005_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H005 黒雷のヴォス（lightning・magic_lightning） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H005_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H005 黒雷のヴォス（lightning・magic_lightning） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H006_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H006 月灯のセレン（moon・dual） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.66,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2024 / Mechanical Wave - Glass"
+  ]
+ },
+ "skill_H006_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H006 月灯のセレン（moon・dual） S1 の命中: 属性の当たり",
+  "seconds": 0.52,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H006_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H006 月灯のセレン（moon・dual） S1 の命中: 属性の当たり",
+  "seconds": 0.52,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H006_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H006 月灯のセレン（moon・dual） S2: 属性の放ち + 風切り",
+  "seconds": 0.6,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2024 / Mechanical Wave - Glass"
+  ]
+ },
+ "skill_H006_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H006 月灯のセレン（moon・dual） S2 の命中: 属性の当たり",
+  "seconds": 0.56,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H006_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H006 月灯のセレン（moon・dual） S2 の命中: 属性の当たり",
+  "seconds": 0.56,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H006_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H006 月灯のセレン（moon・dual） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.41,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2017 / Raconteur Sound - Crystal Glasses- Tones and Drones_",
+   "2019 / Prismo Sound - Singing Bowls"
+  ]
+ },
+ "skill_H006_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H006 月灯のセレン（moon・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Prismo Sound - Singing Bowls"
+  ]
+ },
+ "skill_H006_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H006 月灯のセレン（moon・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Prismo Sound - Singing Bowls"
+  ]
+ },
+ "skill_H007_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H007 岩脈のガルク（earth・fist） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.57,
+  "sources": [
+   "2017 / Mechanical Wave - Rock,Brick and Dirt - Part 02",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H007_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H007 岩脈のガルク（earth・fist） S1 の命中: 属性の当たり",
+  "seconds": 0.55,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt"
+  ]
+ },
+ "skill_H007_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H007 岩脈のガルク（earth・fist） S1 の命中: 属性の当たり",
+  "seconds": 0.55,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt"
+  ]
+ },
+ "skill_H007_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H007 岩脈のガルク（earth・fist） S2: 属性の放ち + 風切り",
+  "seconds": 0.64,
+  "sources": [
+   "2017 / Mechanical Wave - Rock,Brick and Dirt - Part 02",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H007_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H007 岩脈のガルク（earth・fist） S2 の命中: 属性の当たり",
+  "seconds": 0.59,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt"
+  ]
+ },
+ "skill_H007_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H007 岩脈のガルク（earth・fist） S2 の命中: 属性の当たり",
+  "seconds": 0.59,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt"
+  ]
+ },
+ "skill_H007_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H007 岩脈のガルク（earth・fist） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.76,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2024 / BluezoneCorp - Alien Tripod"
+  ]
+ },
+ "skill_H007_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H007 岩脈のガルク（earth・fist） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H007_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H007 岩脈のガルク（earth・fist） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H008_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H008 風標のニア（wind・spear） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.5,
+  "sources": [
+   "2024 / Rescopic Sound - Distinct Whooshes"
+  ]
+ },
+ "skill_H008_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H008 風標のニア（wind・spear） S1 の命中: 属性の当たり",
+  "seconds": 0.39,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Organic Whooshes"
+  ]
+ },
+ "skill_H008_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H008 風標のニア（wind・spear） S1 の命中: 属性の当たり",
+  "seconds": 0.37,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Organic Whooshes"
+  ]
+ },
+ "skill_H008_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H008 風標のニア（wind・spear） S2: 属性の放ち + 風切り",
+  "seconds": 0.5,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Articulated Sounds - Magic Elements vol.1"
+  ]
+ },
+ "skill_H008_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H008 風標のニア（wind・spear） S2 の命中: 属性の当たり",
+  "seconds": 0.52,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Organic Whooshes"
+  ]
+ },
+ "skill_H008_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H008 風標のニア（wind・spear） S2 の命中: 属性の当たり",
+  "seconds": 0.52,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Organic Whooshes"
+  ]
+ },
+ "skill_H008_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H008 風標のニア（wind・spear） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.38,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2024 / Rescopic Sound - Distinct Whooshes",
+   "2026 / 344 Audio - Elemental Palette Designed Vol. 1"
+  ]
+ },
+ "skill_H008_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H008 風標のニア（wind・spear） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2024 / Rescopic Sound - Distinct Whooshes"
+  ]
+ },
+ "skill_H008_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H008 風標のニア（wind・spear） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2024 / Rescopic Sound - Distinct Whooshes"
+  ]
+ },
+ "skill_H009_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H009 機巧士オリン（mech・crossbow） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.47,
+  "sources": [
+   "2017 / Fascinated Sound - Scene Shop Tool Box",
+   "2017 / Gamemaster Audio -  Gun Sound Pack"
+  ]
+ },
+ "skill_H009_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H009 機巧士オリン（mech・crossbow） S1 の命中: 属性の当たり",
+  "seconds": 0.45,
+  "sources": [
+   "2015 / Mechanical Wave - Undoing-Computer"
+  ]
+ },
+ "skill_H009_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H009 機巧士オリン（mech・crossbow） S1 の命中: 属性の当たり",
+  "seconds": 0.44,
+  "sources": [
+   "2024 / Pole Position - The Metal Hit Sweeteners Library"
+  ]
+ },
+ "skill_H009_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H009 機巧士オリン（mech・crossbow） S2: 属性の放ち + 風切り",
+  "seconds": 0.47,
+  "sources": [
+   "2017 / Fascinated Sound - Scene Shop Tool Box",
+   "2017 / Gamemaster Audio -  Gun Sound Pack",
+   "2019 / Airborne Sound - Airy Whooshes"
+  ]
+ },
+ "skill_H009_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H009 機巧士オリン（mech・crossbow） S2 の命中: 属性の当たり",
+  "seconds": 0.48,
+  "sources": [
+   "2015 / Mechanical Wave - Undoing-Computer"
+  ]
+ },
+ "skill_H009_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H009 機巧士オリン（mech・crossbow） S2 の命中: 属性の当たり",
+  "seconds": 0.47,
+  "sources": [
+   "2024 / Pole Position - The Metal Hit Sweeteners Library"
+  ]
+ },
+ "skill_H009_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H009 機巧士オリン（mech・crossbow） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.45,
+  "sources": [
+   "2017 / Hzandbits - Elegant Machines",
+   "2018 / Airborne Sound - Variety 1 Sound Effects",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library"
+  ]
+ },
+ "skill_H009_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H009 機巧士オリン（mech・crossbow） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2018 / Airborne Sound - Variety 1 Sound Effects",
+   "2019 / Baxter Audio - IMPACT",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library"
+  ]
+ },
+ "skill_H009_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H009 機巧士オリン（mech・crossbow） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2018 / Airborne Sound - Variety 1 Sound Effects",
+   "2019 / Baxter Audio - IMPACT",
+   "2024 / Pole Position - The Metal Hit Sweeteners Library"
+  ]
+ },
+ "skill_H010_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H010 焔冠のテッサ（fire・magic_fire） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.57,
+  "sources": [
+   "2018 / Soundrangers - Whooshes And Transitions",
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks"
+  ]
+ },
+ "skill_H010_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H010 焔冠のテッサ（fire・magic_fire） S1 の命中: 属性の当たり",
+  "seconds": 0.57,
+  "sources": [
+   "2018 / Gregor Quendel – Designed Fire"
+  ]
+ },
+ "skill_H010_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H010 焔冠のテッサ（fire・magic_fire） S1 の命中: 属性の当たり",
+  "seconds": 0.63,
+  "sources": [
+   "2018 / Gregor Quendel – Designed Fire"
+  ]
+ },
+ "skill_H010_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H010 焔冠のテッサ（fire・magic_fire） S2: 属性の放ち + 風切り",
+  "seconds": 0.62,
+  "sources": [
+   "2018 / Soundrangers - Whooshes And Transitions",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Sound Spark LLC – Magic Spells, Buffs and Attacks"
+  ]
+ },
+ "skill_H010_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H010 焔冠のテッサ（fire・magic_fire） S2 の命中: 属性の当たり",
+  "seconds": 0.61,
+  "sources": [
+   "2018 / Gregor Quendel – Designed Fire"
+  ]
+ },
+ "skill_H010_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H010 焔冠のテッサ（fire・magic_fire） S2 の命中: 属性の当たり",
+  "seconds": 0.67,
+  "sources": [
+   "2018 / Gregor Quendel – Designed Fire"
+  ]
+ },
+ "skill_H010_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H010 焔冠のテッサ（fire・magic_fire） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.54,
+  "sources": [
+   "2018 / Gregor Quendel – Designed Fire",
+   "2024 / DavidDumais - Explosion SFX Pack"
+  ]
+ },
+ "skill_H010_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H010 焔冠のテッサ（fire・magic_fire） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2018 / Gregor Quendel – Designed Fire",
+   "2019 / Baxter Audio - IMPACT",
+   "2024 / DavidDumais - Explosion SFX Pack"
+  ]
+ },
+ "skill_H010_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H010 焔冠のテッサ（fire・magic_fire） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2018 / Gregor Quendel – Designed Fire",
+   "2019 / Baxter Audio - IMPACT",
+   "2024 / DavidDumais - Explosion SFX Pack"
+  ]
+ },
+ "skill_H011_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H011 鉄翼のルーク（metal・magic_light） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.55,
+  "sources": [
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H011_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H011 鉄翼のルーク（metal・magic_light） S1 の命中: 属性の当たり",
+  "seconds": 0.42,
+  "sources": [
+   "2024 / Pole Position - The Metal Hit Sweeteners Library"
+  ]
+ },
+ "skill_H011_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H011 鉄翼のルーク（metal・magic_light） S1 の命中: 属性の当たり",
+  "seconds": 0.53,
+  "sources": [
+   "2019 / BlueZone - Heavy Metal Impact Sound Effects"
+  ]
+ },
+ "skill_H011_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H011 鉄翼のルーク（metal・magic_light） S2: 属性の放ち + 風切り",
+  "seconds": 0.62,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H011_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H011 鉄翼のルーク（metal・magic_light） S2 の命中: 属性の当たり",
+  "seconds": 0.44,
+  "sources": [
+   "2024 / Pole Position - The Metal Hit Sweeteners Library"
+  ]
+ },
+ "skill_H011_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H011 鉄翼のルーク（metal・magic_light） S2 の命中: 属性の当たり",
+  "seconds": 0.56,
+  "sources": [
+   "2019 / BlueZone - Heavy Metal Impact Sound Effects"
+  ]
+ },
+ "skill_H011_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H011 鉄翼のルーク（metal・magic_light） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.58,
+  "sources": [
+   "2019 / Airborne Sound - Elements Metal",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2024 / Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts"
+  ]
+ },
+ "skill_H011_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H011 鉄翼のルーク（metal・magic_light） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.69,
+  "sources": [
+   "2019 / Airborne Sound - Elements Metal",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "skill_H011_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H011 鉄翼のルーク（metal・magic_light） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.69,
+  "sources": [
+   "2019 / Airborne Sound - Elements Metal",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "skill_H012_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H012 玻璃歌のエリネ（crystal・dual） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.41,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2024 / Mechanical Wave - Glass"
+  ]
+ },
+ "skill_H012_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H012 玻璃歌のエリネ（crystal・dual） S1 の命中: 属性の当たり",
+  "seconds": 0.43,
+  "sources": [
+   "2017 / Double Trouble Audio - Shards"
+  ]
+ },
+ "skill_H012_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H012 玻璃歌のエリネ（crystal・dual） S1 の命中: 属性の当たり",
+  "seconds": 0.38,
+  "sources": [
+   "2017 / Double Trouble Audio - Shards"
+  ]
+ },
+ "skill_H012_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H012 玻璃歌のエリネ（crystal・dual） S2: 属性の放ち + 風切り",
+  "seconds": 0.42,
+  "sources": [
+   "2016 / George Karagioules - The Source Collection SFX Pack",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2024 / Mechanical Wave - Glass"
+  ]
+ },
+ "skill_H012_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H012 玻璃歌のエリネ（crystal・dual） S2 の命中: 属性の当たり",
+  "seconds": 0.46,
+  "sources": [
+   "2017 / Double Trouble Audio - Shards"
+  ]
+ },
+ "skill_H012_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H012 玻璃歌のエリネ（crystal・dual） S2 の命中: 属性の当たり",
+  "seconds": 0.4,
+  "sources": [
+   "2017 / Double Trouble Audio - Shards"
+  ]
+ },
+ "skill_H012_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H012 玻璃歌のエリネ（crystal・dual） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.33,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2017 / Raconteur Sound - Crystal Glasses- Tones and Drones_",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "skill_H012_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H012 玻璃歌のエリネ（crystal・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.68,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "skill_H012_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H012 玻璃歌のエリネ（crystal・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.69,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "skill_H013_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H013 獣刻のダガン（beast・hammer） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.75,
+  "sources": [
+   "2015 / Coll Anderson - Dog",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H013_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H013 獣刻のダガン（beast・hammer） S1 の命中: 属性の当たり",
+  "seconds": 0.5,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H013_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H013 獣刻のダガン（beast・hammer） S1 の命中: 属性の当たり",
+  "seconds": 0.5,
+  "sources": [
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "skill_H013_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H013 獣刻のダガン（beast・hammer） S2: 属性の放ち + 風切り",
+  "seconds": 0.86,
+  "sources": [
+   "2015 / Coll Anderson - Dog",
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Airy Whooshes"
+  ]
+ },
+ "skill_H013_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H013 獣刻のダガン（beast・hammer） S2 の命中: 属性の当たり",
+  "seconds": 0.53,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H013_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H013 獣刻のダガン（beast・hammer） S2 の命中: 属性の当たり",
+  "seconds": 0.53,
+  "sources": [
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "skill_H013_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H013 獣刻のダガン（beast・hammer） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.65,
+  "sources": [
+   "2015 / Coll Anderson - Dog",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "skill_H013_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H013 獣刻のダガン（beast・hammer） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2019 / Baxter Audio - IMPACT",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "skill_H013_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H013 獣刻のダガン（beast・hammer） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2019 / Baxter Audio - IMPACT",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "skill_H014_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H014 霧歩のシオ（mist・dual） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.33,
+  "sources": [
+   "2017 / Fascinated Sound - Scene Shop Tool Box",
+   "2019 / Airborne Sound - Airy Whooshes"
+  ]
+ },
+ "skill_H014_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H014 霧歩のシオ（mist・dual） S1 の命中: 属性の当たり",
+  "seconds": 0.27,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2019 / Airborne Sound - Organic Whooshes"
+  ]
+ },
+ "skill_H014_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H014 霧歩のシオ（mist・dual） S1 の命中: 属性の当たり",
+  "seconds": 0.28,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2019 / Airborne Sound - Organic Whooshes"
+  ]
+ },
+ "skill_H014_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H014 霧歩のシオ（mist・dual） S2: 属性の放ち + 風切り",
+  "seconds": 0.36,
+  "sources": [
+   "2017 / Fascinated Sound - Scene Shop Tool Box",
+   "2019 / Airborne Sound - Airy Whooshes"
+  ]
+ },
+ "skill_H014_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H014 霧歩のシオ（mist・dual） S2 の命中: 属性の当たり",
+  "seconds": 0.29,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2019 / Airborne Sound - Organic Whooshes"
+  ]
+ },
+ "skill_H014_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H014 霧歩のシオ（mist・dual） S2 の命中: 属性の当たり",
+  "seconds": 0.32,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2019 / Airborne Sound - Organic Whooshes"
+  ]
+ },
+ "skill_H014_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H014 霧歩のシオ（mist・dual） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.35,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2019 / Airborne Sound - Airy Whooshes"
+  ]
+ },
+ "skill_H014_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H014 霧歩のシオ（mist・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.64,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H014_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H014 霧歩のシオ（mist・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.65,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H015_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H015 戦鐘のヴァルカ（bell・gun） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.99,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01"
+  ]
+ },
+ "skill_H015_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H015 戦鐘のヴァルカ（bell・gun） S1 の命中: 属性の当たり",
+  "seconds": 0.7,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H015_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H015 戦鐘のヴァルカ（bell・gun） S1 の命中: 属性の当たり",
+  "seconds": 0.7,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H015_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H015 戦鐘のヴァルカ（bell・gun） S2: 属性の放ち + 風切り",
+  "seconds": 1.0,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2019 / Airborne Sound - Airy Whooshes"
+  ]
+ },
+ "skill_H015_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H015 戦鐘のヴァルカ（bell・gun） S2 の命中: 属性の当たり",
+  "seconds": 0.7,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H015_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H015 戦鐘のヴァルカ（bell・gun） S2 の命中: 属性の当たり",
+  "seconds": 0.7,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2017 / Gamemaster Audio -  Punch Sound Pack"
+  ]
+ },
+ "skill_H015_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H015 戦鐘のヴァルカ（bell・gun） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.85,
+  "sources": [
+   "2016 / Fascinated Sound - The Gun Locker SFX Pack",
+   "2020 / Eiravaein Works - 48Kilos"
+  ]
+ },
+ "skill_H015_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H015 戦鐘のヴァルカ（bell・gun） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2016 / Fascinated Sound - The Gun Locker SFX Pack",
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / Eiravaein Works - 48Kilos"
+  ]
+ },
+ "skill_H015_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H015 戦鐘のヴァルカ（bell・gun） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2016 / Fascinated Sound - The Gun Locker SFX Pack",
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / Eiravaein Works - 48Kilos"
+  ]
+ },
+ "skill_H016_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H016 白環のイリス（holy・magic_light） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.64,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2019 / Airborne Sound - Airy Whooshes"
+  ]
+ },
+ "skill_H016_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H016 白環のイリス（holy・magic_light） S1 の命中: 属性の当たり",
+  "seconds": 0.46,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "skill_H016_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H016 白環のイリス（holy・magic_light） S1 の命中: 属性の当たり",
+  "seconds": 0.39,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "skill_H016_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H016 白環のイリス（holy・magic_light） S2: 属性の放ち + 風切り",
+  "seconds": 0.53,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2019 / Airborne Sound - Airy Whooshes"
+  ]
+ },
+ "skill_H016_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H016 白環のイリス（holy・magic_light） S2 の命中: 属性の当たり",
+  "seconds": 0.57,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "skill_H016_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H016 白環のイリス（holy・magic_light） S2 の命中: 属性の当たり",
+  "seconds": 0.57,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "skill_H016_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H016 白環のイリス（holy・magic_light） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.39,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2020 / Soundopolis - Bowed Cymbal 2 HD",
+   "2024 / Orbital Emitter - Cinematic Transitions for Editors Volume 2"
+  ]
+ },
+ "skill_H016_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H016 白環のイリス（holy・magic_light） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2024 / Orbital Emitter - Cinematic Transitions for Editors Volume 2"
+  ]
+ },
+ "skill_H016_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H016 白環のイリス（holy・magic_light） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2024 / Orbital Emitter - Cinematic Transitions for Editors Volume 2"
+  ]
+ },
+ "skill_H017_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H017 深淵鎖のモルド（dark・magic_dark） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.67,
+  "sources": [
+   "2020 / Conor Bradley - Metal Chains",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "skill_H017_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H017 深淵鎖のモルド（dark・magic_dark） S1 の命中: 属性の当たり",
+  "seconds": 0.54,
+  "sources": [
+   "2016 / 3maze - High Impact"
+  ]
+ },
+ "skill_H017_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H017 深淵鎖のモルド（dark・magic_dark） S1 の命中: 属性の当たり",
+  "seconds": 0.54,
+  "sources": [
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes"
+  ]
+ },
+ "skill_H017_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H017 深淵鎖のモルド（dark・magic_dark） S2: 属性の放ち + 風切り",
+  "seconds": 0.81,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2020 / Conor Bradley - Metal Chains",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "skill_H017_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H017 深淵鎖のモルド（dark・magic_dark） S2 の命中: 属性の当たり",
+  "seconds": 0.58,
+  "sources": [
+   "2016 / 3maze - High Impact"
+  ]
+ },
+ "skill_H017_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H017 深淵鎖のモルド（dark・magic_dark） S2 の命中: 属性の当たり",
+  "seconds": 0.58,
+  "sources": [
+   "2020 / SmartSoundFX - Impacts, Hits & Whooshes"
+  ]
+ },
+ "skill_H017_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H017 深淵鎖のモルド（dark・magic_dark） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.63,
+  "sources": [
+   "2019 / BlueZone - Cinematic Dark Sound Effects",
+   "2023 / InspectorJ - Essentials 04 Chains",
+   "2024 / Jake Fielding - Haunted Metal Vol.1 - Cinematic Hits & Impacts"
+  ]
+ },
+ "skill_H017_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H017 深淵鎖のモルド（dark・magic_dark） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / BlueZone - Cinematic Dark Sound Effects",
+   "2023 / InspectorJ - Essentials 04 Chains"
+  ]
+ },
+ "skill_H017_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H017 深淵鎖のモルド（dark・magic_dark） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / BlueZone - Cinematic Dark Sound Effects",
+   "2023 / InspectorJ - Essentials 04 Chains"
+  ]
+ },
+ "skill_H018_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H018 花星のセリア（nature・dual） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.52,
+  "sources": [
+   "2018 / Soundrangers - Foley Elements Foliage",
+   "2019 / Eiravaein Works - Helina"
+  ]
+ },
+ "skill_H018_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H018 花星のセリア（nature・dual） S1 の命中: 属性の当たり",
+  "seconds": 0.33,
+  "sources": [
+   "2018 / Soundrangers - Foley Elements Foliage"
+  ]
+ },
+ "skill_H018_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H018 花星のセリア（nature・dual） S1 の命中: 属性の当たり",
+  "seconds": 0.36,
+  "sources": [
+   "2018 / Soundrangers - Foley Elements Foliage"
+  ]
+ },
+ "skill_H018_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H018 花星のセリア（nature・dual） S2: 属性の放ち + 風切り",
+  "seconds": 0.53,
+  "sources": [
+   "2018 / Soundrangers - Foley Elements Foliage",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Eiravaein Works - Helina"
+  ]
+ },
+ "skill_H018_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H018 花星のセリア（nature・dual） S2 の命中: 属性の当たり",
+  "seconds": 0.35,
+  "sources": [
+   "2018 / Soundrangers - Foley Elements Foliage"
+  ]
+ },
+ "skill_H018_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H018 花星のセリア（nature・dual） S2 の命中: 属性の当たり",
+  "seconds": 0.38,
+  "sources": [
+   "2018 / Soundrangers - Foley Elements Foliage"
+  ]
+ },
+ "skill_H018_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H018 花星のセリア（nature・dual） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.1,
+  "sources": [
+   "2018 / Soundrangers - Foley Elements Foliage",
+   "2019 / Eiravaein Works - Helina",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "skill_H018_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H018 花星のセリア（nature・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.55,
+  "sources": [
+   "2018 / Soundrangers - Foley Elements Foliage",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "skill_H018_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H018 花星のセリア（nature・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.59,
+  "sources": [
+   "2018 / Soundrangers - Foley Elements Foliage",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts"
+  ]
+ },
+ "skill_H019_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H019 砦砕のブラム（earth・hammer） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.6,
+  "sources": [
+   "2017 / Mechanical Wave - Rock,Brick and Dirt - Part 02",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H019_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H019 砦砕のブラム（earth・hammer） S1 の命中: 属性の当たり",
+  "seconds": 0.59,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt"
+  ]
+ },
+ "skill_H019_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H019 砦砕のブラム（earth・hammer） S1 の命中: 属性の当たり",
+  "seconds": 0.59,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt"
+  ]
+ },
+ "skill_H019_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H019 砦砕のブラム（earth・hammer） S2: 属性の放ち + 風切り",
+  "seconds": 0.68,
+  "sources": [
+   "2017 / Mechanical Wave - Rock,Brick and Dirt - Part 02",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H019_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H019 砦砕のブラム（earth・hammer） S2 の命中: 属性の当たり",
+  "seconds": 0.62,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt"
+  ]
+ },
+ "skill_H019_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H019 砦砕のブラム（earth・hammer） S2 の命中: 属性の当たり",
+  "seconds": 0.62,
+  "sources": [
+   "2015 / Mechanical Wave - Rock Brick and Dirt"
+  ]
+ },
+ "skill_H019_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H019 砦砕のブラム（earth・hammer） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.83,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2024 / BluezoneCorp - Alien Tripod"
+  ]
+ },
+ "skill_H019_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H019 砦砕のブラム（earth・hammer） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H019_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H019 砦砕のブラム（earth・hammer） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / 344 Audio - Low Frequency Elements",
+   "2019 / Articulated Sounds - Magic Elements vol.1",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H020_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H020 光矢のユナ（holy・sword） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.6,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2019 / Airborne Sound - Airy Whooshes"
+  ]
+ },
+ "skill_H020_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H020 光矢のユナ（holy・sword） S1 の命中: 属性の当たり",
+  "seconds": 0.43,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "skill_H020_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H020 光矢のユナ（holy・sword） S1 の命中: 属性の当たり",
+  "seconds": 0.36,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "skill_H020_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H020 光矢のユナ（holy・sword） S2: 属性の放ち + 風切り",
+  "seconds": 0.5,
+  "sources": [
+   "2015 / Soundopolis - Percussion 01",
+   "2019 / Airborne Sound - Airy Whooshes"
+  ]
+ },
+ "skill_H020_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H020 光矢のユナ（holy・sword） S2 の命中: 属性の当たり",
+  "seconds": 0.46,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "skill_H020_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H020 光矢のユナ（holy・sword） S2 の命中: 属性の当たり",
+  "seconds": 0.39,
+  "sources": [
+   "2017 / Gamemaster Audio -  Punch Sound Pack",
+   "2019 / Airborne Sound - Crisis Accents"
+  ]
+ },
+ "skill_H020_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H020 光矢のユナ（holy・sword） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.34,
+  "sources": [
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2020 / Soundopolis - Bowed Cymbal 2 HD",
+   "2024 / Orbital Emitter - Cinematic Transitions for Editors Volume 2"
+  ]
+ },
+ "skill_H020_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H020 光矢のユナ（holy・sword） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2024 / Orbital Emitter - Cinematic Transitions for Editors Volume 2"
+  ]
+ },
+ "skill_H020_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H020 光矢のユナ（holy・sword） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Federico Soler Fernández - Effective Trailer Hits & Impacts",
+   "2024 / Orbital Emitter - Cinematic Transitions for Editors Volume 2"
+  ]
+ },
+ "skill_H021_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H021 時砂のキロス（sand・gun） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.52,
+  "sources": [
+   "2016 / Colin Lechner - Colinized Cuckoo Clock Library",
+   "2019 / Matt Script - You Me & Debris"
+  ]
+ },
+ "skill_H021_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H021 時砂のキロス（sand・gun） S1 の命中: 属性の当たり",
+  "seconds": 0.42,
+  "sources": [
+   "2017 / Mechanical Wave - Rock,Brick and Dirt - Part 02"
+  ]
+ },
+ "skill_H021_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H021 時砂のキロス（sand・gun） S1 の命中: 属性の当たり",
+  "seconds": 0.43,
+  "sources": [
+   "2019 / Matt Script - You Me & Debris"
+  ]
+ },
+ "skill_H021_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H021 時砂のキロス（sand・gun） S2: 属性の放ち + 風切り",
+  "seconds": 0.58,
+  "sources": [
+   "2016 / Colin Lechner - Colinized Cuckoo Clock Library",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Matt Script - You Me & Debris"
+  ]
+ },
+ "skill_H021_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H021 時砂のキロス（sand・gun） S2 の命中: 属性の当たり",
+  "seconds": 0.45,
+  "sources": [
+   "2017 / Mechanical Wave - Rock,Brick and Dirt - Part 02"
+  ]
+ },
+ "skill_H021_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H021 時砂のキロス（sand・gun） S2 の命中: 属性の当たり",
+  "seconds": 0.45,
+  "sources": [
+   "2019 / Matt Script - You Me & Debris"
+  ]
+ },
+ "skill_H021_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H021 時砂のキロス（sand・gun） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.26,
+  "sources": [
+   "2017 / Gamemaster Audio -  Gun Sound Pack",
+   "2017 / Mechanical Wave - Rock,Brick and Dirt - Part 02",
+   "2023 / Eneas Mentzel - Debris & Rubble"
+  ]
+ },
+ "skill_H021_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H021 時砂のキロス（sand・gun） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.66,
+  "sources": [
+   "2017 / Gamemaster Audio -  Gun Sound Pack",
+   "2017 / Mechanical Wave - Rock,Brick and Dirt - Part 02",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H021_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H021 時砂のキロス（sand・gun） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.68,
+  "sources": [
+   "2017 / Gamemaster Audio -  Gun Sound Pack",
+   "2017 / Mechanical Wave - Rock,Brick and Dirt - Part 02",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H022_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H022 蒼爪のレア（frost・dual） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.42,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2018 / Alexander Kopeikin - The Dry Ice Library"
+  ]
+ },
+ "skill_H022_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H022 蒼爪のレア（frost・dual） S1 の命中: 属性の当たり",
+  "seconds": 0.43,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX"
+  ]
+ },
+ "skill_H022_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H022 蒼爪のレア（frost・dual） S1 の命中: 属性の当たり",
+  "seconds": 0.42,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX"
+  ]
+ },
+ "skill_H022_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H022 蒼爪のレア（frost・dual） S2: 属性の放ち + 風切り",
+  "seconds": 0.41,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2018 / Alexander Kopeikin - The Dry Ice Library",
+   "2019 / Airborne Sound - Airy Whooshes"
+  ]
+ },
+ "skill_H022_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H022 蒼爪のレア（frost・dual） S2 の命中: 属性の当たり",
+  "seconds": 0.46,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX"
+  ]
+ },
+ "skill_H022_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H022 蒼爪のレア（frost・dual） S2 の命中: 属性の当たり",
+  "seconds": 0.45,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX"
+  ]
+ },
+ "skill_H022_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H022 蒼爪のレア（frost・dual） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.5,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Mattia Cellotto - Glacier Ice",
+   "2026 / Alexander Kopeikin - 100 kHz Designed Ice"
+  ]
+ },
+ "skill_H022_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H022 蒼爪のレア（frost・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.69,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Mattia Cellotto - Glacier Ice",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H022_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H022 蒼爪のレア（frost・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2016 / Stuart Duffield - Ice SFX",
+   "2017 / Mattia Cellotto - Glacier Ice",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H023_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H023 雷槍のトレン（lightning・spear） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.41,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "skill_H023_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H023 雷槍のトレン（lightning・spear） S1 の命中: 属性の当たり",
+  "seconds": 0.35,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "skill_H023_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H023 雷槍のトレン（lightning・spear） S1 の命中: 属性の当たり",
+  "seconds": 0.35,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "skill_H023_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H023 雷槍のトレン（lightning・spear） S2: 属性の放ち + 風切り",
+  "seconds": 0.47,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2023 / Rogue Waves - Druid Magic"
+  ]
+ },
+ "skill_H023_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H023 雷槍のトレン（lightning・spear） S2 の命中: 属性の当たり",
+  "seconds": 0.37,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "skill_H023_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H023 雷槍のトレン（lightning・spear） S2 の命中: 属性の当たり",
+  "seconds": 0.37,
+  "sources": [
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "skill_H023_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H023 雷槍のトレン（lightning・spear） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.64,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2017 / RedSonic - Hums Light Machines",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection"
+  ]
+ },
+ "skill_H023_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H023 雷槍のトレン（lightning・spear） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H023_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H023 雷槍のトレン（lightning・spear） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.7,
+  "sources": [
+   "2015 / Soundopolis - Natures Fury_Thunder",
+   "2018 / Hear and Now Sound - High Voltage Electricity - The Essential Collection",
+   "2019 / Baxter Audio - IMPACT"
+  ]
+ },
+ "skill_H024_s1_cast.caf": {
+  "kind": "cast",
+  "note": "H024 夢織のノア（dream・dual） S1: 武器の振り・発射 + 属性の放ち",
+  "seconds": 0.4,
+  "sources": [
+   "2019 / Eiravaein Works - Helina",
+   "2024 / Mechanical Wave - Glass"
+  ]
+ },
+ "skill_H024_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "H024 夢織のノア（dream・dual） S1 の命中: 属性の当たり",
+  "seconds": 0.25,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / George Karagioules - The Source Collection SFX Pack"
+  ]
+ },
+ "skill_H024_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "H024 夢織のノア（dream・dual） S1 の命中: 属性の当たり",
+  "seconds": 0.22,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / George Karagioules - The Source Collection SFX Pack"
+  ]
+ },
+ "skill_H024_s2_cast.caf": {
+  "kind": "cast",
+  "note": "H024 夢織のノア（dream・dual） S2: 属性の放ち + 風切り",
+  "seconds": 0.47,
+  "sources": [
+   "2019 / Airborne Sound - Airy Whooshes",
+   "2019 / Eiravaein Works - Helina",
+   "2024 / Mechanical Wave - Glass"
+  ]
+ },
+ "skill_H024_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "H024 夢織のノア（dream・dual） S2 の命中: 属性の当たり",
+  "seconds": 0.27,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / George Karagioules - The Source Collection SFX Pack"
+  ]
+ },
+ "skill_H024_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "H024 夢織のノア（dream・dual） S2 の命中: 属性の当たり",
+  "seconds": 0.24,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / George Karagioules - The Source Collection SFX Pack"
+  ]
+ },
+ "skill_H024_ult_cast.caf": {
+  "kind": "ult",
+  "note": "H024 夢織のノア（dream・dual） 奥義: 属性の溜め → 武器の会心 + 属性の炸裂",
+  "seconds": 1.19,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2017 / Raconteur Sound - Crystal Glasses- Tones and Drones_",
+   "2019 / Prismo Sound - Singing Bowls"
+  ]
+ },
+ "skill_H024_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "H024 夢織のノア（dream・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.63,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Prismo Sound - Singing Bowls"
+  ]
+ },
+ "skill_H024_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "H024 夢織のノア（dream・dual） 奥義の命中: 属性の炸裂（短く）+ 低い芯",
+  "seconds": 0.69,
+  "sources": [
+   "2015 / Soundopolis - Glass Smash Full",
+   "2019 / Baxter Audio - IMPACT",
+   "2019 / Prismo Sound - Singing Bowls"
+  ]
+ }
+}

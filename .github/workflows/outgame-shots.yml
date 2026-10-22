@@ -1,0 +1,110 @@
+name: Outgame Shots
+
+# 試合の外（ホーム・戦闘準備・ソーシャル）の確認。outgame-* のタグの push（または手動）で、シミュレータ用にビルドし、
+# 試合の外の単体テストを流してから、iPhone SE（667×375）と iPhone 17 Pro Max で OutgameShotsUITests を撮って、
+# スクリーンショットとテスト結果を成果物に保存する。TestFlight への配信はしない
+# （タグの push はブランチの push ではないので、TestFlight のワークフローは動かない）。
+on:
+  push:
+    tags: ["outgame-*"]
+  workflow_dispatch:
+    inputs:
+      tests:
+        description: 撮影の前に流すテスト（-only-testing の値。空白区切り。空なら撮影だけ）
+        default: "VELSTRIATests/HomeScreenTests VELSTRIATests/FlowNameAndOnboardingTests VELSTRIATests/FlowDraftTests VELSTRIATests/FlowMatchModelTests VELSTRIATests/FlowResultTests VELSTRIATests/FlowReviewFixTests VELSTRIATests/FlowLaneAndModeTests VELSTRIATests/FlowDraftHelpTests VELSTRIATests/PublicProfileServiceTests VELSTRIATests/ServicesRankTests VELSTRIATests/ServicesLiveOpsTests VELSTRIATests/OnlineSafetyTests VELSTRIATests/EmblemEconomyTests VELSTRIATests/CollectionLogicTests VELSTRIATests/ReplayLibraryTests VELSTRIATests/SpectateSetupTests VELSTRIATests/SettingsScreensTests VELSTRIATests/MatchMedalTests VELSTRIATests/ServicesSeasonTests VELSTRIATests/ServicesRewardTests VELSTRIATests/OnlineSessionTests VELSTRIATests/OnlineProtocolTests VELSTRIATests/CloudAccountTests"
+
+concurrency:
+  group: outgame-shots-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  shots:
+    name: 試合の外の確認
+    runs-on: macos-26
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: VELSTRIA
+    env:
+      TESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.tests || 'VELSTRIATests/HomeScreenTests VELSTRIATests/FlowNameAndOnboardingTests VELSTRIATests/FlowDraftTests VELSTRIATests/FlowMatchModelTests VELSTRIATests/FlowResultTests VELSTRIATests/FlowReviewFixTests VELSTRIATests/FlowLaneAndModeTests VELSTRIATests/FlowDraftHelpTests VELSTRIATests/PublicProfileServiceTests VELSTRIATests/ServicesRankTests VELSTRIATests/ServicesLiveOpsTests VELSTRIATests/OnlineSafetyTests VELSTRIATests/EmblemEconomyTests VELSTRIATests/CollectionLogicTests VELSTRIATests/ReplayLibraryTests VELSTRIATests/SpectateSetupTests VELSTRIATests/SettingsScreensTests VELSTRIATests/MatchMedalTests VELSTRIATests/ServicesSeasonTests VELSTRIATests/ServicesRewardTests VELSTRIATests/OnlineSessionTests VELSTRIATests/OnlineProtocolTests VELSTRIATests/CloudAccountTests' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ツール準備
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
+          xcodebuild -version
+          brew install xcodegen
+
+      - name: シミュレータを作る（SE 第 3 世代と 17 Pro Max）
+        run: |
+          runtime="$(xcrun simctl list runtimes | grep -E '^iOS ' | grep -v unavailable | tail -n 1 | awk '{print $NF}')"
+          devtype() { xcrun simctl list devicetypes | grep -F "$1 (com.apple" | head -n 1 | sed -E 's/.*\((com\.apple[^)]*)\)$/\1/'; }
+          se_type="$(devtype 'iPhone SE (3rd generation)')"
+          pm_type="$(devtype 'iPhone 17 Pro Max')"
+          echo "runtime=$runtime se=$se_type pm=$pm_type"
+          se="$(xcrun simctl create 'Outgame SE' "$se_type" "$runtime" || true)"
+          pm="$(xcrun simctl create 'Outgame Pro Max' "$pm_type" "$runtime")"
+          echo "SE_ID=$se" >> "$GITHUB_ENV"
+          echo "PM_ID=$pm" >> "$GITHUB_ENV"
+          # 作ったばかりのシミュレータは最初の起動が遅く、テストのホストが立ち上がる前に止まることがある。先に起動しきっておく
+          for id in $pm $se; do xcrun simctl bootstatus "$id" -b > /dev/null || true; done
+
+      - name: テスト用にビルド
+        id: build
+        run: |
+          xcodegen generate --quiet
+          mkdir -p build
+          # ビルドは端末を選ばない汎用のシミュレータで（作ったシミュレータが見つからない不調でも、コンパイルの確かめはできる）
+          xcodebuild build-for-testing -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+            -destination "generic/platform=iOS Simulator" -derivedDataPath build/dd \
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO > build/build.log 2>&1 || true
+          grep -E "error:|\*\* (TEST BUILD|BUILD) (SUCCEEDED|FAILED)" build/build.log | head -100 || true
+          grep -q "TEST BUILD SUCCEEDED" build/build.log
+
+      - name: テスト
+        if: env.TESTS != ''
+        run: |
+          args=()
+          for t in $TESTS; do args+=("-only-testing:$t"); done
+          run() {
+            rm -rf build/OutgameTests.xcresult
+            xcodebuild test-without-building -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+              -destination "platform=iOS Simulator,id=$PM_ID" -derivedDataPath build/dd \
+              -resultBundlePath build/OutgameTests.xcresult "${args[@]}" CODE_SIGNING_ALLOWED=NO 2>&1 | tee build/tests.log
+            return "${PIPESTATUS[0]}"
+          }
+          # テストのホストが立ち上がる前に落ちた時（シミュレータの不調。テストは 1 本も走っていない）だけ 1 回やり直す
+          run || { grep -q "never finished bootstrapping" build/tests.log && run; }
+
+      - name: 撮影（SE と 17 Pro Max）
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          status=0
+          for dev in SE PM; do
+            id_var="${dev}_ID"
+            id="${!id_var}"
+            if [[ -z "$id" ]]; then echo "::warning::$dev のシミュレータを作れなかった"; continue; fi
+            xcodebuild test-without-building -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+              -destination "platform=iOS Simulator,id=$id" -derivedDataPath build/dd \
+              -resultBundlePath "build/OutgameShots-$dev.xcresult" \
+              -only-testing:VELSTRIAUITests/OutgameShotsUITests CODE_SIGNING_ALLOWED=NO || status=1
+            xcrun xcresulttool export attachments --path "build/OutgameShots-$dev.xcresult" \
+              --output-path "build/OutgameShots/$dev" || true
+          done
+          exit $status
+
+      - name: 結果を保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: outgame-shots-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            VELSTRIA/build/OutgameShots
+            VELSTRIA/build/*.xcresult
+            VELSTRIA/build/build.log
+          if-no-files-found: warn
+          retention-days: 14

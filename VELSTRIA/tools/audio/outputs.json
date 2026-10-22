@@ -1,0 +1,58 @@
+{
+ "bgm_draft.m4a": {
+  "note": "ヒーロー選択（ピック）",
+  "seconds": 116.11,
+  "sources": [
+   "battle"
+  ]
+ },
+ "bgm_draft_tense.m4a": {
+  "note": "ヒーロー選択の残り時間が少ない時",
+  "seconds": 64.0,
+  "sources": [
+   "finalstand"
+  ]
+ },
+ "bgm_home_fantasia.m4a": {
+  "note": "ホームの選べる曲「幻想の序曲」",
+  "seconds": 191.69,
+  "sources": [
+   "fantasia"
+  ]
+ },
+ "bgm_home_journey.m4a": {
+  "note": "ホームの選べる曲「宝探しの旅」",
+  "seconds": 65.07,
+  "sources": [
+   "treasure"
+  ]
+ },
+ "bgm_home_legend.m4a": {
+  "note": "ホームの選べる曲「伝説の夜明け」",
+  "seconds": 69.64,
+  "sources": [
+   "legend"
+  ]
+ },
+ "bgm_loading.m4a": {
+  "note": "ロード画面（試合開始へつなぐ）",
+  "seconds": 43.26,
+  "sources": [
+   "introcue"
+  ]
+ },
+ "bgm_lobby.m4a": {
+  "note": "ロビー・パーティ・ヒーロー選択（通常）",
+  "seconds": 57.6,
+  "sources": [
+   "onceupon"
+  ]
+ },
+ "bgm_result.m4a": {
+  "note": "結果画面",
+  "seconds": 74.32,
+  "sources": [
+   "athome"
+  ]
+ }
+}

@@ -243,23 +243,30 @@ struct HeroGearBuilder {
             needle(&b)
             weaponTip = V3(0, 0.52, 0)
         case .dragonSpear:
-            // 竜牙の長槍: 暗い柄・銀の双刃の穂先・左右に張り出す青い竜の鰭・赤い房
-            b.rod(V3(0, -0.5, 0), V3(0, 1.0, 0), 0.025, .dark, segments: 10)
-            b.cone(V3(0, -0.5, 0), V3(0, -0.6, 0), 0.032, .metal)
-            for y: Float in [-0.3, 0.2] { b.torus(V3(0, y, 0), 0.032, 0.011, .metal) }
-            let head: [V2] = [V2(-0.05, 0), V2(0.05, 0), V2(0.07, 0.12), V2(0.045, 0.3), V2(0, 0.52), V2(-0.045, 0.3), V2(-0.07, 0.12)]
-            b.blade(head, depth: 0.03, V3(0, 1.0, 0), .metal)
-            b.rbox(V3(0, 1.2, 0), V3(0.044, 0.34, 0.02), 0.006, .glow)
+            // 竜槍（H027）: 身の丈の 1.6 倍ほどの長槍。暗い柄・金の口金と石突・青緑の竜頭（金の角とたてがみ、橙に光る目）・
+            // 竜の口から伸びる金の炎の穂先（橙の芯）。穂先・たてがみの面は XY（構えで上を向き、上方カメラから広い面が見える）、
+            // 竜頭の上（目・角）は +Z。全長 2.88（weaponScale 1.08 で 3.1m）
+            b.rod(V3(0, -0.62, 0), V3(0, 1.1, 0), 0.03, .dark, segments: 10)
+            b.rod(V3(0, -0.66, 0), V3(0, -0.56, 0), 0.042, .metal, segments: 10)
+            b.cone(V3(0, -0.66, 0), V3(0, -0.84, 0), 0.044, .metal, segments: 8)
+            b.torus(V3(0, -0.5, 0), 0.04, 0.012, .primary, segments: 12, sides: 5)
+            for y: Float in [0.62, 0.98] { b.torus(V3(0, y, 0), 0.04, 0.012, .metal, segments: 12, sides: 5) }
+            b.frustum(V3(0, 1.04, 0), V3(0, 1.16, 0), 0.045, 0.075, .primary, segments: 12)
+            b.ellipsoid(V3(0, 1.24, 0), V3(0.1, 0.14, 0.09), .primary)
+            b.rbox(V3(0, 1.38, 0), V3(0.11, 0.14, 0.09), 0.035, .primary)
             for s: Float in [-1, 1] {
-                let fin: [V2] = [V2(s * 0.05, 0.02), V2(s * 0.21, -0.04), V2(s * 0.15, 0.1), V2(s * 0.19, 0.2), V2(s * 0.05, 0.16)]
-                b.blade(fin, depth: 0.02, V3(0, 0.98, 0), .glow)
+                b.sphere(V3(s * 0.06, 1.3, 0.06), 0.022, .glow, .tiny)
+                b.cone(V3(s * 0.05, 1.3, 0.05), V3(s * 0.12, 1.12, 0.13), 0.03, .metal, segments: 6)
+                let mane: [V2] = [V2(0, 0), V2(s * 0.08, 0.06), V2(s * 0.2, 0.02), V2(s * 0.13, -0.05), V2(s * 0.24, -0.12),
+                                  V2(s * 0.1, -0.12), V2(s * 0.03, -0.08)]
+                b.extrude(mane, depth: 0.025, V3(s * 0.05, 1.24, 0.02), .metal)
             }
-            b.sphere(V3(0, 0.95, 0), 0.045, .accent, .low)
-            for i in 0..<5 {
-                let a = Float(i) / 5 * 2 * .pi
-                b.cone(V3(cos(a) * 0.03, 0.96, sin(a) * 0.03), V3(cos(a) * 0.07, 0.76, sin(a) * 0.07), 0.025, .accent, segments: 5)
-            }
-            weaponTip = V3(0, 1.5, 0)
+            let blade: [V2] = [V2(-0.055, 0), V2(0.055, 0), V2(0.085, 0.12), V2(0.05, 0.22), V2(0.09, 0.3), V2(0.03, 0.5),
+                               V2(0, 0.62), V2(-0.035, 0.46), V2(-0.09, 0.36), V2(-0.05, 0.24), V2(-0.085, 0.12)]
+            b.extrude(blade, depth: 0.035, V3(0, 1.42, 0), .metal)
+            b.extrude([V2(-0.022, 0.04), V2(0.022, 0.04), V2(0.03, 0.26), V2(0, 0.46), V2(-0.03, 0.26)], depth: 0.045,
+                      V3(0, 1.42, 0), .glow)
+            weaponTip = V3(0, 2.0, 0)
         case .stormWand:
             // 雷杖: 細い杖の先に稲妻の矢じりと輪
             b.rod(V3(0, -0.4, 0), V3(0, 0.78, 0), 0.02, .dark, segments: 8)
@@ -271,15 +278,20 @@ struct HeroGearBuilder {
             b.sphere(V3(0, 0.86, 0), 0.035, .glow, .low)
             weaponTip = V3(0, 1.06, 0)
         case .photonBlade:
-            // 光刃の長剣: 発振器の柄から伸びる光の刃（白熱の芯）
+            // 光刃の長剣（H028 ザイル）: 細身の長い黒い刃に赤く光る刃縁と銀の峰・角張った銀の鍔と赤い宝珠。
+            // 刃は XY 面（平らな面が ±Z）に置く。刃筋を ±Z にすると上方カメラが北向き・南向きの刃を真横から見て線になる
             grip(&b, 0.1)
-            b.rbox(V3(0, 0.12, 0), V3(0.06, 0.07, 0.26), 0.02, .metal)
-            b.rod(V3(0, 0.15, 0), V3(0, 0.27, 0), 0.032, .dark, segments: 10)
-            b.torus(V3(0, 0.27, 0), 0.036, 0.01, .glow)
-            let beam: [V2] = [V2(-0.045, 0), V2(0.045, 0), V2(0.05, 0.52), V2(0, 0.72), V2(-0.05, 0.52)]
-            b.blade(beam, depth: 0.03, V3(0, 0.28, 0), .glow)
-            b.rbox(V3(0, 0.62, 0), V3(0.044, 0.56, 0.02), 0.006, .metal)
-            weaponTip = V3(0, 0.98, 0)
+            b.rbox(V3(0, 0.12, 0), V3(0.22, 0.05, 0.07), 0.015, .metal)
+            for s: Float in [-1, 1] {
+                b.extrude([V2(s * 0.1, 0.1), V2(s * 0.16, 0.2), V2(s * 0.07, 0.14)], depth: 0.04, .zero, .metal)
+            }
+            b.sphere(V3(0, 0.12, -0.035), 0.026, .glow, .low)
+            let blade: [V2] = [V2(-0.045, 0), V2(0.05, 0), V2(0.05, 0.86), V2(-0.045, 1.0)]
+            b.extrude(blade, depth: 0.026, V3(0, 0.145, 0), .dark)
+            b.extrude([V2(0.05, 0.02), V2(0.07, 0.02), V2(0.07, 0.86), V2(-0.04, 1.03), V2(-0.045, 1.0), V2(0.05, 0.86)],
+                      depth: 0.032, V3(0, 0.145, 0), .glow)
+            b.box(V3(-0.05, 0.6, 0), V3(0.016, 0.9, 0.034), .metal)
+            weaponTip = V3(0, 1.1, 0)
         case .holyMaul:
             // 聖槌: 片手で振る巨大な大槌。長い柄・青い槌頭（前後の打撃面は金の当て金と金の帯）・上面と側面に聖印。
             // 槌頭は幅 0.36 × 高さ 0.38 × 長さ 0.71（打撃面は ±Z）。上方カメラでも槌頭の上面の聖印が読める
@@ -299,25 +311,25 @@ struct HeroGearBuilder {
             }
             weaponTip = V3(0, 1.08, 0)
         case .starCannon:
-            // 星砲: 背丈ほどの大砲。金の砲身・広がる砲口と光の輪・側面の星・桃の動力球・白い台尻
-            b.rbox(V3(0, -0.2, 0), V3(0.09, 0.3, 0.13), 0.03, .secondary, rot: rx(0.15))
-            b.rbox(V3(0, 0.04, 0), V3(0.13, 0.3, 0.15), 0.035, .metal)
-            b.frustum(V3(0, 0.14, 0), V3(0, 0.7, 0), 0.062, 0.078, .metal, segments: 14)
-            let muzzle: [V2] = [V2(0.078, 0), V2(0.1, 0.04), V2(0.14, 0.1), V2(0.15, 0.13), V2(0.12, 0.13)]
-            b.lathe(muzzle, V3(0, 0.7, 0), .metal, segments: 18)
-            b.torus(V3(0, 0.83, 0), 0.135, 0.016, .glow, segments: 20)
-            b.rod(V3(0, 0.77, 0), V3(0, 0.8, 0), 0.1, .glow, segments: 14)
-            for (y, r) in [(Float(0.26), Float(0.07)), (0.58, 0.08)] { b.torus(V3(0, y, 0), r, 0.014, .accent) }
+            // 星砲（H030 = MLBB の Layla の魔砲）: 背丈を超える大砲（全長 1.6 m 弱 × weaponScale 1.08）。
+            // 紺の台尻・白い砲身の筒と金の帯・上面の水色の動力球と金の輪・左右の光の窓・前へ長く伸びる 2 本の金の砲角と
+            // その間の光の筋・上面後ろの照準の輪。上方カメラでは白と金の太い砲身と上面の水色の球で読む
+            b.rbox(V3(0, -0.4, 0), V3(0.14, 0.26, 0.18), 0.04, .secondary, rot: rx(0.1))
+            b.lathe([V2(0.1, -0.27), V2(0.15, -0.18), V2(0.16, 0.08), V2(0.13, 0.3), V2(0.09, 0.34)], .zero, .cloth,
+                    segments: 16, capBottom: true, capTop: true)
+            for (y, r) in [(Float(-0.16), Float(0.158)), (0.22, 0.148)] { b.torus(V3(0, y, 0), r, 0.02, .metal, segments: 18, sides: 5) }
+            b.sphere(V3(0, 0.04, 0.15), 0.085, .glow)
+            b.torus(V3(0, 0.04, 0.15), 0.1, 0.02, .metal, rot: rx(.pi / 2), segments: 18, sides: 5)
+            let prong: [V2] = [V2(-0.08, 0), V2(0.07, 0), V2(0.05, 0.5), V2(0.0, 0.74), V2(-0.06, 0.5)]
             for s: Float in [-1, 1] {
-                b.extrude(starPolygon(points: 5, outer: 0.11, inner: 0.048), depth: 0.025, V3(s * 0.085, 0.42, 0), .glow,
-                          rot: ry(.pi / 2))
+                b.sphere(V3(s * 0.14, 0.04, 0), 0.055, .glow, .low)
+                b.blade(prong, depth: 0.05, V3(s * 0.085, 0.28, 0), .metal)
             }
-            b.rod(V3(0.075, 0.04, 0), V3(0.095, 0.04, 0), 0.07, .accent, segments: 14)
-            b.rod(V3(0.093, 0.04, 0), V3(0.103, 0.04, 0), 0.035, .glow, segments: 10)
-            b.rod(V3(0, 0.16, 0.09), V3(0, 0.5, 0.09), 0.016, .dark, segments: 6)
-            b.sphere(V3(0, 0.5, 0.09), 0.025, .glow, .low)
-            b.sphere(V3(0, -0.35, 0.03), 0.045, .metal, .low)
-            weaponTip = V3(0, 0.88, 0)
+            b.rbox(V3(0, 0.62, 0), V3(0.035, 0.6, 0.035), 0.012, .glow)
+            b.torus(V3(0, -0.12, 0.2), 0.055, 0.013, .metal, rot: rx(.pi / 2), segments: 14, sides: 5)
+            b.sphere(V3(0, -0.12, 0.2), 0.035, .glow, .low)
+            b.sphere(V3(0, -0.55, 0), 0.05, .metal, .low)
+            weaponTip = V3(0, 1.0, 0)
         case .iceStaff:
             // 氷の杖: 白銀の細い杖の先に大きな氷の結晶（芯は光、外は半透明）と、根元を囲む氷の棘
             b.rod(V3(0, -0.46, 0), V3(0, 0.88, 0), 0.024, .metal)
@@ -344,35 +356,74 @@ struct HeroGearBuilder {
             b.rbox(V3(0, 0.5, 0), V3(0.046, 0.6, 0.026), 0.008, .glow)
             weaponTip = V3(0, 0.9, 0)
         case .bloodGreatsword:
-            // 血の大剣: 両手持ちの巨大な剣。黒鋼の幅広の刃・深紅の血溝と縁・蝙蝠の翼の鍔
-            grip(&b, 0.16)
-            b.rbox(V3(0, 0.19, 0), V3(0.07, 0.06, 0.16), 0.02, .metal)
+            // 魔狩りの大剣（H033 ヴァルド）: 片手で振る巨大な銀の大剣。髑髏の鍔（青く光る目と角）・ギザギザの峰・青く光る樋・
+            // 黒い革巻きの柄と棘の柄頭。刃は XY 面（平らな面が ±Z）に置き、上方カメラ・正面のどちらからも刃の幅が見える向きにする
+            b.rod(V3(0, -0.2, 0), V3(0, 0.16, 0), 0.03, .dark, segments: 10)
+            for y: Float in [-0.12, -0.02, 0.08] { b.torus(V3(0, y, 0), 0.032, 0.008, .metal, segments: 10, sides: 4) }
+            b.sphere(V3(0, -0.23, 0), 0.045, .metal, .low)
+            for i in 0..<3 {
+                let a = Float(i - 1) * 0.6
+                b.cone(V3(0, -0.24, 0), V3(sin(a) * 0.08, -0.34, 0), 0.025, .metal, segments: 6)
+            }
+            b.ellipsoid(V3(0, 0.25, 0), V3(0.11, 0.1, 0.07), .metal)
+            b.ellipsoid(V3(0, 0.19, 0), V3(0.07, 0.05, 0.06), .metal, detail: .low)
             for s: Float in [-1, 1] {
-                let wing: [V2] = [V2(s * 0.04, 0), V2(s * 0.27, 0.02), V2(s * 0.2, 0.08), V2(s * 0.29, 0.15), V2(s * 0.12, 0.13),
-                                  V2(s * 0.04, 0.1)]
-                b.blade(wing, depth: 0.034, V3(0, 0.17, 0), .accent)
+                for z: Float in [-0.06, 0.06] { b.sphere(V3(s * 0.04, 0.26, z), 0.022, .glow, .tiny) }
+                b.cone(V3(s * 0.08, 0.28, 0), V3(s * 0.21, 0.4, 0), 0.035, .metal, segments: 6)
+                b.cone(V3(s * 0.09, 0.22, 0), V3(s * 0.2, 0.17, 0), 0.025, .metal, segments: 6)
             }
-            let blade: [V2] = [V2(-0.1, 0), V2(0.1, 0), V2(0.118, 0.86), V2(0, 1.1), V2(-0.118, 0.86)]
-            b.blade(blade, depth: 0.05, V3(0, 0.25, 0), .metal)
-            b.rbox(V3(0, 0.7, 0), V3(0.058, 0.8, 0.03), 0.01, .dark)
-            for s: Float in [-1, 1] { b.rbox(V3(0, 0.66, s * 0.1), V3(0.056, 0.7, 0.018), 0.006, .glow) }
-            weaponTip = V3(0, 1.34, 0)
+            let blade: [V2] = [V2(-0.12, 0), V2(0.13, 0), V2(0.15, 0.52), V2(0.12, 0.84), V2(0.02, 1.05), V2(-0.08, 0.9),
+                               V2(-0.12, 0.8), V2(-0.17, 0.74), V2(-0.13, 0.63), V2(-0.18, 0.55), V2(-0.13, 0.44), V2(-0.18, 0.36),
+                               V2(-0.13, 0.25), V2(-0.17, 0.17), V2(-0.12, 0.09)]
+            b.extrude(blade, depth: 0.05, V3(0, 0.3, 0), .metal)
+            b.extrude([V2(-0.03, 0.05), V2(0.035, 0.05), V2(0.04, 0.76), V2(0, 0.9), V2(-0.035, 0.76)], depth: 0.062,
+                      V3(0, 0.3, 0), .glow)
+            weaponTip = V3(0, 1.28, 0)
         case .hookChain:
-            // 鎖鉤: 革巻きの握りから伸びる太い鎖（環は一つおきに向きを変える）と、先端の大きな鉤
-            b.rod(V3(0, -0.2, 0), V3(0, 0.1, 0), 0.036, .dark, segments: 10)
+            // 鎖鉤（H034 ゴルム）: 鉄の輪を巻いた木の柄・太い鉄の軸・先端の巨大な鉤（返しの付いた鉤の字。反対側に短い爪）と、
+            // 柄の脇に輪にした鎖。鉤は XY 面（平らな面が ±Z）に置き、上方カメラで鉤の形が見える向きにする
+            b.rod(V3(0, -0.2, 0), V3(0, 0.16, 0), 0.042, .secondary, segments: 10)
+            for y: Float in [-0.17, 0.0, 0.14] { b.torus(V3(0, y, 0), 0.046, 0.012, .metal, segments: 10, sides: 4) }
             b.sphere(V3(0, -0.22, 0), 0.05, .metal, .low)
-            for y: Float in [-0.12, -0.04, 0.04] { b.torus(V3(0, y, 0), 0.04, 0.011, .accent) }
-            b.rbox(V3(0, 0.12, 0), V3(0.1, 0.05, 0.1), 0.02, .metal)
-            for i in 0..<11 {
-                let t = Float(i) / 10
-                let link: simd_quatf = (i % 2 == 0 ? qIdentity : ry(.pi / 2)) * rx(.pi / 2)
-                b.torus(V3(0, 0.2 + Float(i) * 0.055, -0.1 * sin(t * Float.pi)), 0.034, 0.01, .metal, rot: link,
-                        segments: 8, sides: 4)
+            b.rod(V3(0, 0.16, 0), V3(0, 0.62, 0), 0.036, .metal, segments: 8)
+            b.sphere(V3(0, 0.62, 0), 0.06, .metal, .low)
+            let hr: Float = 0.19
+            let hc = V2(hr, 0.62)
+            let rot2: (V2) -> V2 = { p in
+                let a: Float = 1.25
+                return V2(p.x * cos(a) - p.y * sin(a), p.x * sin(a) + p.y * cos(a)) + hc
             }
-            b.rod(V3(0, 0.74, 0), V3(0, 1.0, 0), 0.03, .metal, segments: 8)
-            b.torus(V3(0.11, 1.0, 0), 0.11, 0.03, .metal, rot: rz(.pi) * rx(.pi / 2), segments: 14, sides: 6, arc: .pi * 1.5)
-            b.cone(V3(0.11, 0.89, 0), V3(0.04, 0.92, 0), 0.03, .metal, segments: 6)
-            weaponTip = V3(0, 1.1, 0)
+            b.extrude(crescentPolygon(radius: hr, thickness: 0.085, span: 3.75, offset: 0.035).map(rot2), depth: 0.06, .zero, .metal)
+            let tip = rot2(V2(cos(-1.86) * hr, sin(-1.86) * hr))
+            b.extrude([tip + V2(-0.01, 0.0), tip + V2(-0.1, 0.07), tip + V2(-0.03, 0.12)], depth: 0.05, .zero, .metal)
+            b.extrude([V2(0, 0.6), V2(-0.17, 0.66), V2(-0.05, 0.7)], depth: 0.05, .zero, .metal)
+            for i in 0..<8 {
+                let a = Float(i) / 7 * 4.4 + 0.95
+                let link: simd_quatf = rz(a) * (i % 2 == 0 ? qIdentity : ry(.pi / 2)) * rx(.pi / 2)
+                b.torus(V3(-0.1 + cos(a) * 0.13, -0.02 + sin(a) * 0.17, 0), 0.034, 0.011, .metal, rot: link, segments: 8, sides: 4)
+            }
+            weaponTip = V3(hr, 0.85, 0)
+        case .abyssRing:
+            abyssRing(&b)
+            weaponTip = HeroGearBuilder.abyssRingTip
+        case .ballLightning:
+            // 球電（H026 = MLBB の Eudora）: 杖は持たない。手の甲から伸びる水色の爪と、掌の上に浮かぶ雷の球
+            // （芯は光・外は半透明の殻）・球から放射する稲妻・傾いた雷の輪。武器角 0（spellThrow の構え）で手の真上に浮く
+            for i in -1...1 {
+                let x = Float(i)
+                b.cone(V3(x * 0.03, 0.04, -0.035), V3(x * 0.04, 0.12, -0.075), 0.014, .accent, segments: 5)
+            }
+            let o = V3(0, 0.2, 0)
+            b.sphere(o, 0.075, .glow)
+            b.sphere(o, 0.115, .veil, .low)
+            let bolt: [V2] = [V2(-0.02, 0), V2(0.03, 0), V2(0.0, 0.06), V2(0.04, 0.06), V2(-0.02, 0.16), V2(-0.005, 0.08), V2(-0.04, 0.08)]
+            for i in 0..<5 {
+                let a = Float(i) / 5 * 2 * .pi
+                b.extrude(bolt, depth: 0.02, o + V3(cos(a) * 0.07, sin(a * 2) * 0.03, sin(a) * 0.07), .glow,
+                          rot: ry(-a) * rz(-.pi / 2 + 0.3))
+            }
+            b.torus(o, 0.15, 0.008, .glow, rot: rx(1.1) * rz(0.4), segments: 20, sides: 4)
+            weaponTip = o
         }
         return b
     }
@@ -475,14 +526,34 @@ struct HeroGearBuilder {
         case .dreamNeedle:
             needle(&b)
         case .crescentBow:
-            // 三日月の長弓（H025 ルミナ）: 大きな月光の弓身・弓先の光玉・握りの月珠
+            // 三日月の長弓（H025 = MLBB の Miya）: 背丈ほどの銀の弓身（高さ 1.6R × offhandScale 1.12 ≒ 1.5 m）・
+            // 外側へ反る刃の棘・月光の内縁と弦・弓先の三日月の鉤と光玉・握りの前の月光の三日月。YZ 平面・握りが原点・弦は +Z
             var bw = HeroMeshBuilder()
-            let R: Float = 0.78
-            bow(&bw, radius: R, limbMat: .metal, glowEdge: true, spikes: false, includeString: includeBowString)
-            let tipY = sin(Float(0.94)) * R
-            let tipZ = R - 0.02 - cos(Float(0.94)) * R
-            for s: Float in [-1, 1] { bw.sphere(V3(0, s * tipY, tipZ), 0.04, .glow, .low) }
-            bw.sphere(V3(0, 0, -0.06), 0.045, .glow, .low)
+            let R: Float = 0.82, span: Float = 2.0
+            let c = V3(0, 0, R - 0.02)
+            bw.blade(crescentPolygon(radius: R, thickness: 0.075, span: span, offset: 0, n: 16), depth: 0.06, c, .metal)
+            bw.blade(crescentPolygon(radius: R - 0.05, thickness: 0.02, span: span * 0.9, offset: 0, n: 16), depth: 0.07, c, .glow)
+            for a: Float in [-0.78, -0.5, -0.22, 0.22, 0.5, 0.78] {
+                let dir = V2(cos(a), sin(a))
+                let tangent = V2(-dir.y, dir.x)
+                let base = dir * R
+                let k: Float = abs(a) > 0.6 ? 1.3 : 1
+                let lean: Float = a > 0 ? 0.035 : -0.035
+                let spike: V2 = base + dir * (0.1 * k) - tangent * lean
+                let tri: [V2] = [base - tangent * 0.04, base + tangent * 0.04, spike]
+                bw.blade(tri, depth: 0.035, c, .metal)
+            }
+            let tipY = sin(span / 2 * 0.99) * R
+            let tipZ = R - 0.02 - cos(span / 2 * 0.99) * R
+            for s: Float in [-1, 1] {
+                bw.blade(crescentPolygon(radius: 0.07, thickness: 0.025, span: 3.2, offset: 0.02, n: 8), depth: 0.04,
+                         V3(0, s * tipY, tipZ - 0.03), .metal, extra: s > 0 ? qIdentity : rx(.pi))
+                bw.sphere(V3(0, s * tipY, tipZ), 0.035, .glow, .low)
+            }
+            bw.rbox(V3(0, 0, 0.01), V3(0.06, 0.17, 0.07), 0.02, .dark)
+            bw.blade(crescentPolygon(radius: 0.085, thickness: 0.03, span: 4.0, offset: 0.03, n: 10), depth: 0.03,
+                     V3(0, 0, -0.07), .glow, extra: rx(.pi / 2))
+            if includeBowString { bw.rod(V3(0, tipY, tipZ), V3(0, -tipY, tipZ), 0.007, .glow, segments: 5) }
             b.merge(bw, trs(.zero, ry(0.6)))
         case .heaterShield:
             // 聖槌の大盾（H029 ボルグ）: 縦長の凧形（盾面 幅 0.54 × 高さ 0.84、縁取り込みで 0.62 × 0.96）。金の盾面・青い縁取り・青い十字と聖印の光。
@@ -497,6 +568,8 @@ struct HeroGearBuilder {
             sh.extrude([V2(0, 0.075), V2(0.055, 0), V2(0, -0.075), V2(-0.055, 0)], depth: 0.02, V3(0, 0.13, -0.05), .glow)
             b.merge(sh, trs(V3(-0.1, 0.02, -0.12), ry(0.3)))
             b.rod(V3(0, -0.06, 0), V3(0, 0.08, 0), 0.024, .dark)
+        case .abyssRing:
+            abyssRing(&b)
         }
         return b
     }
@@ -515,6 +588,7 @@ struct HeroGearBuilder {
         case .stoneFist: return V3(0, -0.15, 0)
         case .azureClaw: return V3(0, -0.3, -0.08)
         case .none, .gateShield, .grimoire, .hideShield, .heaterShield: return nil
+        case .abyssRing: return abyssRingTip
         }
     }
 
@@ -585,6 +659,32 @@ struct HeroGearBuilder {
         }
     }
 
+    /// 刃の輪の先端（abyssRing の前の鉤刃の付け根から先までの中ほど = 輪の中心 0.1 + 半径 0.18 + 0.08）。
+    static let abyssRingTip = V3(0, 0.36, 0)
+
+    /// 刃の輪（H032 ディアス。右手の武器・左手の副手で共通）: 拳を通す金の輪と内縁の紅い光、外へ反る 4 本の鉤刃、輪を横切る握り。
+    /// 原点が握りで、輪の中心は少し前（+Y）。面は XY なので、構え（武器角 -1.5）で水平になり上方カメラから円く見える
+    private func abyssRing(_ b: inout HeroMeshBuilder) {
+        let o = V3(0, 0.1, 0)
+        let R: Float = 0.18
+        b.torus(o, R, 0.026, .metal, rot: rx(.pi / 2), segments: 22, sides: 6)
+        b.torus(o, R - 0.032, 0.01, .glow, rot: rx(.pi / 2), segments: 20, sides: 4)
+        let half = (R * R - o.y * o.y).squareRoot()
+        b.rod(V3(-half, 0, 0), V3(half, 0, 0), 0.018, .dark)
+        // 鉤刃: 輪の外へ伸びて回転の向きへ反る（前の 1 本は長い）
+        for k in 0..<4 {
+            let phi = Float.pi / 2 + Float(k) * Float.pi / 2
+            let n = V2(cos(phi), sin(phi)), t = V2(-sin(phi), cos(phi))
+            let base = V2(o.x, o.y) + n * (R - 0.01)
+            let len: Float = k == 0 ? 0.11 : 0.08
+            let heel: V2 = base - t * 0.05
+            let toe: V2 = base + t * 0.035
+            let point: V2 = base + n * len + t * 0.085
+            let notch: V2 = base + n * (len * 0.4)
+            b.extrude([heel, toe, point, notch], depth: 0.022, .zero, .metal)
+        }
+    }
+
     private func needle(_ b: inout HeroMeshBuilder) {
         b.rod(V3(0, -0.06, 0), V3(0, 0.06, 0), 0.036, .accent, segments: 12)
         b.rod(V3(0, 0.06, 0), V3(0, 0.078, 0), 0.052, .metal, segments: 12)
@@ -620,8 +720,8 @@ struct HeroGearBuilder {
     }
 
     /// Same endpoints as the crescent bow's baked yaw. Used by the two reusable string segments.
-    static let crescentStringTop = ry(0.6).act(V3(0, sin(0.9405) * 0.78, 0.76 - cos(0.9405) * 0.78))
-    static let crescentStringBottom = ry(0.6).act(V3(0, -sin(0.9405) * 0.78, 0.76 - cos(0.9405) * 0.78))
+    static let crescentStringTop = ry(0.6).act(V3(0, sin(0.99) * 0.82, 0.80 - cos(0.99) * 0.82))
+    static let crescentStringBottom = ry(0.6).act(V3(0, -sin(0.99) * 0.82, 0.80 - cos(0.99) * 0.82))
 
     // MARK: 旗
 
@@ -725,6 +825,28 @@ struct HeroGearBuilder {
             }
             b.sphere(c, 0.05, .accent, .low)
             b.cone(a, a + V3(0, -0.16, 0), 0.03, .metal, segments: 5)
+        case .demonTail:
+            // 深淵の尾（H032 ディアス）: 腰（背の取り付け位置の下）から後ろへ垂れ、膝の高さで後ろへ伸びて先が反り上がる長い黒い尾。
+            // 先端は紅い芯の鏃形（面はほぼ水平で、上方カメラから見える）
+            let pts: [V3] = [V3(0, -0.33, -0.02), V3(0, -0.42, 0.12), V3(0.03, -0.53, 0.28), V3(0.06, -0.61, 0.45),
+                             V3(0.06, -0.62, 0.62), V3(0.03, -0.56, 0.76)]
+            var r: Float = 0.05
+            for i in 0..<(pts.count - 1) {
+                b.frustum(pts[i], pts[i + 1], r, r * 0.84, .dark, segments: 8)
+                r *= 0.84
+                if i + 1 < pts.count - 1 { b.sphere(pts[i + 1], r, .dark, .tiny) }
+            }
+            let tip = pts[pts.count - 1]
+            let dir = rotationFromY(to: tip - pts[pts.count - 2])
+            let spade: [V2] = [V2(0, 0.16), V2(0.08, 0.02), V2(0.03, 0.03), V2(0, -0.02), V2(-0.03, 0.03), V2(-0.08, 0.02)]
+            b.extrude(spade, depth: 0.025, tip, .dark, rot: dir)
+            b.extrude(spade.map { $0 * 0.6 + V2(0, 0.03) }, depth: 0.035, tip, .glow, rot: dir)
+        case .capelet:
+            // 肩から背を覆う短いケープ（H033 ヴァルド）: 青い布の裏に少し長い銅の布を重ね、裾だけ縁取りとして覗かせる
+            b.add(MeshTemplate.cloth(w0: w * 1.05, w1: w * 1.5, length: 0.27, curve: 0.08, bulge: 0.09, cols: 6, rows: 3),
+                  trs(.zero), .primary)
+            b.add(MeshTemplate.cloth(w0: w * 1.07, w1: w * 1.56, length: 0.305, curve: 0.08, bulge: 0.09, cols: 6, rows: 3),
+                  trs(V3(0, 0, -0.008)), .accent)
         }
         return b
     }
@@ -923,6 +1045,22 @@ struct HeroGearBuilder {
                 b.extrude(starPolygon(points: 6, outer: 0.07, inner: 0.03), depth: 0.014,
                           V3(cos(a) * 0.5, 0.2 + Float(k) * 0.1, sin(a) * 0.5), .glow, rot: ry(-a))
             }
+        case .orbitBlades:
+            // 体のまわりを回る 3 本の小剣（H028 ザイル）: 黒い刃に赤く光る刃縁と銀の鍔。刃先を回る向きへ向け、
+            // 平らな面を上へ寝かせて（少し外へ傾けて）上方カメラから刃の形が見えるようにする
+            floatMotion = .orbit(speed: 1.3)
+            floatAnchor = V3(0, 0.95, 0)
+            var sw = HeroMeshBuilder()
+            sw.extrude([V2(-0.032, 0), V2(0.036, 0), V2(0.036, 0.23), V2(-0.032, 0.31)], depth: 0.018, V3(0, 0.05, 0), .dark)
+            sw.extrude([V2(0.036, 0.0), V2(0.052, 0.0), V2(0.052, 0.235), V2(-0.03, 0.325), V2(-0.032, 0.31), V2(0.036, 0.23)],
+                       depth: 0.024, V3(0, 0.05, 0), .glow)
+            sw.rbox(V3(0, 0.045, 0), V3(0.12, 0.026, 0.04), 0.008, .metal)
+            sw.rod(V3(0, -0.07, 0), V3(0, 0.035, 0), 0.016, .metal, segments: 6)
+            for i in 0..<3 {
+                let a = Float(i) / 3 * 2 * .pi
+                let p = V3(cos(a) * 0.62, 0.06 * sin(a * 2), sin(a) * 0.62)
+                b.merge(sw, trs(p, ry(.pi - a) * rx(-.pi / 2) * ry(0.45), V3(repeating: 1.3)))
+            }
         }
         return b
     }
@@ -941,11 +1079,12 @@ extension HeroGearBuilder {
         switch kind {
         case "\(OffhandKind.gateShield)": return (1, 0.4, true)  // 盾面 -Z、trs((-0.15, 0.1, -0.1), ry(0.4)) で腕の外へ
         case "\(OffhandKind.hideShield)": return (1, 0, true)    // 盾面 -Z、o = (-0.1, 0.08, -0.1)
+        case "\(OffhandKind.heaterShield)": return (1, 0.3, true) // 盾面 -Z、trs((-0.1, 0.02, -0.12), ry(0.3))
         case "\(OffhandKind.harpBow)": return (1, 0, true)       // XY 平面、o = (-0.02, 0.2, -0.04)
         case "\(OffhandKind.grimoire)": return (1, 0, true)      // o = (-0.03, 0.06, -0.06)
         case "\(WeaponKind.mechCrossbow)": return (-1, 0, false) // 弓は ±X、上面 +Z
         // bow() は YZ 平面・握りが原点で弓先と弦が +Z、ry(0.6)。Prop は握りの断面に弦が入り原点が握りと弦の間になるので中心で合わせる
-        case "\(OffhandKind.ashBow)", "\(OffhandKind.lightBow)": return (1, 0.6, true)
+        case "\(OffhandKind.ashBow)", "\(OffhandKind.lightBow)", "\(OffhandKind.crescentBow)": return (1, 0.6, true)
         default: return (1, 0, false)
         }
     }

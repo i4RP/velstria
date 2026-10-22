@@ -345,13 +345,23 @@ final class ProjectileLayer {
     /// suppressedHeroes のうち、スキルの弾（.skill・.empowered）の見た目を残すヒーロー（スキルを SkillFX に任せるキットのヒーロー。
     /// 通常攻撃の弾は Effekseer の効果があるので隠す）。
     var skillShotsKept: Set<String> = []
+    /// suppressedHeroes のうち、通常攻撃の弾（.heroShot・.heroBolt）の見た目を残すヒーロー（通常攻撃を旧来の演出に任せる
+    /// EffekseerRouting.attackOptOut。atk_travel の効果を出さないので隠すと何も見えない）。
+    var attackShotsKept: Set<String> = []
 
     /// 弾の旧来の見た目を隠すか。
     private func isSuppressed(_ style: Style, hero: String) -> Bool {
-        guard suppressedHeroes.contains(hero) else { return false }
+        Self.isSuppressed(style, hero: hero, suppressed: suppressedHeroes, skillKept: skillShotsKept, attackKept: attackShotsKept)
+    }
+
+    /// 弾の旧来の見た目を隠すか（純粋。テスト用）。
+    static func isSuppressed(_ style: Style, hero: String, suppressed: Set<String>, skillKept: Set<String>,
+                             attackKept: Set<String>) -> Bool {
+        guard suppressed.contains(hero) else { return false }
         switch style {
-        case .skill, .empowered: return !skillShotsKept.contains(hero)
-        default: return true
+        case .skill, .empowered: return !skillKept.contains(hero)
+        case .heroShot, .heroBolt: return !attackKept.contains(hero)
+        case .minionBolt, .tower: return true
         }
     }
 
@@ -623,6 +633,8 @@ final class ProjectileLayer {
         for k in state.projectiles.indices {
             let p = state.projectiles[k]
             if p.done { continue }
+            // 試合終了で sim が止まると弾は宙で止まる（終幕の低い視点では平らな円盤に見える）ので描かない
+            if f.ended { continue }
             // 視点チームから見えない位置の敵弾は描かない
             if let viewer = f.viewerTeam, p.team != viewer, !state.vision.isLit(p.pos, for: viewer) {
                 if let v = active.removeValue(forKey: p.id) { detach(v) }
@@ -640,7 +652,8 @@ final class ProjectileLayer {
                 v.launchOffset = .zero
                 let owner = state.unit(p.ownerID)
                 if let owner, owner.isStructure {
-                    v.startHeight = owner.kind == .core ? 3.6 : 4.9
+                    // 塔・Core の結晶の高さ（StructureVisual.muzzleHeight）
+                    v.startHeight = heightOf(owner.id)
                 } else {
                     v.startHeight = owner.map { heightOf($0.id) * 0.6 } ?? 1
                     // ヒーローの追尾弾は武器の先端・弓・手から出す（高さと水平のずれ。ずれは残り距離に比例して消す）

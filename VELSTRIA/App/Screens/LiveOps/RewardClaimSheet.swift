@@ -32,6 +32,8 @@ enum RewardClaimText {
         case .hero:
             if let id = a.refID, let def = master.hero(id) { return L("ヒーロー: ", "Hero: ") + MasterText.hero(def) }
             return L("ヒーロー", "Hero")
+        case .magicDust: return L("マジックダスト ×\(a.amount.formatted())", "Magic Dust ×\(a.amount.formatted())")
+        case .emblemFragment: return EmblemService.fragmentName(a) + " ×\(a.amount.formatted())"
         }
     }
 
@@ -47,13 +49,15 @@ enum RewardClaimText {
         case .hero:
             if let id = a.refID, let def = master.hero(id) { return MasterText.hero(def) }
             return L("ヒーロー", "Hero")
+        case .magicDust: return L("マジックダスト", "Magic Dust")
+        case .emblemFragment: return EmblemService.fragmentName(a)
         }
     }
 
     /// チップ・マス用の短い表記（数量、コスメは種類名）。
     static func chipText(_ a: MailAttachment, master: MasterData = .shared) -> String {
         switch a.kind {
-        case .coin, .gem: return a.amount.formatted()
+        case .coin, .gem, .magicDust, .emblemFragment: return a.amount.formatted()
         case .passXP: return "\(a.amount.formatted()) XP"
         case .cosmetic:
             if let id = a.refID, let def = master.cosmetic(id) { return typeName(def.type) }
@@ -73,14 +77,14 @@ enum RewardClaimText {
         }
     }
 
-    /// 数量系（コイン・ジェム・パス XP）を合算し、コスメ・ヒーローは重複を除いて並べる（出現順を維持）。
+    /// 数量系（コイン・ジェム・パス XP・マジックダスト・同じセットの欠片）を合算し、コスメ・ヒーローは重複を除いて並べる（出現順を維持）。
     /// 合計 0 以下の数量系（付与できなかった報酬の代替など）は表示しない。
     static func merged(_ list: [MailAttachment]) -> [MailAttachment] {
         var result: [MailAttachment] = []
         for a in list {
             switch a.kind {
-            case .coin, .gem, .passXP:
-                if let i = result.firstIndex(where: { $0.kind == a.kind }) {
+            case .coin, .gem, .passXP, .magicDust, .emblemFragment:
+                if let i = result.firstIndex(where: { $0.kind == a.kind && $0.refID == a.refID }) {
                     result[i].amount += a.amount
                 } else {
                     result.append(a)
@@ -108,7 +112,7 @@ enum RewardClaimText {
     static let passXPColor = Color(red: 0.74, green: 0.56, blue: 1.0)
 }
 
-/// 添付のアイコン（コイン・ジェム・パス XP・コスメ・ヒーロー）。
+/// 添付のアイコン（コイン・ジェム・パス XP・コスメ・ヒーロー・マジックダスト・エンブレムの欠片）。
 struct RewardClaimIcon: View {
     let attachment: MailAttachment
     var size: CGFloat = 44
@@ -118,21 +122,36 @@ struct RewardClaimIcon: View {
         Group {
             switch attachment.kind {
             case .hero:
-                HeroPortraitView(heroID: attachment.refID ?? "H001", size: size, showsRole: size >= 40)
+                HeroPortraitView(heroID: attachment.refID ?? HeroRoster.defaultHeroID, size: size, showsRole: size >= 40)
             case .cosmetic:
                 let def = attachment.refID.flatMap { app.master.cosmetic($0) }
                 let tint = def.map { Theme.rarityColor($0.rarity) } ?? Theme.cyan
                 symbolTile(def.map { RewardClaimText.symbol(for: $0.type) } ?? "sparkles", tint: tint)
             case .coin:
-                symbolTile("star.circle.fill", tint: Theme.gold)
+                currencyTile(.coin, tint: Theme.gold)
             case .gem:
-                symbolTile("diamond.fill", tint: Theme.cyan)
+                currencyTile(.gem, tint: Theme.cyan)
             case .passXP:
                 symbolTile("bolt.fill", tint: RewardClaimText.passXPColor)
+            case .magicDust:
+                symbolTile(EmblemStyle.dustSymbol, tint: EmblemStyle.dustColor)
+            case .emblemFragment:
+                // 欠片はセットの記号と色
+                let set = attachment.refID.flatMap(EmblemSetID.init(rawValue:)) ?? .common
+                symbolTile(EmblemStyle.setSymbol(set), tint: EmblemStyle.color(set))
             }
         }
         .frame(width: size, height: size)
         .accessibilityLabel(RewardClaimText.name(attachment))
+    }
+
+    private func currencyTile(_ kind: CurrencyIcon.Kind, tint: Color) -> some View {
+        ZStack {
+            Circle()
+                .fill(RadialGradient(colors: [tint.opacity(0.45), tint.opacity(0.08)], center: .center,
+                                     startRadius: 1, endRadius: size * 0.6))
+            CurrencyIcon(kind: kind, size: size * 0.56)
+        }
     }
 
     private func symbolTile(_ symbol: String, tint: Color) -> some View {
@@ -234,7 +253,7 @@ struct RewardClaimSheet: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .frame(width: 96)
-            if a.kind == .coin || a.kind == .gem || a.kind == .passXP {
+            if a.kind == .coin || a.kind == .gem || a.kind == .passXP || a.kind == .magicDust || a.kind == .emblemFragment {
                 Text("×\(a.amount.formatted())")
                     .font(Theme.mono(15))
                     .foregroundStyle(Theme.gold)

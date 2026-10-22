@@ -34,7 +34,7 @@ struct BuildEditorView: View {
                     Button(L("キャンセル", "Cancel"), role: .cancel) {}
                 }
             } else {
-                CollectionEmptyState(symbol: "questionmark.circle", title: L("ヒーローが見つかりません", "Hero not found"))
+                EmptyStateView(symbol: "questionmark.circle", title: L("ヒーローが見つかりません", "Hero not found"))
             }
         }
     }
@@ -352,7 +352,7 @@ struct BuildEditorView: View {
     private func resetToRecommended() {
         app.profile.customBuilds[heroID] = nil
         withAnimation(.spring(duration: 0.3)) {
-            build = BuildRules.recommended(for: heroID, master: app.master)
+            build = BuildRules.recommended(for: heroID, profile: app.profile, master: app.master)
             selectedSlot = nil
         }
         warning = nil

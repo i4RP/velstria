@@ -397,11 +397,39 @@ extension RenderLogicTests {
         let k = OverheadBar.zoomScale(forZoom: 2.5)
         XCTAssertEqual(k, Float((2.5 / 1.4).squareRoot()), accuracy: 1e-5)
         // 近い距離は同じ。遠い距離（引いた時の画面中央）は上限を広げて読める大きさを保つ
-        XCTAssertEqual(OverheadBar.screenScale(distance: 11, zoomScale: k), 1)
-        XCTAssertEqual(OverheadBar.screenScale(distance: 30, zoomScale: 1), OverheadBar.maxScreenScale)
-        let wide = OverheadBar.screenScale(distance: 30, zoomScale: k)
+        let reference = OverheadBar.referenceDistance
+        XCTAssertEqual(OverheadBar.screenScale(distance: reference, zoomScale: k), 1)
+        XCTAssertEqual(OverheadBar.screenScale(distance: reference * 3, zoomScale: 1), OverheadBar.maxScreenScale)
+        let wide = OverheadBar.screenScale(distance: reference * 3, zoomScale: k)
         XCTAssertGreaterThan(wide, OverheadBar.maxScreenScale)
-        XCTAssertLessThan(wide, 30 / OverheadBar.referenceDistance, "引いた時はバーも少し小さく見える")
+        XCTAssertLessThan(wide, 3, "引いた時はバーも少し小さく見える")
         XCTAssertEqual(OverheadBar.screenScale(distance: 1, zoomScale: k), 0.5)
+    }
+
+    func testOverheadBarKeepsProjectedSizeAtScreenEdges() {
+        let camera = CameraRig.offset(distance: CameraRig.baseDistance)
+        let center = SIMD3<Float>(0, 2.5, 0)
+        let edge = center + SIMD3<Float>(8, 0, 0)
+        let a = OverheadBar.viewDepth(world: center, camera: camera)
+        let b = OverheadBar.viewDepth(world: edge, camera: camera)
+        XCTAssertEqual(a, b, accuracy: 1e-5)
+        let focal: Float = 315 / tan(CameraRig.fovDegrees * .pi / 360)
+        let pixels = 1.9 * focal * OverheadBar.screenScale(distance: b, zoomScale: 1) / b
+        XCTAssertEqual(pixels, 104, accuracy: 1, "参照1368×630のHP幅")
+    }
+
+    /// 頭上の HP の区切り目盛り（MLBB 風）: 500 刻みから始め、本数は tickPool を超えない。端には出さない。
+    func testOverheadBarTicksStayWithinThePool() {
+        XCTAssertEqual(OverheadBar.tickFractions(maxHP: 2861).count, 5, "2861 HP は 500 刻みで 5 本")
+        XCTAssertEqual(OverheadBar.tickStep(maxHP: 2861), 500)
+        XCTAssertTrue(OverheadBar.tickFractions(maxHP: 400).isEmpty, "1 区切りに満たない HP は目盛り無し")
+        XCTAssertTrue(OverheadBar.tickFractions(maxHP: 0).isEmpty)
+        for hp in stride(from: Float(300), through: 20_000, by: 137) {
+            let f = OverheadBar.tickFractions(maxHP: hp)
+            XCTAssertLessThanOrEqual(f.count, OverheadBar.tickPool, "\(hp)")
+            XCTAssertEqual(OverheadBar.tickStep(maxHP: hp).truncatingRemainder(dividingBy: 500), 0, "\(hp)")
+            for v in f { XCTAssertTrue(v > 0 && v < 1, "\(hp): \(v)") }
+            XCTAssertEqual(f, f.sorted(), "\(hp)")
+        }
     }
 }

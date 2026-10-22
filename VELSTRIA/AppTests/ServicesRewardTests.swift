@@ -135,7 +135,7 @@ final class ServicesRewardTests: XCTestCase {
     /// 通常戦・ランク戦の途中退出は報酬なしで敗北として記録する（ポーズメニューの「退出（敗北）」の警告どおり）。
     func testAbandonedStandardAndRankedCountAsLossWithoutRewards() {
         var p = Profile()
-        p.rank.tier = .silverRing
+        p.rank.tier = .elite
         p.rank.division = 2
         p.rank.stars = 2
         p.career.currentWinStreak = 3
@@ -218,10 +218,11 @@ final class ServicesRewardTests: XCTestCase {
         var p = Profile()
         let r = apply(ServicesFixtures.outcome(mode: .ranked, won: true, countsForRank: true), &p)
         XCTAssertEqual(r.rankBefore?.stars, 0)
-        XCTAssertEqual(r.rankAfter?.stars, 1)
+        XCTAssertEqual(r.rankAfter?.stars, 2)
         XCTAssertEqual(p.rank.seasonWins, 1)
         let loss = apply(ServicesFixtures.outcome(mode: .ranked, won: false, countsForRank: true), &p)
-        XCTAssertEqual(loss.rankAfter?.stars, 0)
+        // ウォリアーは負けても星が減らない（Mobile Legends と同じ）
+        XCTAssertEqual(loss.rankAfter?.stars, 2)
         XCTAssertEqual(p.rank.seasonLosses, 1)
         // 通常戦はランクに影響しない
         _ = apply(ServicesFixtures.outcome(mode: .standard, won: true), &p)

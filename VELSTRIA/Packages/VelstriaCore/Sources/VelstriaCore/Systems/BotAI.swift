@@ -294,11 +294,13 @@ public enum BotAI {
                 s.bots.teams[t].lastSeenPos[k] = p
                 s.bots.teams[t].lastSeenTime[k] = time
                 s.bots.teams[t].lastSeenTick[k] = tick
-                // 帰還の詠唱（見える演出）・泉に居る敵はしばらく戦線に戻らない
+                // 帰還の詠唱（見える演出）・泉の中に居る敵はしばらく戦線に戻らない。泉の外（ベースの守り）に居る敵は数えない
+                // （canyon は泉からベースまで約 1100 なので、泉の付近で見えた敵の多くはベースを守っている）。
+                // ベースタワー・ベースを攻める判断では、帰還・泉の敵もすぐ守りに来るので数えない（BotMacro.siegeWindow）
                 let enemyTeam = s.units[e].team
                 if s.units[e].hero?.channel?.kind == .recall {
                     s.bots.teams[t].awayUntil[k] = time + Balance.Bot.recallAwaySeconds
-                } else if p.distanceSquared(to: ctx.map.fountain(enemyTeam)) < 1500 * 1500 {
+                } else if ctx.map.isInFountain(p, team: enemyTeam) {
                     s.bots.teams[t].awayUntil[k] = max(s.bots.teams[t].awayUntil[k], time + Balance.Bot.fountainAwaySeconds)
                 } else {
                     s.bots.teams[t].awayUntil[k] = -999
@@ -432,9 +434,13 @@ public enum BotAI {
     }
 
     /// 止めを刺すべき敵構造物: 射程付近の無敵でない構造物のうち、近くの味方の通常攻撃（裏取り保護・序盤保護込み）で
-    /// 数秒以内に壊せるもの（Core は 9 秒、塔は 5 秒）。守りのヒーローと殴り合うより先に落とす。自分の HP が危険なら除く。
+    /// 数秒以内に壊せるもの（Core は 4 秒、塔は 3 秒）。守りのヒーローと殴り合うより先に落とす。
+    /// 自分の HP が危険な時・近くの敵ヒーローの方が多い時は除く（MLBB の人間は、守りに勝ってから塔を落とす）。
     static func finishableStructure(_ s: SimState, _ ctx: SimContext, _ w: BotWorld, _ a: BotAgent) -> BotStructureInfo? {
-        guard s.units[a.i].hpRatio > 0.15 else { return nil }
+        guard s.units[a.i].hpRatio > 0.25 else { return nil }
+        // 近くの敵ヒーローが、自分を含む近くの味方（1500 以内）より多ければ戦いを先にする
+        let threats = a.enemies.filter { $0.distance < 1100 }.count
+        guard threats <= a.allies.count + 1 else { return nil }
         let range = s.units[a.i].stats.attackRange + s.units[a.i].radius
         for st in w.structures where st.team != a.team && st.team != .neutral && !st.invulnerable {
             let reach = range + st.radius + 150
@@ -446,7 +452,7 @@ public enum BotAI {
                 dps += CombatSystem.estimateBasicAttackDamage(s, ctx, attacker: h, target: st.index)
                     * s.units[h].stats.attackSpeed
             }
-            let limit = st.isCore ? 9.0 : 5.0
+            let limit = st.isCore ? 4.0 : 3.0
             if st.hp <= dps * limit { return st }
         }
         return nil
@@ -566,8 +572,9 @@ public enum BotAI {
             * max(0.2, 1 + st.damageBonus + st.basicAttackDamageBonus) * crit
         let skill = (40 + 16 * level + 0.5 * st.abilityPower + 0.25 * st.attack) * max(0.2, 1 + st.skillDamageBonus)
         let hp = max(0, s.units[i].hp) + s.units[i].totalShield
-        let ehp = hp * (1 + (max(0, st.armor) + max(0, st.magicResist)) / 200)
-            / max(0.4, 1 - min(Balance.maxDamageReduction, max(0, st.damageReduction)))
+        // 実効 HP = HP / 防御の倍率（120/(120+防御) の逆数。物理と魔法の平均の防御で見る）
+        let ehp = hp * (1 + (max(0, st.armor) + max(0, st.magicResist)) / (2 * Balance.defenseConstant))
+            / max(0.4, CombatSystem.damageReductionMultiplier(st.damageReduction))
         return (basic + skill, ehp)
     }
 
@@ -576,11 +583,11 @@ public enum BotAI {
         guard let h = s.units[i].hero else { return 0 }
         var total = CombatSystem.estimateBasicAttackDamage(s, ctx, attacker: i, target: t) * 3
         let st = s.units[i].stats
+        let heroDef = ctx.master.hero(h.heroID)
         for slot in SkillSlot.actives where skills && h.rank(slot) > 0 && h.cooldown(slot) <= 0 {
-            guard let def = ctx.master.skill(hero: h.heroID, slot: slot) else { continue }
-            let rank = Double(h.rank(slot) - 1)
-            var dmg = def.baseDamage * (1 + Balance.skillDamagePerRank * rank)
-                + def.scalingAttack * st.attack * Balance.skillAttackScalingFactor + def.scalingPower * st.abilityPower
+            guard let def = ctx.master.skill(hero: h.heroID, slot: slot), let heroDef else { continue }
+            // スキルの 1 回の発動の合計（シミュレーションと同じ数値。キットのヒーローはキットの公式の表）
+            var dmg = SkillCatalog.numbers(for: def, hero: heroDef, rank: h.rank(slot), stats: st).totalDamage
             dmg *= max(0, 1 + st.damageBonus + st.skillDamageBonus)
             dmg *= CombatSystem.mitigationMultiplier(def.damageType, armor: s.units[t].stats.armor,
                                                     magicResist: s.units[t].stats.magicResist)

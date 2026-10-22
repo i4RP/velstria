@@ -4,6 +4,8 @@ import VelstriaCore
 // 担当: battle-hud。HUD の状態の中心。
 // - controller.hudTick（15Hz）毎に SimState を読み、変化したスナップショットだけを更新する
 // - SimEvent を購読して告知・キルフィード・死亡・購入結果・降参投票・試合終了・チュートリアルを進める
+// - 試合終了: Core の破壊の通知を受けたら Star Core の終幕（HUD を全部隠し、描画側のカメラが倒壊を見せる。
+//   CoreFinaleCamera.swift）→ 勝敗のバナー → 「続ける」。降参・時間切れ・シーク/再同期で終わった状態になった時はバナーから
 // - 操作（スティック・攻撃・スキル照準・購入など）を HeroCommand に変換して controller へ送る
 
 /// 照準中のボタン周りのリング表示（タッチ毎に変わるので HUDModel とは別に観測させる）。
@@ -86,6 +88,8 @@ final class HUDModel {
     private(set) var vitals = HUDVitals()
     private(set) var skills: [HUDSkillSnapshot] = SkillSlot.actives.map { HUDSkillSnapshot(slot: $0) }
     private(set) var spells: [HUDSpellSnapshot] = [HUDSpellSnapshot(index: 0), HUDSpellSnapshot(index: 1)]
+    /// 祝福の進み（ショップの下に小さく出す。HUDShopLogic.blessingBadge）。
+    private(set) var blessingBadge: String?
     /// アクティブ装備・祝福のアクティブ（隠蔽）・効果中のポーション。
     private(set) var itemActives = HUDItemActiveSnapshot()
     private(set) var quickBuyItemID: String?
@@ -116,6 +120,9 @@ final class HUDModel {
     /// HUD のズームボタン（設定の倍率より広く見る。保存しない）。
     private(set) var zoomBoost = false
     private(set) var endPhase: HUDEndPhase?
+    /// 今回の終了の画が Star Core の終幕の引きの構図（Core を右寄せ）で終わる（終幕を流した・シークで省いた）。
+    /// バナーを空いた左側へ寄せる。
+    private(set) var endFollowsFinale = false
     private(set) var isAiming = false
     /// スキルボタンの長押しで出す説明（押している間だけ）。
     private(set) var skillTip: HUDSkillTip?
@@ -203,6 +210,11 @@ final class HUDModel {
     /// 試合が終わった後もパネル（スコアボード・ポーズ）と戦術マップを開ける: シークできる観戦・リプレイは終わってもドックと
     /// 右上のボタンが残り、巻き戻して見直せる（再生終了のカードはパネル・マップを開いている間は隠す）。
     var allowsPanelsAfterEnd: Bool { isSpectating && controller.isSeekable }
+    /// パネル・戦術マップを開けるか（試合中、またはシークできる観戦・リプレイの終了後。終幕の間は誰も開けない）。
+    private var panelsAvailable: Bool {
+        guard !finished, let phase = endPhase else { return !finished }
+        return allowsPanelsAfterEnd && !phase.isFinale
+    }
     /// 操作を受け付けるか。
     var canControl: Bool { !isSpectating && !isTacticalMapOpen && endPhase == nil && !finished && !(tutorial?.isComplete ?? false) }
 
@@ -291,7 +303,8 @@ final class HUDModel {
     /// 消音ボタンの表示上の消音（一時消音中、または設定の BGM・効果音がどちらも 0 で実際に無音）。
     var soundSilenced: Bool { soundMuted || Self.volumesSilent(settings) }
 
-    /// 設定の BGM・効果音がどちらも 0（既定値）か。この間は一時消音を切り替えても出音は変わらない。
+    /// 設定の BGM・効果音がどちらも 0 か（既定は効果音 70%・BGM 50%。ユーザーが両方 0 にした時）。この間は一時消音を切り替えても
+    /// 出音は変わらない。
     static func volumesSilent(_ s: GameSettings) -> Bool {
         s.sfxVolume <= 0.001 && s.bgmVolume <= 0.001
     }
@@ -368,8 +381,13 @@ final class HUDModel {
         expireFeed(time: t, held: killFeedReservesSignals && killFeedYieldsToCenter)
         signals.refresh(model: self, now: t)
         if aimSession?.aiming == true { updateAimIndicator() }
+        #if DEBUG || TESTER_TOOLS
+        // 内部ビルドの演出チェック: 撃ち終えたら試合を抜ける（次のヒーローは AppModel.dismissBattle から）
+        if !finished, FXCheckSession.shared.consumeLeave() { leave() }
+        #endif
         if controller.isEnded && endPhase == nil && !finished, let reason = s.endReason, reason != .aborted {
-            beginEnd(winner: s.winner, reason: reason)
+            // 通知を受けずに終わった状態になった（シーク・再同期・途中から観戦）: 終幕は流さない（描画側も引きの構図から）
+            beginEnd(winner: s.winner, reason: reason, finale: nil)
         }
     }
 
@@ -550,6 +568,8 @@ final class HUDModel {
         if b.spells != spells { spells = b.spells }
         let actives = HUDItemActiveLogic.snapshot(h, time: s.time, master: ctx.master)
         if actives != itemActives { itemActives = actives }
+        let badge = HUDShopLogic.blessingBadge(h, master: ctx.master)
+        if badge != blessingBadge { blessingBadge = badge }
 
         // おすすめ購入（Gold・所持品が変わった時だけ計算）
         let key = QuickBuyKey(gold: Int(h.gold), items: h.items, enabled: settings.showRecommendedItems)
@@ -588,6 +608,8 @@ final class HUDModel {
         for st in u.statuses where st.remaining > 0 {
             // 練習用人形の常時可視化などの長時間の内部状態は出さない
             if st.kind == .revealed && st.duration >= 30 { continue }
+            // キットの内部の数えの印（ディアスのスキル1 の命中の回数など。名前が `_` のマーク）も出さない
+            if KitStatusVisuals.isInternal(st) { continue }
             let rem = (st.remaining * 10).rounded(.up) / 10
             // 同じ種類でもキットの凍結・固有のマークは別のアイコン（名前と記号が違う）。汎用は従来どおり種類でまとめる
             // 固定値の増減（祝福の奪取・激励など）は強化と弱体を別のアイコンにする
@@ -668,7 +690,8 @@ final class HUDModel {
             switch u.kind {
             case .tower, .core:
                 minimap.structures.append(.init(pos: u.pos, team: u.team, alive: u.isAlive, isCore: u.kind == .core,
-                                                hpFraction: min(1, max(0, u.hp / max(1, u.stats.maxHP)))))
+                                                hpFraction: min(1, max(0, u.hp / max(1, u.stats.maxHP))),
+                                                shielded: TowerSystem.hasTurretShield(u)))
             case .hero:
                 guard let h = u.hero else { continue }
                 let visible = viewer.map { s.isVisible(i, to: $0) } ?? true
@@ -715,6 +738,7 @@ final class HUDModel {
         let camps = ctx.map.camps
         for (k, camp) in camps.enumerated() {
             let isBoss = camp.kind.isBoss
+            if isBoss, let cycle = s.world.riverObjective, cycle.campID != camp.id { continue }
             let observed = viewer.map { s.vision.isLit(camp.pos, for: $0) } ?? true
             var known = campObservations[k] ?? CampObservation(respawnAt: camp.firstSpawn)
             if isBoss || observed {
@@ -728,7 +752,13 @@ final class HUDModel {
             let alive = nextSpawn == nil
             minimap.camps.append(.init(pos: camp.pos, alive: alive,
                                        isBoss: isBoss,
-                                       kind: camp.kind, respawnRemaining: nextSpawn.map { max(0, $0 - s.time) }))
+                                       kind: isBoss && s.world.riverObjective != nil
+                                           ? (s.world.riverObjective!.lordEra || s.world.riverObjective!.nextIsLord == true
+                                              ? .ancientColossus : .astralWyrm) : camp.kind,
+                                       // もう出ないキャンプ（ロードが出た後の宝殻蟹。Double.greatestFiniteMagnitude）は時計を出さない
+                                       respawnRemaining: nextSpawn.flatMap {
+                                           $0 >= Double.greatestFiniteMagnitude / 2 ? nil : max(0, $0 - s.time)
+                                       }))
         }
         refreshMinimapCamera()
         minimapVersion &+= 1
@@ -779,7 +809,7 @@ final class HUDModel {
     func setTacticalMap(open: Bool) {
         guard open != isTacticalMapOpen else { return }
         if open {
-            guard endPhase == nil || allowsPanelsAfterEnd, !finished, tutorial?.isComplete != true else { return }
+            guard panelsAvailable, tutorial?.isComplete != true else { return }
             closePanel()
             // 観戦メニューとは同時に開かない（マップの間は引き出しを描かないので、開いたままだと見えない引き出しが残る）
             if isSpectating { spectator.isDrawerOpen = false }
@@ -1011,6 +1041,7 @@ final class HUDModel {
         endTask?.cancel()
         endTask = nil
         endPhase = nil
+        endFollowsFinale = false
         controller.isPaused = spectatorPaused
         app?.audio.playMusic(.battle)
     }
@@ -1089,7 +1120,7 @@ final class HUDModel {
                 let u = s.units[i]
                 guard let h = u.hero else { continue }
                 let showCooldowns = ally == nil || ally == team
-                var row = HUDScoreRow(id: u.id, heroID: h.heroID, name: h.displayName, team: team,
+                var row = HUDScoreRow(id: u.id, heroID: h.heroID, name: PlayerNameRules.shown(h.displayName), team: team,
                                       isHuman: u.id == me, level: h.level, kills: h.score.kills,
                                       deaths: h.score.deaths, assists: h.score.assists, creepScore: h.score.creepScore,
                                       items: h.items, spells: h.spells,
@@ -1264,7 +1295,9 @@ final class HUDModel {
                     damageLog.reset()
                 }
             case .matchEnded(let winner, let reason):
-                if reason != .aborted { beginEnd(winner: winner, reason: reason) }
+                // Core の破壊の通知を受けた時だけ終幕を流す（残りは Core が壊れた時刻から。通常は 5.2 秒）
+                let finale = reason == .coreDestroyed ? CoreFinale.remainingUntilResult(controller.state) : nil
+                if reason != .aborted { beginEnd(winner: winner, reason: reason, finale: finale) }
             default:
                 break
             }
@@ -1297,7 +1330,7 @@ final class HUDModel {
 
     /// ユニットの表示名（ヒーロー名、それ以外は種類名）。
     static func unitName(_ u: VelstriaCore.Unit, _ ctx: SimContext) -> String {
-        if let h = u.hero { return ctx.master.hero(h.heroID).map { MasterText.hero($0) } ?? h.displayName }
+        if let h = u.hero { return ctx.master.hero(h.heroID).map { MasterText.hero($0) } ?? PlayerNameRules.shown(h.displayName) }
         return HUDText.unitKind(u.kind)
     }
 
@@ -1519,9 +1552,9 @@ final class HUDModel {
         tutorial = t
     }
 
-    /// 画面確認用: 試合終了の演出だけを出す。
+    /// 画面確認用: 試合終了の演出だけを出す（Core は壊れていないので終幕は流さず、バナーから）。
     func debugEnd(winner: Team?) {
-        beginEnd(winner: winner, reason: .coreDestroyed)
+        beginEnd(winner: winner, reason: .coreDestroyed, finale: nil)
     }
 
     // MARK: 不連続（シーク・再同期）
@@ -1575,13 +1608,19 @@ final class HUDModel {
             endTask?.cancel()
             endTask = nil
             endPhase = nil
+            endFollowsFinale = false
             app?.audio.playMusic(.battle)
+        } else if endPhase?.isFinale == true {
+            // 終幕の途中で別の終わった状態に置き換わった: 描画側は引きの構図へ飛ぶので、HUD もバナーへ進める
+            finishFinale()
         }
         // 終了演出は観戦の一時停止を解いている（巻き戻した後の再生ボタンの表示を合わせる）
         if spectatorPaused && !controller.isPaused { spectatorPaused = false }
     }
 
-    private func beginEnd(winner: Team?, reason: EndReason) {
+    /// 試合終了の演出を始める。finale = Star Core の終幕の残り秒（nil = 終幕なしでバナーから）。
+    /// 終幕の間は HUD を全部隠し（BattleHUDView）、パネル・戦術マップ・一時停止も開かない。勝敗・報酬・sim の終了時刻は変えない。
+    private func beginEnd(winner: Team?, reason: EndReason, finale: Double?) {
         guard endPhase == nil, !finished else { return }
         setTacticalMap(open: false)
         let kind: HUDMatchResultKind
@@ -1599,9 +1638,33 @@ final class HUDModel {
         joystickEnded()
         bannerQueue.removeAll()
         banner = nil
+        // 終幕・バナーは止めずに流す（一時停止中のコマ送りで決着した時も。描画側の終幕の時計は一時停止の間は進まない）
         controller.isPaused = false
-        endPhase = .banner(kind, reason)
         app?.audio.stopMusic()
+        // 描画側は Core が壊れて終わった試合なら（終幕を省いた時も）引きの構図で止まる
+        endFollowsFinale = finale != nil || (reason == .coreDestroyed && CoreFinale.destroyedCore(in: controller.state) != nil)
+        guard let finale else {
+            showResult(kind, reason)
+            return
+        }
+        endPhase = .finale(kind, reason)
+        endTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(finale))
+            guard !Task.isCancelled else { return }
+            self?.finishFinale()
+        }
+    }
+
+    /// 終幕を終えて勝敗のバナーへ（終幕の時刻表の finaleResult。巻き戻しの無い置き換えでも呼ぶ）。
+    func finishFinale() {
+        guard case .finale(let kind, let reason)? = endPhase, !finished else { return }
+        endTask?.cancel()
+        showResult(kind, reason)
+    }
+
+    /// 勝敗のバナー（約 2.6 秒）→ 「続ける」。
+    private func showResult(_ kind: HUDMatchResultKind, _ reason: EndReason) {
+        endPhase = .banner(kind, reason)
         endTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(Self.endBannerDuration))
             guard !Task.isCancelled, let self, case .banner(let k, let r)? = self.endPhase else { return }
@@ -1648,7 +1711,7 @@ final class HUDModel {
     // MARK: パネル
 
     func openPanel(_ p: HUDPanel) {
-        guard endPhase == nil || allowsPanelsAfterEnd, !finished else { return }
+        guard panelsAvailable else { return }
         setTacticalMap(open: false)
         confirmingLeave = false
         app?.audio.play(.uiTap)

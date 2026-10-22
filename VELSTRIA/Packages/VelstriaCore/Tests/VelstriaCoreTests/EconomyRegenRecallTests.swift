@@ -76,8 +76,9 @@ final class EconomyRegenRecallTests: XCTestCase {
         let regen = f.s.units[r].stats.hpRegen
         f.s.events.removeAll()
         for _ in 0..<10 { f.economyTick() }
-        // 10 tick = 1/3 秒 → 333.3 の確定ダメージ（防御無視）
-        XCTAssertEqual(hp0 - f.s.units[r].hp, 1000.0 / 3 - regen / 3, accuracy: 0.5)
+        // 10 tick = 1/3 秒 → 0.2 秒（6 tick）ごとに 2000 の確定ダメージが 1 回（防御無視。MLBB）
+        // （満タンの間は自然回復が上限で切れるので、回復分は 0〜1/3 秒ぶん）
+        XCTAssertEqual(hp0 - f.s.units[r].hp, min(hp0, 2000), accuracy: regen / 3 + 0.5)
         XCTAssertTrue(f.s.events.contains {
             if case .damage(let d) = $0 { return d.source == .fountain && d.damageType == .trueDamage }
             return false
@@ -191,6 +192,9 @@ final class EconomyRegenRecallTests: XCTestCase {
         let d = onTop.distance(to: tpos)
         XCTAssertGreaterThanOrEqual(d, f.s.units[tower].radius + f.s.units[a].radius)
         XCTAssertLessThanOrEqual(d, Balance.Economy.teleportTowerRadius)
+        // ベース（Core）の近くも可（MLBB の降臨: タワー・ベース・ミニオン・トラップ）
+        let base = f.s.units[f.core(.blue)].pos + Vec2(0, f.s.units[f.core(.blue)].radius + 150)
+        XCTAssertNotNil(RecallSystem.teleportDestination(f.s, f.ctx, heroIndex: a, requested: base))
         // 泉は可
         let fountain = f.ctx.map.fountain(.blue) + Vec2(100, 100)
         XCTAssertEqual(RecallSystem.teleportDestination(f.s, f.ctx, heroIndex: a, requested: fountain), fountain)

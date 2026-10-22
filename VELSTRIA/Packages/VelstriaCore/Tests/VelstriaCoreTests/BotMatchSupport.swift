@@ -40,6 +40,32 @@ struct BotMatchReport {
     var decisions = 0
     var msPerTick: Double = 0
     var timeline: [String] = []
+    /// 構造物が倒れた時刻（[倒した側 Team.rawValue][段]。段 0 = 外塔・1 = 内塔・2 = 基地塔・3 = ベース）。
+    var falls: [[[Double]]] = [[[], [], [], []], [[], [], [], []]]
+    /// 同時に生きていたミニオンの最大数（[Team.rawValue][MinionType.rawValue]。アプリの見た目のプールの大きさの根拠）。
+    var maxMinions: [[Int]] = [[0, 0, 0], [0, 0, 0]]
+
+    /// 段ごとに最初に倒れた時刻（両チームを通して。倒れていなければ nil）。
+    func firstFall(tier: Int) -> Double? {
+        (falls[0][tier] + falls[1][tier]).min()
+    }
+
+    static func clock(_ t: Double?) -> String {
+        guard let t else { return "-" }
+        return String(format: "%d:%02d", Int(t) / 60, Int(t) % 60)
+    }
+
+    static func fallHeader() -> String {
+        "| match | duration | winner | 1st outer | 1st inner | 1st base turret | base | towers B/R | kills B/R |\n"
+            + "|---|---|---|---|---|---|---|---|---|"
+    }
+
+    /// 塔が倒れる時刻の行（外塔・内塔・基地塔は両チームを通して最初の 1 本、ベースは試合の終わり）。
+    var fallRow: String {
+        String(format: "| %@ | %@ | %@ | %@ | %@ | %@ | %@ | %d / %d | %d / %d |", label, Self.clock(duration),
+               winner.map { "\($0)" } ?? "-", Self.clock(firstFall(tier: 0)), Self.clock(firstFall(tier: 1)),
+               Self.clock(firstFall(tier: 2)), Self.clock(firstFall(tier: 3)), towers[0], towers[1], kills[0], kills[1])
+    }
 
     func avgLevelAt12(_ team: Team) -> Double {
         let hs = heroes.filter { $0.team == team && $0.isBot }
@@ -76,9 +102,9 @@ struct BotMatchReport {
     }
 
     /// 試合を最後まで回して集計する。humanCommands は人間の入力（nil = 何もしない）。
-    static func run(_ label: String, config: MatchConfig, maxTime: Double = 40 * 60,
+    static func run(_ label: String, config: MatchConfig, map: MapDefinition = .standard, maxTime: Double = 40 * 60,
                     keepTimeline: Bool = false) -> BotMatchReport {
-        let sim = Simulation(config: config)
+        let sim = Simulation(config: config, map: map)
         var r = BotMatchReport(label: label)
         for i in sim.state.heroIndices {
             let u = sim.state.units[i]
@@ -108,7 +134,10 @@ struct BotMatchReport {
                                                  slot[k.victimID].map { r.heroes[$0].heroID } ?? "?"))
                     }
                 case .structureDestroyed(_, let kind, let team, let lane, let tier, _):
-                    if team != .neutral { r.towers[team.opponent.rawValue] += 1 }
+                    if team != .neutral {
+                        r.towers[team.opponent.rawValue] += 1
+                        r.falls[team.opponent.rawValue][kind == .core ? 3 : (tier?.rawValue ?? 0)].append(sim.state.time)
+                    }
                     if keepTimeline {
                         r.timeline.append(String(format: "%5.0fs %@ %@ %@ %@ destroyed", sim.state.time, "\(team)",
                                                  "\(kind)", lane.map { "\($0)" } ?? "-", tier.map { "\($0)" } ?? "-"))
@@ -132,6 +161,13 @@ struct BotMatchReport {
                     if d < 120 { r.heroes[k].moved += d }
                 }
                 last[k] = u.pos
+            }
+            if sim.state.tick % 30 == 0 {
+                var n: [[Int]] = [[0, 0, 0], [0, 0, 0]]
+                for u in sim.state.units where u.kind == .minion && (u.team == .blue || u.team == .red) {
+                    if let m = u.minion { n[u.team.rawValue][m.type.rawValue] += 1 }
+                }
+                for t in 0..<2 { for k in 0..<3 { r.maxMinions[t][k] = max(r.maxMinions[t][k], n[t][k]) } }
             }
             if sim.state.tick == 12 * 60 * 30 {
                 for (k, i) in heroIdx.enumerated() {

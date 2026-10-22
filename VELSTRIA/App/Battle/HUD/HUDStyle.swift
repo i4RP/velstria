@@ -4,16 +4,20 @@ import VelstriaCore
 // 担当: battle-hud。戦闘 HUD の共通スタイルと画面配置（横画面・左利き反転・Safe Area 対応）。
 
 enum HUDStyle {
-    static let surface = Color(red: 0.04, green: 0.08, blue: 0.17)
-    static let glassTop = Color(red: 0.10, green: 0.17, blue: 0.29).opacity(0.94)
-    static let glassBottom = surface.opacity(0.94)
+    static let surface = Color(red: 0.051, green: 0.090, blue: 0.157)
+    static let glassTop = Color(red: 0.10, green: 0.17, blue: 0.29).opacity(0.42)
+    static let glassBottom = surface.opacity(0.36)
     static let rim = Color(red: 0.61, green: 0.78, blue: 1.0).opacity(0.32)
-    static let accent = Color(red: 0.38, green: 0.88, blue: 1.0)
+    static let accent = Color(red: 0.333, green: 0.847, blue: 0.957)
+    /// 他のHUD部品が使う共通の金枠とシアンのハイライト。
+    static let goldRim = Color(red: 0.96, green: 0.80, blue: 0.45).opacity(0.75)
+    static let crystalLight = Color(red: 0.62, green: 0.93, blue: 1.0)
+    static let crystalDeep = Color(red: 0.10, green: 0.42, blue: 0.68)
     static let violet = Color(red: 0.66, green: 0.51, blue: 1.0)
     static let mutedText = Color(red: 0.69, green: 0.78, blue: 0.89)
-    static let hp = Color(red: 0.64, green: 0.95, blue: 0.38)
+    static let hp = Color(red: 0.451, green: 0.867, blue: 0.204)
     static let hpLow = Color(red: 1.0, green: 0.30, blue: 0.32)
-    static let mana = Color(red: 0.32, green: 0.74, blue: 1.0)
+    static let mana = Color(red: 0.267, green: 0.678, blue: 0.953)
     static let energy = Color(red: 1.0, green: 0.86, blue: 0.30)
     static let xp = violet
     static let shield = Color.white.opacity(0.88)
@@ -179,7 +183,7 @@ struct HUDLayout: Equatable {
         self.size = size
         self.safe = safe
         self.leftHanded = leftHanded
-        let s = min(size.height / 390, size.width / 844)
+        let s = size.height / 390
         scale = min(1.18, max(0.84, s))
     }
 
@@ -195,132 +199,124 @@ struct HUDLayout: Equatable {
     /// 右手配置の x を現在の配置へ。
     func mx(_ x: CGFloat) -> CGFloat { leftHanded ? leadingEdge + trailingEdge - x : x }
 
-    // MARK: 右側クラスタ（攻撃・スキル・スペル・帰還）
+    // MARK: 戦闘操作（下・右アンカー、円は高さ基準の共通倍率）
 
     var attackDiameter: CGFloat { 86 * scale }
     func attackDiameter(for slot: AttackButtonSlot) -> CGFloat {
-        slot == .center ? attackDiameter : 54 * scale
+        slot == .center ? attackDiameter : 25 * scale
     }
-    var skillDiameter: CGFloat { 60 * scale }
+    var skillDiameter: CGFloat { 64 * scale }
     var ultDiameter: CGFloat { 66 * scale }
-    var spellDiameter: CGFloat { 50 * scale }
-    var recallDiameter: CGFloat { max(44, 46 * scale) }
-    var levelBadgeDiameter: CGFloat { 30 * scale }
+    var spellDiameter: CGFloat { 38 * scale }
+    var recallDiameter: CGFloat { 38 * scale }
+    var levelBadgeDiameter: CGFloat { 18 * scale }
 
     private var attackCenterRight: CGPoint {
-        CGPoint(x: trailingEdge - 8 * scale - attackDiameter / 2, y: bottomEdge - 121 * scale)
+        CGPoint(x: trailingEdge - 70 * scale, y: bottomEdge - 52 * scale)
     }
-
     var attackCenter: CGPoint { mirrored(attackCenterRight) }
 
-    /// 上下の優先攻撃ボタンは中央の大きなボタンと縦に並べる。
     func attackCenter(for slot: AttackButtonSlot) -> CGPoint {
         switch slot {
-        case .top: return actionPoint(x: 0, y: -74)
+        case .top: return actionPoint(x: 42, y: -54)
         case .center: return attackCenter
-        case .bottom: return actionPoint(x: 0, y: 74)
+        case .bottom: return actionPoint(x: -68, y: 26)
         }
     }
 
-    /// 中央攻撃ボタンからの位置。スキル群は攻撃列の内側へ配置する。
     private func actionPoint(x: CGFloat, y: CGFloat) -> CGPoint {
         let c = attackCenterRight
         return mirrored(CGPoint(x: c.x + x * scale, y: c.y + y * scale))
     }
-
     private func mirrored(_ p: CGPoint) -> CGPoint { CGPoint(x: mx(p.x), y: p.y) }
 
     func skillCenter(_ slot: SkillSlot) -> CGPoint {
         switch slot {
-        case .skill1: return actionPoint(x: -163, y: 76)
-        case .skill2: return actionPoint(x: -93, y: 69)
-        case .ultimate, .passive: return actionPoint(x: -82, y: -6)
+        case .skill1: return actionPoint(x: -122, y: 6)
+        case .skill2: return actionPoint(x: -79, y: -77)
+        case .ultimate, .passive: return actionPoint(x: -12, y: -112)
         }
     }
 
+    // 見た目は小さな＋、判定は44pt。スキルのドラッグ開始領域と分離する。
     func levelBadgeCenter(_ slot: SkillSlot) -> CGPoint {
         switch slot {
-        case .skill1: return actionPoint(x: -210, y: 30)
-        case .skill2: return actionPoint(x: -142, y: 19)
-        case .ultimate, .passive: return actionPoint(x: -128, y: -72)
+        case .skill1: return actionPoint(x: -175, y: -40)
+        case .skill2: return actionPoint(x: -145, y: -99)
+        case .ultimate, .passive: return actionPoint(x: -68, y: -148)
         }
     }
 
+    // 下中央の補助列。16:9では戦闘操作との間隔を優先して左へ寄せる。
+    private var auxiliaryMiddleX: CGFloat {
+        min(width * 0.575, attackCenterRight.x - 244 * scale)
+    }
+    var auxiliaryY: CGFloat { bottomEdge - 32 * scale }
+    var spellRowY: CGFloat { auxiliaryY }
     func spellCenter(_ index: Int) -> CGPoint {
-        index == 0 ? actionPoint(x: -204, y: -26) : actionPoint(x: -181, y: -90)
+        mirrored(CGPoint(x: auxiliaryMiddleX + CGFloat(1 - index) * 54 * scale, y: auxiliaryY))
     }
-
-    var recallCenter: CGPoint { actionPoint(x: -218, y: 89) }
-
-    /// 右側クラスタの内側（画面中央側）の端。
+    var recallCenter: CGPoint {
+        mirrored(CGPoint(x: auxiliaryMiddleX - 54 * scale, y: auxiliaryY))
+    }
     var clusterInnerEdge: CGFloat {
-        let r = recallCenter.x
-        return leftHanded ? r + recallDiameter / 2 + 8 : r - recallDiameter / 2 - 8
+        let x = skillCenter(.skill1).x
+        return leftHanded ? x + skillDiameter / 2 + 8 : x - skillDiameter / 2 - 8
     }
 
-    // MARK: キャンセル領域（照準中のみ表示）
-
-    var cancelRadius: CGFloat { 38 * scale }
+    // 照準時だけ表示。常設の右端シグナル列にはかぶせない。
+    var cancelRadius: CGFloat { 30 * scale }
     var cancelCenter: CGPoint {
-        mirrored(CGPoint(x: trailingEdge - 64 * scale, y: topEdge + 58 * scale))
+        mirrored(CGPoint(x: trailingEdge - 126 * scale, y: topEdge + 100 * scale))
     }
-
-    /// スキル照準の最大ドラッグ量（pt）。
     var aimDragRadius: CGFloat { 84 * scale }
 
     // MARK: スティック
 
-    var joystickRadius: CGFloat { 58 * scale }
-    var joystickKnob: CGFloat { 48 * scale }
+    var joystickRadius: CGFloat { 62 * scale }
+    var joystickKnob: CGFloat { 56 * scale }
     var joystickRest: CGPoint {
-        mirrored(CGPoint(x: leadingEdge + 16 * scale + joystickRadius, y: bottomEdge - 24 * scale - joystickRadius))
+        mirrored(CGPoint(x: leadingEdge + 117 * scale, y: bottomEdge - 78 * scale))
     }
 
-    /// フローティングスティックの受付領域。
+    /// HUD以外の下左領域だけで移動を開始できる。補助列の透明判定へ侵入しない。
     var joystickZone: CGRect {
-        let top = minimapDockFrame.maxY + 8
-        let panelNear = leftHanded ? size.width - (heroPanelCenterX + heroPanelWidth / 2) : heroPanelCenterX - heroPanelWidth / 2
-        let w = max(140, min(size.width * 0.42, panelNear - 4))
-        return CGRect(x: leftHanded ? size.width - w : 0, y: top, width: w, height: size.height - top)
+        let top = max(minimapDockFrame.maxY + 8, utilityColumnFrame.maxY + 4)
+        let limit = auxiliaryMiddleX - 54 * scale - 26
+        let w = max(140, min(width * 0.40, limit))
+        return CGRect(x: leftHanded ? width - w : 0, y: top, width: w, height: bottomEdge - top)
     }
-
-    /// 固定スティックも地図ボタンの下から入力を受ける。
     var fixedJoystickZone: CGRect {
-        let reach = joystickRadius * 1.5
-        let top = max(joystickRest.y - reach, minimapDockFrame.maxY + 8)
-        return CGRect(x: joystickRest.x - reach, y: top, width: reach * 2,
-                      height: max(0, joystickRest.y + reach - top))
+        let reach = joystickRadius * 1.35
+        let zone = joystickZone
+        return CGRect(x: joystickRest.x - reach, y: joystickRest.y - reach,
+                      width: reach * 2, height: reach * 2).intersection(zone)
     }
 
-    // MARK: 上部
+    // MARK: 上端・左端
 
-    var minimapSize: CGFloat { min(172, max(138, size.height * 0.38)) }
+    var minimapSize: CGFloat { 124 * scale }
     var minimapFrame: CGRect {
-        let x = leftHanded ? trailingEdge - minimapSize - 2 : leadingEdge + 2
+        let x = leftHanded ? trailingEdge - minimapSize : leadingEdge
         return CGRect(x: x, y: topEdge, width: minimapSize, height: minimapSize)
     }
-
-    /// 地図と拡大ボタンをまとめた領域。移動スティックの入力領域から除外する。
-    var minimapDockFrame: CGRect {
-        CGRect(x: minimapFrame.minX, y: topEdge, width: minimapSize, height: minimapSize + 48)
-    }
-
+    var minimapDockFrame: CGRect { minimapFrame }
     var tacticalMapSize: CGFloat { min(340, max(180, bottomEdge - topEdge - 88)) }
     var tacticalLegendWidth: CGFloat { min(190, max(148, width * 0.22)) }
     var topInfoAlignment: Alignment { leftHanded ? .topLeading : .topTrailing }
-
     var topButtonSize: CGFloat { 44 }
 
-    // MARK: 下部中央のヒーローパネル
-
-    var heroPanelWidth: CGFloat { 290 * min(scale, 1.08) }
-
-    /// スティックとスキル群の間の中央。
-    var heroPanelCenterX: CGFloat {
-        let joyEdge = leftHanded ? joystickRest.x - joystickRadius : joystickRest.x + joystickRadius
-        let clusterEdge = clusterInnerEdge
-        return (joyEdge + clusterEdge) / 2
+    /// 所持金とショップの入口。金額はモデルから供給、タッチ高さは44pt。
+    var shopFrame: CGRect {
+        let w = 62 * scale
+        return CGRect(x: leftHanded ? leadingEdge : trailingEdge - w, y: topEdge, width: w, height: 44)
     }
+
+    // 死亡・詠唱の一時表示の中央。常設ヒーローカードは表示しない。
+    var heroPanelWidth: CGFloat { 210 * min(scale, 1.08) }
+    var heroPanelCenterX: CGFloat { mx(auxiliaryMiddleX) }
+    /// 詠唱バーは一時表示用の幅に収める。
+    var channelBarWidth: CGFloat { min(210, heroPanelWidth) }
 
     // MARK: 上部中央（スコア）
 

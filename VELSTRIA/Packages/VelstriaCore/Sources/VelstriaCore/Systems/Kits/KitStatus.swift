@@ -1,7 +1,7 @@
 import Foundation
 
 // 担当: core-skills（キット層。docs/SKILL_KITS.md）
-// 状態系のプリミティブ: マーク（敵側のスタック）・維持されるステルス・対象不可・打ち上げ・suppress・シールド・吸血系。
+// 状態系のプリミティブ: マーク（敵側のスタック）・維持されるステルス・対象不可・打ち上げ・suppress・構造物の凍結・シールド・吸血系。
 // 敵側のスタック/マークは `.mark` status（magnitude = スタック数。tag に所有者 ID を含める）。
 
 /// キットが status / shield に付ける tag。
@@ -10,6 +10,8 @@ enum KitTags {
     static let persistentStealth = "kit.stealth"
     static let untargetable = "kit.untargetable"
     static let knockUp = "kit.knockUp"
+    /// 強靭（コントロール時間短縮）で縮まない打ち上げ（スキルの説明に「強靭の影響を受けない」とあるもの）。
+    static let knockUpIgnoresResilience = "kit.knockUp.fixed"
     static let suppress = "kit.suppress"
 
     /// 所有者ごとに分かれるマークの tag。例: mark("H032", "brand", owner: id)
@@ -83,10 +85,19 @@ extension Kit {
 
     // MARK: - CC
 
-    /// 打ち上げ（既存の .airborne。CC 無効・無敵には効かない）。
-    static func knockUp(_ s: inout SimState, target t: Int, duration: Double, sourceID: EntityID?) {
-        CombatSystem.addStatus(&s, targetIndex: t, StatusEffect(kind: .airborne, duration: duration,
-                                                                sourceID: sourceID, tag: KitTags.knockUp))
+    /// 打ち上げ（既存の .airborne。CC 無効・無敵には効かない）。強靭で縮む（MLBB の日本語クライアントの「強靭」）。
+    /// ignoresResilience = true はスキルの説明に「強靭の影響を受けない」とある打ち上げ（セイバーの奥義）。
+    static func knockUp(_ s: inout SimState, target t: Int, duration: Double, sourceID: EntityID?,
+                        ignoresResilience: Bool = false) {
+        let tag = ignoresResilience ? KitTags.knockUpIgnoresResilience : KitTags.knockUp
+        CombatSystem.addStatus(&s, targetIndex: t, StatusEffect(kind: .airborne, duration: duration, sourceID: sourceID,
+                                                                tag: tag))
+        // ノックアップは高レベルのコントロール: 受けた側の進行中の突進・跳躍を止める（MLBB「多くのスキルおよびブリンクや
+        // アサルトの効果を中断できる」）。付かなかった（CC 無効・無敵）ときは止めない。強制移動（引き寄せ・押し出し）は止めない
+        guard s.units.indices.contains(t), s.units[t].statuses.contains(where: { $0.kind == .airborne && $0.tag == tag }),
+              let d = s.units[t].displacement, d.kind == .dash || d.kind == .leap else { return }
+        s.units[t].displacement = nil
+        s.units[t].path.removeAll()
     }
 
     /// suppress（行動不能・移動不能。解除不可で CC 無効も無視する。無敵・構造物には効かない）。
@@ -99,6 +110,24 @@ extension Kit {
 
     static func releaseSuppress(_ s: inout SimState, target t: Int) {
         s.units[t].statuses.removeAll { $0.kind == .suppress }
+    }
+
+    /// 敵の構造物（タワー・Core）を凍結する（`.stun`。凍結の間は索敵・攻撃をしない: TowerSystem / CombatSystem.stepAttacker）。
+    /// ダメージは与えない。無敵の構造物には効かない。構造物に弱体を付けられるのはこの関数だけ（`addStatus(allowStructure:)`）。
+    /// 付いた（残り時間が延びた）ら true。
+    @discardableResult
+    static func freezeStructure(_ s: inout SimState, _ ctx: SimContext, target t: Int, duration: Double,
+                                sourceID: EntityID?, tag: String) -> Bool {
+        guard s.units.indices.contains(t), s.units[t].isStructure, CombatSystem.isLiving(s, t), duration > 0,
+              !CombatSystem.isInvulnerable(s, ctx, t) else { return false }
+        if let src = s.index(of: sourceID), s.units[src].team == s.units[t].team { return false }
+        let before = s.units[t].statuses.first { $0.kind == .stun && $0.tag == tag }?.remaining ?? 0
+        CombatSystem.addStatus(&s, targetIndex: t, StatusEffect(kind: .stun, duration: duration, sourceID: sourceID,
+                                                                tag: tag), allowStructure: true)
+        let after = s.units[t].statuses.first { $0.kind == .stun && $0.tag == tag }?.remaining ?? 0
+        guard after > before + 1e-9 else { return false }
+        s.emit(.ccApplied(targetID: s.units[t].id, cc: .stun, duration: duration))
+        return true
     }
 
     // MARK: - シールド・吸血

@@ -1,388 +1,41 @@
 import SwiftUI
 
 // 担当: online。フレンドの画面（シート）と、パーティの招待のダイアログ。ロジックは FriendHub。
-// - 自分のフレンドコード（コピー・共有）/ コードで申請 / 届いた申請の承認 / フレンド一覧（在席・招待・削除）
+// - フレンドの画面は PartySidePanel（パーティの右パネル）と同じ部品（フレンド・申請・最近一緒に遊んだ人・近くの部屋・部屋コード）
 // - 招待: 自分の部屋（パーティ）がなければ作ってから、部屋コードをフレンドの受信箱へ送る。受け取った側は 拒否 / 待って / 同意。
 // - 招待のダイアログ（PartyInviteOverlay）はルートに重ねる。戦闘中は出さない（届いた時点で「試合中」と返す）。
+// - フレンド・届いた申請・招待から 通報・ブロック できる（ガイドライン 1.2。OnlineSafetyViews）。
 
+/// フレンドの画面（部屋の画面の「招待」から開くシート）。パーティの右パネル（PartySidePanel）と同じ部品を使い、
+/// フレンドの画面を 1 つにまとめる（第0段の「フレンドの画面が 3 つ」の統合。docs/OUTGAME_GAP.md 9-7）。
+/// フレンド・申請・最近一緒に遊んだ人・近くの部屋・部屋コードのタブ、自分のコード・申請の入力は申請のタブ。
 struct FriendsView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
-    @State private var codeInput = ""
-    @State private var removing: Friend?
-
-    private var hub: FriendHub { app.friends }
-
-    /// いま招待に使える部屋（自分がホストで中継が開いている、または部屋コードで入っている）。
-    private var inviteRoom: (code: String, name: String)? {
-        guard let session = app.online else { return nil }
-        if session.isHost {
-            guard let code = session.relayCode, session.relayStatus?.isReady == true else { return nil }
-            return (code, session.room.name)
-        }
-        guard let code = session.joinedRelayCode, session.isConnected else { return nil }
-        return (code, session.room.name)
-    }
+    @State private var tab: PartySideTab = .friends
 
     var body: some View {
-        ZStack {
-            StarfieldBackground()
-            VStack(spacing: 8) {
-                header
-                HStack(alignment: .top, spacing: 12) {
-                    ScrollView {
-                        VStack(spacing: 10) {
-                            myCodePanel
-                            addPanel
-                            if !hub.incomingRequests.isEmpty { requestsPanel }
-                        }
-                    }
-                    .scrollBounceBehavior(.basedOnSize)
-                    .frame(width: 290)
-                    friendsPanel.frame(maxWidth: .infinity)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-            // シートはルートの重ね表示より手前に出るので、招待のダイアログとトーストはここにも重ねる
-            PartyInviteOverlay()
-            ToastOverlay()
-        }
-        .preferredColorScheme(.dark)
-        .confirmationDialog(removing.map { L("\(FriendNames.display($0.name)) をフレンドから外しますか？", "Remove \(FriendNames.display($0.name)) from your friends?") } ?? "",
-                            isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
-                            titleVisibility: .visible) {
-            Button(L("フレンドから外す", "Remove"), role: .destructive) {
-                if let f = removing { hub.removeFriend(code: f.code) }
-                removing = nil
-            }
-            Button(L("キャンセル", "Cancel"), role: .cancel) { removing = nil }
-        }
-    }
-
-    // MARK: ヘッダー
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            Text(L("フレンド", "Friends"))
-                .font(Theme.title(22))
-                .foregroundStyle(Theme.textPrimary)
-            statusLabel
-            Spacer()
+        ZStack(alignment: .topTrailing) {
+            PartySidePanel(tab: $tab)
             Button {
                 FlowFX.back(app)
                 dismiss()
             } label: {
-                Text(L("閉じる", "Close"))
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            .accessibilityIdentifier("friends_close")
-        }
-    }
-
-    private var statusLabel: some View {
-        HStack(spacing: 5) {
-            Circle().fill(statusColor).frame(width: 8, height: 8)
-            Text(statusText)
-                .font(Theme.body(11))
-                .foregroundStyle(statusColor)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("friends_status")
-    }
-
-    private var statusColor: Color {
-        switch hub.status {
-        case .online: return Theme.success
-        case .failed: return Theme.danger
-        case .connecting, .offline: return Theme.textSecondary
-        }
-    }
-
-    private var statusText: String {
-        switch hub.status {
-        case .online: return L("オンライン", "Online")
-        case .connecting: return L("接続中…", "Connecting…")
-        case .offline: return L("オフライン", "Offline")
-        case .failed(let reason): return reason
-        }
-    }
-
-    // MARK: 自分のコード
-
-    private var myCodePanel: some View {
-        Panel(padding: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Label(L("あなたのフレンドコード", "Your Friend Code"), systemImage: "person.crop.circle.badge.checkmark")
-                    .font(Theme.heading(14))
+                Image(systemName: "xmark")
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
-                HStack(spacing: 4) {
-                    Text(FriendCode.display(hub.myCode))
-                        .font(.system(size: 24, weight: .heavy, design: .monospaced))
-                        .foregroundStyle(Theme.gold)
-                        .minimumScaleFactor(0.7)
-                        .lineLimit(1)
-                        .textSelection(.enabled)
-                        .accessibilityLabel(L("フレンドコード \(hub.myCode.map { String($0) }.joined(separator: " "))",
-                                              "Friend code \(hub.myCode.map { String($0) }.joined(separator: " "))"))
-                        .accessibilityIdentifier("friends_my_code")
-                    Spacer(minLength: 0)
-                    Button {
-                        FlowFX.tap(app)
-                        UIPasteboard.general.string = hub.myCode
-                        app.showToast(L("フレンドコードをコピーしました", "Friend code copied"))
-                    } label: {
-                        Image(systemName: "doc.on.doc")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(Theme.cyan)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(L("フレンドコードをコピー", "Copy friend code"))
-                    .accessibilityIdentifier("friends_copy")
-                    ShareLink(item: FriendLink.shareText(code: hub.myCode, name: hub.myName)) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(Theme.cyan)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel(L("フレンドコードを共有", "Share friend code"))
-                    .accessibilityIdentifier("friends_share")
-                }
-                Text(L("コードかリンクを友達に送ると、友達がフレンド申請できます。", "Send your code or link to a friend so they can send you a request."))
-                    .font(Theme.body(11))
-                    .foregroundStyle(Theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    // MARK: 追加
-
-    private var parsedCode: Result<String, FriendCode.InputError> { FriendCode.parse(codeInput) }
-    private var codeIsValid: Bool { if case .success = parsedCode { return true } else { return false } }
-    private var codeHasError: Bool {
-        switch parsedCode {
-        case .failure(.ambiguous), .failure(.invalid), .failure(.tooLong): return true
-        default: return false
-        }
-    }
-
-    private var addPanel: some View {
-        Panel(padding: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Label(L("フレンドを追加", "Add a Friend"), systemImage: "person.badge.plus")
-                    .font(Theme.heading(14))
-                    .foregroundStyle(Theme.textPrimary)
-                HStack(spacing: 8) {
-                    TextField("", text: $codeInput, prompt: Text("ABCD EFGH").foregroundStyle(Theme.textSecondary.opacity(0.5)))
-                        .font(.system(size: 18, weight: .heavy, design: .monospaced))
-                        .tracking(1)
-                        .foregroundStyle(Theme.gold)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-                        .keyboardType(.asciiCapable)
-                        .submitLabel(.send)
-                        .onSubmit { sendRequest() }
-                        .onChange(of: codeInput) { _, v in
-                            let cleaned = FriendCode.cleaned(v)
-                            if cleaned != v { codeInput = cleaned }
-                        }
-                        .padding(.horizontal, 10)
-                        .frame(minHeight: 44)
-                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black.opacity(0.3)))
-                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(codeHasError ? Theme.danger : Theme.panelStroke, lineWidth: 1))
-                        .accessibilityLabel(L("相手のフレンドコード", "Friend code"))
-                        .accessibilityIdentifier("friends_code_field")
-                    Button {
-                        sendRequest()
-                    } label: {
-                        Text(L("申請", "Send"))
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .opacity(codeIsValid ? 1 : 0.5)
-                    .accessibilityIdentifier("friends_send")
-                }
-                if codeHasError {
-                    Text(codeHint)
-                        .font(Theme.body(11))
-                        .foregroundStyle(Theme.danger)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-    }
-
-    private var codeHint: String {
-        if case .failure(let e) = parsedCode { return e.message }
-        return ""
-    }
-
-    private func sendRequest() {
-        switch hub.requestFriend(input: codeInput) {
-        case .sent, .accepted:
-            FlowFX.confirm(app)
-            codeInput = ""
-        case .alreadyFriend:
-            FlowFX.error(app)
-            app.showToast(L("すでにフレンドです", "You are already friends"))
-        case .isSelf:
-            FlowFX.error(app)
-            app.showToast(L("自分のフレンドコードです", "That is your own friend code"))
-        case .invalid(let message):
-            FlowFX.error(app)
-            app.showToast(message)
-        }
-    }
-
-    // MARK: 届いた申請
-
-    private var requestsPanel: some View {
-        Panel(padding: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Label(L("フレンド申請", "Friend Requests"), systemImage: "bell.badge.fill")
-                    .font(Theme.heading(14))
-                    .foregroundStyle(Theme.gold)
-                ForEach(hub.incomingRequests) { request in
-                    HStack(spacing: 6) {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(FriendNames.display(request.name)).font(Theme.heading(14)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                            Text(FriendCode.display(request.code)).font(Theme.mono(10)).foregroundStyle(Theme.textSecondary)
-                        }
-                        Spacer(minLength: 4)
-                        Button {
-                            FlowFX.tap(app)
-                            hub.ignore(request)
-                        } label: {
-                            Text(L("無視", "Ignore")).font(Theme.body(12)).foregroundStyle(Theme.textSecondary)
-                                .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("friends_ignore_\(request.code)")
-                        Button {
-                            FlowFX.confirm(app)
-                            hub.approve(request)
-                        } label: {
-                            Text(L("承認", "Accept")).font(Theme.body(12)).foregroundStyle(Theme.gold)
-                                .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("friends_approve_\(request.code)")
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: フレンド一覧
-
-    private var friendsPanel: some View {
-        Panel(padding: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Label(L("フレンド（\(hub.friends.count)）", "Friends (\(hub.friends.count))"), systemImage: "person.2.fill")
-                        .font(Theme.heading(14))
-                        .foregroundStyle(Theme.textPrimary)
-                    Spacer()
-                    if inviteRoom == nil {
-                        Button {
-                            FlowFX.confirm(app)
-                            app.hostPartyRoom()
-                        } label: {
-                            Label(L("パーティを作る", "Create Party"), systemImage: "plus.circle.fill")
-                        }
-                        .buttonStyle(SecondaryButtonStyle())
-                        .accessibilityIdentifier("friends_create_party")
-                    } else {
-                        Label(L("パーティに招待できます", "Ready to invite"), systemImage: "checkmark.circle.fill")
-                            .font(Theme.body(11))
-                            .foregroundStyle(Theme.success)
-                    }
-                }
-                if hub.friends.isEmpty {
-                    Text(L("まだフレンドがいません。フレンドコードを交換して申請しましょう。", "No friends yet. Exchange friend codes to send a request."))
-                        .font(Theme.body(12))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(maxWidth: .infinity, minHeight: 80)
-                } else {
-                    ScrollView {
-                        VStack(spacing: 6) {
-                            ForEach(sortedFriends) { friend in friendRow(friend) }
-                        }
-                    }
-                    .scrollBounceBehavior(.basedOnSize)
-                }
-            }
-        }
-    }
-
-    /// オンラインの人を上に、その中は追加した順。
-    private var sortedFriends: [Friend] {
-        let all = hub.friends
-        return all.filter { hub.isFriendOnline($0.code) } + all.filter { !hub.isFriendOnline($0.code) }
-    }
-
-    private func friendRow(_ friend: Friend) -> some View {
-        let online = hub.isFriendOnline(friend.code)
-        return HStack(spacing: 8) {
-            Circle().fill(online ? Theme.success : Color.white.opacity(0.25)).frame(width: 10, height: 10)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(FriendNames.display(friend.name)).font(Theme.heading(14)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                Text(online ? L("オンライン", "Online") : L("オフライン", "Offline"))
-                    .font(Theme.body(10))
-                    .foregroundStyle(online ? Theme.success : Theme.textSecondary)
-            }
-            Spacer(minLength: 4)
-            Button {
-                FlowFX.tap(app)
-                removing = friend
-            } label: {
-                Image(systemName: "person.crop.circle.badge.minus")
-                    .font(.system(size: 15))
-                    .foregroundStyle(Theme.textSecondary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(L("\(FriendNames.display(friend.name)) をフレンドから外す", "Remove \(FriendNames.display(friend.name))"))
-            .accessibilityIdentifier("friends_remove_\(friend.code)")
-            Button {
-                invite(friend)
-            } label: {
-                Text(L("招待", "Invite"))
-                    .font(Theme.body(12))
-                    .foregroundStyle(online ? Theme.gold : Theme.textSecondary.opacity(0.6))
-                    .frame(minWidth: 52, minHeight: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!online)
-            .accessibilityLabel(L("\(FriendNames.display(friend.name)) をパーティに招待", "Invite \(FriendNames.display(friend.name)) to the party"))
-            .accessibilityIdentifier("friends_invite_\(friend.code)")
+            .padding(.top, 48)
+            .padding(.trailing, 6)
+            .accessibilityLabel(L("閉じる", "Close"))
+            .accessibilityIdentifier("friends_close")
         }
-        .padding(.leading, 12)
-        .padding(.trailing, 4)
-        .frame(minHeight: 44)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.08)))
-    }
-
-    /// 招待する。部屋がまだ無ければ作り、部屋コードが使えるようになるまで（最大 10 秒）待ってから送る。
-    private func invite(_ friend: Friend) {
-        FlowFX.confirm(app)
-        if inviteRoom == nil { app.hostPartyRoom() }
-        Task { @MainActor in
-            for _ in 0..<40 {
-                if let room = inviteRoom {
-                    hub.invite(friend, roomCode: room.code, roomName: room.name)
-                    return
-                }
-                try? await Task.sleep(for: .milliseconds(250))
-            }
-            app.showToast(L("部屋の準備ができませんでした。もう一度お試しください", "The room is not ready. Please try again"))
+        .onAppear {
+            app.friends.start()
+            app.friends.refreshPresence()
         }
     }
 }
@@ -393,8 +46,16 @@ struct FriendsView: View {
 struct PartyInviteOverlay: View {
     @Environment(AppModel.self) private var app
     @State private var suppress = false
+    @State private var moderation = ModerationPrompt()
 
     var body: some View {
+        // 招待を断って通報の画面を出しても消えないよう、確認と通報の画面は外側（常にある ZStack）に付ける
+        ZStack { content }
+            .moderationPrompts(moderation)
+    }
+
+    @ViewBuilder
+    private var content: some View {
         if let invite = app.friends.pendingInvite, app.activeBattle == nil, app.activeMagicChess == nil {
             ZStack {
                 Color.black.opacity(0.55).ignoresSafeArea()
@@ -463,6 +124,34 @@ struct PartyInviteOverlay: View {
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(suppress ? .isSelected : [])
                     .accessibilityIdentifier("invite_suppress")
+                    HStack(spacing: 16) {
+                        Button {
+                            FlowFX.tap(app)
+                            let target = Self.target(invite)
+                            respond(.decline(suppress: false))
+                            moderation.report = target
+                        } label: {
+                            Label(L("通報する", "Report"), systemImage: "exclamationmark.bubble")
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textSecondary)
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("invite_report")
+                        Button {
+                            FlowFX.tap(app)
+                            moderation.confirm = .block(Self.target(invite))
+                        } label: {
+                            Label(L("ブロックする", "Block"), systemImage: "hand.raised.fill")
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.danger)
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("invite_block")
+                    }
                 }
                 .padding(20)
                 .frame(maxWidth: 520)
@@ -478,5 +167,10 @@ struct PartyInviteOverlay: View {
     private func respond(_ response: FriendHub.InviteResponse) {
         suppress = false
         app.friends.respond(response)
+    }
+
+    private static func target(_ invite: PartyInvite) -> PlayerReportTarget {
+        PlayerReportTarget(name: invite.name, friendCode: invite.from, source: .invite, roomCode: invite.room,
+                           detail: invite.roomName.isEmpty ? nil : L("部屋の名前: \(invite.roomName)", "Room name: \(invite.roomName)"))
     }
 }

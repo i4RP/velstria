@@ -10,8 +10,10 @@ final class FlowNameAndOnboardingTests: XCTestCase {
         XCTAssertEqual(PlayerNameRules.normalized("  ab  "), "ab")
         XCTAssertEqual(PlayerNameRules.validate("a"), .tooShort)
         XCTAssertEqual(PlayerNameRules.validate("   "), .tooShort)
-        XCTAssertNil(PlayerNameRules.validate("123456789012"))
+        XCTAssertNil(PlayerNameRules.validate("Abcdefghijk2"))
         XCTAssertEqual(PlayerNameRules.validate("1234567890123"), .tooLong)
+        // 長さが収まっても、電話番号のような数字の並び（連絡先）は使えない（OnlineSafetyTests にフィルタの詳細）
+        XCTAssertEqual(PlayerNameRules.validate("123456789012"), .inappropriate)
         XCTAssertNil(PlayerNameRules.validate("星環の旅人"))
         XCTAssertEqual(PlayerNameRules.validate("ab\ncd"), .invalidCharacters)
         XCTAssertEqual(PlayerNameRules.validate("ab\u{0007}c"), .invalidCharacters)
@@ -52,27 +54,21 @@ final class FlowNameAndOnboardingTests: XCTestCase {
 }
 
 final class FlowDraftTests: XCTestCase {
-    private let owned = ["H001", "H002", "H003", "H004", "H005", "H006"]
+    /// 全員分の名簿（ロールがそろい、AI の選択の幅が広い）。ゲームの既定は master.heroes（H025〜H034）。
+    private let roster = MasterData.shared.allHeroes
 
     func testTurnOrder() {
         let t = DraftEngine.turns
-        XCTAssertEqual(t.count, 14)
-        XCTAssertEqual(t.prefix(4).map(\.action), [.ban, .ban, .ban, .ban])
-        XCTAssertEqual(t.prefix(4).map(\.team), [.blue, .red, .blue, .red])
-        XCTAssertEqual(t.dropFirst(4).map(\.slotLabel), ["B1", "R1", "R2", "B2", "B3", "R3", "R4", "B4", "B5", "R5"])
-        XCTAssertEqual(t.indices.filter { t[$0].isPlayer }, [0, 4])
+        XCTAssertEqual(t.count, 10, "BAN は無い（2026-10-12 に廃止）")
+        XCTAssertEqual(t.map(\.slotLabel), ["B1", "R1", "R2", "B2", "B3", "R3", "R4", "B4", "B5", "R5"])
+        XCTAssertEqual(t.indices.filter { t[$0].isPlayer }, [0])
     }
 
-    /// プレイヤーの BAN/ピック以外を AI に任せて最後まで進める。希望ヒーローが BAN されていたら自動選択。
-    static func runDraft(seed: UInt64, owned: [String], playerBan: String?, playerPick: String) -> DraftEngine {
-        var d = DraftEngine(seed: seed, ownedHeroIDs: owned)
+    /// プレイヤーのピック以外を AI に任せて最後まで進める。希望ヒーローが取られていたら自動選択。
+    static func runDraft(seed: UInt64, playerPick: String, roster: [HeroDef]? = MasterData.shared.allHeroes) -> DraftEngine {
+        var d = DraftEngine(seed: seed, roster: roster)
         while let turn = d.currentTurn {
-            let choice: String?
-            if turn.isPlayer {
-                choice = turn.action == .ban ? playerBan : d.autoChoiceForPlayer(preferred: [playerPick])
-            } else {
-                choice = d.aiChoice()
-            }
+            let choice = turn.isPlayer ? d.autoChoiceForPlayer(preferred: [playerPick]) : d.aiChoice()
             guard d.commit(choice) else {
                 XCTFail("手番 \(d.turnIndex) の確定に失敗")
                 break
@@ -81,66 +77,110 @@ final class FlowDraftTests: XCTestCase {
         return d
     }
 
-    private func runDraft(seed: UInt64, playerBan: String?, playerPick: String) -> DraftEngine {
-        Self.runDraft(seed: seed, owned: owned, playerBan: playerBan, playerPick: playerPick)
-    }
-
-    /// 先頭 4 手の BAN で指定ヒーローが選ばれないシードを探す（テストの前提を固定する）。
-    private func seed(avoidingBanOf hero: String, from start: UInt64) -> UInt64 {
-        var s = start
-        while Self.runDraft(seed: s, owned: owned, playerBan: nil, playerPick: hero).playerPick?.heroID != hero { s += 1 }
-        return s
-    }
-
     func testFullDraftIsValidAndDeterministic() {
-        let s = seed(avoidingBanOf: "H003", from: 777)
-        let a = runDraft(seed: s, playerBan: "H010", playerPick: "H003")
-        let b = runDraft(seed: s, playerBan: "H010", playerPick: "H003")
+        let a = Self.runDraft(seed: 777, playerPick: "H003")
+        let b = Self.runDraft(seed: 777, playerPick: "H003")
         XCTAssertEqual(a, b)
         XCTAssertTrue(a.isComplete)
-        XCTAssertEqual(a.bannedHeroIDs.count, 4)
-        XCTAssertTrue(a.bannedHeroIDs.contains("H010"))
         let picked = a.pickedHeroIDs
         XCTAssertEqual(picked.count, 10)
         XCTAssertEqual(Set(picked).count, 10)
-        XCTAssertTrue(Set(picked).isDisjoint(with: Set(a.bannedHeroIDs)))
         for team in Team.players {
             XCTAssertEqual(Set(a.picks(for: team).map(\.position)), Set(LanePosition.allCases))
         }
-        XCTAssertEqual(a.playerPick?.heroID, "H003")
+        XCTAssertEqual(a.playerPick?.heroID, "H003", "プレイヤーは最初の手番（B1）なので必ず取れる")
         XCTAssertEqual(a.playerPick?.position, .carry)   // Ranger → ボット
 
-        let others = (1...5).map { runDraft(seed: s &+ UInt64($0) * 1000, playerBan: "H010", playerPick: "H003").pickedHeroIDs }
+        let others = (1...5).map { Self.runDraft(seed: 777 &+ UInt64($0) * 1000, playerPick: "H003").pickedHeroIDs }
         XCTAssertTrue(others.contains { $0 != a.pickedHeroIDs }, "シードが違えば AI の選択も変わる")
     }
 
+    /// 所持の制限は無く、取られていないヒーローなら誰でも選べる。AI の手番ではプレイヤーは選べない。
     func testPlayerRestrictions() {
-        var d = DraftEngine(seed: 1, ownedHeroIDs: owned)
-        // BAN は未所持でも可能
+        var d = DraftEngine(seed: 1, roster: roster)
         XCTAssertTrue(d.canPlayerSelect("H020"))
         XCTAssertFalse(d.commit("H999"))
+        XCTAssertFalse(d.commit(nil), "ピックは省略できない")
         XCTAssertTrue(d.commit("H020"))
-        // AI の手番ではプレイヤーは選べない
-        XCTAssertFalse(d.canPlayerSelect("H001"))
-        while let t = d.currentTurn, !t.isPlayer { d.commit(d.aiChoice()) }
-        XCTAssertEqual(d.currentTurn?.action, .pick)
-        XCTAssertFalse(d.canPlayerSelect("H020"), "BAN 済み")
-        XCTAssertFalse(d.canPlayerSelect("H007"), "未所持")
-        XCTAssertFalse(d.commit("H007"))
-        let expected = ["H004", "H005", "H006", "H001"].first { d.canPlayerSelect($0) }
-        XCTAssertEqual(d.autoChoiceForPlayer(preferred: ["H020"] + [expected].compactMap { $0 }), expected)
+        XCTAssertFalse(d.canPlayerSelect("H001"), "AI の手番")
+        XCTAssertEqual(d.autoChoiceForPlayer(preferred: ["H001"]), nil)
     }
 
-    func testBanTimeoutSkips() {
-        var d = DraftEngine(seed: 5, ownedHeroIDs: owned)
-        XCTAssertNil(d.autoChoiceForPlayer(preferred: ["H001"]))
-        XCTAssertTrue(d.commit(nil))
-        XCTAssertEqual(d.bans(for: .blue), [nil])
-        XCTAssertEqual(d.bannedHeroIDs, [])
+    /// MLBB と同じく自分の手番は試合ごとに変わり、レーンを選んでいれば青の各手番のレーンを先に決める。
+    func testPlayerSlotAndLanePlan() {
+        let slots = Set((0..<40).map { DraftEngine.playerSlot(seed: UInt64($0) &* 7919) })
+        XCTAssertTrue(slots.isSubset(of: Set(0...4)))
+        XCTAssertGreaterThan(slots.count, 1, "シードで手番が変わる")
+        var d = DraftEngine(seed: 5, roster: roster, playerSlot: 2, playerLane: .jungle)
+        XCTAssertEqual(d.turns.indices.filter { d.turns[$0].isPlayer }, [4], "B3 は全体の 5 番目の手番")
+        XCTAssertEqual(d.plannedLane(blueIndex: 2), .jungle)
+        XCTAssertEqual(Set((0..<5).compactMap { d.plannedLane(blueIndex: $0) }), Set(LanePosition.allCases))
+        while let turn = d.currentTurn {
+            let choice = turn.isPlayer ? d.autoChoiceForPlayer(preferred: []) : d.aiChoice()
+            XCTAssertTrue(d.commit(choice))
+        }
+        XCTAssertEqual(d.playerPick?.position, .jungle, "希望のレーン")
+        // 味方の AI は受け持つレーンに合うロールを選ぶ
+        for (i, pick) in d.picks(for: .blue).enumerated() where i != 2 {
+            XCTAssertEqual(pick.position, d.plannedLane(blueIndex: i))
+            let role = try? XCTUnwrap(d.role(of: pick.heroID))
+            XCTAssertTrue(MatchFactory.preferredRoles(for: pick.position).contains(role!), "\(pick.heroID) が \(pick.position) に合わない")
+        }
+        XCTAssertEqual(Set(d.picks(for: .red).map(\.position)), Set(LanePosition.allCases))
+    }
+
+    /// レーン交換: 味方がまだ選んでいなければ応じる。ヒーロー交換: 両方が選んだ後、自分のヒーローが味方のレーンに合えば応じる。
+    func testSwapRequests() {
+        var d = DraftEngine(seed: 11, roster: roster, playerSlot: 0, playerLane: .mid)
+        XCTAssertTrue(d.allyAcceptsLaneSwap(blueIndex: 3), "選ぶ前の味方は応じる")
+        let theirs = d.plannedLane(blueIndex: 3)
+        XCTAssertTrue(d.requestLaneSwap(blueIndex: 3))
+        XCTAssertEqual(d.plannedLane(blueIndex: 0), theirs)
+        XCTAssertEqual(d.plannedLane(blueIndex: 3), .mid)
+        XCTAssertFalse(d.requestLaneSwap(blueIndex: 0), "自分とは交換しない")
+        while let turn = d.currentTurn {
+            let choice = turn.isPlayer ? d.autoChoiceForPlayer(preferred: []) : d.aiChoice()
+            XCTAssertTrue(d.commit(choice))
+        }
+        let blue = d.picks(for: .blue)
+        for j in 1..<5 {
+            let before = d
+            if d.allyAcceptsHeroSwap(blueIndex: j) {
+                XCTAssertTrue(d.requestHeroSwap(blueIndex: j))
+                XCTAssertEqual(d.picks(for: .blue)[0].heroID, blue[j].heroID)
+                XCTAssertEqual(d.picks(for: .blue)[j].heroID, blue[0].heroID)
+                XCTAssertEqual(d.picks(for: .blue).map(\.position), blue.map(\.position), "レーンはそのまま")
+                break
+            } else {
+                XCTAssertFalse(d.requestHeroSwap(blueIndex: j))
+                XCTAssertEqual(d, before, "断られたら何も変わらない")
+            }
+        }
+    }
+
+    /// 時間切れの自動選択は、よく使うヒーローを優先する（得意ヒーロー 3 体の並び）。
+    func testFavoritesForAutoPick() {
+        var p = Profile()
+        p.career.perHero = ["H027": HeroCareer(matches: 5, wins: 1), "H025": HeroCareer(matches: 9, wins: 3),
+                            "H030": HeroCareer(matches: 5, wins: 4), "H099": HeroCareer(matches: 50, wins: 50)]
+        let roster = MasterData.shared.heroes.map(\.heroID)
+        XCTAssertEqual(DraftShowcase.favorites(p, roster: roster), ["H025", "H030", "H027"], "試合数 → 勝ち数の順、名簿外は除く")
+        let ai = DraftShowcase.aiFavorites(seed: 3, index: 1, lane: .carry)
+        XCTAssertEqual(ai.count, 3)
+        XCTAssertEqual(Set(ai).count, 3)
+        XCTAssertEqual(ai, DraftShowcase.aiFavorites(seed: 3, index: 1, lane: .carry), "決定的")
+    }
+
+    func testQuickChatPhrasesAreStable() {
+        // オンラインでは番号だけを送るので、並びを変えない（足すときは末尾へ）
+        XCTAssertEqual(QuickChat.phrases.first?.ja, "よろしく！")
+        XCTAssertEqual(QuickChat.text(99), "")
+        XCTAssertNotNil(QuickChat.aiReply(to: 1))
+        XCTAssertNil(QuickChat.aiReply(to: 7), "了解には返事をしない")
     }
 
     func testPositionSwapWithAlly() {
-        var d = runDraft(seed: seed(avoidingBanOf: "H003", from: 99), playerBan: nil, playerPick: "H003")
+        var d = Self.runDraft(seed: 99, playerPick: "H003")
         XCTAssertEqual(d.playerPick?.position, .carry)
         let allyAtMid = d.heroID(team: .blue, position: .mid)
         XCTAssertNotNil(allyAtMid)
@@ -151,18 +191,25 @@ final class FlowDraftTests: XCTestCase {
     }
 
     func testApplyDraftToConfig() throws {
-        let d = runDraft(seed: 2024, playerBan: "H016", playerPick: "H003")
+        let d = Self.runDraft(seed: 2024, playerPick: "H003")
         let hero = try XCTUnwrap(d.playerPick?.heroID)
         var config = MatchFactory.standardMatch(mode: .ranked, humanHeroID: hero, humanName: "Tester",
-                                                humanPosition: d.playerPick?.position, banned: d.bannedHeroIDs, seed: 2024)
+                                                humanPosition: d.playerPick?.position, seed: 2024)
         d.apply(to: &config)
         XCTAssertEqual(config.players.count, 10)
         XCTAssertEqual(Set(config.players.map(\.heroID)).count, 10)
         for slot in config.players {
             XCTAssertEqual(d.heroID(team: slot.team, position: slot.position), slot.heroID)
-            XCTAssertFalse(d.bannedHeroIDs.contains(slot.heroID))
         }
         XCTAssertEqual(config.humanSlot?.heroID, hero)
+    }
+
+    /// ゲームの既定の名簿（H025〜H034 の 10 体）でちょうど 10 ピックが埋まる。
+    func testActiveRosterFillsAllPicks() {
+        let d = Self.runDraft(seed: 20261001, playerPick: "H027", roster: nil)
+        XCTAssertTrue(d.isComplete)
+        XCTAssertEqual(d.playerPick?.heroID, "H027")
+        XCTAssertEqual(Set(d.pickedHeroIDs), Set(HeroRoster.activeHeroIDs))
     }
 }
 
@@ -171,7 +218,9 @@ final class FlowMatchModelTests: XCTestCase {
     private func profile() -> Profile {
         var p = Profile()
         p.displayName = "Tester"
-        p.heroSpells["H003"] = ["BS07", "BS01"]
+        // 処刑（BS11）はアカウント Lv3 で解放（旧版の BS07 は選べなくなった）
+        p.accountLevel = 30
+        p.heroSpells["H003"] = ["BS11", "BS01"]
         return p
     }
 
@@ -180,12 +229,12 @@ final class FlowMatchModelTests: XCTestCase {
         m.spells = ["BS01", "BS03"]
         m.setSpell("BS03", slot: 0)
         XCTAssertEqual(m.spells, ["BS01", "BS03"])
-        m.setSpell("BS07", slot: 1)
+        m.setSpell("BS11", slot: 1)
         XCTAssertEqual(m.spells, ["BS01", "BS03"])
-        m.setSpell("BS07", slot: 0)
-        XCTAssertEqual(m.spells, ["BS07", "BS03"])
+        m.setSpell("BS11", slot: 0)
+        XCTAssertEqual(m.spells, ["BS11", "BS03"])
         XCTAssertEqual(MatchFlowModel.sanitizedSpells(["BS01", "BS01", "XX"], master: .shared), ["BS01", "BS03"])
-        XCTAssertEqual(MatchFlowModel.sanitizedSpells(["BS03", "BS07"], master: .shared), ["BS07", "BS03"])
+        XCTAssertEqual(MatchFlowModel.sanitizedSpells(["BS03", "BS11"], master: .shared), ["BS11", "BS03"])
         XCTAssertEqual(MatchFlowModel.sanitizedSpells([], master: .shared), ["BS01", "BS03"])
     }
 
@@ -197,7 +246,7 @@ final class FlowMatchModelTests: XCTestCase {
         m.startStandard()
         m.selectHero("H003", profile: p, master: .shared)
         XCTAssertEqual(m.position, .carry)
-        XCTAssertEqual(m.spells, ["BS07", "BS03"])
+        XCTAssertEqual(m.spells, ["BS11", "BS03"])
         m.setPosition(.mid)
         let config = try XCTUnwrap(m.buildConfig(profile: p, master: .shared))
         XCTAssertEqual(config.mode, .standard)
@@ -205,7 +254,7 @@ final class FlowMatchModelTests: XCTestCase {
         let human = try XCTUnwrap(config.humanSlot)
         XCTAssertEqual(human.heroID, "H003")
         XCTAssertEqual(human.position, .mid)
-        XCTAssertEqual(human.spells, ["BS07", "BS03"])
+        XCTAssertEqual(human.spells, ["BS11", "BS03"])
         XCTAssertEqual(human.displayName, "Tester")
         XCTAssertTrue(config.players.filter { $0.team == .red }.allSatisfy { $0.botDifficulty == .hard })
         XCTAssertTrue(config.players.filter { $0.team == .blue && $0.controller == .bot }.allSatisfy { $0.botDifficulty == .normal })
@@ -213,13 +262,13 @@ final class FlowMatchModelTests: XCTestCase {
 
     func testRankedConfigUsesDraftAndRankDifficulty() throws {
         var p = profile()
-        p.rank.tier = .azureCrystal
+        p.rank.tier = .legend
         let m = MatchFlowModel(seed: 9)
         m.configure(profile: p, master: .shared)
         m.startRanked(profile: p)
         var d = try XCTUnwrap(m.draft)
         while let t = d.currentTurn {
-            let choice = t.isPlayer ? (t.action == .ban ? "H012" : d.autoChoiceForPlayer(preferred: ["H001"])) : d.aiChoice()
+            let choice = t.isPlayer ? d.autoChoiceForPlayer(preferred: ["H027"]) : d.aiChoice()
             guard d.commit(choice) else { return XCTFail("ドラフトが進まない") }
         }
         m.draft = d
@@ -227,7 +276,6 @@ final class FlowMatchModelTests: XCTestCase {
         m.selectHero(hero, profile: p, master: .shared)
         let config = try XCTUnwrap(m.buildConfig(profile: p, master: .shared))
         XCTAssertEqual(config.mode, .ranked)
-        XCTAssertFalse(config.players.map(\.heroID).contains("H012"))
         let diffs = RankService.botDifficulty(for: p.rank)
         XCTAssertTrue(config.players.filter { $0.team == .red }.allSatisfy { $0.botDifficulty == diffs.enemy })
         for slot in config.players {
@@ -237,7 +285,7 @@ final class FlowMatchModelTests: XCTestCase {
 
     func testSkinMustBeOwnedAndMatchHero() throws {
         var p = profile()
-        let skin = try XCTUnwrap(MasterData.shared.cosmetics.first { $0.type == .heroSkin && $0.heroID == "H001" })
+        let skin = try XCTUnwrap(MasterData.shared.allCosmetics.first { $0.type == .heroSkin && $0.heroID == "H001" })
         p.equippedSkins["H001"] = skin.cosmeticID
         let m = MatchFlowModel(seed: 1)
         m.selectHero("H001", profile: p, master: .shared)
@@ -258,23 +306,28 @@ final class FlowMatchModelTests: XCTestCase {
         p.lastPickedHeroID = "H020"
         let m = MatchFlowModel(seed: 1)
         m.configure(profile: p, master: .shared)
-        XCTAssertEqual(m.heroID, "H001", "未所持の前回ヒーローは使わず所持の先頭")
-        p.lastPickedHeroID = "H004"
+        XCTAssertEqual(m.heroID, HeroRoster.defaultHeroID, "未所持の前回ヒーローは使わず所持の先頭")
+        p.lastPickedHeroID = "H027"
         p.preferredDifficulty = .hard
         let m2 = MatchFlowModel(seed: 1)
         m2.configure(profile: p, master: .shared)
-        XCTAssertEqual(m2.heroID, "H004")
+        XCTAssertEqual(m2.heroID, "H027")
         XCTAssertEqual(m2.difficulty, .hard)
     }
 
-    func testRuneIDsFromSelectedPage() {
+    func testEmblemFromBulkApplyOrBattlePlan() {
         var p = profile()
-        p.runePages = [RunePage(name: "A", primaryPath: .valor, runeIDs: ["RN01", "", "RN11"])]
+        // 全セット解放済みの Lv60（旧版から引き継いだプレイヤー）。新規のプレイヤーは EmblemEconomyTests
+        EmblemService.grandfather(&p)
+        p.lastPickedHeroID = "H027"
         let m = MatchFlowModel(seed: 1)
         m.configure(profile: p, master: .shared)
-        XCTAssertEqual(m.runeIDs(profile: p), ["RN01", "RN11"])
-        m.runePageIndex = nil
-        XCTAssertEqual(m.runeIDs(profile: p), [])
+        // 一括設定が無ければ「有効」のバトルプランのエンブレム（Lv60）
+        XCTAssertEqual(m.emblem(profile: p, master: .shared), ItemSystem.plan(heroID: "H027", chosen: nil)?.emblem)
+        let tank = EmblemCatalog.defaultLoadout(set: .tank)
+        EmblemMath.apply(set: .tank, to: ["H027"], profile: &p)
+        XCTAssertEqual(m.emblem(profile: p, master: .shared), tank)
+        XCTAssertEqual(m.buildConfig(profile: p, master: .shared)?.humanSlot?.emblem, tank)
     }
 }
 
@@ -376,8 +429,25 @@ final class FlowResultTests: XCTestCase {
             MailItem(date: now, title: "c", body: "", attachments: [MailAttachment(kind: .gem, amount: 5)],
                      expiresAt: now.addingTimeInterval(-60)),
         ]
-        XCTAssertEqual(HomeBadges.unreadMail(p, now: now), 1)
+        // 赤い点は未読の重要メールと、未読で受け取れる添付つきのメールだけ（MLBB 2.2.16。委員会の調べ 2026-10-21）
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 1)
         XCTAssertEqual(HomeBadges.claimableMail(p, now: now), 1)
+        p.mail[0].read = true
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 0, "既読にすると消える（受け取りの数は残る）")
+        XCTAssertEqual(HomeBadges.claimableMail(p, now: now), 1)
+        p.mail.append(MailItem(date: now, title: "d", body: ""))
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 0, "添付の無い未読には付かない")
+        var important = MailItem(date: now, title: "e", body: "")
+        important.important = true
+        p.mail.append(important)
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 1, "重要な未読には付く")
+        p.mail[p.mail.count - 1].read = true
+        p.mail[0].claimed = true
+        XCTAssertEqual(HomeBadges.mail(p, now: now), 0)
+        // スターパス: 到達した段の未受取の報酬
+        XCTAssertEqual(HomeBadges.starPass(p), 0)
+        LiveOpsService.addPassXP(LiveOpsService.passXPPerLevel * 2, to: &p)
+        XCTAssertGreaterThan(HomeBadges.starPass(p), 0)
         p.lastFirstWinDayKey = LiveOpsService.dayKey(now)
         XCTAssertFalse(HomeBadges.firstWinAvailable(p, now: now))
         XCTAssertTrue(HomeBadges.firstWinAvailable(p, now: now.addingTimeInterval(86_400)))
@@ -387,46 +457,6 @@ final class FlowResultTests: XCTestCase {
 // MARK: - レビュー修正の回帰テスト
 
 final class FlowReviewFixTests: XCTestCase {
-    /// 所持ヒーローが 1 体だけでも、BAN でピック候補が無くならずドラフトが最後まで進む。
-    func testDraftNeverStrandsPlayerWithSingleOwnedHero() {
-        for seed in UInt64(0)..<40 {
-            var d = DraftEngine(seed: seed, ownedHeroIDs: ["H003"])
-            // プレイヤー自身も最後の所持ヒーローは BAN できない
-            XCTAssertFalse(d.canPlayerSelect("H003"))
-            XCTAssertTrue(d.canPlayerSelect("H004"))
-            XCTAssertFalse(d.commit("H003"))
-            XCTAssertTrue(d.commit(nil))
-            while let t = d.currentTurn {
-                let choice = t.isPlayer ? d.autoChoiceForPlayer(preferred: ["H003"]) : d.aiChoice()
-                guard d.commit(choice) else { return XCTFail("seed \(seed): 手番 \(d.turnIndex) で停止") }
-            }
-            XCTAssertFalse(d.bannedHeroIDs.contains("H003"), "seed \(seed)")
-            XCTAssertEqual(d.playerPick?.heroID, "H003", "seed \(seed)")
-        }
-    }
-
-    /// 所持ヒーローが無い（壊れた復元データ）場合も、空いているヒーローでピックでき、ドラフトが止まらない。
-    func testDraftFallsBackWhenNoOwnedHeroIsAvailable() {
-        var d = DraftEngine(seed: 7, ownedHeroIDs: [])
-        while let t = d.currentTurn {
-            let choice = t.isPlayer ? (t.action == .ban ? nil : d.autoChoiceForPlayer(preferred: [])) : d.aiChoice()
-            guard d.commit(choice) else { return XCTFail("手番 \(d.turnIndex) で停止") }
-        }
-        XCTAssertTrue(d.isComplete)
-        XCTAssertNotNil(d.playerPick)
-        XCTAssertEqual(Set(d.pickedHeroIDs).count, 10)
-    }
-
-    /// UI テスト（FlowUITests.testRankedDraft）が前提にするシードの AI BAN。
-    func testUITestDraftSeedKeepsH003Available() throws {
-        let seed = try XCTUnwrap(UInt64(FlowUITestsSeed.draft))
-        var d = DraftEngine(seed: seed, ownedHeroIDs: Profile().ownedHeroIDs)
-        XCTAssertTrue(d.commit("H010"))
-        while let t = d.currentTurn, t.action == .ban { XCTAssertTrue(d.commit(d.aiChoice())) }
-        XCTAssertFalse(d.bannedHeroIDs.contains("H003"))
-        XCTAssertTrue(d.canPlayerSelect("H003"))
-    }
-
     func testBackupRestoreKeepsDevicePurchaseRecordsAndAge() {
         let t0 = Date(timeIntervalSince1970: 1_800_000_000)
         var current = Profile()
@@ -537,6 +567,105 @@ final class FlowReviewFixTests: XCTestCase {
         XCTAssertEqual(FlowText.date(d, time: false), "Sep 29, 2026")
         Loc.current = .ja
         XCTAssertEqual(FlowText.date(d, time: false), "2026/09/29", "言語を戻すと書式も戻る")
+    }
+}
+
+/// レーン選択（MLBB 2.2.16: 2〜5 本。必要なレーンは 1 本で確定。フレックスプロ）とモード選択のタイル。
+final class FlowLaneAndModeTests: XCTestCase {
+    func testLaneSelectionNeedsTwoLanesUnlessNeededOrFlex() {
+        let needed = LanePosition.support
+        XCTAssertTrue(LaneSelectRules.canConfirm(lanes: [], flex: true, needed: needed), "フレックスプロ")
+        XCTAssertFalse(LaneSelectRules.canConfirm(lanes: [], flex: false, needed: needed))
+        XCTAssertFalse(LaneSelectRules.canConfirm(lanes: [.mid], flex: false, needed: needed))
+        XCTAssertTrue(LaneSelectRules.canConfirm(lanes: [.support], flex: false, needed: needed), "必要なレーンは 1 本で確定")
+        XCTAssertTrue(LaneSelectRules.canConfirm(lanes: [.mid, .top], flex: false, needed: needed))
+        XCTAssertEqual(LaneSelectRules.order, [.top, .jungle, .mid, .support, .carry], "MLBB の並び（Exp・ジャングル・ミドル・ローム・ゴールド）")
+        XCTAssertTrue(LaneSelectRules.order.contains(LaneSelectRules.neededLane(seed: 12_345)))
+    }
+
+    func testLaneChoicesRoundTripAndFallBackToFlex() {
+        XCTAssertEqual(LaneSelectRules.encode(lanes: [.mid, .top], flex: false), "2,0")
+        XCTAssertEqual(LaneSelectRules.decode("2,0").lanes, [.mid, .top])
+        XCTAssertFalse(LaneSelectRules.decode("2,0").flex)
+        XCTAssertTrue(LaneSelectRules.decode("flex").flex)
+        XCTAssertTrue(LaneSelectRules.decode("").flex)
+        XCTAssertTrue(LaneSelectRules.decode("x,9").flex, "読めない値はフレックスプロ")
+        XCTAssertEqual(LaneSelectRules.decode("1,1,3").lanes, [.jungle, .carry], "重複は 1 つに")
+    }
+
+    func testModeTilesFollowTheJapaneseClient() {
+        let saved = Loc.current
+        defer { Loc.current = saved }
+        Loc.current = .ja
+        XCTAssertEqual(MatchModeCategory.allCases.map(\.title),
+                       ["ランキング", "マッチング", "乱闘", "アーケード", "マジックチェス", "ライジング", "AI対戦とカスタム"])
+        XCTAssertEqual(MatchModeCategory.playTitle("ranked"), "ランキング")
+        XCTAssertNil(MatchModeCategory.playTitle(nil))
+        XCTAssertNil(MatchModeCategory.playTitle("bogus"))
+        XCTAssertEqual(Set(MatchModeCategory.allCases.map(\.identifier)).count, MatchModeCategory.allCases.count)
+        XCTAssertEqual(ModeTileLayout.mythicNext(36), 50)
+        XCTAssertEqual(ModeTileLayout.mythicNext(0), 25)
+        XCTAssertNil(ModeTileLayout.mythicNext(100))
+        // 菱形は重ならない（中心の L1 距離 ≥ 半径の和）
+        let tiles = MatchModeCategory.allCases
+        for (i, a) in tiles.enumerated() {
+            for b in tiles[(i + 1)...] {
+                let d = abs(a.spot.center.x - b.spot.center.x) + abs(a.spot.center.y - b.spot.center.y)
+                XCTAssertGreaterThanOrEqual(d, a.spot.radius + b.spot.radius, "\(a) と \(b) が重なる")
+            }
+        }
+    }
+}
+
+/// ドラフトのピック順の交換（「ピックを手伝うよ」）と事前選択（MLBB 2.2.16）。
+final class FlowDraftHelpTests: XCTestCase {
+    func testPickHelpSwapsPickOrderWithTheAllyPickingNow() {
+        var d = DraftEngine(seed: 7, playerSlot: 2, playerLane: .mid)
+        XCTAssertEqual(d.currentTurn?.team, .blue)
+        XCTAssertEqual(d.currentTurn?.isPlayer, false)
+        XCTAssertTrue(d.canOfferPickHelp, "味方 AI の番で、プレイヤーはまだ後の番")
+        let allyLane = d.plannedLane(blueIndex: 0)
+        XCTAssertTrue(d.swapPickOrderWithCurrent())
+        XCTAssertEqual(d.playerSlot, 0)
+        XCTAssertEqual(d.currentTurn?.isPlayer, true, "今の番がプレイヤーになる")
+        XCTAssertEqual(d.plannedLane(blueIndex: 0), .mid, "レーンはプレイヤーに付いていく")
+        XCTAssertEqual(d.plannedLane(blueIndex: 2), allyLane)
+        XCTAssertFalse(d.canOfferPickHelp, "自分の番では出せない")
+        let first = d.autoChoiceForPlayer(preferred: [])
+        XCTAssertTrue(d.commit(first))
+        XCTAssertEqual(d.playerPick?.heroID, first)
+        XCTAssertEqual(d.playerPick?.position, .mid)
+        XCTAssertFalse(d.canOfferPickHelp, "選んだ後は出せない")
+        XCTAssertFalse(d.swapPickOrderWithCurrent())
+    }
+
+    func testPreselectIsOnlyForFreeHeroesBeforeYouPick() {
+        var d = DraftEngine(seed: 3, playerSlot: 1)
+        let h = d.heroIDs[0]
+        XCTAssertTrue(d.canPlayerPreselect(h))
+        XCTAssertFalse(d.canPlayerSelect(h), "B1 は味方 AI の番")
+        let ai = d.aiChoice()
+        XCTAssertTrue(d.commit(ai))
+        if let ai { XCTAssertFalse(d.canPlayerPreselect(ai), "取られたヒーローは事前選択できない") }
+        XCTAssertFalse(d.canPlayerPreselect("H999"))
+    }
+
+    func testPickNamesFollowTheJapaneseClient() throws {
+        let saved = Loc.current
+        defer { Loc.current = saved }
+        let hero = try XCTUnwrap(MasterData.shared.heroes.first)
+        Loc.current = .ja
+        let ja = MasterText.heroPickName(hero)
+        XCTAssertTrue(ja.hasSuffix(")"), ja)
+        XCTAssertTrue(hero.displayNameJa.hasSuffix(String(ja.prefix { $0 != "(" })), "二つ名を除いた名前: \(ja)")
+        XCTAssertFalse(ja.contains(","), "英語の二つ名は付けない: \(ja)")
+        for h in MasterData.shared.heroes {
+            XCTAssertLessThanOrEqual(MasterText.heroPickName(h).count, 16, "選択画面の名前が長すぎる: \(MasterText.heroPickName(h))")
+        }
+        Loc.current = .en
+        XCTAssertFalse(MasterText.heroPickName(hero).contains("("))
+        XCTAssertFalse(MasterText.heroPickName(hero).contains(","))
+        XCTAssertEqual(LaneFilterBar.order, [.top, .carry, .mid, .support, .jungle], "MLBB のドラフトのタブの並び")
     }
 }
 

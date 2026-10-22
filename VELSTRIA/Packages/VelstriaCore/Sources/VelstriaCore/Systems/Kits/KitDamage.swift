@@ -9,8 +9,7 @@ public enum HitEffect: Codable, Hashable, Sendable {
     /// 打ち上げ（.airborne）。CC 無効・無敵には効かない。
     case knockUp(duration: Double)
     /// 所有者の位置へ引き寄せる。gap = 止まる位置の端同士の隙間（所有者・対象の半径は自動で足す）。
-    /// overWalls = 壁を越えて引き寄せる（着地点が壁の中なら所有者側の歩行可能点へ）。
-    case pullToOwner(distance: Double, duration: Double, gap: Double, overWalls: Bool = false)
+    case pullToOwner(distance: Double, duration: Double, gap: Double)
     /// 所有者から遠ざけるように押し出す。
     case pushAway(distance: Double, duration: Double)
     /// マークを積む（name は KitTags.mark の name。所有者ごとに分かれる）。
@@ -31,6 +30,49 @@ public enum DamageScaling: Codable, Hashable, Sendable {
     case distance(near: Double, far: Double, minMult: Double, maxMult: Double)
     /// 所有者が積んだマークの数で増える: 倍率 = 1 + perStack × スタック数。consume でヒット後にマークを消費する。
     case marks(name: String, perStack: Double, consume: Bool)
+}
+
+/// 公式の係数が掛かる能力値（MLBB の日本語クライアントの表記: (+N%) = 合計の物理攻撃 / 魔法攻撃、(+N%追加) = 追加物理攻撃、
+/// (+N%最大HP) = 自身の最大 HP）。
+enum KitScaling: Hashable, Sendable {
+    /// 総物理攻撃（Stats.attack）。
+    case totalAttack
+    /// 追加物理攻撃（Stats.extraAttack = 装備・エンブレム・スキルで増えた分）。
+    case extraAttack
+    /// 魔法攻撃（Stats.abilityPower）。
+    case magicPower
+    /// 自身の最大 HP（Stats.maxHP）。
+    case maxHP
+
+    func value(_ stats: Stats) -> Double {
+        switch self {
+        case .totalAttack: return stats.attack
+        case .extraAttack: return stats.extraAttack
+        case .magicPower: return stats.abilityPower
+        case .maxHP: return stats.maxHP
+        }
+    }
+}
+
+extension Kit {
+    /// 公式の段の表の値（MLBB のスキル詳細の表: スキル1・2 = Lv1〜6、アルティメット = Lv1〜3 をそのまま。換算・補間なし）。
+    /// rank は 1...表の長さに丸める（未習得の表示は 1 段目）。全段同じ値の項目は 1 要素の表でよい。
+    @inline(__always)
+    static func level(_ table: [Double], rank: Int) -> Double {
+        table[min(max(1, rank), table.count) - 1]
+    }
+
+    /// 公式の式: 基礎（段の表）+ 係数 × 能力値。全体の倍率は掛けない。
+    @inline(__always)
+    static func official(_ table: [Double], rank: Int, ratio: Double, _ scaling: KitScaling, stats: Stats) -> Double {
+        level(table, rank: rank) + ratio * scaling.value(stats)
+    }
+
+    /// 公式の CD（段の表の秒数）に CD 短縮を掛ける（上限は能力値の Stats.cooldownReductionCap）。
+    @inline(__always)
+    static func cooldown(_ table: [Double], rank: Int, stats: Stats) -> Double {
+        level(table, rank: rank) * (1 - HeroKits.cooldownReduction(stats))
+    }
 }
 
 extension HitPayload {
@@ -61,6 +103,19 @@ enum KitDamage {
         }
     }
 
+    /// ゾーン z の範囲内の敵の構造物（タワー・Core）に、所有者のキットの onHit(event:)（dealt = 0）を添字昇順で呼ぶ
+    /// （HitPayload.kitHitsStructures。ZoneSystem.applyZone が呼ぶ）。ダメージ・CC・状態・追加効果は与えない。
+    /// 無敵の構造物（前段のタワーが残っている間など）は対象外。
+    static func notifyStructures(_ s: inout SimState, _ ctx: SimContext, zone z: AreaZone) {
+        guard let owner = s.index(of: z.ownerID), let kit = HeroKits.kit(in: s, owner) else { return }
+        for i in s.units.indices where s.units[i].isStructure {
+            guard CombatSystem.isLiving(s, i), s.units[i].team != z.team, s.units[i].team != .neutral,
+                  ZoneSystem.contains(zone: z, point: s.units[i].pos, pointRadius: s.units[i].radius),
+                  !CombatSystem.isInvulnerable(s, ctx, i) else { continue }
+            kit.onHit(&s, ctx, owner: owner, target: i, event: z.payload.kitEvent, dealt: 0)
+        }
+    }
+
     /// 命中の後始末: マークの消費・追加効果・キットの onHit。ダメージを与えた後に呼ぶ（dealt = 実際に減った量）。
     static func afterHit(_ s: inout SimState, _ ctx: SimContext, sourceID: EntityID?, target t: Int,
                          payload: HitPayload, dealt: Double, from: Vec2) {
@@ -83,10 +138,10 @@ enum KitDamage {
         case .knockUp(let duration):
             guard CombatSystem.isLiving(s, t) else { return }
             Kit.knockUp(&s, target: t, duration: duration, sourceID: ownerID)
-        case .pullToOwner(let distance, let duration, let gap, let overWalls):
+        case .pullToOwner(let distance, let duration, let gap):
             guard let owner, CombatSystem.isLiving(s, t) else { return }
             Kit.pull(&s, ctx, target: t, toward: s.units[owner].pos, distance: distance, duration: duration,
-                     gap: s.units[owner].radius + s.units[t].radius + max(0, gap), overWalls: overWalls)
+                     gap: s.units[owner].radius + s.units[t].radius + max(0, gap))
         case .pushAway(let distance, let duration):
             guard CombatSystem.isLiving(s, t) else { return }
             let origin = owner.map { s.units[$0].pos } ?? from

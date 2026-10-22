@@ -56,24 +56,32 @@ enum FAQCatalog {
                  answerEn: "Under the center attack button in Settings > Controls, pick Lowest HP %, Lowest eHP (easiest to kill) or Nearest. Hero Lock targets enemy heroes in range first; Active Monster Detection skips neutral monsters that are not fighting."),
         FAQEntry(id: "gameplay_offline", category: .gameplay,
                  questionJa: "オフラインで遊べますか？", questionEn: "Can I play offline?",
-                 answerJa: "はい。すべての対戦は AI の味方・敵と行うため、インターネット接続なしで遊べます。購入時のみ App Store への接続が必要です。",
-                 answerEn: "Yes. Every match is played with AI allies and opponents, so no internet connection is needed. Only purchases require the App Store."),
+                 answerJa: FeatureFlags.lanMatch
+                    ? "はい。AI との対戦・練習場・チュートリアル・観戦・リプレイはインターネット接続なしで遊べます。オンライン対戦・フレンド機能と購入には接続が必要です（同じ Wi-Fi での対戦はローカルネットワークを使います）。"
+                    : "はい。すべての対戦は AI の味方・敵と行うため、インターネット接続なしで遊べます。購入時のみ App Store への接続が必要です。",
+                 answerEn: FeatureFlags.lanMatch
+                    ? "Yes. For matches against AI, Practice, the Tutorial, spectating and replays, no internet connection is needed. Online matches, friends and purchases need a connection (same-Wi-Fi matches use your local network)."
+                    : "Yes. Every match is played with AI allies and opponents, so no internet connection is needed. Only purchases require the App Store."),
         FAQEntry(id: "gameplay_pvp", category: .gameplay,
                  questionJa: "他のプレイヤーと対戦できますか？", questionEn: "Can I play against other people?",
-                 answerJa: "現在のバージョンでは、プレイヤー 1 人と AI 9 体による 5 対 5 の対戦のみです。",
-                 answerEn: "In the current version, matches are 5v5 with you and nine AI heroes."),
+                 answerJa: FeatureFlags.lanMatch
+                    ? "はい。オンライン対戦では、部屋コードか同じ Wi-Fi で集まって 5 対 5 で遊べます。チーム分け（全員味方 / 敵味方）はホストが決め、空いた枠には AI が入ります。報酬・ランクの対象外です。初回はコミュニティガイドラインと利用規約への同意が必要で、13 歳未満の方は使えません。"
+                    : "現在のバージョンでは、プレイヤー 1 人と AI 9 体による 5 対 5 の対戦のみです。",
+                 answerEn: FeatureFlags.lanMatch
+                    ? "Yes. In online matches, gather with a room code or on the same Wi-Fi and play 5v5. The host picks the teams (everyone together, or two sides) and AI fills empty slots. Online matches give no rewards or rank. You must accept the Community Guidelines and Terms first, and players under 13 can't use online features."
+                    : "In the current version, matches are 5v5 with you and nine AI heroes."),
         FAQEntry(id: "gameplay_ranked", category: .gameplay,
                  questionJa: "ランク戦の仕組みは？", questionEn: "How does Ranked work?",
-                 answerJa: "対 AI のランク戦で、勝利で星 +1、敗北で星 −1 となります（隕鉄は降格なし）。ランクが上がるほど AI が強くなります。",
-                 answerEn: "Ranked is played against AI. Wins add a star and losses remove one (no demotion in Meteorite). Higher ranks face stronger AI."),
+                 answerJa: "対 AI のランク戦で、勝利で星 +1、敗北で星 −1 となります（ウォリアーでは星が減りません）。星が満タンの状態で勝つと次の段位へ上がります。勝利でスターポイント、敗北で保護ポイントがたまり、満タン（ティアごとに違い、ウォリアー \(RankService.starPointCap(.warrior))〜レジェンド \(RankService.starPointCap(.legend))）になると星 +1・次の敗北で星が減りません。ランクが上がるほど AI が強くなります。",
+                 answerEn: "Ranked is played against AI. Wins add a star and losses remove one (no star loss in Warrior). Winning with full stars moves you up a division. Wins fill Star Points and losses fill Protection Points; when full (the amount depends on your tier, from \(RankService.starPointCap(.warrior)) in Warrior to \(RankService.starPointCap(.legend)) in Legend) you gain a star, or your next loss costs none. Higher ranks face stronger AI."),
         FAQEntry(id: "gameplay_surrender", category: .gameplay,
                  questionJa: "試合を途中で終えたい", questionEn: "Can I end a match early?",
                  answerJa: "試合開始 8:00 以降に降参を提案できます。大きく不利な場合に AI 味方が賛成し、5 人中 3 人の賛成で成立します。",
                  answerEn: "From 8:00 you can propose a surrender. AI allies agree when the team is far behind; 3 of 5 votes are needed."),
         FAQEntry(id: "purchases_p2w", category: .purchases,
                  questionJa: "課金すると強くなりますか？", questionEn: "Do purchases make me stronger?",
-                 answerJa: "いいえ。販売しているのは見た目を変えるコスメとヒーローの解放のみで、対戦の強さに影響するものは販売していません。",
-                 answerEn: "No. Only cosmetics and hero unlocks are sold. Nothing that affects battle power is for sale."),
+                 answerJa: "いいえ。販売しているのは見た目を変えるコスメのみで、対戦の強さに影響するものは販売していません。ヒーローは全員を最初から使えます（販売していません）。",
+                 answerEn: "No. Only cosmetics are sold. Nothing that affects battle power is for sale, and every hero is available from the start (heroes are never sold)."),
         FAQEntry(id: "purchases_refund", category: .purchases,
                  questionJa: "返金を希望したい", questionEn: "How do I request a refund?",
                  answerJa: "App Store での購入は Apple が管理しています。Apple の「問題を報告する」ページ（reportaproblem.apple.com）から返金をリクエストしてください。返金された場合、付与済みのジェムが差し引かれることがあります。",
@@ -84,11 +92,11 @@ enum FAQCatalog {
                  answerEn: "Check your connection and restart the app; unfinished purchases are processed at launch. The Star Pass Premium can be recovered via Restore Purchases. Contact us if it persists."),
         FAQEntry(id: "data_backup", category: .data,
                  questionJa: "データはどこに保存されますか？", questionEn: "Where is my data stored?",
-                 answerJa: "すべてのデータはこの端末内にのみ保存され、サーバーには送信されません"
-                    + (FeatureFlags.lanMatch ? "（部屋コードで遊ぶオンライン対戦の間だけ、対戦データを中継サーバー経由で相手の端末へ送ります。中継サーバーは保存しません）" : "")
+                 answerJa: "プレイデータ（プロフィール・所持品・戦績・リプレイ・設定）はこの端末内に保存され、サーバーには送信されません"
+                    + (FeatureFlags.lanMatch ? "（オンライン機能を使うと、対戦に必要なデータを相手の端末へ送り、フレンド機能とランクのためにフレンドコードの受信箱・預かり中のフレンド申請・ランクを中継サーバーに保存します。詳しくは 設定 > プライバシー）" : "")
                     + "。設定 > データ引き継ぎ からバックアップを書き出せます。",
-                 answerEn: "All data is stored only on this device and never sent to a server"
-                    + (FeatureFlags.lanMatch ? " (during online matches played with a room code, match data is passed to the other players through a relay server that stores nothing)" : "")
+                 answerEn: "Your play data (profile, items, history, replays and settings) is stored on this device and never sent to a server"
+                    + (FeatureFlags.lanMatch ? " (online features send match data to other players, and the relay stores your friend code's inbox, pending friend requests and your rank; see Settings > Privacy)" : "")
                     + ". Export a backup from Settings > Data Transfer."),
         FAQEntry(id: "data_transfer", category: .data,
                  questionJa: "機種変更するときは？", questionEn: "I'm switching to a new iPhone",
@@ -96,16 +104,32 @@ enum FAQCatalog {
                  answerEn: "Export a backup from Settings > Data Transfer on your old device, then import it from the same screen on the new one."),
         FAQEntry(id: "data_delete", category: .data,
                  questionJa: "アプリを削除するとどうなりますか？", questionEn: "What happens if I delete the app?",
-                 answerJa: "端末内のデータ（所持品・通貨・戦績・リプレイ）はすべて消去され、復元できません。削除する前にバックアップを書き出してください。",
-                 answerEn: "All on-device data (items, currencies, history, replays) is erased and cannot be recovered. Export a backup first."),
+                 answerJa: "端末内のデータ（所持品・通貨・戦績・リプレイ）はすべて消去され、復元できません。削除する前にバックアップを書き出してください。"
+                    + (FeatureFlags.lanMatch ? "オンライン機能を使ったことがある場合、中継サーバーの受信箱とランクはアプリを削除しても消えません（受信箱は最後の接続から 1 年で自動的に削除）。先に 設定 > プライバシー の「フレンドサーバーのデータを削除」か「全データを削除」を使ってください。" : ""),
+                 answerEn: "All on-device data (items, currencies, history, replays) is erased and cannot be recovered. Export a backup first."
+                    + (FeatureFlags.lanMatch ? " If you have used online features, your inbox and rank on the relay server are not removed by deleting the app (the inbox is deleted automatically one year after your last connection). Use Delete Friend Server Data or Delete All Data in Settings > Privacy first." : "")),
         FAQEntry(id: "safety_limits", category: .safety,
                  questionJa: "年齢による購入の上限はありますか？", questionEn: "Are there spending limits by age?",
                  answerJa: "はい。15 歳以下は月 5,000 円、16〜19 歳は月 10,000 円までに制限しています。年齢区分は初回起動時に確認します。",
                  answerEn: "Yes. Players aged 15 or under are limited to ¥5,000 per month, and ages 16–19 to ¥10,000. Your age group is confirmed on first launch."),
         FAQEntry(id: "safety_parents", category: .safety,
                  questionJa: "保護者の方へ", questionEn: "For parents and guardians",
-                 answerJa: "iOS の「スクリーンタイム」でアプリ内課金の制限やプレイ時間の管理ができます。本作にはチャットなど他者と交流する機能はありません。",
-                 answerEn: "Use iOS Screen Time to restrict in-app purchases and manage play time. The game has no chat or other ways to interact with strangers."),
+                 answerJa: "iOS の「スクリーンタイム」でアプリ内課金の制限やプレイ時間の管理ができます。"
+                    + (FeatureFlags.lanMatch
+                       ? "自由入力のチャットはありませんが、オンライン機能では表示名が他のプレイヤーに表示され、フレンドの申請や招待ができます。13 歳未満と申告した場合、オンライン機能は使えません。"
+                       : "本作にはチャットなど他者と交流する機能はありません。"),
+                 answerEn: "Use iOS Screen Time to restrict in-app purchases and manage play time. "
+                    + (FeatureFlags.lanMatch
+                       ? "There is no free-text chat, but online features show your name to other players and allow friend requests and invites. Online features are not available to players who said they are under 13."
+                       : "The game has no chat or other ways to interact with strangers.")),
+    ] + (FeatureFlags.lanMatch ? onlineSafety : [])
+
+    /// オンライン機能の通報・ブロック（ガイドライン 1.2）。
+    private static let onlineSafety: [FAQEntry] = [
+        FAQEntry(id: "safety_report", category: .safety,
+                 questionJa: "迷惑なプレイヤーを通報・ブロックするには？", questionEn: "How do I report or block a player?",
+                 answerJa: "パーティの枠・参加者の一覧・フレンド・届いた申請の「…」、招待の画面、オンライン対戦の結果の「通報・不具合報告」から通報・ブロックできます。ブロックした相手からは申請や招待が届かず、あなたの部屋にも入れません。ホストは参加者を部屋から外せます。ブロックの解除は 設定 > プライバシー。通報は運営が確認し、利用規約とコミュニティガイドラインに沿って対応します。",
+                 answerEn: "Use the \"…\" menu on party slots, the member list, friends and requests, the invite screen, or \"Report\" on online match results. Blocked players can't send you requests or invites or join your room, and hosts can remove players from their room. Unblock in Settings > Privacy. We review every report and act under the Terms and Community Guidelines."),
     ]
 }
 
@@ -120,10 +144,10 @@ struct FAQView: View {
             HStack(alignment: .top, spacing: 14) {
                 ScrollView(.vertical, showsIndicators: false) {
                     Panel(padding: 10) {
-                        LiveOpsSegmented(options: [LiveOpsSegmentOption<FAQEntry.Category?>(value: nil, title: L("すべて", "All"),
+                        CelestialTabs(options: [CelestialTab<FAQEntry.Category?>(value: nil, title: L("すべて", "All"),
                                                                                                symbol: "square.grid.2x2.fill", identifier: "faq_category_all")]
                                          + FAQEntry.Category.allCases.map {
-                                             LiveOpsSegmentOption(value: Optional($0), title: $0.title, symbol: $0.symbol, identifier: "faq_category_\($0.rawValue)")
+                                             CelestialTab(value: Optional($0), title: $0.title, symbol: $0.symbol, identifier: "faq_category_\($0.rawValue)")
                                          },
                                          selection: $category, axis: .vertical, onChange: { _ in app.audio.play(.uiTap) })
                     }

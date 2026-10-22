@@ -30,7 +30,7 @@ final class SkillShowcaseTests: XCTestCase {
         XCTAssertEqual(SkillTags.rgb(for: "pull"), control)
         XCTAssertEqual(SkillTags.rgb(for: "mobility"), mobility)
         XCTAssertEqual(SkillTags.rgb(for: "execute"), SkillTags.rgb(for: "burst"))
-        // 7 系統（バフ・範囲・妨害系・衝突/移動・バースト・回復・シールド）はそれぞれ別の色
+        // 7 系統（バフ・範囲・妨害系・衝突/移動・爆発力・回復・シールド）はそれぞれ別の色
         let distinct = [buff, aoe, control, mobility, SkillTags.rgb(for: "burst"), SkillTags.rgb(for: "heal"),
                         SkillTags.rgb(for: "shield")]
         for i in distinct.indices {
@@ -38,6 +38,90 @@ final class SkillShowcaseTests: XCTestCase {
         }
         // 大文字小文字は区別しない
         XCTAssertEqual(SkillTags.rgb(for: "AOE"), aoe)
+    }
+
+    /// キット層に足されるキー（debuff / damage / conceal / cleanse）: デバフ = 妨害系の色、攻撃 = オレンジ（範囲・爆発力とは別）、
+    /// 隠れ身・コントロール解除 = バフと同じ青系。名前は MLBB の日本語版の表記（爆発力・攻撃・隠れ身・コントロール解除）に合わせる。
+    func testKitTagKeysHaveNamesAndColors() {
+        XCTAssertEqual(SkillTags.rgb(for: "debuff"), SkillTags.rgb(for: "slow"))
+        let damage = SkillTags.rgb(for: "damage")
+        XCTAssertGreaterThan(damage.r, damage.g)
+        XCTAssertGreaterThan(damage.g, damage.b)
+        XCTAssertNotEqual(damage, SkillTags.rgb(for: "aoe"))
+        XCTAssertNotEqual(damage, SkillTags.rgb(for: "burst"))
+        XCTAssertGreaterThan(damage.g, SkillTags.rgb(for: "burst").g, "爆発力（赤みのオレンジ）より黄寄り")
+        for v in [damage.r, damage.g, damage.b] { XCTAssertTrue((0...1).contains(v)) }
+        XCTAssertEqual(SkillTags.rgb(for: "conceal"), SkillTags.rgb(for: "buff"))
+        XCTAssertEqual(SkillTags.rgb(for: "cleanse"), SkillTags.rgb(for: "buff"))
+        XCTAssertEqual(SkillTags.name(for: "debuff"), "デバフ")
+        // MLBB の「ブリンク」（紫）: mobility と、将来足されうる blink は同じ札
+        XCTAssertEqual(SkillTags.name(for: "mobility"), "ブリンク")
+        XCTAssertEqual(SkillTags.name(for: "blink"), "ブリンク")
+        XCTAssertEqual(SkillTags.rgb(for: "blink"), SkillTags.rgb(for: "mobility"))
+        XCTAssertEqual(SkillTags.rgb(for: "blink"), SkillTags.rgb(for: "clash"), "衝突と同じ紫")
+        XCTAssertEqual(SkillTags.symbol(for: "blink"), SkillTags.symbol(for: "mobility"))
+        XCTAssertTrue(SkillTags.knownKeys.contains("blink"))
+        XCTAssertEqual(SkillTags.name(for: "damage"), "攻撃")
+        XCTAssertEqual(SkillTags.name(for: "burst"), "爆発力")
+        XCTAssertEqual(SkillTags.name(for: "conceal"), "隠れ身")
+        XCTAssertEqual(SkillTags.name(for: "cleanse"), "コントロール解除")
+        XCTAssertEqual(SkillTags.name(for: "CLEANSE"), "コントロール解除", "大文字小文字は区別しない")
+        // アイコンの下の見出しは主タグ（先頭）の名前（MLBB のマイヤ: バフ / バフ / 妨害 / 隠れ身）
+        XCTAssertEqual(SkillTags.caption(for: ["conceal", "cleanse"]), "隠れ身")
+        XCTAssertEqual(SkillTags.caption(for: ["disrupt", "damage"]), "妨害")
+        // セイバー: デバフ / 範囲技 / ブリンク / 爆発力
+        XCTAssertEqual(["debuff", "aoe", "mobility", "burst"].map { SkillTags.caption(for: [$0]) }, ["デバフ", "範囲技", "ブリンク", "爆発力"])
+        Loc.current = .en
+        XCTAssertEqual(SkillTags.name(for: "mobility"), "Mobility", "英語はスペルの Blink と紛らわしいので Mobility")
+        XCTAssertEqual(SkillTags.name(for: "debuff"), "Debuff")
+        XCTAssertEqual(SkillTags.name(for: "damage"), "Damage")
+        XCTAssertEqual(SkillTags.name(for: "conceal"), "Conceal")
+        XCTAssertEqual(SkillTags.name(for: "cleanse"), "Cleanse")
+        Loc.current = .ja
+        for key in ["debuff", "damage", "conceal", "cleanse"] {
+            XCTAssertTrue(SkillTags.knownKeys.contains(key), key)
+            XCTAssertNotEqual(SkillTags.symbol(for: key), SkillTags.symbol(for: "mystery"), key)
+        }
+        // キット層が使ってよいキーは全て画面が知っている（Core に新しいキーが足されたら、ここで気づく）
+        for key in KitTag.all { XCTAssertTrue(SkillTags.knownKeys.contains(key), key) }
+    }
+
+    /// 日本語クライアントのタグ「加速」（子龍の武神降臨）と「死亡無効」（オーロラのプライド・オブ・アイス）。
+    /// 加速はバフと同じ青系、死亡無効は MLBB の金の札（他のどの系統とも別の色）。
+    func testHasteAndDeathImmunityTags() throws {
+        XCTAssertTrue(SkillTags.knownKeys.contains("haste"))
+        XCTAssertTrue(SkillTags.knownKeys.contains("deathimmunity"))
+        XCTAssertTrue(SkillTags.knownKeys.contains(KitTag.haste))
+        XCTAssertTrue(SkillTags.knownKeys.contains(KitTag.deathImmunity))
+        XCTAssertEqual(SkillTags.name(for: "haste"), "加速")
+        XCTAssertEqual(SkillTags.name(for: "deathimmunity"), "死亡無効")
+        XCTAssertEqual(SkillTags.name(for: "DeathImmunity"), "死亡無効", "大文字小文字は区別しない")
+        XCTAssertEqual(SkillTags.rgb(for: "haste"), SkillTags.rgb(for: "buff"))
+        let gold = SkillTags.rgb(for: "deathimmunity")
+        let damage = SkillTags.rgb(for: "damage")
+        // 金: 赤 > 緑 > 青。攻撃（オレンジ）より黄寄り
+        XCTAssertGreaterThan(gold.r, gold.g)
+        XCTAssertGreaterThan(gold.g, gold.b)
+        XCTAssertGreaterThan(gold.g / gold.r, damage.g / damage.r)
+        for v in [gold.r, gold.g, gold.b] { XCTAssertTrue((0...1).contains(v)) }
+        for other in SkillTags.knownKeys where other != "deathimmunity" {
+            XCTAssertNotEqual(gold, SkillTags.rgb(for: other), other)
+        }
+        for key in ["haste", "deathimmunity"] {
+            XCTAssertNotEqual(SkillTags.symbol(for: key), SkillTags.symbol(for: "mystery"), key)
+            XCTAssertNotEqual(SkillTags.rgb(for: key), SkillTags.rgb(for: "mystery"), key)
+        }
+        // 見出し（主タグ）と実際のヒーロー: 子龍の奥義 = 加速・バフ、オーロラのパッシブ = 死亡無効
+        XCTAssertEqual(SkillTags.caption(for: ["haste", "buff"]), "加速")
+        XCTAssertEqual(SkillTags.caption(for: ["deathimmunity"]), "死亡無効")
+        let zilong = try XCTUnwrap(master.hero("H027"))
+        XCTAssertEqual(SkillTags.tags(for: try skill("H027", .ultimate), hero: zilong, master: master), ["haste", "buff"])
+        let aurora = try XCTUnwrap(master.hero("H031"))
+        XCTAssertEqual(SkillTags.tags(for: try skill("H031", .passive), hero: aurora, master: master), ["deathimmunity"])
+        Loc.current = .en
+        XCTAssertEqual(SkillTags.name(for: "haste"), "Haste")
+        XCTAssertEqual(SkillTags.name(for: "deathimmunity"), "Death Immunity")
+        Loc.current = .ja
     }
 
     func testTagColorHues() {
@@ -136,14 +220,15 @@ final class SkillShowcaseTests: XCTestCase {
     }
 
     func testTagsForEverySkillAreValid() {
-        for hero in master.heroes {
+        for hero in master.allHeroes {
             for skill in master.skills(forHero: hero.heroID) {
                 let tags = SkillTags.tags(for: skill, hero: hero, master: master)
                 XCTAssertFalse(tags.isEmpty, skill.skillID)
                 XCTAssertLessThanOrEqual(tags.count, SkillTags.maxTagsPerSkill, skill.skillID)
                 XCTAssertEqual(Set(tags).count, tags.count, skill.skillID)
                 for key in tags { XCTAssertTrue(SkillTags.knownKeys.contains(key), "\(skill.skillID) \(key)") }
-                if skill.slot == .passive { XCTAssertEqual(tags, ["buff"], skill.skillID) }
+                // 派生ルールのパッシブはバフ。キットのヒーローは公式のタグ（ディロス・子龍 = バフ・ヒール、オーロラ = 死亡無効）
+                if skill.slot == .passive, !HeroKits.hasKit(hero.heroID) { XCTAssertEqual(tags, ["buff"], skill.skillID) }
             }
             let feature = SkillTags.featureTags(hero: hero, master: master)
             XCTAssertFalse(feature.isEmpty, hero.heroID)
@@ -215,7 +300,7 @@ final class SkillShowcaseTests: XCTestCase {
     func testRatingsForEveryHeroAreInUnitRange() {
         var bestSurvivability = -Double.infinity
         var bestHero = ""
-        for hero in master.heroes {
+        for hero in master.allHeroes {
             let r = HeroRatingMath.ratings(for: hero, master: master)
             for v in [r.survivability, r.offense, r.control, r.difficulty] {
                 XCTAssertTrue((0...1).contains(v), "\(hero.heroID) \(v)")
@@ -234,7 +319,7 @@ final class SkillShowcaseTests: XCTestCase {
         let best = master.hero(bestHero).map { HeroRatingMath.ratings(for: $0, master: master) }
         XCTAssertEqual(best?.survivability ?? 0, 1, accuracy: 1e-9)
         // 誰かには CC がある（コントロール効果の最大は 1）
-        let controls = master.heroes.map { HeroRatingMath.ratings(for: $0, master: master).control }
+        let controls = master.allHeroes.map { HeroRatingMath.ratings(for: $0, master: master).control }
         XCTAssertEqual(controls.max() ?? 0, 1, accuracy: 1e-9)
     }
 
@@ -244,21 +329,22 @@ final class SkillShowcaseTests: XCTestCase {
         let hero = try XCTUnwrap(master.hero("H001"))
         let skill = try self.skill("H001", .skill1)
         let table = SkillLevelTable.build(skill: skill, hero: hero)
-        XCTAssertEqual(table.ranks, [1, 2, 3, 4])
+        // スキル1・2 は MLBB と同じ 6 段
+        XCTAssertEqual(table.ranks, [1, 2, 3, 4, 5, 6])
         XCTAssertEqual(table.rows.first?.kind, .cooldown)
         XCTAssertEqual(table.rows.first?.title, "CD時間")
-        for row in table.rows { XCTAssertEqual(row.values.count, 4, row.title) }
+        for row in table.rows { XCTAssertEqual(row.values.count, 6, row.title) }
         // CD は SkillMath と同じ値（小数 1 桁）で、ランクが上がるほど短い
         let cd1 = SkillMath.cooldown(skill, hero: hero, rank: 1)
         XCTAssertEqual(table.rows[0].values[0], SkillShowcaseText.fixed1(cd1))
-        XCTAssertLessThan(SkillMath.cooldown(skill, hero: hero, rank: 4), cd1)
+        XCTAssertLessThan(SkillMath.cooldown(skill, hero: hero, rank: 6), cd1)
         // 汎用スキルのコストはランクで変わらない → 行を出さない
         XCTAssertFalse(table.rows.contains { $0.kind == .cost })
         // 主な数値の行（ダメージ）
         let damageRow = try XCTUnwrap(table.rows.first { $0.kind == .figure(.damage) })
         XCTAssertEqual(damageRow.title, "基礎ダメージ")
         XCTAssertEqual(damageRow.values[0], SkillMath.figureValue(.damage, SkillMath.numbers(skill, hero: hero, rank: 1)))
-        XCTAssertEqual(damageRow.values[3], SkillMath.figureValue(.damage, SkillMath.numbers(skill, hero: hero, rank: 4)))
+        XCTAssertEqual(damageRow.values[5], SkillMath.figureValue(.damage, SkillMath.numbers(skill, hero: hero, rank: 6)))
     }
 
     func testLevelTableUltimateHasThreeColumnsAndPassiveHasNone() throws {
@@ -273,7 +359,7 @@ final class SkillShowcaseTests: XCTestCase {
 
     func testLevelTableHealingUltimateListsHealAndShield() throws {
         // 味方全体回復（サポートのアルティメット）は回復量とシールド量の行を持つ
-        let support = try XCTUnwrap(master.heroes.first { $0.role == .support && !HeroKits.hasKit($0.heroID) })
+        let support = try XCTUnwrap(master.allHeroes.first { $0.role == .support && !HeroKits.hasKit($0.heroID) })
         let ult = try skill(support.heroID, .ultimate)
         let table = SkillLevelTable.build(skill: ult, hero: support)
         XCTAssertTrue(table.rows.contains { $0.kind == .figure(.heal) })
@@ -286,7 +372,7 @@ final class SkillShowcaseTests: XCTestCase {
         XCTAssertFalse(SkillLevelTable.costsVary([40, 40, 40]))
         XCTAssertTrue(SkillLevelTable.costsVary([40, 45, 50]))
         // キットの無いヒーローのコストはこれまでどおり一定
-        for hero in master.heroes where !HeroKits.hasKit(hero.heroID) {
+        for hero in master.allHeroes where !HeroKits.hasKit(hero.heroID) {
             for skill in master.skills(forHero: hero.heroID) where skill.slot != .passive {
                 for rank in SkillMath.ranks(for: skill.slot) {
                     XCTAssertEqual(SkillMath.cost(skill, hero: hero, rank: rank), SkillMath.cost(skill, resource: hero.resource),
@@ -297,7 +383,7 @@ final class SkillShowcaseTests: XCTestCase {
     }
 
     func testLevelTableColumnsMatchForEverySkill() {
-        for hero in master.heroes {
+        for hero in master.allHeroes {
             for skill in master.skills(forHero: hero.heroID) {
                 let table = SkillLevelTable.build(skill: skill, hero: hero)
                 XCTAssertEqual(table.ranks, SkillMath.ranks(for: skill.slot), skill.skillID)

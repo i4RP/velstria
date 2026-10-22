@@ -11,9 +11,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT.parent / "VELSTRIA_復元版パッケージ" / "data" / "json" / "velstria_master.json"
 DST = ROOT / "Packages" / "VelstriaCore" / "Sources" / "VelstriaCore" / "Resources" / "master_runtime.json"
 
+# ルーン（runes）は 2026-10 にエンブレム（VelstriaCore の EmblemCatalog.swift）へ置き換えたので出力しない。
 RUNTIME_TABLES = [
     "meta", "game_rules", "heroes", "skills", "equipment", "battle_spells",
-    "runes", "effects", "cosmetics", "store",
+    "effects", "cosmetics", "store",
 ]
 DROP_FIELDS = {
     "effects": {"engine_notes", "meshy_prompt"},

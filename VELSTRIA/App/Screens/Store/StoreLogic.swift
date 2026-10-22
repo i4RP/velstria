@@ -84,6 +84,18 @@ enum StoreCatalog {
         }
     }
 
+    /// ストアのホームに並べるカテゴリ。ヒーロー解放は売らない。スキンは商品が無い間は出さない
+    /// （ゲームに出すヒーローのスキンが無い。2026-10-12 の名簿の変更。スキンストアの画面と経路は残してある）。
+    static func homeCategories(master: MasterData) -> [StoreCategory] {
+        StoreCategory.allCases.filter { c in
+            switch c {
+            case .heroes: return false
+            case .skins: return !items(in: .skins, master: master).isEmpty
+            default: return true
+            }
+        }
+    }
+
     static func bundles(master: MasterData) -> [StoreItemDef] {
         master.store.filter { $0.type == .bundle }
     }
@@ -416,7 +428,7 @@ enum StoreLegalText {
             Row(label: L("支払方法", "Payment method"),
                 value: L("App Store が提供する決済方法（Apple Account に登録された支払方法）。",
                          "Payment methods provided by the App Store (registered to your Apple Account).")),
-            Row(label: L("支払時期", "Payment timing"), value: L("App Store の定める時期。", "As determined by the App Store.")),
+            Row(label: L("支払時期", "Payment timing"), value: L("購入手続きの完了時に、Apple の決済により支払われます（支払方法からの引落し・請求の時期は、各支払方法の定めによります）。", "Payment is made through Apple's payment system when you complete the purchase (when your payment method is charged depends on that method).")),
             Row(label: L("商品の引渡時期", "Delivery"),
                 value: L("購入手続き完了後、直ちにアプリ内で付与します。", "Delivered in the app immediately after the purchase completes.")),
             Row(label: L("返品・キャンセル", "Returns & cancellation"),

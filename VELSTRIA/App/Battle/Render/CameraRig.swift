@@ -3,12 +3,14 @@ import RealityKit
 import simd
 import VelstriaCore
 
-// 担当: battle-renderer。見下ろしカメラ（透視 ~48°、俯角 56°、回転なし）。
-// 注視点を臨界減衰バネで追従し、地図内にクランプ。大きな出来事で小さく揺らす（トラウマ方式）。
+// 担当: battle-renderer。参照ステージ共通の透視カメラ（俯角46.12°、縦画角32.37°、回転なし）。
+// 注視点を臨界減衰バネで追従（自由視点だけ地図内にクランプ）。大きな出来事で小さく揺らす（トラウマ方式）。
 // 観戦（BattleWorld が CameraDrive で指示する）:
 // - 倍率の範囲が広い（spectatorZoomRange。地図の余白は広げた分だけ内側へ寄せ、地図の外の虚空を見せない）
 // - 追う対象の切替は glide（時間指定のイーズ）か cut（即座）。指で動かす自由カメラは direct（ばねを掛けない）
 // - 複数の対象を収める framing（注視点と距離を逆算）、画面上の点 → 地面の点の変換（パン・ピンチ）
+// 演出のカメラ（Star Core の終幕。CoreFinaleCamera.swift）: update の後に BattleRenderer が present で姿勢を差し替える。
+// ゲームカメラ（注視点・距離のばね）は裏で追従を続け、次の update で向きも既定へ戻る（演出をやめれば即座にゲームの画）。
 
 /// 臨界減衰のスムージング（SmoothDamp）。smoothTime ≒ 目標到達までの時間。
 struct CriticallyDampedSpring {
@@ -96,12 +98,49 @@ struct CameraDrive {
 
 @MainActor
 final class CameraRig {
-    nonisolated static let pitchDegrees: Float = 56
-    nonisolated static let fovDegrees: Float = 48
+    /// カメラの組: 見下ろし角・縦の画角（度）、cameraZoom = 1 のときの注視点までの距離（m）、追従の注視点をヒーローより前（北）へ
+    /// ずらす量（m。ずらすとヒーローは画面の中央より下に映る）。
+    struct Preset: Equatable, Sendable {
+        var pitch: Float
+        var fov: Float
+        var distance: Float
+        var lead: Float
+    }
+
+    /// 2026-10-17 までのカメラ。
+    nonisolated static let legacyPreset = Preset(pitch: 56, fov: 48, distance: 10.0, lead: 0)
+    /// 2026-10-17の画面収録から解いた比較用の組（docs/vfx/CAMERA.md）。
+    nonisolated static let mlbbPreset = Preset(pitch: 42.9, fov: 30.1, distance: 15.9, lead: 0.91)
+    /// 2026-10-19の全26画面に共通する既定のレンズ。
+    nonisolated static let fieldPreset = Preset(pitch: StageReferenceLayout.pitchDegrees,
+        fov: StageReferenceLayout.verticalFOV, distance: StageReferenceLayout.cameraDistance,
+        lead: StageReferenceLayout.cameraLead)
+    /// 使う組。Debug の起動引数 -cameraPreset <legacy|mlbb> で切り替える（演出の比較の撮影用。出荷ビルドは引数を読まない）。
+    /// ステージの配置を参照画像に合わせる道具（Debug の -stageLayoutReference / -stagePitch）は従来の距離・前ずれのまま角度だけ変える。
+    nonisolated static let preset: Preset = {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-stageLayoutReference") { return Preset(pitch: 36.80944726, fov: 13.86622334, distance: 10.0, lead: 0) }
+        if let i = args.firstIndex(of: "-stagePitch"), i + 1 < args.count,
+           let pitch = Float(args[i + 1]), (30...75).contains(pitch) {
+            var p = legacyPreset
+            p.pitch = pitch
+            return p
+        }
+        #endif
+        switch DebugLaunch.value(after: "-cameraPreset") {
+        case "mlbb": return mlbbPreset
+        case "legacy": return legacyPreset
+        default: return fieldPreset
+        }
+    }()
+
+    nonisolated static let pitchDegrees: Float = preset.pitch
+    nonisolated static let fovDegrees: Float = preset.fov
     /// cameraZoom = 1 のときの注視点までの距離（m）。
-    nonisolated static let baseDistance: Float = 12.5
-    /// 注視点を置く位置（ヒーローの少し前方 = 画面のやや下にヒーロー）。
-    nonisolated static let focusLead: Float = 0.9
+    nonisolated static let baseDistance: Float = preset.distance
+    /// 追従の注視点のずれ（legacy は 0 = ヒーローを画面中央に置く）。
+    nonisolated static let focusLead: Float = preset.lead
     /// プレイヤーの倍率（設定 0.8〜1.3 + 余裕）。
     nonisolated static let playerZoomRange: ClosedRange<Double> = 0.7...1.4
     /// 観戦者の倍率（ピンチ・自動カメラの framing）。2.5 で地図のおよそ半分が映る。
@@ -117,9 +156,18 @@ final class CameraRig {
     private(set) var focus = CriticallyDampedSpring(.zero)
     private var distance = CriticallyDampedScalar(value: baseDistance)
     private var trauma: Float = 0
+    /// 奥義の押し込み（視線の方向へ寄って戻る。m）。注視点・距離（distance）・gamePose は変えない
+    /// （頭上バーの大きさ・影の範囲・終幕の寄りの起点に効かない）。
+    private var pushPeak: Float = 0
+    private var pushAge: Float = 10
     private var time: Float = 0
     private var initialized = false
     private var glide: Glide?
+    /// 最後の update で求めたゲームカメラの姿勢（揺れなし。終幕の寄りの起点）。
+    private(set) var gamePose = CameraPose(position: CameraRig.offset(distance: CameraRig.baseDistance), yaw: 0,
+                                           pitch: -CameraRig.pitchDegrees * .pi / 180)
+    /// 演出の姿勢を描いている（次の update で既定の向きへ戻す）。
+    private(set) var isPresenting = false
 
     private struct Glide {
         var from: SIMD2<Float>
@@ -131,6 +179,9 @@ final class CameraRig {
         camera.name = "camera"
         camera.camera = PerspectiveCameraComponent(near: 1.0, far: 160, fieldOfViewInDegrees: CameraRig.fovDegrees,
                                                    fieldOfViewOrientation: .vertical)
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-stageLayoutReference") { camera.camera.far = 500 }
+        #endif
         camera.orientation = CameraRig.orientation
     }
 
@@ -265,6 +316,30 @@ final class CameraRig {
         return points
     }
 
+    /// 奥義の押し込みを足す（m。今の押し込みより強い時だけ置き換える）。BattleFeel が自分が関わる奥義で呼ぶ。
+    func addPushIn(_ meters: Float) {
+        guard meters > currentPushIn else { return }
+        pushPeak = meters
+        pushAge = 0
+    }
+
+    /// 今の押し込み（m）。
+    var currentPushIn: Float { pushPeak * CameraRig.pushEnvelope(pushAge) }
+
+    nonisolated static let pushRise: Float = 0.08
+    nonisolated static let pushFall: Float = 0.55
+
+    /// 押し込みの倍率（0〜1）。pushRise 秒で寄り（終わりほどゆっくり）、pushFall 秒で戻る（滑らかに）。
+    nonisolated static func pushEnvelope(_ age: Float) -> Float {
+        guard age >= 0, age < pushRise + pushFall else { return 0 }
+        if age < pushRise {
+            let u = age / pushRise
+            return u * (2 - u)
+        }
+        let u = (age - pushRise) / pushFall
+        return 1 - u * u * (3 - 2 * u)
+    }
+
     /// 揺れを加える（0〜1、重ねると加算で上限 1）。
     func addShake(_ amount: Float) {
         trauma = min(1, trauma + amount)
@@ -279,8 +354,10 @@ final class CameraRig {
         time += dt
         let targetDistance = CameraRig.distance(forZoom: d.zoom, range: d.zoomRange)
         let lead = d.lead ?? (d.free ? 0 : CameraRig.focusLead)
-        let desired = CameraRig.clampFocus(d.target + SIMD2(0, -lead), mapMeters: mapMeters,
-                                           zoom: Double(targetDistance / CameraRig.baseDistance))
+        // Follow targets may reach every map edge. Only manual/free cameras are clamped.
+        let target = d.target + SIMD2(0, -lead)
+        let desired = d.free ? CameraRig.clampFocus(target, mapMeters: mapMeters,
+                                                  zoom: Double(targetDistance / CameraRig.baseDistance)) : target
         var transition = d.transition
         if !initialized { transition = .cut }
         switch transition {
@@ -314,6 +391,15 @@ final class CameraRig {
         distance.update(target: targetDistance, smoothTime: d.directZoom ? 0.04 : (d.zoomSmoothTime ?? 0.25), dt: dt)
 
         var pos = SIMD3(focus.value.x, 0, focus.value.y) + CameraRig.offset(distance: distance.value)
+        gamePose.position = pos
+        // 奥義の押し込み: 視線の方向へ寄る（gamePose・distance は押し込む前のまま）
+        let push = currentPushIn
+        if push > 0.0001 { pos -= simd_normalize(CameraRig.offset(distance: distance.value)) * push }
+        pushAge += dt
+        if isPresenting {
+            camera.orientation = CameraRig.orientation
+            isPresenting = false
+        }
         if trauma > 0.001 {
             let k = trauma * trauma
             let sx = sin(time * 37) * 0.6 + sin(time * 61 + 1.3) * 0.4
@@ -322,5 +408,12 @@ final class CameraRig {
             trauma = max(0, trauma - dt * 1.8)
         }
         camera.position = pos
+    }
+
+    /// 演出のカメラ（Star Core の終幕）の姿勢で描く。update の後に毎フレーム呼ぶ（呼ばなければ次の update でゲームカメラに戻る）。
+    func present(_ pose: CameraPose) {
+        camera.position = pose.position
+        camera.orientation = pose.orientation
+        isPresenting = true
     }
 }

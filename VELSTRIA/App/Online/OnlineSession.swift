@@ -85,6 +85,12 @@ final class OnlineSession: OnlineBattleLink {
     private(set) var status: Status
     /// 画面に出す直近の出来事（新しいものが末尾）。
     private(set) var events: [String] = []
+    /// 定型文のチャット（ピックでは同じチーム、パーティでは選手全員の発言。新しいものが末尾）。
+    private(set) var chat: [FlowChatLine] = []
+    /// いま出ているエモート（参加者 → コスメ ID。数秒で消える）。
+    private(set) var emotes: [OnlinePeerID: String] = [:]
+    /// ピックの手番の締め切り（この端末の時計。nil = 手番なし）。
+    private(set) var pickDeadline: Date?
     /// クライアント: ホストとの往復遅延（秒）。
     private(set) var rtt: Double?
     /// ホスト: 待ち受けポート（Bonjour に加えて手入力で繋ぐ用）。
@@ -147,6 +153,17 @@ final class OnlineSession: OnlineBattleLink {
     @ObservationIgnored private var acceptedAt: [UUID: TimeInterval] = [:]
     /// 参加者毎の最後のスナップショット（ずれの再同期の間隔を空ける）。
     @ObservationIgnored private var lastSnapshotAt: [OnlinePeerID: TimeInterval] = [:]
+    /// ホスト: 部屋から外した参加者（プレイヤー ID とフレンドコード。この部屋には入り直せない）。
+    @ObservationIgnored private var kickedPeers: Set<OnlinePeerID> = []
+    @ObservationIgnored private var kickedFriendCodes: Set<String> = []
+    /// ホスト: 部屋に入れない相手のフレンドコード（ブロックした相手。AppModel がプロフィールから渡す）。
+    @ObservationIgnored var blockedFriendCodes: () -> Set<String> = { [] }
+    /// ホスト: ピックの時計の手番（座席の番号。-1 = 最終調整）・通し番号・時間切れの見回り。
+    @ObservationIgnored private var pickClockKey: Int?
+    @ObservationIgnored private var pickClockSerial = 0
+    @ObservationIgnored private var pickTimer: Timer?
+    /// ホスト: 参加者毎の最後の定型文・エモート（連投を間引く）。
+    @ObservationIgnored private var lastChatAt: [OnlinePeerID: TimeInterval] = [:]
 
     // ホスト側: 観戦
     /// 観戦者への遅延配信の記録。
@@ -193,6 +210,11 @@ final class OnlineSession: OnlineBattleLink {
     @ObservationIgnored private var inputSequence: UInt32 = 0
     /// 名乗りで観戦席を希望する。
     @ObservationIgnored private var wantsSpectateOnJoin = false
+    /// 名乗りに添えるアイコンのヒーロー・フレンドコード（クライアント）。
+    /// 試合の後もピックの段階に留まる（-onlineHost の検証用。パーティを経ない）。
+    @ObservationIgnored var keepsPickStage = false
+    @ObservationIgnored private var localAvatar: String?
+    @ObservationIgnored private var localFriendCode: String?
     /// パーティの招待で入った: 部屋に入れたら、ホストと同じチームの空席に自動で座る（1 回だけ）。
     @ObservationIgnored var seatsWithHostTeam = false
     /// いまの戦闘は観戦（spectateMatch を受けた）。
@@ -220,6 +242,10 @@ final class OnlineSession: OnlineBattleLink {
     @ObservationIgnored private var closed = false
 
     static let maxEvents = 30
+    /// チャットの保持数。
+    static let maxChatLines = 20
+    /// 同じ人の定型文・エモートの最短間隔（秒）。
+    static let chatInterval: TimeInterval = 1
     static let pingInterval: TimeInterval = 2
     /// ホストが保持する照合用ハッシュの数（hashInterval 毎に 1 つ。600 = 10 分遅れまで照合できる）。
     /// 観戦者は遅延の分だけ遅れて報告するので、最大の遅延より十分長く保つ。
@@ -237,18 +263,22 @@ final class OnlineSession: OnlineBattleLink {
     // MARK: - 生成
 
     /// 部屋を作る（待ち受けは `startListening` で開く。テストはループバック接続を `accept` で渡す）。
-    static func host(peerID: OnlinePeerID, name: String, roomName: String) -> OnlineSession {
+    static func host(peerID: OnlinePeerID, name: String, roomName: String,
+                     avatar: String? = nil, friendCode: String? = nil) -> OnlineSession {
         var room = OnlineRoom(name: roomName, hostPeerID: peerID)
-        room.peers = [OnlinePeer(id: peerID, name: name)]
+        room.peers = [OnlinePeer(id: peerID, name: name, avatar: avatar, friendCode: friendCode, country: CountryFlag.local)]
         let s = OnlineSession(role: .host, peerID: peerID, name: name, room: room)
         s.startPing()
         return s
     }
 
     /// 部屋に入る。接続は未開始のものを渡す（ready になったら名乗る）。wantsSpectate: 観戦席で入る（試合中なら途中から観戦）。
-    static func join(peerID: OnlinePeerID, name: String, connection: OnlineConnection, wantsSpectate: Bool = false) -> OnlineSession {
+    static func join(peerID: OnlinePeerID, name: String, connection: OnlineConnection, wantsSpectate: Bool = false,
+                     avatar: String? = nil, friendCode: String? = nil) -> OnlineSession {
         let s = OnlineSession(role: .client, peerID: peerID, name: name, room: OnlineRoom(name: "", hostPeerID: ""))
         s.wantsSpectateOnJoin = wantsSpectate
+        s.localAvatar = avatar
+        s.localFriendCode = friendCode
         s.joinedRelayCode = (connection as? RelayGuestConnection)?.code
         s.connect(connection)
         s.startPing()
@@ -262,6 +292,23 @@ final class OnlineSession: OnlineBattleLink {
         let team = room.seat(of: room.hostPeerID)?.team ?? .blue
         let free = room.seats.filter { $0.peerID == nil }
         return (free.first { $0.team == team } ?? free.first)?.index
+    }
+
+    /// クライアント: ホストから届いた部屋の名前（部屋名・参加者・座席）を表示用に整える。ホストは名乗りの時点で確かめているが、
+    /// 改変したホストは何でも送れるので、受け取った側でも不適切な名前を隠す（中身の他の項目は変えない）。
+    static func sanitizedForDisplay(_ room: OnlineRoom) -> OnlineRoom {
+        var r = room
+        if !r.name.isEmpty {
+            let name = PlayerNameRules.sanitizedRoomName(r.name, maxLength: OnlineProtocol.maxServiceNameBytes)
+            r.name = name.isEmpty ? L("パーティ", "Party") : name
+        }
+        func clean(_ raw: String) -> String {
+            let name = PlayerNameRules.sanitizedRemote(raw)
+            return name.isEmpty ? L("プレイヤー", "Player") : name
+        }
+        for i in r.peers.indices { r.peers[i].name = clean(r.peers[i].name) }
+        for i in r.seats.indices where r.seats[i].isHuman { r.seats[i].name = clean(r.seats[i].name) }
+        return r
     }
 
     var isHost: Bool { role == .host }
@@ -559,6 +606,11 @@ final class OnlineSession: OnlineBattleLink {
             startSpectatorStream(peerID)
         case .stopSpectating:
             endSpectating(peerID)
+        case .quickChat(_, let phrase):
+            // 送り主はホストが入れる（名乗りを偽れないように）
+            relayChat(from: peerID, phrase: phrase)
+        case .emote(_, let cosmeticID):
+            relayEmote(from: peerID, cosmeticID: cosmeticID)
         case .hello, .welcome, .reject, .room, .startMatch, .frames, .snapshot, .matchAborted,
              .spectateMatch, .matchFinished, .spectateDenied:
             break
@@ -584,6 +636,13 @@ final class OnlineSession: OnlineBattleLink {
         }
         guard hello.peerID != localPeerID else {
             reject(L("自分自身には接続できません", "Cannot connect to yourself"))
+            return
+        }
+        // 外した参加者・ブロックした相手は入れない（理由は伏せる）
+        let helloCode = hello.friendCode.flatMap { FriendCode.isValid($0) ? $0 : nil }
+        if kickedPeers.contains(hello.peerID)
+            || helloCode.map({ kickedFriendCodes.contains($0) || blockedFriendCodes().contains($0) }) == true {
+            reject(L("この部屋には参加できません", "You cannot join this room"))
             return
         }
         if let existing = connectionByPeer[hello.peerID], existing != c.id {
@@ -623,17 +682,31 @@ final class OnlineSession: OnlineBattleLink {
         }
         peerByConnection[c.id] = hello.peerID
         connectionByPeer[hello.peerID] = c.id
-        let name = hello.name.isEmpty ? L("プレイヤー", "Player") : hello.name
+        // 名乗りの名前は改変したクライアントなら何でも送れるので、長さ・文字・不適切語を確かめてから部屋に載せる
+        let cleanName = PlayerNameRules.sanitizedRemote(hello.name)
+        let name = cleanName.isEmpty ? L("プレイヤー", "Player") : cleanName
+        let avatar = hello.avatar.map { String($0.prefix(16)) }
+        let friendCode = helloCode
+        let country = hello.country.flatMap(CountryFlag.normalized)
         if let i = room.peers.firstIndex(where: { $0.id == hello.peerID }) {
             room.peers[i].name = name
+            room.peers[i].avatar = avatar
+            room.peers[i].friendCode = friendCode
+            room.peers[i].country = country
             room.peers[i].loaded = false
             room.peers[i].isWatching = false
             if asSpectator && room.seat(of: hello.peerID) == nil { room.peers[i].role = .spectator }
         } else {
-            room.peers.append(OnlinePeer(id: hello.peerID, name: name, role: asSpectator ? .spectator : .player))
+            room.peers.append(OnlinePeer(id: hello.peerID, name: name, role: asSpectator ? .spectator : .player,
+                                         avatar: avatar, friendCode: friendCode, country: country))
         }
         if let seat = room.seatIndex(of: hello.peerID) { room.seats[seat].name = name }
-        c.send(.welcome(room: room))
+        // ピックの途中から入った人には、手番の残りをその時点の値で渡す（部屋の時計は手番の始まりの値のまま）
+        var welcomeRoom = room
+        if let deadline = pickDeadline, welcomeRoom.pickClock != nil {
+            welcomeRoom.pickClock?.remaining = max(0, deadline.timeIntervalSince(now()))
+        }
+        c.send(.welcome(room: welcomeRoom))
         if room.phase != .lobby, let config = room.config {
             if returning && !spectatedThisMatch.contains(hello.peerID) && !abandonedPeers.contains(hello.peerID) {
                 // 試合中の再接続: 読み込みへ進ませる（loaded が来たらスナップショットを送る）。
@@ -648,6 +721,25 @@ final class OnlineSession: OnlineBattleLink {
         broadcastRoom()
     }
 
+    /// ホスト: 参加者を部屋から外す（迷惑な参加者。ガイドライン 1.2）。この部屋には同じプレイヤー ID・フレンドコードで入り直せない。
+    /// 試合中なら、その参加者のヒーローは AI が引き継ぐ。
+    func kick(_ peerID: OnlinePeerID) {
+        guard role == .host, !closed, peerID != localPeerID, let peer = room.peer(peerID) else { return }
+        kickedPeers.insert(peerID)
+        if let code = peer.friendCode { kickedFriendCodes.insert(code) }
+        if let c = connection(of: peerID) {
+            c.send(.reject(reason: L("ホストが部屋から外しました", "The host removed you from the room")))
+            hostLost(c)
+            // 送り切ってから閉じる
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { c.close() }
+        } else if room.phase == .lobby || room.seat(of: peerID) == nil {
+            vacate(peerID)
+            room.peers.removeAll { $0.id == peerID }
+            broadcastRoom()
+        }
+        note(L("\(peer.name) を部屋から外しました", "Removed \(peer.name) from the room"))
+    }
+
     // MARK: - ホスト: 部屋の操作
 
     private func vacate(_ peerID: OnlinePeerID) {
@@ -657,6 +749,8 @@ final class OnlineSession: OnlineBattleLink {
     }
 
     private func apply(peer: OnlinePeerID, takeSeat index: Int) {
+        // 手番のある部屋で確定した人は動けない（手番の順が崩れる）
+        if room.usesPickTurns, room.seat(of: peer)?.ready == true { return }
         let name = room.peer(peer)?.name ?? ""
         let previous = room.seat(of: peer)
         if let previous { rememberedLoadouts[peer] = previous.loadout }
@@ -685,9 +779,10 @@ final class OnlineSession: OnlineBattleLink {
     private func apply(peer: OnlinePeerID, loadout: OnlineLoadout) {
         guard let i = room.seatIndex(of: peer) else { return }
         var l = loadout
-        if let hero = l.heroID {
-            let taken = room.seats.contains { $0.peerID != nil && $0.peerID != peer && $0.loadout.heroID == hero }
-            if taken { l.heroID = room.seats[i].loadout.heroID }
+        // 手番のある部屋で確定した後は、ヒーローを変えられない（スキン・エンブレム・スペル・バトルプランは変えられる）
+        if room.usesPickTurns && room.seats[i].ready { l.heroID = room.seats[i].loadout.heroID }
+        if let hero = l.heroID, room.heldHeroIDs(excluding: peer).contains(hero) {
+            l.heroID = room.seats[i].loadout.heroID
         }
         if l.heroID != room.seats[i].loadout.heroID { room.seats[i].ready = false }
         room.seats[i].loadout = l
@@ -695,7 +790,137 @@ final class OnlineSession: OnlineBattleLink {
 
     private func apply(peer: OnlinePeerID, ready: Bool) {
         guard let i = room.seatIndex(of: peer) else { return }
+        if room.usesPickTurns {
+            // 手番の時だけ確定できる。確定は取り消せない（MLBB と同じ）
+            guard ready, room.pickTurnSeat == i, room.seats[i].loadout.heroID != nil else { return }
+            lock(seat: i)
+            return
+        }
         room.seats[i].ready = ready && room.seats[i].loadout.heroID != nil
+    }
+
+    /// ホスト: 座席のヒーローを確定する。同じヒーローを予約していた人（まだ確定していない）の選択は外す。
+    private func lock(seat index: Int) {
+        guard let hero = room.seats[index].loadout.heroID else { return }
+        room.seats[index].ready = true
+        for i in room.seats.indices where i != index && room.seats[i].isHuman && !room.seats[i].ready
+            && room.seats[i].loadout.heroID == hero {
+            room.seats[i].loadout.heroID = nil
+        }
+    }
+
+    /// 時間切れの自動選択: 押さえられていないヒーローから、座席のレーンに合うロールを優先して選ぶ。
+    private func autoPickHero(for seat: OnlineSeat) -> String? {
+        let held = room.heldHeroIDs(excluding: seat.peerID)
+        let free = MasterData.shared.heroes.filter { !held.contains($0.heroID) }
+        let roles = MatchFactory.preferredRoles(for: seat.position)
+        return (free.filter { roles.contains($0.role) }.randomElement() ?? free.randomElement())?.heroID
+    }
+
+    // MARK: ピックの時計（ホスト）
+
+    /// ホスト: 手番が変わったら時計を合わせ直す（部屋を配る前に呼ぶ）。手番の間は部屋の時計を変えない。
+    private func syncPickClock() {
+        let key: Int? = room.pickTurnSeat ?? (room.isAdjustingPicks ? -1 : nil)
+        guard key != pickClockKey else { return }
+        pickClockKey = key
+        pickTimer?.invalidate()
+        pickTimer = nil
+        guard let key else {
+            room.pickClock = nil
+            pickDeadline = nil
+            return
+        }
+        pickClockSerial += 1
+        let seconds = Double(key >= 0 ? FlowTiming.pickSeconds : FlowTiming.adjustSeconds)
+        room.pickClock = OnlinePickClock(serial: pickClockSerial, seat: key >= 0 ? key : nil, remaining: seconds)
+        pickDeadline = now().addingTimeInterval(seconds)
+        guard !closed else { return }
+        let t = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkPickClock() }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        pickTimer = t
+    }
+
+    /// ホスト: 手番の時間切れ（0.5 秒毎。テストから直接呼べる）。手番の人は選んでいたヒーロー（無ければ自動）で確定し、
+    /// 最終調整の終わりには試合を始める（ホストが座っているか実況なら）。
+    func checkPickClock() {
+        guard role == .host, !closed, let key = pickClockKey, let deadline = pickDeadline, now() >= deadline else { return }
+        guard key >= 0 else {
+            pickTimer?.invalidate()
+            pickTimer = nil
+            if room.canStart { startMatch(master: .shared) }
+            return
+        }
+        guard room.seats.indices.contains(key), room.seats[key].isHuman, !room.seats[key].ready else { return }
+        if room.seats[key].loadout.heroID == nil {
+            room.seats[key].loadout.heroID = autoPickHero(for: room.seats[key])
+        }
+        lock(seat: key)
+        note(L("時間切れ: \(room.seats[key].name) のヒーローを確定しました", "Time's up: locked in \(room.seats[key].name)'s hero"))
+        broadcastRoom()
+    }
+
+    // MARK: 定型文のチャット・エモート（ホストが配る）
+
+    /// ピックでは送り主と同じチームの座席の人、パーティでは選手全員。観戦席には届けない。
+    private func chatRecipients(of peer: OnlinePeerID) -> [OnlinePeerID] {
+        guard room.isPicking else { return room.players.map(\.id) }
+        guard let team = room.seat(of: peer)?.team else { return [] }
+        return room.seats.filter { $0.team == team }.compactMap(\.peerID)
+    }
+
+    /// ロビーの間だけ。同じ人の連投は chatInterval 空ける。
+    private func allowsChat(from peer: OnlinePeerID) -> Bool {
+        guard room.phase == .lobby, room.peer(peer)?.role == .player else { return false }
+        let t = uptime()
+        if let last = lastChatAt[peer], t - last < Self.chatInterval { return false }
+        lastChatAt[peer] = t
+        return true
+    }
+
+    private func relayChat(from peer: OnlinePeerID, phrase: Int) {
+        guard QuickChat.phrases.indices.contains(phrase), allowsChat(from: peer) else { return }
+        deliver(.quickChat(peer: peer, phrase: phrase), to: chatRecipients(of: peer))
+    }
+
+    private func relayEmote(from peer: OnlinePeerID, cosmeticID: String) {
+        // エモートだけ（改変したクライアントが他の ID を送っても出さない）
+        guard MasterData.shared.cosmetic(cosmeticID)?.type == .emote, allowsChat(from: peer) else { return }
+        deliver(.emote(peer: peer, cosmeticID: cosmeticID), to: chatRecipients(of: peer))
+    }
+
+    private func deliver(_ m: OnlineMessage, to recipients: [OnlinePeerID]) {
+        for id in recipients {
+            if id == localPeerID { show(chat: m) } else { send(to: id, m) }
+        }
+    }
+
+    /// ブロックした相手（フレンドコード）の定型文・エモートは出さない。
+    private func isBlocked(_ peer: OnlinePeerID) -> Bool {
+        guard peer != localPeerID, let code = room.peer(peer)?.friendCode else { return false }
+        return blockedFriendCodes().contains(code)
+    }
+
+    /// 届いた定型文・エモートを出す（ホストの自分宛て・クライアント）。
+    private func show(chat m: OnlineMessage) {
+        switch m {
+        case .quickChat(let peer, let phrase):
+            guard QuickChat.phrases.indices.contains(phrase), !isBlocked(peer) else { return }
+            let name = room.peer(peer)?.name ?? L("プレイヤー", "Player")
+            chat.append(FlowChatLine(speaker: name, text: QuickChat.text(phrase), isMine: peer == localPeerID))
+            if chat.count > Self.maxChatLines { chat.removeFirst(chat.count - Self.maxChatLines) }
+        case .emote(let peer, let cosmeticID):
+            guard !isBlocked(peer) else { return }
+            emotes[peer] = cosmeticID
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(EmoteTiming.seconds))
+                if self?.emotes[peer] == cosmeticID { self?.emotes[peer] = nil }
+            }
+        default:
+            break
+        }
     }
 
     /// 観戦席に移る / 選手に戻る（ロビー）。断る時は理由を返す。ホスト自身の観戦席 = 実況（上限に数えない）。
@@ -744,6 +969,7 @@ final class OnlineSession: OnlineBattleLink {
     }
 
     private func broadcastRoom() {
+        syncPickClock()
         broadcast(.room(room))
         refreshAdvertisement()
     }
@@ -802,6 +1028,57 @@ final class OnlineSession: OnlineBattleLink {
         case .client:
             connection?.send(.setReady(ready))
         }
+    }
+
+    /// 定型文を送る（番号だけ。ピックでは同じチーム、パーティでは選手全員に届く）。
+    func sendQuickChat(_ phrase: Int) {
+        guard QuickChat.phrases.indices.contains(phrase), room.phase == .lobby else { return }
+        switch role {
+        case .host: relayChat(from: localPeerID, phrase: phrase)
+        case .client: connection?.send(.quickChat(peer: localPeerID, phrase: phrase))
+        }
+    }
+
+    /// エモートを出す（届く相手は定型文と同じ）。
+    func sendEmote(_ cosmeticID: String) {
+        guard room.phase == .lobby else { return }
+        switch role {
+        case .host: relayEmote(from: localPeerID, cosmeticID: cosmeticID)
+        case .client: connection?.send(.emote(peer: localPeerID, cosmeticID: cosmeticID))
+        }
+    }
+
+    /// ホスト: パーティのチーム分けを決めて、ピック（座席でヒーローを選ぶ）へ進む。
+    /// blue / red は座る順（チームごとにレーン順の空席へ。あふれた人・観戦席の人は座らない）。
+    func arrangeTeams(blue: [OnlinePeerID], red: [OnlinePeerID]) {
+        guard role == .host, room.phase == .lobby else { return }
+        for peer in room.peers.map(\.id) {
+            if let seat = room.seat(of: peer) { rememberedLoadouts[peer] = seat.loadout }
+            vacate(peer)
+        }
+        for (team, ids) in [(Team.blue, blue), (Team.red, red)] {
+            let free = room.seats.filter { $0.team == team && $0.peerID == nil }.map(\.index)
+            let players = ids.filter { room.peer($0)?.role == .player }
+            for (peer, index) in zip(players, free) { apply(peer: peer, takeSeat: index) }
+        }
+        room.stage = .pick
+        broadcastRoom()
+    }
+
+    /// ホスト: ピックからパーティ（メンバー集め）へ戻る。準備完了は外す。
+    func returnToParty() {
+        guard role == .host, room.phase == .lobby else { return }
+        room.stage = .party
+        for i in room.seats.indices { room.seats[i].ready = false }
+        broadcastRoom()
+    }
+
+    /// ホスト: ピックの段階へ直接進む（-onlineHost などの検証用。座席はそのまま）。
+    func enterPickStage() {
+        guard role == .host, room.phase == .lobby else { return }
+        keepsPickStage = true
+        room.stage = .pick
+        broadcastRoom()
     }
 
     func setBotDifficulty(_ d: Difficulty) {
@@ -961,6 +1238,8 @@ final class OnlineSession: OnlineBattleLink {
             droppedPeers.removeAll()
             abandonedPeers.removeAll()
             for i in room.seats.indices { room.seats[i].ready = false }
+            // 試合の後はパーティへ戻る（メンバーを入れ替えて、チーム分けからやり直せる）。検証用の部屋（ピック直行）はそのまま
+            if !keepsPickStage { room.stage = .party }
             for i in room.peers.indices {
                 room.peers[i].loaded = false
                 room.peers[i].isWatching = false
@@ -1001,6 +1280,8 @@ final class OnlineSession: OnlineBattleLink {
         resumesSpectateAfterBattle = false
         pingTimer?.invalidate()
         pingTimer = nil
+        pickTimer?.invalidate()
+        pickTimer = nil
         stopSpectatorTimer()
         switch role {
         case .host:
@@ -1038,7 +1319,9 @@ final class OnlineSession: OnlineBattleLink {
             switch st {
             case .ready:
                 c.send(.hello(OnlineHello(peerID: self.localPeerID, name: self.localName,
-                                          wantsSpectate: self.wantsSpectateOnJoin ? true : nil)))
+                                          wantsSpectate: self.wantsSpectateOnJoin ? true : nil,
+                                          avatar: self.localAvatar, friendCode: self.localFriendCode,
+                                          country: CountryFlag.local)))
             case .failed(let reason):
                 self.disconnected(reason)
             case .closed:
@@ -1067,10 +1350,11 @@ final class OnlineSession: OnlineBattleLink {
         if let c = connection { lastInbound[c.id] = uptime() }
         switch m {
         case .welcome(let room):
-            self.room = room
+            self.room = Self.sanitizedForDisplay(room)
+            pickDeadline = room.pickClock.map { now().addingTimeInterval($0.remaining) }
             // 試合中に入った時も、ホストが開始（再接続の選手）か観戦の案内を送ってくるまでは部屋で待つ
             status = .lobby
-            note(L("\(room.name) に参加しました", "Joined \(room.name)"))
+            note(L("\(self.room.name) に参加しました", "Joined \(self.room.name)"))
             if seatsWithHostTeam {
                 seatsWithHostTeam = false
                 if !wantsSpectateOnJoin, let index = Self.partySeat(in: room, for: localPeerID) { connection?.send(.takeSeat(index)) }
@@ -1080,7 +1364,12 @@ final class OnlineSession: OnlineBattleLink {
         case .room(let room):
             // ホストが先にリザルトへ進むと部屋はロビーに戻るが、こちらはまだ最後の配信を消化中のことがある。
             // 配信バッファは試合開始（startMatch / spectateMatch）でだけ捨てる
-            self.room = room
+            let previousClock = self.room.pickClock
+            self.room = Self.sanitizedForDisplay(room)
+            // 手番が変わった時だけ時計を合わせる（同じ手番の間に届く部屋の時計は手番の始まりの値）
+            if room.pickClock?.serial != previousClock?.serial {
+                pickDeadline = room.pickClock.map { now().addingTimeInterval($0.remaining) }
+            }
             if room.phase == .lobby {
                 if status != .lobby, status != .connecting { status = .lobby }
                 watchedCurrentMatch = false
@@ -1155,6 +1444,8 @@ final class OnlineSession: OnlineBattleLink {
             if let c = connection, let sent = pingSentAt[c.id]?.removeValue(forKey: n) {
                 rtt = uptime() - sent
             }
+        case .quickChat, .emote:
+            show(chat: m)
         case .hello, .takeSeat, .setLoadout, .setReady, .loaded, .input, .hash, .abandonMatch,
              .setSpectator, .requestSpectate, .spectateLoaded, .stopSpectating:
             break

@@ -7,7 +7,7 @@ import VelstriaCore
 // MARK: - お問い合わせの組み立て
 
 enum SupportCategory: String, CaseIterable, Identifiable {
-    case bug, purchase, account, feedback, other
+    case bug, purchase, account, safety, feedback, other
     var id: String { rawValue }
 
     var title: String {
@@ -15,6 +15,7 @@ enum SupportCategory: String, CaseIterable, Identifiable {
         case .bug: return L("不具合の報告", "Bug Report")
         case .purchase: return L("購入・課金", "Purchases")
         case .account: return L("データ・引き継ぎ", "Data & Transfer")
+        case .safety: return L("迷惑行為の通報", "Report Abuse")
         case .feedback: return L("ご意見・ご要望", "Feedback")
         case .other: return L("その他", "Other")
         }
@@ -25,6 +26,7 @@ enum SupportCategory: String, CaseIterable, Identifiable {
         case .bug: return "ladybug.fill"
         case .purchase: return "creditcard.fill"
         case .account: return "arrow.triangle.2.circlepath"
+        case .safety: return "exclamationmark.shield.fill"
         case .feedback: return "lightbulb.fill"
         case .other: return "ellipsis.bubble.fill"
         }
@@ -36,6 +38,7 @@ enum SupportCategory: String, CaseIterable, Identifiable {
         case .bug: return "Bug"
         case .purchase: return "Purchase"
         case .account: return "Data"
+        case .safety: return "Safety"
         case .feedback: return "Feedback"
         case .other: return "Other"
         }
@@ -46,6 +49,8 @@ enum SupportCategory: String, CaseIterable, Identifiable {
         case .bug: return L("発生した画面・操作・頻度をできるだけ詳しくお書きください。", "Describe the screen, what you did and how often it happens.")
         case .purchase: return L("購入日時・商品名・Apple のレシートの注文番号をお書きください。", "Include the purchase date, product and the order ID from Apple's receipt.")
         case .account: return L("お困りの状況（機種変更・バックアップなど）をお書きください。", "Describe your situation (new device, backup, etc.).")
+        case .safety: return L("相手の表示名・フレンドコード、日時、何があったかをお書きください。オンラインの画面の「…」からも通報できます。",
+                               "Include the player's name, friend code, when it happened and what happened. You can also report from the \"…\" menu in online screens.")
         case .feedback: return L("ご意見・ご要望をお聞かせください。", "Tell us what you think.")
         case .other: return L("お問い合わせ内容をお書きください。", "Write your message.")
         }
@@ -111,8 +116,6 @@ struct SupportView: View {
                                         symbol: "questionmark.bubble.fill", identifier: "support_faq") { push(.faq) }
                         SettingsHubTile(title: L("お問い合わせ", "Contact Us"), summary: L("メールで相談", "Email support"),
                                         symbol: "envelope.fill", identifier: "support_contact") { push(.contact) }
-                        SettingsHubTile(title: L("パッチノート", "Patch Notes"), summary: "v\(AppVersionInfo.version)",
-                                        symbol: "doc.text.fill", identifier: "support_patch_notes") { push(.patchNotes) }
                         SettingsHubTile(title: L("利用規約", "Terms of Service"), summary: L("ブラウザで開く", "Opens in browser"),
                                         symbol: "doc.plaintext.fill", external: true, identifier: "support_terms") {
                             openURL(FeatureFlags.termsURL)
@@ -121,7 +124,15 @@ struct SupportView: View {
                                         symbol: "lock.shield.fill", external: true, identifier: "support_privacy") {
                             openURL(FeatureFlags.privacyPolicyURL)
                         }
-                        SettingsHubTile(title: L("クレジット", "Credits"), summary: L("制作チーム", "The team"),
+                        SettingsHubTile(title: L("コミュニティガイドライン", "Community Guidelines"), summary: L("オンラインのルール・通報", "Online rules & reporting"),
+                                        symbol: "person.3.sequence.fill", external: true, identifier: "support_guidelines") {
+                            openURL(FeatureFlags.communityGuidelinesURL)
+                        }
+                        SettingsHubTile(title: L("規約・法的表示", "Legal"), summary: L("特商法・資金決済法ほか", "All legal documents"),
+                                        symbol: "building.columns.fill", external: true, identifier: "support_legal") {
+                            openURL(FeatureFlags.legalIndexURL)
+                        }
+                        SettingsHubTile(title: L("クレジット", "Credits"), summary: L("制作チーム・ライセンス", "Team & licenses"),
                                         symbol: "star.fill", tint: Theme.gold, identifier: "support_credits") { push(.credits) }
                         SettingsHubTile(title: L("チュートリアル", "Tutorial"), summary: L("基本操作とヒント集", "Basics and tips"),
                                         symbol: "graduationcap.fill", tint: Theme.gold, identifier: "support_tutorial") { push(.tutorialMenu) }
@@ -201,9 +212,9 @@ struct ContactView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     Panel(padding: 10) {
                         VStack(alignment: .leading, spacing: 8) {
-                            LiveOpsSectionHeader(title: L("カテゴリ", "Category"), symbol: "tag.fill")
-                            LiveOpsSegmented(options: SupportCategory.allCases.map {
-                                LiveOpsSegmentOption(value: $0, title: $0.title, symbol: $0.symbol, identifier: "contact_category_\($0.rawValue)")
+                            SectionTitle(title: L("カテゴリ", "Category"), symbol: "tag.fill")
+                            CelestialTabs(options: SupportCategory.allCases.map {
+                                CelestialTab(value: $0, title: $0.title, symbol: $0.symbol, identifier: "contact_category_\($0.rawValue)")
                             }, selection: $category, axis: .vertical, onChange: { _ in app.audio.play(.uiTap) })
                         }
                     }
@@ -227,7 +238,7 @@ struct ContactView: View {
         Panel(padding: 12) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    LiveOpsSectionHeader(title: L("お問い合わせ内容", "Message"), symbol: "square.and.pencil")
+                    SectionTitle(title: L("お問い合わせ内容", "Message"), symbol: "square.and.pencil")
                     Spacer()
                     Text("\(message.count) / \(SupportMail.maxLength)")
                         .font(Theme.mono(11))

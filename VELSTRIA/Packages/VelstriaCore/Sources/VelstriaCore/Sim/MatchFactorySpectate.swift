@@ -82,8 +82,8 @@ extension MatchFactory {
                 // 乱闘はジャングルが無いので狩猟印（BS05）を持たせない
                 let spells = options.map == .brawl ? ["BS01", "BS03"] : defaultSpells(for: pos)
                 players.append(PlayerSlot(team: team, heroID: heroID, controller: .bot, position: pos,
-                                          spells: spells, displayName: "\(name)_AI",
-                                          botDifficulty: options.difficulty(for: team)))
+                                          spells: spells, emblem: EmblemCatalog.botLoadout(heroID: heroID, master: master),
+                                          displayName: "\(name)_AI", botDifficulty: options.difficulty(for: team)))
             }
         }
         let fallback = defaultMaxDuration(for: options.map)

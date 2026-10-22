@@ -1,0 +1,157 @@
+{
+ "skill_H028_passive.caf": {
+  "kind": "passive",
+  "note": "細い斬線（刃の小さな弾け + 鋼の鳴り）",
+  "seconds": 0.3,
+  "sources": [
+   "2015 / Eiravaein Works - Vaeyan II",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / Gamemaster Audio - Punch and Combat Sounds"
+  ]
+ },
+ "skill_H028_s1_cast.caf": {
+  "kind": "cast",
+  "note": "剣を一回し（長い刃の振り・体の風）→ 0.2 剣が飛び出す（抜く鋼・ばね・刃の風）→ 0.47 輪に着く鋼の鳴り → 回る剣の風切り",
+  "seconds": 1.51,
+  "sources": [
+   "2015 / Eiravaein Works - Vaeyan II",
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / SoundBits -  Just Whoosh 3 _ Whoosh Essentials",
+   "2018 / Gamemaster Audio - Punch and Combat Sounds",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H028_s1_hit_1.caf": {
+  "kind": "hit",
+  "note": "刃が抜ける風 + 鋼の打ち + 肉を断つ + 鎧の鋼 + 体への芯",
+  "seconds": 0.31,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / Gamemaster Audio - Punch and Combat Sounds",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "skill_H028_s1_hit_2.caf": {
+  "kind": "hit",
+  "note": "刃が抜ける風 + 鋼の打ち + 肉を断つ + 鎧の鋼 + 体への芯",
+  "seconds": 0.28,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / Gamemaster Audio - Punch and Combat Sounds",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "skill_H028_s1_hit_3.caf": {
+  "kind": "hit",
+  "note": "刃が抜ける風 + 鋼の打ち + 肉を断つ + 鎧の鋼 + 体への芯",
+  "seconds": 0.28,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / Gamemaster Audio - Punch and Combat Sounds",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2020 / SmartSoundFX – Medieval"
+  ]
+ },
+ "skill_H028_s2_cast.caf": {
+  "kind": "cast",
+  "note": "踏み込み → 駆ける体の風・刃が滑る風 → 0.2 刃に宿る鋼の鳴り",
+  "seconds": 0.81,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2016 / SoundBits -  Just Whoosh 3 _ Whoosh Essentials",
+   "2018 / L.A. Sounds – Transitions 001",
+   "2019 / L.A. Sounds - Transition Movement Pack 002",
+   "2019 / PMSFX - STEPS Dirt & Gravel"
+  ]
+ },
+ "skill_H028_s2_hit_1.caf": {
+  "kind": "hit",
+  "note": "振り抜く刃の斬撃 + 肉を断つ + 鋼の擦れ + 体への芯",
+  "seconds": 0.4,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2020 / 344 Audio - Medieval Battle",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1"
+  ]
+ },
+ "skill_H028_s2_hit_2.caf": {
+  "kind": "hit",
+  "note": "振り抜く刃の斬撃 + 肉を断つ + 鋼の擦れ + 体への芯",
+  "seconds": 0.38,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2020 / 344 Audio - Medieval Battle",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1"
+  ]
+ },
+ "skill_H028_s2_hit_3.caf": {
+  "kind": "hit",
+  "note": "振り抜く刃の斬撃 + 肉を断つ + 鋼の擦れ + 体への芯",
+  "seconds": 0.36,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2020 / 344 Audio - Medieval Battle",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1"
+  ]
+ },
+ "skill_H028_ult_cast.caf": {
+  "kind": "ult",
+  "note": "突進の風 → 0.2・0.59 の斬撃（剣の振り・鋼の擦れ）→ 0.98 重い三撃目（重い振り・鋼・刃の鳴り・低い芯）",
+  "seconds": 1.62,
+  "sources": [
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2016 / SoundBits -  Just Whoosh 3 _ Whoosh Essentials",
+   "2017 / Soundopolis - Halloween 101",
+   "2019 / Baxter Audio - IMPACT",
+   "2020 / David Dumais Audio - Weapon Sounds - Weapon Swings",
+   "2023 / David Dumais Audio - Melee Weapons Sound Effects Pack 1",
+   "2026 / 344 Audio - Historical Weapons Vol. 2",
+   "2026 / David Dumais Audio - Melee Weapons Sound Effects Pack 2"
+  ]
+ },
+ "skill_H028_ult_hit_1.caf": {
+  "kind": "hit",
+  "note": "重い刃が肉と鎧を断つ（深い斬り・鋼・体の砕け）+ 低い芯",
+  "seconds": 0.43,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2020 / SmartSoundFX – Medieval",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "skill_H028_ult_hit_2.caf": {
+  "kind": "hit",
+  "note": "重い刃が肉と鎧を断つ（深い斬り・鋼・体の砕け）+ 低い芯",
+  "seconds": 0.43,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2020 / SmartSoundFX – Medieval",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ },
+ "skill_H028_ult_hit_3.caf": {
+  "kind": "hit",
+  "note": "重い刃が肉と鎧を断つ（深い斬り・鋼・体の砕け）+ 低い芯",
+  "seconds": 0.39,
+  "sources": [
+   "2015 / Soundopolis - Blades",
+   "2015 / Timothy McHugh - Gorification [HD]",
+   "2018 / The Chris Alan - Hand-to-Hand Combat - Body Hits & Vocal Excursions",
+   "2020 / SmartSoundFX – Medieval",
+   "2023 / 344 Audio - Flesh, Bones & Gore"
+  ]
+ }
+}

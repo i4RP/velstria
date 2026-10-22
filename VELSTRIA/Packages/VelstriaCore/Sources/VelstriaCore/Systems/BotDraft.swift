@@ -1,7 +1,7 @@
 import Foundation
 
 // 担当: core-bots
-// AI のドラフト（ピック / BAN）。ランク戦のドラフト UI と MatchFactory が使う。
+// AI のドラフト（ピック）。ランク戦のドラフト UI と MatchFactory が使う。
 // 評価 = ポジション適性 + 基礎性能 + 編成の補完（役割の重複・前衛・ダメージ種別）+ 相手への相性。
 // 上位 3 体から state 外の SplitMix64（呼び出し側が渡す）で重み付き抽選するため決定論的。
 
@@ -20,18 +20,6 @@ public enum DraftAI {
         }
         return choose(scored, rng: &rng) ?? available.first ?? ""
     }
-
-    /// BAN するヒーローを選ぶ（強く、こちらの編成に刺さるもの）。available が空なら空文字。
-    public static func draftBan(available: [String], allyPicks: [String], enemyPicks: [String],
-                                rng: inout SplitMix64, master: MasterData = .shared) -> String {
-        let scored = available.compactMap { id -> (String, Double)? in
-            guard master.hero(id) != nil else { return nil }
-            return (id, banScore(heroID: id, allyPicks: allyPicks, enemyPicks: enemyPicks, master: master))
-        }
-        return choose(scored, rng: &rng) ?? available.first ?? ""
-    }
-
-    // MARK: - 評価
 
     /// ピックの評価値。
     public static func pickScore(heroID: String, allyPicks: [String], enemyPicks: [String], position: LanePosition,
@@ -60,19 +48,6 @@ public enum DraftAI {
         score += counterValue(def.role, against: enemies.map(\.role))
         // 扱いやすさ（AI は難しいヒーローをわずかに避ける）
         score -= 0.04 * Double(def.difficulty)
-        return score
-    }
-
-    /// BAN の評価値（基礎性能 + こちらの編成への相性 + 相手の編成の穴埋め度）。
-    public static func banScore(heroID: String, allyPicks: [String], enemyPicks: [String],
-                                master: MasterData = .shared) -> Double {
-        guard let def = master.hero(heroID) else { return -.infinity }
-        var score = heroPower(def, master: master) * 1.5
-        let allies = allyPicks.compactMap { master.hero($0) }
-        score += counterValue(def.role, against: allies.map(\.role)) * 1.2
-        // 相手がまだ持っていない役割ほど相手に取られやすい
-        let enemies = enemyPicks.compactMap { master.hero($0) }
-        if !enemies.contains(where: { $0.role == def.role }) { score += 0.3 }
         return score
     }
 

@@ -2,16 +2,17 @@ import SwiftUI
 import VelstriaCore
 
 // 担当: battle-hud。戦闘 HUD の全体構成（BattleSceneView の上に重ねる）。
-// 左上: ミニマップ（+ 全体マップボタン）と内側の縦列（端末状態・設定・消音・ズーム）/ 上中央: 味方 4 人の状態列と小型のスコア /
+// 左上: ミニマップと内側の縦列（設定・消音・ズーム）/ 上中央: 味方 4 人の状態列と小型のスコア /
 // 右上: K/D/A・CS・スコアボード、その下にクイックシグナルの列 / スコアの下: キルフィード / ミニマップの下: シグナルのメッセージ
-// 左下: スティック / 右下: 攻撃・スキル・スペル・帰還 / 下中央: ヒーローパネル
+// 左下: スティック / 右下: 攻撃・スキル / 下中央: 小型の補助操作 / 右上: 所持金・ショップ
 // 観戦・リプレイでは操作部品を隠し、下部ドック（再生バー・10 人の追従・観戦メニュー）・ゴールドと目標タイマー・
 // 情報パネルを出す（配置は HUDSpectatorLayout）。戦術マップを開いている間もドックは操作できる（マップの上に 1 段で出す）。
 // シネマ表示では HUD を隠して戻すボタンだけを残す。左利き配置では左右を反転する。
-// 死亡中: 色調（3D の上）、下部パネルの上に復活カウントのエンブレム（タップでデス情報パネル）と味方の追従一覧。
+// 死亡中: 色調（3D の上）、空き領域に復活カウント（タップでデス情報）とスクロールできる味方追従一覧。
 // 15Hz で変わる値は各レイヤーの小さなビューだけが読む（HUD 全体の body を毎回評価しない）。
 // 観戦者は最下層の操作レイヤーで 3D 画面をドラッグ・ピンチ・ダブルタップできる（HUDSpectatorGestures）。
 // 倒れている間は彩度を落とす幕（操作部品の下）と、復活までの秒・味方の一覧（操作部品の上）を出す。
+// Star Core の終幕（endPhase = .finale）の間は全部を消して映像だけにする（触れても何も起きない）。勝敗のバナーから戻す。
 
 struct BattleHUDView: View {
     let controller: BattleController
@@ -85,6 +86,7 @@ private struct HUDRoot: View {
         let spectating = model.isSpectating
         let settings = model.settings
         let ended = model.endPhase != nil
+        let finale = model.endPhase?.isFinale == true
         let tutorialDone = model.tutorial?.isComplete ?? false
         let showControls = !spectating && !ended && !tutorialDone
         ZStack {
@@ -103,8 +105,7 @@ private struct HUDRoot: View {
                     HUDJoystick(model: model, layout: layout, mode: settings.joystickMode,
                                 highlighted: model.tutorial?.highlight == .joystick)
                     HUDActionCluster(model: model, layout: layout)
-                    HUDHeroPanel(model: model, layout: layout)
-                        .position(x: layout.heroPanelCenterX, y: layout.bottomEdge - HUDRootMetrics.heroPanelHeight(layout) / 2)
+                    HUDCompactEconomy(model: model, layout: layout)
                     HUDChannelLayer(model: model, layout: layout)
                     HUDLevelUpLayer(model: model)
                         .position(x: layout.width / 2, y: layout.height * 0.36)
@@ -172,18 +173,25 @@ private struct HUDRoot: View {
                 HUDTutorialComplete(model: model, director: tutorial)
                     .transition(.opacity)
             }
-            if !(spectating && model.controller.isSeekable), let phase = model.endPhase {
-                HUDEndOfMatchView(model: model, phase: phase, colorblind: settings.colorblindMode)
+            if !(spectating && model.controller.isSeekable), let phase = model.endPhase, !phase.isFinale {
+                HUDEndOfMatchView(model: model, phase: phase, colorblind: settings.colorblindMode,
+                                  leading: model.endFollowsFinale)
                     .transition(.opacity)
             }
         }
         .frame(width: layout.width, height: layout.height)
+        // 終幕: 寄りの間（0.6 秒）に消し切る。勝敗のバナーで戻す
+        .opacity(finale ? 0 : 1)
+        .allowsHitTesting(!finale)
+        .accessibilityHidden(finale)
+        .animation(.easeOut(duration: 0.4), value: finale)
         .animation(.easeInOut(duration: 0.4), value: tutorialDone)
         .animation(.easeInOut(duration: 0.4), value: ended)
     }
 }
 
 enum HUDRootMetrics {
+    /// 詠唱・トーストなど一時表示の配置用。常設ヒーローカードは描画しない。
     static func heroPanelHeight(_ layout: HUDLayout) -> CGFloat { 110 * min(layout.scale, 1.08) }
 
     /// 告知バナーの高さの目安（肖像 44pt、または見出し + 副題 ≈ 46pt に上下 8pt。倍率は min(scale, 1.1)）。
@@ -236,7 +244,7 @@ private struct HUDChannelLayer: View {
     let layout: HUDLayout
 
     var body: some View {
-        HUDChannelBar(channel: model.hero.channel, width: 210)
+        HUDChannelBar(channel: model.hero.channel, width: layout.channelBarWidth)
             .position(x: layout.heroPanelCenterX,
                       y: layout.bottomEdge - HUDRootMetrics.heroPanelHeight(layout) - 60 * min(layout.scale, 1.08))
     }
@@ -327,7 +335,8 @@ enum HUDSpectatorEndCardRule {
     static func isVisible(_ model: HUDModel) -> Bool {
         let t = model.spectator.transport
         guard t.seekingTo == nil, model.panel == nil, !model.isTacticalMapOpen else { return false }
-        return model.endPhase != nil || (t.isEnded && model.controller.state.endReason == .aborted)
+        if let phase = model.endPhase { return !phase.isFinale }
+        return t.isEnded && model.controller.state.endReason == .aborted
     }
 }
 

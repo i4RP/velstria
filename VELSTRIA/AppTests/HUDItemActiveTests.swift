@@ -91,8 +91,9 @@ final class HUDItemActiveTests: XCTestCase {
 
     // MARK: 配置
 
-    /// プレイヤーの右側の操作群を確認する端末（HUDLayoutTests と同じ。iPhone SE はプレイヤーの HUD の対象外）。
+    /// 16:9 の SE を含む、補助列と追加アクティブの配置。
     private let devices: [(name: String, size: CGSize, side: CGFloat, bottom: CGFloat)] = [
+        ("iPhone SE", CGSize(width: 667, height: 375), 0, 0),
         ("iPhone 13 mini", CGSize(width: 812, height: 375), 44, 21),
         ("iPhone 16e", CGSize(width: 844, height: 390), 47, 21),
         ("iPhone 17 Pro", CGSize(width: 874, height: 402), 62, 20),
@@ -107,13 +108,12 @@ final class HUDItemActiveTests: XCTestCase {
                 let tag = "\(d.name) \(left ? "左利き" : "右手")"
                 let r = l.itemActiveDiameter / 2
                 let tap = max(44, l.itemActiveDiameter) / 2
-                let panelTop = l.bottomEdge - HUDRootMetrics.heroPanelHeight(l)
                 for (name, c) in [("item", l.itemActiveCenter), ("gear", l.gearActiveCenter)] {
                     let disc = CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)
                     let hit = CGRect(x: c.x - tap, y: c.y - tap, width: tap * 2, height: tap * 2)
                     // 攻撃・スキル・スペル・帰還のボタン
                     for other in l.signalControlDiscs {
-                        XCTAssertGreaterThan(hypot(c.x - other.center.x, c.y - other.center.y), r + other.radius + 2,
+                        XCTAssertGreaterThan(hypot(c.x - other.center.x, c.y - other.center.y), tap + max(22, other.radius) + 2,
                                              "\(tag) \(name) が操作部品と重なる")
                     }
                     // 習得バッジのタップ領域
@@ -122,16 +122,21 @@ final class HUDItemActiveTests: XCTestCase {
                     }
                     // シグナル列
                     for slot in HUDSignalSlot.allCases {
-                        XCTAssertFalse(l.signalSlotFrame(slot).intersects(disc), "\(tag) \(name) がシグナル列と重なる")
+                        XCTAssertFalse(l.signalSlotFrame(slot).intersects(hit), "\(tag) \(name) がシグナル列と重なる")
                     }
-                    // キルフィードはスペル・習得バッジより画面中央側に置かれる（端からの深さが予約幅より浅い）
-                    let depth = left ? disc.maxX - l.leadingEdge : l.trailingEdge - disc.minX
-                    XCTAssertLessThan(depth, l.killFeedSideReserve, "\(tag) \(name) がキルフィードの位置にかかる")
-                    // 画面内・Safe Area 内・下部パネルより上
-                    XCTAssertGreaterThanOrEqual(disc.minX, l.leadingEdge, tag)
-                    XCTAssertLessThanOrEqual(disc.maxX, l.trailingEdge, tag)
-                    XCTAssertGreaterThan(disc.minY, l.signalRowTop, tag)
-                    XCTAssertLessThan(disc.maxY, panelTop, tag)
+                    // 上部のキルフィードと下中央のアクティブは縦方向にも分離する。
+                    let feed = CGRect(x: left ? l.leadingEdge + l.killFeedSideReserve
+                                              : l.trailingEdge - l.killFeedSideReserve - HUDLayout.killFeedEstimate.width,
+                                      y: l.killFeedTop, width: HUDLayout.killFeedEstimate.width,
+                                      height: HUDLayout.killFeedEstimate.height)
+                    XCTAssertFalse(feed.intersects(disc), "\(tag) \(name) がキルフィードの位置にかかる")
+                    XCTAssertFalse(l.shopFrame.intersects(hit), "\(tag) \(name) がショップに重なる")
+                    XCTAssertFalse(l.joystickZone.intersects(hit), "\(tag) \(name) が移動の受付領域に重なる")
+                    // 透明な44ptタップ領域まで Safe Area 内。
+                    XCTAssertGreaterThanOrEqual(hit.minX, l.leadingEdge, tag)
+                    XCTAssertLessThanOrEqual(hit.maxX, l.trailingEdge, tag)
+                    XCTAssertGreaterThanOrEqual(hit.minY, l.topEdge, tag)
+                    XCTAssertLessThanOrEqual(hit.maxY, l.bottomEdge, tag)
                 }
                 XCTAssertGreaterThan(hypot(l.itemActiveCenter.x - l.gearActiveCenter.x, l.itemActiveCenter.y - l.gearActiveCenter.y),
                                      tap * 2, "\(tag) 2 つのボタンのタップ領域が重なる")

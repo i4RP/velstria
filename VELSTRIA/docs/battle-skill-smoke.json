@@ -1,0 +1,24 @@
+{
+  "scope": "65-second idle practice smoke test; Debug iOS 26.3 simulator, medium graphics. Not an on-device performance comparison.",
+  "device": "Simulator iPhone18,1",
+  "frame": {
+    "frames": 3881,
+    "hitchMs": 314.91133297483134,
+    "hitchRatio": 4.84436988606305,
+    "hitches": 14,
+    "maxMs": 122.29679524898529,
+    "overlayAvgMs": 0.008051683867090573,
+    "p50Ms": 16.75,
+    "p95Ms": 16.75,
+    "p99Ms": 17.75,
+    "seconds": 65.00563342217356,
+    "simAvgMs": 0.8517172223502226,
+    "syncAvgMs": 1.7788177985144613,
+    "targetMs": 16.666666666666668,
+    "workMaxMs": 13.037333323154598,
+    "workP50Ms": 2.75,
+    "workP95Ms": 5.75,
+    "workP99Ms": 7
+  },
+  "ledger": {}
+}

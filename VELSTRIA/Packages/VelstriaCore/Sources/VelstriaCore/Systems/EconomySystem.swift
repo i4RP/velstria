@@ -11,6 +11,8 @@ public enum EconomySystem {
         let dt = Balance.dt
         let infinite = EconomyRewards.hasInfiniteGold(ctx)
         let passiveGold = s.time >= Balance.passiveGoldStart ? Balance.passiveGoldPerSecond * dt : 0
+        let pulseTicks = max(1, Int((Balance.Tower.fountainInterval / dt).rounded()))
+        let fountainPulse = s.tick % pulseTicks == 0
 
         for i in s.units.indices where s.units[i].kind == .hero {
             guard let h = s.units[i].hero else { continue }
@@ -41,10 +43,9 @@ public enum EconomySystem {
             s.units[i].hp = min(st.maxHP, hp)
             s.units[i].resource = min(st.maxResource, max(0, res))
 
-            // 敵の泉: 毎秒 1000 の確定ダメージ
-            if team != .neutral, ctx.map.isInFountain(s.units[i].pos, team: team.opponent) {
-                CombatSystem.applyDamage(&s, ctx, sourceID: nil, targetIndex: i,
-                                         amount: Balance.fountainDamagePerSecond * dt,
+            // 敵の泉: 0.2 秒ごとに 2000 の確定ダメージ（MLBB。Balance.Tower）
+            if team != .neutral, fountainPulse, ctx.map.isInFountain(s.units[i].pos, team: team.opponent) {
+                CombatSystem.applyDamage(&s, ctx, sourceID: nil, targetIndex: i, amount: Balance.Tower.fountainDamage,
                                          type: .trueDamage, source: .fountain)
             }
         }

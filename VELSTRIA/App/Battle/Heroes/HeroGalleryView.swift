@@ -13,6 +13,7 @@ import VelstriaCore
 //   -galleryDetail <heroID>    単体プレビュー（state/camera/freeze/yaw も反映）を表示
 //   -galleryYaw <度>           台の回転（側面・背面の確認）
 //   -gallerySpeed <sim units/s> 歩行／走行の速度（既定330）
+//   -galleryHeroes <ID,ID,…>   並べるヒーローを指定（1〜6 体。武器の握りを大きく見る一覧シート用）
 //
 // 開発用の目視確認画面のため DEBUG / SCREENSHOTS ビルドのみ（App Store 用アーカイブには含めない）。
 
@@ -29,6 +30,7 @@ struct HeroGalleryView: View {
     @State private var didApplyArgs = false
     @State private var yaw: Float = 0
     @State private var runSpeed: Double = 330
+    @State private var customHeroes: [String] = []
 
     private var master: MasterData { app.master }
 
@@ -61,6 +63,7 @@ struct HeroGalleryView: View {
     }
 
     private var slots: [HeroStageSlot] {
+        if !customHeroes.isEmpty { return customHeroes.map { HeroStageSlot(heroID: $0, skinID: nil) } }
         if page < rosterPages {
             let ids = master.heroes.map(\.heroID)
             let start = page * 6
@@ -245,6 +248,9 @@ struct HeroGalleryView: View {
         if let y = DebugLaunch.value(after: "-galleryYaw"), let d = Float(y) { yaw = d * .pi / 180 }
         if let s = DebugLaunch.value(after: "-gallerySpeed"), let speed = Double(s), speed.isFinite {
             runSpeed = min(1000, max(0, speed))
+        }
+        if let list = DebugLaunch.value(after: "-galleryHeroes") {
+            customHeroes = list.split(separator: ",").map(String.init).filter { master.hero($0) != nil }
         }
         if let d = DebugLaunch.value(after: "-galleryDetail") {
             detailHeroID = d

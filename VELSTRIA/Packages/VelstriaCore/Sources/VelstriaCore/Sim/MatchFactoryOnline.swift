@@ -9,20 +9,25 @@ public struct OnlineHumanSlot: Codable, Hashable, Sendable {
     public var heroID: String
     public var displayName: String
     public var spells: [String]?
-    public var runes: [String]
+    /// エンブレム（nil = 選んだバトルプランのエンブレム。旧版のロビーには無いので任意）。
+    public var emblem: EmblemLoadout?
     public var skinID: String?
     public var autoLevelSkills: Bool
+    /// 選んだバトルプランの添字（nil = 「有効」のプラン。旧版のロビーには無いので任意）。
+    public var buildPlan: Int?
 
     public init(team: Team, position: LanePosition, heroID: String, displayName: String,
-                spells: [String]? = nil, runes: [String] = [], skinID: String? = nil, autoLevelSkills: Bool = true) {
+                spells: [String]? = nil, emblem: EmblemLoadout? = nil, skinID: String? = nil, autoLevelSkills: Bool = true,
+                buildPlan: Int? = nil) {
         self.team = team
         self.position = position
         self.heroID = heroID
         self.displayName = displayName
         self.spells = spells
-        self.runes = runes
+        self.emblem = emblem
         self.skinID = skinID
         self.autoLevelSkills = autoLevelSkills
+        self.buildPlan = buildPlan
     }
 }
 
@@ -44,7 +49,7 @@ extension MatchFactory {
     /// players の並びは standardMatch と同じ（Blue のポジション順 → Red のポジション順）なので、
     /// 座席番号 `onlineSeatIndex` がそのまま players の添字になる。同じ (team, position) の人間が複数いれば後の方は無視する。
     public static func onlineMatch(humans: [OnlineHumanSlot], botDifficulty: Difficulty = .normal,
-                                   banned: [String] = [], seed: UInt64,
+                                   seed: UInt64,
                                    master: MasterData = .shared) -> MatchConfig {
         var rng = SplitMix64(seed: seed ^ 0x5EED_0A11_1E57_C0DE)
         var bySeat: [Int: OnlineHumanSlot] = [:]
@@ -53,7 +58,7 @@ extension MatchFactory {
             if bySeat[i] == nil { bySeat[i] = h }
         }
         let seats = bySeat.keys.sorted()
-        var used = Set(banned + seats.map { bySeat[$0]!.heroID })
+        var used = Set(seats.map { bySeat[$0]!.heroID })
         var picks = draftTeams(used: &used, rng: &rng, master: master,
                                fixed: seats.map { (bySeat[$0]!.team, bySeat[$0]!.position, bySeat[$0]!.heroID) })
         var players: [PlayerSlot] = []
@@ -61,16 +66,17 @@ extension MatchFactory {
             for pos in LanePosition.allCases {
                 if let h = bySeat[onlineSeatIndex(team: team, position: pos)] {
                     players.append(PlayerSlot(team: team, heroID: h.heroID, controller: .human, position: pos,
-                                              spells: h.spells ?? defaultSpells(for: pos), runes: h.runes,
+                                              spells: allowedSpells(h.spells ?? defaultSpells(for: pos), position: pos),
+                                              emblem: h.emblem ?? humanDefaultEmblem(h.heroID, plan: h.buildPlan, master: master),
                                               skinID: h.skinID, displayName: h.displayName,
-                                              autoLevelSkills: h.autoLevelSkills))
+                                              autoLevelSkills: h.autoLevelSkills, buildPlan: h.buildPlan))
                     continue
                 }
                 let heroID = picks[team.rawValue][pos.rawValue] ?? pickHero(for: pos, used: &used, rng: &rng, master: master)
                 picks[team.rawValue][pos.rawValue] = heroID
                 let name = master.hero(heroID)?.codeName ?? heroID
                 players.append(PlayerSlot(team: team, heroID: heroID, controller: .bot, position: pos,
-                                          spells: defaultSpells(for: pos), runes: [],
+                                          spells: defaultSpells(for: pos), emblem: EmblemCatalog.botLoadout(heroID: heroID, master: master),
                                           displayName: "\(name)_AI", botDifficulty: botDifficulty))
             }
         }

@@ -1,64 +1,47 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: battle-hud。下部中央のヒーローパネル:
-// ポートレート + レベル（XP リング）、HP（シールド）/ リソースのバーと数値、状態アイコン（残り時間）、
-// Gold とショップボタン（UI028）、おすすめ装備のクイック購入（脈動）、装備枠（タップでショップの売却へ）。
-// 死亡中は顔を暗転し HP の数値の代わりに「復活待ち」、ショップボタンを金色の脈動で目立たせて買い物を促す。
+extension HUDLayout {
+    /// ショップ脇のクイック購入。描画と透明な44ptタッチ領域で共通の座標を使う。
+    var quickBuyFrame: CGRect {
+        CGRect(x: leftHanded ? shopFrame.maxX + 2 : shopFrame.minX - 46,
+               y: shopFrame.midY + 22, width: 44, height: 44)
+    }
+}
 
-struct HUDHeroPanel: View {
+// ショップの入口と小さなクイック購入。数値・装備・状態の詳細はショップへ集約する。
+// HUDModel の既存 15 Hz スナップショットだけを観測し、戦闘入力・購入コマンドは従来のまま。
+struct HUDCompactEconomy: View {
     let model: HUDModel
     let layout: HUDLayout
 
     var body: some View {
-        let hero = model.hero
-        let dead = hero.isDead
-        let s = min(layout.scale, 1.08)
-        VStack(alignment: .leading, spacing: 2 * s) {
-            HStack(spacing: 9 * s) {
-                HUDPortraitLevel(heroID: hero.heroID, level: hero.level, xp: hero.xpProgress, size: 50 * s,
-                                 pulse: model.levelUpPulse, dead: dead)
-                VStack(alignment: .leading, spacing: 3 * s) {
-                    HStack(spacing: 4 * s) {
-                        Image(systemName: Theme.roleSymbol(hero.role))
-                            .foregroundStyle(Theme.roleColor(hero.role))
-                        Text(MasterData.shared.hero(hero.heroID).map { MasterText.hero($0) } ?? hero.heroID)
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                        Spacer(minLength: 0)
-                    }
-                    .font(.system(size: 9 * s, weight: .heavy, design: .rounded))
-                    HUDVitalsBars(model: model, scale: s, dead: dead)
-                }
+        let frame = layout.shopFrame
+        ZStack {
+            HUDShopButton(model: model, gold: model.hero.gold, width: frame.width,
+                          beckon: model.hero.isDead, highlighted: model.tutorial?.highlight == .shop)
+                .position(x: frame.midX, y: frame.midY)
+            if let badge = model.blessingBadge {
+                // 祝福の進み（ジャングル: 狩りとキル、ローム: 共栄ゴールド）
+                Text(badge)
+                    .font(.system(size: 9, weight: .semibold))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .foregroundStyle(HUDStyle.shopGold)
+                    .shadow(color: .black.opacity(0.7), radius: 1, y: 1)
+                    .position(x: frame.midX, y: frame.midY + 22)
+                    .allowsHitTesting(false)
+                    .accessibilityIdentifier("hud_blessing_progress")
             }
-            HStack(spacing: 4 * s) {
-                HUDItemSlots(model: model, items: hero.items, slot: 30 * s)
-                HUDShopButton(model: model, gold: hero.gold, width: 62 * s, beckon: dead,
-                              highlighted: model.tutorial?.highlight == .shop)
-            }
-            .padding(.top, 1 * s)
-            .overlay(alignment: .top) { Rectangle().fill(HUDStyle.rim.opacity(0.6)).frame(height: 0.5) }
-        }
-        .padding(.horizontal, 8 * s)
-        .padding(.top, 7 * s)
-        .padding(.bottom, 2 * s)
-        .frame(width: layout.heroPanelWidth)
-        .hudGlass(cornerRadius: 18, tint: HUDStyle.accent.opacity(0.45))
-        .overlay(alignment: .topLeading) {
-            HUDStatusRow(statuses: hero.statuses, size: 22 * s, passive: hero.passiveBadge)
-                .offset(x: 4 * s, y: -26 * s)
-                .allowsHitTesting(false)
-        }
-        .overlay(alignment: .topTrailing) {
             if let itemID = model.quickBuyItemID {
-                HUDQuickBuyButton(model: model, itemID: itemID, size: 38 * s,
+                HUDQuickBuyButton(model: model, itemID: itemID, size: 28 * min(layout.scale, 1.1),
                                   highlighted: model.tutorial?.step == .buyItem)
-                    .offset(x: 2 * s, y: -46 * s)
-                    .transition(.scale.combined(with: .opacity))
+                    .position(x: layout.quickBuyFrame.midX, y: layout.quickBuyFrame.midY)
+                    .transition(.opacity)
             }
         }
-        .animation(.spring(duration: 0.3), value: model.quickBuyItemID)
+        .frame(width: layout.width, height: layout.height)
+        .animation(.easeOut(duration: 0.18), value: model.quickBuyItemID)
     }
 }
 
@@ -68,6 +51,8 @@ struct HUDVitalsBars: View {
     let model: HUDModel
     let scale: CGFloat
     var dead = false
+    var hpHeight: CGFloat? = nil
+    var resourceHeight: CGFloat? = nil
 
     /// 死亡中の HP バーの表示。
     static var respawningCaption: String { L("復活待ち", "Respawning") }
@@ -76,7 +61,7 @@ struct HUDVitalsBars: View {
         let v = model.vitals
         VStack(alignment: .leading, spacing: 3 * scale) {
             HUDBar(value: dead ? 0 : v.hp, max: v.maxHP, shield: dead ? 0 : v.shield,
-                   color: v.hpRatio < 0.3 ? HUDStyle.hpLow : HUDStyle.hp, height: 17 * scale, showsText: true,
+                   color: v.hpRatio < 0.3 ? HUDStyle.hpLow : HUDStyle.hp, height: hpHeight ?? 17 * scale, showsText: true,
                    caption: dead ? Self.respawningCaption : nil)
                 .accessibilityElement()
                 .accessibilityLabel(L("HP", "HP"))
@@ -84,7 +69,7 @@ struct HUDVitalsBars: View {
                 .accessibilityIdentifier("hud_hp")
             if v.maxResource > 0 {
                 HUDBar(value: v.resource, max: v.maxResource, shield: 0,
-                       color: HUDStyle.resourceColor(v.resourceKind), height: 10 * scale, showsText: !dead)
+                       color: HUDStyle.resourceColor(v.resourceKind), height: resourceHeight ?? 10 * scale, showsText: !dead)
                     .opacity(dead ? 0.45 : 1)
                     .accessibilityElement()
                     .accessibilityLabel(v.resourceKind == .energy ? L("エナジー", "Energy") : L("マナ", "Mana"))
@@ -284,155 +269,97 @@ struct HUDStatusRow: View, Equatable {
     }
 }
 
-/// 装備 6 枠（タップでショップの売却を開く）。タップ領域は縦 44pt。
-struct HUDItemSlots: View {
-    let model: HUDModel
-    let items: [String]
-    let slot: CGFloat
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(0..<Balance.itemSlots, id: \.self) { k in
-                Button { model.openShop(slot: k < items.count ? k : nil) } label: {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(HUDStyle.surface.opacity(0.9))
-                            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.8))
-                        if k < items.count, let item = MasterData.shared.item(items[k]) {
-                            ItemIconView(item: item, size: slot - 2)
-                        } else {
-                            Image(systemName: "plus")
-                                .font(.system(size: slot * 0.27, weight: .medium))
-                                .foregroundStyle(HUDStyle.mutedText.opacity(0.3))
-                        }
-                    }
-                    .frame(width: slot, height: slot)
-                    .frame(width: slot + 3, height: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(HUDPressStyle())
-                .accessibilityLabel(k < items.count ? (MasterData.shared.item(items[k]).map { MasterText.item($0) } ?? "")
-                                                    : L("空きスロット", "Empty slot"))
-                .accessibilityIdentifier("hud_item_\(k + 1)")
-            }
-        }
-        .frame(height: 44)
-    }
-}
-
+/// 所持 Gold とショップの入口。見た目は薄い 32pt、タッチ領域は 44pt。
 struct HUDShopButton: View {
     let model: HUDModel
     let gold: Int
     let width: CGFloat
-    /// 死亡中: 金色の発光を脈動させて買い物を促す（参考画面の目立つ Gold 表示の代わり）。
     var beckon = false
     let highlighted: Bool
 
     var body: some View {
         Button { model.openShop() } label: {
-            VStack(spacing: 2) {
-                HStack(spacing: 3) {
-                    Image(systemName: "bag.fill")
-                    Text(L("ショップ", "SHOP"))
-                }
-                .font(.system(size: 7, weight: .black, design: .rounded))
-                .foregroundStyle(HUDStyle.surface)
-                HStack(spacing: 3) {
-                    HUDCoin(size: 10)
-                    Text("\(gold)")
-                        .font(.system(size: 13, weight: .black, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(HUDStyle.surface)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                }
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("G")
+                    .font(.system(size: 10, weight: .semibold))
+                Text("\(gold)")
+                    .font(.system(size: 15, weight: .semibold))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
-            .padding(.horizontal, 5)
-            .frame(width: width, height: 38)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(LinearGradient(colors: [Color(red: 1, green: 0.88, blue: 0.43), Theme.gold],
-                                     startPoint: .top, endPoint: .bottom)))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.65), lineWidth: 1))
-            .background { if beckon { HUDShopBeckon(width: width, height: 38).transition(.opacity) } }
-            .frame(height: 44)
+            .foregroundStyle(HUDStyle.shopGold)
+            .shadow(color: .black.opacity(0.7), radius: 1, y: 1)
+            .padding(.horizontal, 6)
+            .frame(width: width, height: 32 * min(1.1, max(0.85, width / 62)))
+            .background(HUDShopOutline().fill(HUDStyle.surface.opacity(0.35)))
+            .overlay(HUDShopOutline().stroke(HUDStyle.shopGold.opacity(beckon ? 0.9 : 0.6), lineWidth: 0.8))
+            .frame(width: max(44, width), height: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(HUDPressStyle())
         .overlay { if highlighted { HUDHighlightRing(diameter: width + 12) } }
-        .animation(.easeInOut(duration: 0.3), value: beckon)
         .accessibilityLabel(L("ショップ", "Shop"))
         .accessibilityValue("\(gold) Gold")
-        .accessibilityHint(beckon ? HUDShopBeckon.hint : "")
+        .accessibilityHint(beckon ? HUDShopBeckon.hint : L("装備とステータスを確認", "View equipment and hero details"))
         .accessibilityIdentifier("hud_shop")
     }
 }
 
-/// 死亡中のショップボタンの金色の発光（脈動）。視差効果を減らす設定では脈動させず、明るい縁取りだけにする。
-struct HUDShopBeckon: View {
-    let width: CGFloat
-    let height: CGFloat
-    @State private var on = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    static var hint: String { L("復活までに装備を購入できます", "Buy items while you wait to respawn") }
-
-    var body: some View {
-        let lit = on || reduceMotion
-        ZStack {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Theme.gold.opacity(lit ? 0.55 : 0.18))
-                .blur(radius: lit ? 9 : 5)
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Theme.gold, lineWidth: 2)
-                .shadow(color: Theme.gold.opacity(0.9), radius: lit ? 8 : 2)
-                .opacity(lit ? 1 : 0.5)
+/// 参考のショップ枠と同様、右上・左下を控えめに切り落とす。
+private struct HUDShopOutline: Shape {
+    func path(in rect: CGRect) -> Path {
+        let corner = min(6, rect.height / 4)
+        return Path { path in
+            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX - corner, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + corner))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX + corner, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - corner))
+            path.closeSubpath()
         }
-        .frame(width: width + 6, height: height + 6)
-        .scaleEffect(on && !reduceMotion ? 1.07 : 1)
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 0.75).repeatForever(autoreverses: true)) { on = true }
-        }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 }
 
-/// おすすめ装備のワンタップ購入（脈動）。
+extension HUDStyle {
+    static let shopGold = Color(red: 0.91, green: 0.77, blue: 0.41)
+}
+
+/// 復活待ちのショップ案内。継続的な脈動は使わず細い枠だけを明るくする。
+enum HUDShopBeckon {
+    static var hint: String { L("復活までに装備を購入できます", "Buy items while you wait to respawn") }
+}
+
+/// 所持金の隣のワンタップ購入。常設カード・脈動をやめ、小さな装備アイコンを使う。
 struct HUDQuickBuyButton: View {
     let model: HUDModel
     let itemID: String
     let size: CGFloat
     let highlighted: Bool
-    @State private var pulse = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button { model.quickBuy() } label: {
-            ZStack(alignment: .bottom) {
+            ZStack(alignment: .bottomTrailing) {
                 if let item = MasterData.shared.item(itemID) {
                     ItemIconView(item: item, size: size)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .overlay(RoundedRectangle(cornerRadius: 4)
+                            .strokeBorder(HUDStyle.shopGold.opacity(0.65), lineWidth: 0.7))
                 }
-                Text(L("購入", "BUY"))
-                    .font(.system(size: 9, weight: .black, design: .rounded))
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(Capsule().fill(Theme.gold))
-                    .offset(y: 7)
+                Image(systemName: "plus")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(HUDStyle.shopGold)
+                    .frame(width: 13, height: 13)
+                    .background(Circle().fill(HUDStyle.surface.opacity(0.85)))
+                    .overlay(Circle().strokeBorder(HUDStyle.shopGold.opacity(0.5), lineWidth: 0.6))
+                    .offset(x: 3, y: 3)
             }
-            .frame(width: max(44, size), height: max(44, size))
-            .scaleEffect(pulse ? 1.07 : 0.97)
-            .shadow(color: Theme.gold.opacity(pulse ? 0.9 : 0.3), radius: pulse ? 10 : 4)
+            .frame(width: 44, height: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(HUDPressStyle())
-        .overlay { if highlighted { HUDHighlightRing(diameter: size + 18) } }
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { pulse = true }
-        }
+        .overlay { if highlighted { HUDHighlightRing(diameter: size + 14) } }
         .accessibilityLabel(L("おすすめ装備を購入: \(MasterData.shared.item(itemID).map { MasterText.item($0) } ?? itemID)",
                               "Buy recommended: \(MasterData.shared.item(itemID).map { MasterText.item($0) } ?? itemID)"))
         .accessibilityIdentifier("hud_quick_buy")

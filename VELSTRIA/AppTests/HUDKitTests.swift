@@ -148,7 +148,7 @@ final class HUDKitTests: XCTestCase {
 
     /// 実際のキットが設定する shape は、全スロット・全段で aim と合い、計画（.legacy 以外）になる。
     func testEveryRealKitShapeResolvesToAPlan() throws {
-        let kitHeroes = master.heroes.filter { HeroKits.hasKit($0.heroID) }
+        let kitHeroes = master.allHeroes.filter { HeroKits.hasKit($0.heroID) }
         try XCTSkipIf(kitHeroes.isEmpty, "有効なキットが無い")
         for hero in kitHeroes {
             for slot in SkillSlot.actives {
@@ -316,6 +316,15 @@ final class HUDKitTests: XCTestCase {
         var u = bareUnit()
         u.statuses = [StatusEffect(kind: .mark, duration: 3, magnitude: 1, tag: "kit.H026.sc.4")]
         XCTAssertEqual(StatusIndicators.flags(of: u).mark?.heroID, "H026")
+        // キットの内部の数えの印（名前が `_`。ディアスのスキル1 のその敵への命中の回数）は頭上にも HUD の状態アイコンにも出さない
+        let counter = StatusEffect(kind: .mark, duration: 1, magnitude: 3, tag: "kit.H032._burst7.4")
+        XCTAssertTrue(KitStatusVisuals.isInternal(counter))
+        XCTAssertFalse(KitStatusVisuals.isInternal(list[0]))
+        XCTAssertNil(KitStatusVisuals.markGlyph(in: [counter]))
+        XCTAssertEqual(KitStatusVisuals.markGlyph(in: [counter, list[0]])?.heroID, "H030")
+        u.statuses = [counter]
+        XCTAssertNil(StatusIndicators.flags(of: u).mark)
+        XCTAssertTrue(HUDModel.statusIcons(u).isEmpty)
 
         XCTAssertEqual(KitStatusVisuals.markScale(stacks: 1), 1)
         XCTAssertGreaterThan(KitStatusVisuals.markScale(stacks: 3), KitStatusVisuals.markScale(stacks: 2))
@@ -336,6 +345,18 @@ final class HUDKitTests: XCTestCase {
                        "敵の視点では変えない（見えているなら看破されている）")
         XCTAssertEqual(KitStatusVisuals.stealthOpacity(stealthed: false, dead: false, unitTeam: .blue, viewerTeam: .blue), 1)
         XCTAssertEqual(KitStatusVisuals.stealthOpacity(stealthed: true, dead: true, unitTeam: .blue, viewerTeam: .blue), 1)
+    }
+
+    /// 草むらで隠れている表示（半透明・斜線の目）は自分・味方の視点だけ。敵・観戦では出さない。
+    func testBrushConcealShownOnlyToOwnTeam() {
+        var u = VelstriaCore.Unit(id: 1, kind: .hero, team: .blue, pos: .zero, radius: 50, stats: Stats())
+        u.brushConcealed = true
+        XCTAssertTrue(HeroVisual.showsBrushConceal(unit: u, viewerTeam: .blue, dead: false))
+        XCTAssertFalse(HeroVisual.showsBrushConceal(unit: u, viewerTeam: .red, dead: false))
+        XCTAssertFalse(HeroVisual.showsBrushConceal(unit: u, viewerTeam: nil, dead: false), "観戦")
+        XCTAssertFalse(HeroVisual.showsBrushConceal(unit: u, viewerTeam: .blue, dead: true))
+        u.brushConcealed = false
+        XCTAssertFalse(HeroVisual.showsBrushConceal(unit: u, viewerTeam: .blue, dead: false))
     }
 
     /// 氷の誇りの輪: H031 の生きているヒーローで、パッシブのバッジが「準備できた」ときだけ。

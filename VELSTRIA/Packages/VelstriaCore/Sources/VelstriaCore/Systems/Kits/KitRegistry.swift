@@ -59,8 +59,18 @@ public enum KitTag {
     public static let stun = "stun"
     public static let pull = "pull"
     public static let execute = "execute"
+    /// 公式（MLBB）のタグの Debuff / Damage / Conceal / Remove CC（デバフ / ダメージ / 隠密 / CC 解除）。
+    public static let debuff = "debuff"
+    public static let damage = "damage"
+    public static let conceal = "conceal"
+    public static let cleanse = "cleanse"
+    /// 公式（MLBB の日本語クライアント）のタグの「加速」（子龍の武神降臨）と「死亡無効」（オーロラのプライド・オブ・アイス）。
+    /// キーは他と同じく小文字だけ（UI は小文字に揃えてから引く）。
+    public static let haste = "haste"
+    public static let deathImmunity = "deathimmunity"
     /// 使ってよいキー（テストが検証する）。
-    public static let all: [String] = [buff, aoe, slow, clash, disrupt, burst, mobility, heal, shield, control, stun, pull, execute]
+    public static let all: [String] = [buff, aoe, slow, clash, disrupt, burst, mobility, heal, shield, control, stun, pull, execute,
+                                       debuff, damage, conceal, cleanse, haste, deathImmunity]
 }
 
 /// スキル説明（ja / en のテンプレート）。`{damage} {total} {hits} {shield} {heal} {range} {radius} {cd} {x0}..{x3}` と、
@@ -157,6 +167,16 @@ public enum HeroKits {
 
     public static func hasKit(_ heroID: String) -> Bool { kit(for: heroID) != nil }
 
+    /// キットが作るゾーンの形（描画の事前生成用。キットが無ければ空）。
+    public static func plannedZones(heroID: String, master: MasterData) -> [KitZoneShape] {
+        kit(for: heroID)?.plannedZones(master: master) ?? []
+    }
+
+    /// 演出が読むキットの時刻・寸法（判定と同じ Tune の値。キットが無ければ空。docs/vfx/RANGES.md）。
+    public static func fxValues(heroID: String, slot: SkillSlot, stage: Int = 0) -> [KitFXValue] {
+        kit(for: heroID)?.fxValues(slot: slot, stage: stage) ?? []
+    }
+
     /// 汎用の結果を土台にしたキットの照準情報（キットが無ければ汎用）。
     public static func targeting(for skill: SkillDef, hero: HeroDef, stage: Int) -> SkillTargeting {
         let base = SkillCatalog.genericTargeting(for: skill, hero: hero)
@@ -182,9 +202,26 @@ public enum HeroKits {
                         base: base)
     }
 
-    /// キットが「Mana 基準の素の値」を返すときのためのヘルパ。Energy のヒーローには energyCostMultiplier を掛ける。
+    /// キットが「Mana 基準の素の値」を返すときのためのヘルパ。Energy のヒーローには energyCostMultiplier を掛け、
+    /// 怒り・リソースなしのヒーローは 0（MLBB のディロス・アルカード）。
     public static func resourceCost(_ raw: Double, hero: HeroDef) -> Double {
-        hero.resource == .energy ? raw * Balance.energyCostMultiplier : raw
+        switch hero.resource {
+        case .mana: return raw
+        case .energy: return raw * Balance.energyCostMultiplier
+        case .rage, .noResource: return 0
+        }
+    }
+
+    /// キットの CD 短縮の割合（能力値の上限 Stats.cooldownReductionCap で切る。魔導の護符の +5% が効く）。
+    static func cooldownReduction(_ stats: Stats) -> Double {
+        min(stats.cooldownReductionCap, max(0, stats.cooldownReduction))
+    }
+
+    /// ユニット i のこのスキル（今の再使用の段）が術者を動かすか（バインドで撃てないスキルか。SkillSystem.validate）。
+    static func movesCaster(_ s: SimState, _ i: Int, slot: SkillSlot, targeting: SkillTargeting) -> Bool {
+        let base = SkillCatalog.movesCaster(targeting.archetype)
+        guard let kit = kit(in: s, i), let h = s.units[i].hero else { return base }
+        return kit.movesCaster(slot: slot, stage: activeStage(h, slot: slot), base: base)
     }
 
     /// UI のタグ（`KitTag` のキー）。キットが無い・タグが無ければ空。
@@ -209,6 +246,18 @@ public enum HeroKits {
     public static func badge(_ hero: HeroData, slot: SkillSlot) -> KitBadge? {
         guard hero.kit != nil, let kit = kit(for: hero.heroID) else { return nil }
         return kit.badge(slot: slot, hero: hero)
+    }
+
+    /// 次の通常攻撃がキットの強い通常攻撃（SimEvent.empoweredAttack を出す攻撃）になるか（描画・モーションの選択用）。
+    public static func empoweredAttackReady(_ hero: HeroData) -> Bool {
+        guard hero.kit != nil, !hero.isDead, let kit = kit(for: hero.heroID) else { return false }
+        return kit.empoweredAttackReady(hero: hero)
+    }
+
+    /// 次の通常攻撃を強い通常攻撃にする（演出の撮影・確認用。試合の進行では呼ばない）。キットが無ければ何もしない。
+    public static func primeEmpoweredAttack(_ s: inout SimState, unit i: Int) {
+        guard s.units.indices.contains(i), let h = s.units[i].hero, h.kit != nil, let kit = kit(for: h.heroID) else { return }
+        kit.primeEmpoweredAttack(hero: &s.units[i].hero!)
     }
 
     public static func text(heroID: String, slot: SkillSlot) -> KitText? {

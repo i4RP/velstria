@@ -99,8 +99,14 @@ public struct HeroData: Codable, Hashable, Sendable {
     /// バトルスペル ID（2 要素）。
     public var spells: [String]
     public var spellCooldowns: [Double] = [0, 0]
-    public var runes: [String]
+    /// エンブレム（セット + タレント 3 つ + セットのレベル。nil = 無し）。旧版の runes はもう読まない。
+    public var emblem: EmblemLoadout?
+    /// エンブレムのタレントの状態（CD・窓・スタック。Systems/EmblemEffects.swift）。
+    public var emblemRuntime = EmblemRuntime()
     public var skinID: String?
+    /// 人間が選んだバトルプランの添字（ItemSystem.heroPlans。nil・範囲外は「有効」のプラン。ボットは nil）。
+    /// 推奨ビルド（AI の買い物・HUD のおすすめ購入）がこのプランの装備になる。
+    public var buildPlan: Int?
 
     public var passive = PassiveState()
     public var empoweredAttack: EmpoweredAttack?
@@ -118,6 +124,8 @@ public struct HeroData: Codable, Hashable, Sendable {
 
     /// アシスト判定用: 自分にダメージ/CC を与えた敵ヒーロー（time 昇順）。
     public var recentDamagers: [DamageRecord] = []
+    /// 最後に敵チームから見えていた時刻（ロームの祝福の暴き。nil は試合開始から見えていない）。
+    public var lastSeenByEnemyAt: Double?
     /// アシスト判定用: 自分を回復/シールドした味方ヒーロー（time 昇順）。
     public var recentSupporters: [DamageRecord] = []
 
@@ -133,7 +141,7 @@ public struct HeroData: Codable, Hashable, Sendable {
 
     public init(heroID: String, role: Role, isRanged: Bool, resourceKind: ResourceKind,
                 controller: Controller, position: LanePosition, displayName: String,
-                botDifficulty: Difficulty, spells: [String], runes: [String], skinID: String?) {
+                botDifficulty: Difficulty, spells: [String], emblem: EmblemLoadout?, skinID: String?) {
         self.heroID = heroID
         self.role = role
         self.isRanged = isRanged
@@ -143,7 +151,7 @@ public struct HeroData: Codable, Hashable, Sendable {
         self.displayName = displayName
         self.botDifficulty = botDifficulty
         self.spells = spells
-        self.runes = runes
+        self.emblem = emblem
         self.skinID = skinID
     }
 
@@ -160,13 +168,23 @@ public struct MinionData: Codable, Hashable, Sendable {
     public var waypointIndex: Int
     public var empowered: Bool
     public var spawnTime: Double
+    /// 何番目のウェーブで出たか（0 始まり。nil は 0 扱い）。最初の 10 ウェーブの攻城は Gold/EXP レーンの補正が付く。
+    public var waveIndex: Int?
+    /// 精鋭兵（スーパーミニオン。相手のベースタワーが壊れたレーンに出る）か。nil は false 扱い。
+    public var superMinion: Bool?
 
-    public init(type: MinionType, lane: Lane, waypointIndex: Int = 1, empowered: Bool = false, spawnTime: Double) {
+    public var wave: Int { waveIndex ?? 0 }
+    public var isSuper: Bool { superMinion ?? false }
+
+    public init(type: MinionType, lane: Lane, waypointIndex: Int = 1, empowered: Bool = false, spawnTime: Double,
+                wave: Int = 0, isSuper: Bool = false) {
         self.type = type
         self.lane = lane
         self.waypointIndex = waypointIndex
         self.empowered = empowered
         self.spawnTime = spawnTime
+        self.waveIndex = wave
+        self.superMinion = isSuper ? true : nil
     }
 }
 
@@ -177,6 +195,16 @@ public struct TowerData: Codable, Hashable, Sendable {
     /// 連続命中ボーナスの対象。
     public var rampTargetID: EntityID?
     public var rampHits: Int = 0
+    /// 連続命中の最後の命中時刻（2 秒当てなければ戻る）。
+    public var rampLastAt: Double?
+    /// インナーの保護（同じレーンのアウターが 8:00 までに壊れた）が切れる時刻。
+    public var guardUntil: Double?
+    /// ベースタワーの聖なる防御が待機中か（同じレーンのインナーが 12:00 までに壊れた。発動すると nil）。
+    public var holyDefenseArmed: Bool?
+    /// ベースの次の回復の時刻。
+    public var regenAt: Double?
+    /// エネルギーシールドを削ったヒーローへ払った Gold の合計（1 本 360 まで）。
+    public var shieldGoldPaid: Double?
 
     public init(lane: Lane?, tier: TowerTier) {
         self.lane = lane
@@ -191,6 +219,16 @@ public struct MonsterData: Codable, Hashable, Sendable {
     public var leashing: Bool = false
     /// この時刻に報酬なしで消える（熾甲虫の幼体）。nil = 消えない。
     public var expiresAt: Double?
+    public var lordTier: Int?
+    public var lordChargeAt: Double?
+    /// 味方になったロードが突進で叩いた塔（塔ごとに 1 回）。
+    public var lordChargedTowers: [EntityID]?
+    /// 中立のロード: 戦闘中に溜まる物理貫通の回数と次に溜まる時刻、次の雷撃の時刻。
+    public var lordPenStacks: Int?
+    public var lordPenNextAt: Double?
+    public var lordStrikeAt: Double?
+    /// 各チーム（Team.rawValue）の狩猟持ちが最後にダメージを与えた時刻（序盤のバフの受け取り。MLBB Patch 2.1.18）。
+    public var smiteHitAt: [Double]?
 
     public init(kind: MonsterKind, campID: Int, home: Vec2) {
         self.kind = kind
@@ -244,6 +282,12 @@ public struct Unit: Codable, Hashable, Sendable, Identifiable {
     public var visibleMask: UInt8 = 0
     /// 現在いる草むらのインデックス（MapDefinition.brushes）。
     public var brushIndex: Int?
+    /// 草むらで隠れるまでの残り秒（入った時に 0.25 秒。直前に敵に見られていた・同じ草むらに敵が居たら 0.75 秒）。
+    public var brushConcealDelay: Double = 0
+    /// 草むらの中で敵チームから隠れているか（VisionSystem が更新。自分・味方の半透明と頭上の斜線の目に使う）。
+    public var brushConcealed = false
+    /// 攻撃して姿を晒している期限（s.time。この時刻までは草むらでも隠れない）。
+    public var brushExposedUntil: Double = -999
 
     public var hero: HeroData?
     public var minion: MinionData?
@@ -284,4 +328,8 @@ public struct Unit: Codable, Hashable, Sendable, Identifiable {
     }
 
     public var canCast: Bool { canAct && !has(.silence) }
+
+    /// バインド中か（自分以外が付けた root。MLBB の「バインド」= 移動とブリンク・突進のスキル・瞬歩を封じる低レベルのコントロール）。
+    /// キットが自分に付ける root（詠唱中の足止め）は含めない（ティグラルの奥義の詠唱中の瞬歩などを止めない）。
+    public var isBound: Bool { statuses.contains { $0.kind == .root && $0.sourceID != id } }
 }

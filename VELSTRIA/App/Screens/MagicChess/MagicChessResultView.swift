@@ -43,7 +43,11 @@ struct MagicChessResultView: View {
 
     private func reward(_ symbol: String, _ text: String, _ tint: Color) -> some View {
         HStack(spacing: 5) {
-            Image(systemName: symbol).foregroundStyle(tint)
+            if symbol == "star.circle.fill" {
+                CurrencyIcon(kind: .coin, size: 17)
+            } else {
+                Image(systemName: symbol).foregroundStyle(tint)
+            }
             Text(text).font(Theme.heading(15)).foregroundStyle(Theme.textPrimary)
         }
         .padding(.horizontal, 12).frame(height: 40)

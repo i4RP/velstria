@@ -46,6 +46,10 @@ struct HUDShopPanel: View {
             }
             .padding(10)
             Divider().overlay(HUDStyle.rim)
+            HUDShopHeroDetails(model: model, width: layout.width)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+            Divider().overlay(HUDStyle.rim.opacity(0.5))
             HUDShopInventory(model: model, shop: shop)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -132,6 +136,66 @@ struct HUDShopPanel: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier("shop_tab_\(c?.rawValue.lowercased() ?? "recommended")")
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// 戦闘中の大型カードから移した実データ。装備一覧と同じ画面で詳細 HP・MP・状態を確認できる。
+private struct HUDShopHeroDetails: View {
+    let model: HUDModel
+    let width: CGFloat
+
+    var body: some View {
+        let hero = model.hero
+        HStack(spacing: 12) {
+            HStack(spacing: 9) {
+                HUDPortraitLevel(heroID: hero.heroID, level: hero.level, xp: hero.xpProgress,
+                                 size: 36, pulse: model.levelUpPulse, dead: hero.isDead)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(MasterData.shared.hero(hero.heroID).map { MasterText.hero($0) } ?? hero.heroID)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                    Text("Lv. \(hero.level) · XP \(Int(hero.xpProgress * 100))%")
+                        .font(.system(size: 9, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(HUDStyle.mutedText)
+                }
+            }
+            .frame(width: min(190, width * 0.24), alignment: .leading)
+            HStack(spacing: 5) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("HP").frame(height: 17)
+                    if model.vitals.maxResource > 0 {
+                        Text(model.vitals.resourceKind == .energy ? "EN" : "MP").frame(height: 10)
+                    }
+                }
+                .font(.system(size: 8, weight: .semibold))
+                .foregroundStyle(HUDStyle.mutedText)
+                HUDVitalsBars(model: model, scale: 1, dead: hero.isDead)
+            }
+            .frame(width: min(240, width * 0.28))
+            ScrollView(.horizontal, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L("状態・パッシブ", "Status / Passive"))
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundStyle(HUDStyle.mutedText)
+                    if !hero.statuses.isEmpty || hero.passiveBadge != nil {
+                        HUDStatusRow(statuses: hero.statuses, size: 20, passive: hero.passiveBadge)
+                            .padding(.trailing, 8)
+                            .padding(.bottom, 3)
+                    } else {
+                        Text(L("効果なし", "No active effects"))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(height: 44)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("shop_hero_details")
     }
 }
 

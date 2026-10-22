@@ -55,12 +55,16 @@ enum AgeBracket: Int, Codable, CaseIterable, Identifiable {
 }
 
 struct GameSettings: Codable, Equatable {
+    /// 音量の既定（MLBB と同じく最初から鳴る）。
+    static let defaultBGMVolume: Double = 0.5
+    static let defaultSFXVolume: Double = 0.7
+
     var language: AppLanguage = .system
-    /// 開発中は同じ曲を繰り返し聴かないよう既定 0（ミュート）。
-    var bgmVolume: Double = 0
+    /// BGM は既定 50%（MLBB と同じく最初から鳴る）。2026-10-05〜10-20 は開発中のため既定 0（ミュート）だった（移行 v4 → v5 で戻す）。
+    var bgmVolume: Double = GameSettings.defaultBGMVolume
     var bgmTrack: String = "menu"
-    /// 効果音も既定 0（ミュート）。設定画面・一時停止メニューで上げられる。
-    var sfxVolume: Double = 0
+    /// 効果音は既定 70%（2026-10-20 に全部の効果音を録音の音にしたので戻した）。設定画面・一時停止メニューで変えられる。
+    var sfxVolume: Double = GameSettings.defaultSFXVolume
     var voiceVolume: Double = 0.8
     var hapticsEnabled = true
     var graphicsQuality: GraphicsQuality = .medium
@@ -142,32 +146,106 @@ extension GameSettings {
     }
 }
 
-struct RunePage: Codable, Equatable, Identifiable {
-    var id: UUID = UUID()
-    var name: String
-    var primaryPath: RunePath
-    /// Tier1/2/3 の rune_id（未選択は空文字）。
-    var runeIDs: [String]
+/// エンブレムのセット 1 つの所持状態（MLBB: 新規は通常共通エンブレムだけを持ち、ほかの 6 つはマジックダストで解放する）。
+/// 保存の無いセットは EmblemService.progress の既定（新規 = 通常共通だけ解放済みの Lv1、旧版から引き継いだプレイヤー =
+/// 全セット解放済みの Lv60）。解放・強化は EmblemService（docs/EMBLEMS.md「解放・レベル・入手」）。
+struct EmblemSetProgress: Codable, Equatable {
+    var unlocked: Bool = false
+    var level: Int = EmblemProgression.startLevel
+
+    init(unlocked: Bool = false, level: Int = EmblemProgression.startLevel) {
+        self.unlocked = unlocked
+        self.level = EmblemCatalog.clampLevel(level)
+    }
+
+    private enum CodingKeys: String, CodingKey { case unlocked, level }
+
+    /// 欠けたキー・範囲外のレベルを直して読む（欠けたキーは未解放・Lv1。旧版のデータは ProfileMigrator が全部書いてから読む）。
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let u: Bool? = try? c.decodeIfPresent(Bool.self, forKey: .unlocked)
+        let lv: Int? = try? c.decodeIfPresent(Int.self, forKey: .level)
+        unlocked = u ?? false
+        level = EmblemCatalog.clampLevel(lv ?? EmblemProgression.startLevel)
+    }
 }
 
 enum RankTier: Int, Codable, CaseIterable, Comparable, Identifiable {
-    case meteorite, silverRing, goldRing, whiteStar, azureCrystal, starCrown, starRingSovereign
+    case warrior, elite, master, grandmaster, epic, legend, mythic
     var id: Int { rawValue }
     static func < (a: RankTier, b: RankTier) -> Bool { a.rawValue < b.rawValue }
 }
 
+/// ランク（Mobile Legends と同じ規則。RankService・SeasonService）。正はクラウド（relay の RankAccount）で、これは端末の写し。
 struct RankState: Codable, Equatable {
-    var tier: RankTier = .meteorite
-    /// 3 = III（最下段）… 1 = I。星環王は常に 1。
+    var tier: RankTier = .warrior
+    /// 段位（大きいほど下。ウォリアー/エリートは 3〜1、マスターは 4〜1、それ以上は 5〜1）。ミシックは常に 1。
     var division: Int = 3
+    /// 段位内の星。ミシックでは累計の星（25 で Hミシック・50 で Gミシック・100 で Iミシック）。
     var stars: Int = 0
-    /// 星環王のポイント。
+    /// 旧版の名残（使わない）。
     var points: Int = 0
-    var highestTier: RankTier = .meteorite
+    /// 最高到達のティア（シーズンをまたいで下がらない。到達報酬・実績の基準）。
+    var highestTier: RankTier = .warrior
+    /// このシーズンの勝ち数・負け数（新しいシーズンで 0）。
     var seasonWins: Int = 0
     var seasonLosses: Int = 0
     /// 受け取り済みのランク報酬（tier rawValue）。
     var claimedTierRewards: [Int] = []
+    /// スターポイント（勝利でたまる。ティアの満タン RankService.starPointCap で星 +1。ミシックには無い）。
+    var starPoints: Int = 0
+    /// 保護ポイント（敗北でたまる。ティアの満タン RankService.protectionCap で次の敗北の星を守る）。
+    var protectionPoints: Int = 0
+    var highestMythicStars: Int = 0
+    /// シーズン（MLBB と同じ番号。SeasonService）。新しい記録は今のシーズン、旧版のデータ（項目なし）は最初のシーズン（S42）。
+    var season: Int = SeasonService.season(at: Date())
+    /// このシーズンの最高ティア（シーズン報酬の基準。新しいシーズンで下げた後のティアから）。
+    var seasonHighestTier: RankTier = .warrior
+    /// シーズン報酬のメールを送った最後のシーズン（同じシーズンを二度送らない）。
+    var rewardedSeason: Int = 0
+    /// 終わったシーズンで、報酬のメールをまだ送っていないもの（SeasonService.deliverRewards が送って消す）。
+    var endedSeasons: [SeasonRecord] = []
+
+    init(tier: RankTier = .warrior, division: Int = 3, stars: Int = 0, points: Int = 0) {
+        self.tier = tier
+        self.division = division
+        self.stars = stars
+        self.points = points
+        self.highestTier = tier
+        self.seasonHighestTier = tier
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case tier, division, stars, points, highestTier, seasonWins, seasonLosses, claimedTierRewards
+        case starPoints, protectionPoints, highestMythicStars
+        case season, seasonHighestTier, rewardedSeason, endedSeasons
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        tier = try c.decodeIfPresent(RankTier.self, forKey: .tier) ?? .warrior
+        division = try c.decodeIfPresent(Int.self, forKey: .division) ?? 3
+        stars = try c.decodeIfPresent(Int.self, forKey: .stars) ?? 0
+        points = try c.decodeIfPresent(Int.self, forKey: .points) ?? 0
+        highestTier = try c.decodeIfPresent(RankTier.self, forKey: .highestTier) ?? tier
+        seasonWins = try c.decodeIfPresent(Int.self, forKey: .seasonWins) ?? 0
+        seasonLosses = try c.decodeIfPresent(Int.self, forKey: .seasonLosses) ?? 0
+        claimedTierRewards = try c.decodeIfPresent([Int].self, forKey: .claimedTierRewards) ?? []
+        starPoints = try c.decodeIfPresent(Int.self, forKey: .starPoints) ?? 0
+        protectionPoints = try c.decodeIfPresent(Int.self, forKey: .protectionPoints) ?? 0
+        highestMythicStars = try c.decodeIfPresent(Int.self, forKey: .highestMythicStars) ?? 0
+        // シーズン制の前のデータは S42（最初のシーズン。それまでの最高到達がこのシーズンの最高）
+        let savedSeason = try c.decodeIfPresent(Int.self, forKey: .season) ?? SeasonService.firstSeason
+        season = max(SeasonService.firstSeason, savedSeason)
+        seasonHighestTier = try c.decodeIfPresent(RankTier.self, forKey: .seasonHighestTier) ?? highestTier
+        rewardedSeason = try c.decodeIfPresent(Int.self, forKey: .rewardedSeason) ?? 0
+        endedSeasons = try c.decodeIfPresent([SeasonRecord].self, forKey: .endedSeasons) ?? []
+        // 旧規則（全ティア III〜I・星 3）からの読み替え: 段位・星を新しい形の範囲に収める
+        division = min(max(1, division), RankService.divisions(tier))
+        if tier != .mythic { stars = min(max(0, stars), RankService.maxStars(tier)) }
+        // 旧規則（ポイントの満タンが全ティア 700）からの読み替え: ティアの満タンに収める
+        RankService.fitPoints(&self)
+    }
 }
 
 struct HeroCareer: Codable, Equatable {
@@ -222,6 +300,16 @@ struct MatchRecord: Codable, Equatable, Identifiable {
     /// 保存済みリプレイ（ReplayMeta.id）。
     var replayID: UUID?
     var summary: MatchSummary?
+    /// ランク戦の前後のランク（過去の戦績のカードの「IV★0 » IV★1」。ランク戦以外・旧版の記録は nil）。
+    var rankBefore: PublicRank? = nil
+    var rankAfter: PublicRank? = nil
+}
+
+extension PublicRank {
+    /// 端末のランクの位置（ティア・段位・星）。
+    init(_ r: RankState) {
+        self.init(tier: r.tier.rawValue, division: r.division, stars: r.stars)
+    }
 }
 
 /// リプレイの出どころ（一覧の絞り込み・表示用）。
@@ -444,10 +532,38 @@ struct RisingProgress: Codable, Equatable {
 }
 
 struct MailAttachment: Codable, Equatable {
-    enum Kind: String, Codable { case coin, gem, cosmetic, hero, passXP }
+    /// magicDust = マジックダスト（エンブレムの解放・強化）、emblemFragment = エンブレムの欠片（refID = セット ID。EmblemSetID.rawValue）。
+    /// 生の値は保存データに入るので変えない（足す時は後ろに。旧版のデータは知っている種類だけなので読める）。
+    enum Kind: String, Codable { case coin, gem, cosmetic, hero, passXP, magicDust, emblemFragment }
     var kind: Kind
     var amount: Int = 0
     var refID: String?
+}
+
+/// 最近一緒に遊んだ人（MLBB のフレンドの「最近」。フレンド申請・名刺の入口）。
+struct RecentPlayer: Codable, Equatable, Identifiable {
+    var code: String
+    var name: String
+    var at: Date
+    var id: String { code }
+}
+
+enum RecentPlayers {
+    static let limit = 50
+
+    /// 一緒に遊んだ人を足す（自分・不正なコードは除く。同じ人は新しい日時と名前で先頭へ）。
+    static func record(_ players: [(code: String, name: String)], into list: inout [RecentPlayer], me: String, now: Date) {
+        for p in players where p.code != me && FriendCode.isValid(p.code) {
+            list.removeAll { $0.code == p.code }
+            list.insert(RecentPlayer(code: p.code, name: p.name, at: now), at: 0)
+        }
+        if list.count > limit { list.removeLast(list.count - limit) }
+    }
+}
+
+/// メールの種類（MLBB のメールの左のタブ: 重要なお知らせ・システム・通報の結果・受信箱・ギフト）。
+enum MailCategory: String, Codable, CaseIterable {
+    case important, system, report, inbox, gift
 }
 
 struct MailItem: Codable, Equatable, Identifiable {
@@ -459,6 +575,12 @@ struct MailItem: Codable, Equatable, Identifiable {
     var read = false
     var claimed = false
     var expiresAt: Date?
+    /// 重要（MLBB 2.2.16 の印。赤い点は未読の重要メールにも付く）。運営のメールだけ。古い保存データには無い。
+    var important: Bool?
+    /// 運営のメールの ID（重複を除く。端末で作ったメールは nil）。
+    var opsID: String?
+    /// 種類（nil = 端末で作ったメール。画面は添付があればギフト、無ければシステムとして扱う）。
+    var category: MailCategory?
 }
 
 /// 課金の付与台帳（Transaction.id で冪等化）。
@@ -479,11 +601,14 @@ struct StorePurchaseCount: Codable, Equatable {
 }
 
 struct Profile: Codable, Equatable {
-    var schemaVersion = 3
+    /// 4: エンブレムの解放・レベル（v3 までのプレイヤーは全セット解放済みの Lv60 のまま。ProfileMigrator）。
+    var schemaVersion = 5
     var playerID: String = UUID().uuidString
     var displayName: String = ""
     var createdAt = Date()
-    var avatarHeroID: String = "H001"
+    var avatarHeroID: String = HeroRoster.defaultHeroID
+    /// 国・地域（ISO 3166 の 2 文字。アカウント作成時の端末の地域。ロード画面のカードの国旗）。旧版のセーブは読み込み時に補う。
+    var countryCode: String? = CountryFlag.deviceRegion
 
     // オンボーディング
     var acceptedTermsVersion: Int = 0
@@ -502,9 +627,12 @@ struct Profile: Codable, Equatable {
     var freeGem = 0
     /// 有償 AstralGem（課金で購入）。
     var paidGem = 0
+    /// マジックダスト（MLBB のマジックダスト。エンブレムの解放・強化に使う。課金では買えない）。
+    var magicDust = 0
 
     // 所持
-    var ownedHeroIDs: [String] = ["H001", "H002", "H003", "H004", "H005", "H006"]
+    /// 最初から持つヒーロー（オンボーディングヒーロー。HeroRoster.starterHeroIDs）。
+    var ownedHeroIDs: [String] = HeroRoster.starterHeroIDs
     var ownedCosmeticIDs: [String] = []
     /// heroID → cosmeticID（HeroSkin）
     var equippedSkins: [String: String] = [:]
@@ -517,14 +645,33 @@ struct Profile: Codable, Equatable {
     var storePurchases: [StorePurchaseCount] = []
 
     // ロードアウト
-    var runePages: [RunePage] = []
-    var selectedRunePage: Int = 0
+    // エンブレム（MLBB のエンブレム画面。旧版のルーン runePages / selectedRunePage はもう読まない）
+    /// セット ID（EmblemSetID.rawValue）→ そのセットに付けた天賦（level は使わない。レベルは emblemSetProgress）。
+    /// 無いセットはセットの既定の天賦（EmblemCatalog.defaultLoadout）。
+    var emblemTalents: [String: EmblemLoadout] = [:]
+    /// セット ID → 解放とレベル。無いセットは EmblemService.progress の既定（新規は通常共通だけ解放済みの Lv1）。
+    var emblemSetProgress: [String: EmblemSetProgress] = [:]
+    /// セット ID → そのセットのエンブレムの欠片（通常共通は欠片を使わない。最大レベルのセットの欠片はマジックダストになる）。
+    var emblemFragments: [String: Int] = [:]
+    /// 無料のエンブレム宝箱（4 時間ごと・2 回分まで）。
+    var emblemChest = EmblemChestState()
+    /// エンブレムの解放・レベルより前（schemaVersion 3 以前）から遊んでいるプレイヤー。保存の無いセットも解放済みの Lv60 とする
+    /// （テスターが今の強さを失わないように。ProfileMigrator が全セットを書き込む）。
+    var emblemGrandfathered = false
+    /// エンブレム画面で開いているセット。
+    var selectedEmblemSet: String = EmblemSetID.common.rawValue
+    /// heroID → そのヒーローに付けたエンブレム（一括設定で保存。無ければ選んだバトルプランのエンブレム）。試合では PlayerSlot.emblem になる。
+    var heroEmblems: [String: EmblemLoadout] = [:]
     var defaultSpells: [String] = ["BS01", "BS03"]
     /// heroID → スペル 2 つ（未設定は defaultSpells）
     var heroSpells: [String: [String]] = [:]
     /// heroID → 装備 ID 列（カスタムビルド）
     var customBuilds: [String: [String]] = [:]
+    /// heroID → 選んだバトルプランの添字（ItemSystem.heroPlans。未設定は「有効」のプラン）。試合では PlayerSlot.buildPlan になる。
+    var heroBuildPlans: [String: Int] = [:]
     var lastPickedHeroID: String?
+    /// モード選択で最後に選んだモード（MatchModeCategory.rawValue）。ロビーの大ボタンの文字になる（MLBB と同じ）。
+    var lastMatchMode: String?
     var preferredDifficulty: Difficulty = .normal
 
     // 競技・記録
@@ -552,6 +699,8 @@ struct Profile: Codable, Equatable {
     var totalLoginDays = 0
     var mail: [MailItem] = []
     var readNoticeIDs: [String] = []
+    /// 受け取った運営のメールの ID（OpsMailService。消したメールをもう一度入れない）。
+    var seenOpsMailIDs: [String] = []
 
     // 課金
     var purchaseLedger: [PurchaseRecord] = []
@@ -566,8 +715,28 @@ struct Profile: Codable, Equatable {
     /// フレンド受信箱の鍵（本人だけの秘密。中継は最初に繋いだ鍵でコードの持ち主を決める）。
     var inboxKey: String = FriendInboxKey.generate()
     var friends: [Friend] = []
+    /// 届いて、まだ答えていないフレンド申請（FriendHub.incomingRequests。最大 20）。
+    var incomingFriendRequests: [FriendRequest] = []
+    /// 最近一緒に遊んだ人（オンラインの試合の相手と味方。新しい順に最大 50。RecentPlayers）。
+    var recentPlayers: [RecentPlayer] = []
     /// 自分から申請して、承認を待っている相手のコード。
     var outgoingFriendRequests: [String] = []
+    /// 申請した日時（outgoingFriendRequests のコード → 日時）。申請から 14 日を過ぎたら送り直さずに取り下げる
+    /// （中継の預かりの期限と同じ。FriendHub.outgoingRequestLifetime）。
+    var outgoingFriendRequestDates: [String: Date] = [:]
+    /// このフレンドコードで中継サーバーに登録したことがあるか（フレンドの受信箱に繋いだ・クラウドのランクを預けた）。
+    /// 「全データを削除」などで中継の受信箱とランクも消すかの判断に使う（FriendHub.hasServerData）。
+    var inboxRegistered = false
+    /// ブロックしたプレイヤー（フレンドコード単位。申請・招待を受け取らず、自分の部屋に入れない。設定 > プライバシーで解除）。
+    var blockedPlayers: [BlockedPlayer] = []
+    /// クラウドのランクが古い（同意を取り消した後に端末で進めた）。次に同意した時、預け直す前にクラウドのランクを消す
+    /// （残したままだと、預け直しで中継の古いランクに戻ってしまう。AppModel.pullCloudRank）。
+    var cloudRankStale = false
+    /// 同意したオンライン機能のルール（コミュニティガイドライン・利用規約のオンラインの条項）の版。
+    /// FeatureFlags.currentOnlineRulesVersion 未満の間はオンライン機能を使えず、フレンドの受信箱へも繋がない（OnlineAccess）。
+    var acceptedOnlineRulesVersion = 0
+    /// アカウント（パスワード・Game Center の連携・クラウド保存。CloudAccountService）。中継の状態の写し。
+    var account = AccountLinkState()
 
     var totalGem: Int { freeGem + paidGem }
 }

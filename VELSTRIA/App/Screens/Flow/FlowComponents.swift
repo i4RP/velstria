@@ -183,18 +183,19 @@ struct GlassBackground: ViewModifier {
     var tint: Color = Theme.panelStroke
     var highlighted = false
 
+    // ホーム（採用案 Celestial Saber）の面: 藍の地・面取りの角・細い縁（既定の縁は氷青。tint を渡せばその色）
     func body(content: Content) -> some View {
+        let shape = HomeChamfer(cut: min(10, max(4, cornerRadius * 0.6)))
+        let edge = tint == Theme.panelStroke ? Celestial.ice.opacity(0.55) : tint
         content
             .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(LinearGradient(colors: [Color.white.opacity(highlighted ? 0.16 : 0.09), Theme.panel.opacity(0.75)],
-                                         startPoint: .top, endPoint: .bottom))
+                shape.fill(LinearGradient(colors: [Celestial.inkRaised.opacity(highlighted ? 0.95 : 0.84), Celestial.ink.opacity(0.9)],
+                                          startPoint: .top, endPoint: .bottom))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(LinearGradient(colors: [tint.opacity(highlighted ? 1 : 0.8), tint.opacity(0.15)],
-                                           startPoint: .topLeading, endPoint: .bottomTrailing),
-                            lineWidth: highlighted ? 1.6 : 1)
+                shape.stroke(LinearGradient(colors: [edge.opacity(highlighted ? 1 : 0.85), edge.opacity(0.2)],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing),
+                             lineWidth: highlighted ? 1.3 : 0.7)
             )
     }
 }
@@ -250,29 +251,6 @@ struct FlowIconButton: View {
     }
 }
 
-/// 進捗バー。
-struct FlowProgressBar: View {
-    var value: Double
-    var tint: Color = Theme.cyan
-    var height: CGFloat = 6
-    var track: Color = Color.white.opacity(0.12)
-
-    var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(track)
-                Capsule()
-                    .fill(LinearGradient(colors: [tint.opacity(0.7), tint], startPoint: .leading, endPoint: .trailing))
-                    .frame(width: max(0, min(1, value.isFinite ? value : 0)) * geo.size.width)
-                    .shadow(color: tint.opacity(0.6), radius: 4)
-            }
-        }
-        .frame(height: height)
-        .accessibilityElement()
-        .accessibilityValue("\(Int((max(0, min(1, value.isFinite ? value : 0)) * 100).rounded()))%")
-    }
-}
-
 /// 選択チップ（フィルタ・難易度など）。
 struct FlowChip: View {
     let title: String
@@ -291,58 +269,6 @@ struct FlowChip: View {
         .background(Capsule().fill(selected ? AnyShapeStyle(tint) : AnyShapeStyle(Color.white.opacity(0.08))))
         .overlay(Capsule().stroke(selected ? Color.white.opacity(0.6) : Theme.panelStroke, lineWidth: 1))
         .contentShape(Capsule())
-    }
-}
-
-/// 空状態の表示。
-struct FlowEmptyState: View {
-    let symbol: String
-    let title: String
-    var message: String?
-
-    var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 40, weight: .light))
-                .foregroundStyle(Theme.cyan.opacity(0.8))
-                .glowPulse(Theme.cyan, radius: 10)
-            Text(title)
-                .font(Theme.heading(17))
-                .foregroundStyle(Theme.textPrimary)
-                .multilineTextAlignment(.center)
-            if let message {
-                Text(message)
-                    .font(Theme.body(13))
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 380)
-            }
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// セクション見出し。
-struct FlowSectionTitle: View {
-    let title: String
-    var symbol: String?
-    var trailing: String?
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if let symbol {
-                Image(systemName: symbol).font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.gold)
-            }
-            Text(title).font(Theme.heading(15)).foregroundStyle(Theme.textPrimary)
-            Spacer(minLength: 4)
-            if let trailing {
-                Text(trailing).font(Theme.body(12)).foregroundStyle(Theme.textSecondary)
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -432,44 +358,17 @@ struct RoleLabel: View {
 }
 
 /// ランク紋章（形 + 記号で識別できる）。
+/// ランクの紋章（絵は Common/CelestialArt.swift の RankCrest。採用案の画風のベクター）。
 struct RankEmblemView: View {
     let tier: RankTier
     var size: CGFloat = 40
 
     var body: some View {
-        let colors = FlowText.tierColors(tier)
-        ZStack {
-            HexagonShape()
-                .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
-            HexagonShape()
-                .stroke(LinearGradient(colors: [.white.opacity(0.9), colors[0].opacity(0.4)], startPoint: .top, endPoint: .bottom),
-                        lineWidth: max(1, size * 0.05))
-            HexagonShape()
-                .insetHex(by: size * 0.12)
-                .stroke(Color.white.opacity(0.35), lineWidth: max(0.5, size * 0.02))
-            Image(systemName: FlowText.tierSymbol(tier))
-                .font(.system(size: size * 0.36, weight: .black))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.5), radius: 2)
-        }
-        .frame(width: size, height: size)
-        .shadow(color: colors[0].opacity(0.55), radius: size * 0.18)
-        .accessibilityLabel(RankService.tierName(tier))
+        RankCrest(tier: tier, size: size)
     }
 }
 
-private extension HexagonShape {
-    func insetHex(by amount: CGFloat) -> some Shape {
-        InsetHexagon(amount: amount)
-    }
-}
-
-private struct InsetHexagon: Shape {
-    var amount: CGFloat
-    func path(in rect: CGRect) -> Path { HexagonShape().path(in: rect.insetBy(dx: amount, dy: amount)) }
-}
-
-/// ランクの星（最大 3）。
+/// ランクの星（ティアごとに 3〜5）。
 struct RankStarsView: View {
     let stars: Int
     var maxStars = 3
@@ -502,63 +401,11 @@ struct RankInlineView: View {
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            if rank.tier != .starRingSovereign {
-                RankStarsView(stars: rank.stars, size: emblemSize * 0.45)
+            if rank.tier != .mythic {
+                RankStarsView(stars: rank.stars, maxStars: RankService.maxStars(rank.tier), size: emblemSize * 0.45)
             }
         }
         .accessibilityElement(children: .combine)
-    }
-}
-
-/// メール・報酬の添付チップ。
-struct AttachmentChip: View {
-    let attachment: MailAttachment
-    var claimed = false
-    @Environment(AppModel.self) private var app
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: symbol)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(tint)
-            Text(title)
-                .font(Theme.body(12))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-            if claimed {
-                Image(systemName: "checkmark").font(.system(size: 10, weight: .heavy)).foregroundStyle(Theme.success)
-            }
-        }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
-        .background(Capsule().fill(Color.black.opacity(0.35)))
-        .overlay(Capsule().stroke(tint.opacity(0.5), lineWidth: 1))
-        .opacity(claimed ? 0.6 : 1)
-        .accessibilityElement(children: .combine)
-    }
-
-    private var symbol: String {
-        switch attachment.kind {
-        case .coin: return "star.circle.fill"
-        case .gem: return "diamond.fill"
-        case .cosmetic: return "sparkles"
-        case .hero: return "person.crop.circle.badge.plus"
-        case .passXP: return "bolt.fill"
-        }
-    }
-
-    private var tint: Color {
-        switch attachment.kind {
-        case .coin: return Theme.gold
-        case .gem: return Theme.cyan
-        case .cosmetic: return Color(red: 0.8, green: 0.55, blue: 1.0)
-        case .hero: return Theme.success
-        case .passXP: return Color(red: 1.0, green: 0.62, blue: 0.3)
-        }
-    }
-
-    private var title: String {
-        FlowText.attachmentTitle(attachment, master: app.master)
     }
 }
 
@@ -605,54 +452,6 @@ struct FlowWrapLayout: Layout {
     }
 }
 
-/// カプセル型のタブ切替（各タブ 44pt 以上）。
-struct FlowTabBar<Tab: Hashable>: View {
-    struct Item {
-        let tab: Tab
-        let title: String
-        let symbol: String
-        let identifier: String
-    }
-
-    let items: [Item]
-    @Binding var selection: Tab
-    @Namespace private var ns
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(items.indices, id: \.self) { i in
-                let item = items[i]
-                let selected = item.tab == selection
-                Button {
-                    withAnimation(.spring(duration: 0.3)) { selection = item.tab }
-                } label: {
-                    Label(item.title, systemImage: item.symbol)
-                        .font(Theme.heading(14))
-                        .lineLimit(1)
-                        .fixedSize()
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 44)
-                        .foregroundStyle(selected ? Color.black.opacity(0.85) : Theme.textPrimary)
-                        .background {
-                            if selected {
-                                Capsule().fill(LinearGradient(colors: [Theme.gold, Theme.gold.opacity(0.75)], startPoint: .top, endPoint: .bottom))
-                                    .matchedGeometryEffect(id: "flowTab", in: ns)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier(item.identifier)
-                .accessibilityAddTraits(selected ? .isSelected : [])
-            }
-        }
-        .padding(3)
-        .background(Capsule().fill(Color.black.opacity(0.35)))
-        .overlay(Capsule().stroke(Theme.panelStroke, lineWidth: 1))
-        .fixedSize()
-    }
-}
-
 /// 閉じる（×）ボタン。
 struct FlowCloseButton: View {
     var identifier: String
@@ -686,7 +485,7 @@ struct AccountLevelBar: View {
                 .font(.system(size: 12, weight: .heavy, design: .rounded))
                 .foregroundStyle(Theme.gold)
                 .monospacedDigit()
-            FlowProgressBar(value: Double(xp) / Double(max(1, required)), tint: Theme.cyan, height: 5)
+            CelestialProgressBar(value: Double(xp) / Double(max(1, required)), tint: Theme.cyan, height: 5)
                 .frame(width: width)
         }
         .accessibilityElement(children: .ignore)
@@ -705,6 +504,8 @@ struct HeroGridCell: View {
     var unavailableLabel: String?
     var price: Int?
     var size: CGFloat = 58
+    /// 名前（nil = MasterText.hero。選択画面は「アルゴス(Argus)」の形）。
+    var name: String?
 
     var body: some View {
         VStack(spacing: 3) {
@@ -733,7 +534,7 @@ struct HeroGridCell: View {
                     .shadow(color: Theme.gold.opacity(selected ? 0.9 : 0), radius: 6)
             )
             .scaleEffect(selected ? 1.06 : 1)
-            Text(MasterText.hero(hero))
+            Text(name ?? MasterText.hero(hero))
                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(selected ? Theme.gold : Theme.textPrimary)
                 .lineLimit(1)
@@ -768,11 +569,12 @@ struct HeroGridCell: View {
 enum FlowText {
     static func position(_ p: LanePosition) -> String {
         switch p {
-        case .top: return L("トップ", "Top")
+        // MLBB のレーンの名前（日本語版のレーン選択・ドラフトのタブ・「進む：ローム」と同じ表記）
+        case .top: return L("Expレーン", "EXP Lane")
         case .jungle: return L("ジャングル", "Jungle")
-        case .mid: return L("ミッド", "Mid")
-        case .carry: return L("ボット", "Bot")
-        case .support: return L("サポート", "Support")
+        case .mid: return L("ミドルレーン", "Mid Lane")
+        case .carry: return L("ゴールドレーン", "Gold Lane")
+        case .support: return L("ローム", "Roam")
         }
     }
 
@@ -804,14 +606,14 @@ enum FlowText {
 
     static func mode(_ m: MatchMode) -> String {
         switch m {
-        case .standard: return L("通常戦", "Standard")
-        case .ranked: return L("ランク戦", "Ranked")
+        case .standard: return L("マッチング", "Classic")
+        case .ranked: return L("ランキング", "Ranked")
         case .practice: return L("練習場", "Practice")
         case .tutorial: return L("チュートリアル", "Tutorial")
         case .spectate: return L("観戦", "Spectate")
         case .brawl: return L("乱闘", "Brawl")
         case .custom: return L("カスタム", "Custom")
-        case .magicChess: return L("オートバトラー", "Auto Battler")
+        case .magicChess: return L("マジックチェス", "Magic Chess")
         case .online: return L("オンライン対戦", "Online")
         }
     }
@@ -878,24 +680,7 @@ enum FlowText {
     }
 
     static func spellDescription(_ id: String) -> String {
-        switch id {
-        case "BS01": return L("指定方向へ 400 瞬間移動する。", "Teleport 400 units in a direction.")
-        case "BS02": return L("全ての行動妨害を解除し、1.5 秒間無効にする。", "Remove all crowd control and become immune for 1.5s.")
-        case "BS03": return L("自身と近くの味方 1 人の HP を 15% 回復し、移動速度 +20%。", "Heal yourself and a nearby ally for 15% HP and gain 20% move speed.")
-        case "BS04": return L("3 秒間、最大 HP 20% のシールドを得る。", "Gain a shield equal to 20% max HP for 3s.")
-        case "BS05": return L("近くのミニオン・モンスターに確定ダメージ。ジャングルに必須。", "Deal true damage to a nearby minion or monster. Required for Jungle.")
-        case "BS06": return L("5 秒間、移動速度 +40%。", "Gain 40% move speed for 5s.")
-        case "BS07": return L("敵ヒーローを燃やし継続ダメージ、回復量 −50%。", "Burn an enemy hero for true damage over time and cut healing by 50%.")
-        case "BS08": return L("1.5 秒間ステルス状態になり、移動速度 +25%。", "Become stealthed for 1.5s and gain 25% move speed.")
-        case "BS09": return L("3 秒の詠唱後、味方タワーか泉へ転移する。", "After a 3s channel, teleport to an allied tower or the fountain.")
-        case "BS10": return L("敵ヒーローを 40% スローし、与ダメージ −30%（2.5 秒）。", "Slow an enemy hero by 40% and reduce their damage by 30% for 2.5s.")
-        case "BS11": return L("敵ヒーローに確定ダメージ。失った HP が多いほど大きい。", "Deal true damage to an enemy hero, more the lower their HP.")
-        case "BS12": return L("5 秒間、攻撃速度 +50%。", "Gain 50% attack speed for 5s.")
-        case "BS13": return L("近くの敵ヒーローを 0.8 秒スタンさせ、続けてスロー。", "Stun nearby enemy heroes for 0.8s, then slow them.")
-        case "BS14": return L("指定方向へ火炎弾を撃ち、当たった敵ヒーローをノックバック。", "Fire a flame bolt that knocks back the first enemy hero hit.")
-        case "BS15": return L("5 秒間、被ダメージ −30% とダメージ反射 35%。", "For 5s take 30% less damage and reflect 35% of damage taken.")
-        default: return MasterData.shared.spell(id).map { MasterText.description(id: id, ja: $0.description) } ?? ""
-        }
+        SpellInfo.of(id).effect
     }
 
     static func spellSymbol(_ id: String) -> String {
@@ -944,25 +729,13 @@ enum FlowText {
 
     static func tierColors(_ t: RankTier) -> [Color] {
         switch t {
-        case .meteorite: return [Color(red: 0.62, green: 0.50, blue: 0.42), Color(red: 0.26, green: 0.20, blue: 0.20)]
-        case .silverRing: return [Color(red: 0.86, green: 0.89, blue: 0.94), Color(red: 0.42, green: 0.47, blue: 0.56)]
-        case .goldRing: return [Color(red: 1.0, green: 0.84, blue: 0.42), Color(red: 0.62, green: 0.40, blue: 0.10)]
-        case .whiteStar: return [Color(red: 0.95, green: 0.97, blue: 1.0), Color(red: 0.55, green: 0.66, blue: 0.88)]
-        case .azureCrystal: return [Color(red: 0.45, green: 0.90, blue: 1.0), Color(red: 0.10, green: 0.32, blue: 0.75)]
-        case .starCrown: return [Color(red: 0.84, green: 0.60, blue: 1.0), Color(red: 0.35, green: 0.15, blue: 0.62)]
-        case .starRingSovereign: return [Color(red: 1.0, green: 0.86, blue: 0.48), Color(red: 0.92, green: 0.30, blue: 0.55)]
-        }
-    }
-
-    static func tierSymbol(_ t: RankTier) -> String {
-        switch t {
-        case .meteorite: return "shield.fill"
-        case .silverRing: return "circle.circle"
-        case .goldRing: return "circle.circle.fill"
-        case .whiteStar: return "star.fill"
-        case .azureCrystal: return "diamond.fill"
-        case .starCrown: return "crown.fill"
-        case .starRingSovereign: return "sun.max.fill"
+        case .warrior: return [Color(red: 0.62, green: 0.50, blue: 0.42), Color(red: 0.26, green: 0.20, blue: 0.20)]
+        case .elite: return [Color(red: 0.86, green: 0.89, blue: 0.94), Color(red: 0.42, green: 0.47, blue: 0.56)]
+        case .master: return [Color(red: 1.0, green: 0.84, blue: 0.42), Color(red: 0.62, green: 0.40, blue: 0.10)]
+        case .grandmaster: return [Color(red: 0.95, green: 0.97, blue: 1.0), Color(red: 0.55, green: 0.66, blue: 0.88)]
+        case .epic: return [Color(red: 0.45, green: 0.90, blue: 1.0), Color(red: 0.10, green: 0.32, blue: 0.75)]
+        case .legend: return [Color(red: 0.84, green: 0.60, blue: 1.0), Color(red: 0.35, green: 0.15, blue: 0.62)]
+        case .mythic: return [Color(red: 1.0, green: 0.86, blue: 0.48), Color(red: 0.92, green: 0.30, blue: 0.55)]
         }
     }
 
@@ -979,6 +752,8 @@ enum FlowText {
         case .hero:
             if let id = a.refID, let h = master.hero(id) { return MasterText.hero(h) }
             return L("ヒーロー", "Hero")
+        case .magicDust: return "\(a.amount.formatted()) " + L("マジックダスト", "Magic Dust")
+        case .emblemFragment: return "\(a.amount.formatted()) " + EmblemService.fragmentName(a)
         }
     }
 

@@ -300,6 +300,35 @@ final class RenderMaterials {
         return (MeshResource.generatePlane(width: 1, depth: 1), m)
     }()
 
+    /// 草むらで隠れている間の頭上の印（MLBB の斜線の入った目。暗い丸に白の記号。深度なしで HP バーの層に描く）。
+    private(set) lazy var concealEye: (mesh: MeshResource, material: UnlitMaterial)? = {
+        let n: CGFloat = 96
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+        let img = UIGraphicsImageRenderer(size: CGSize(width: n, height: n), format: format).image { _ in
+            UIColor(red: 0.03, green: 0.04, blue: 0.08, alpha: 0.8).setFill()
+            UIBezierPath(ovalIn: CGRect(x: 2, y: 2, width: n - 4, height: n - 4)).fill()
+            let cfg = UIImage.SymbolConfiguration(pointSize: n * 0.42, weight: .bold)
+            if let sym = UIImage(systemName: "eye.slash.fill", withConfiguration: cfg)?
+                .withTintColor(.white, renderingMode: .alwaysOriginal) {
+                let s = sym.size
+                sym.draw(in: CGRect(x: (n - s.width) / 2, y: (n - s.height) / 2, width: s.width, height: s.height))
+            }
+        }
+        AssetLedger.record(.texture, "concealEye")
+        guard let cg = img.cgImage,
+              let tex = try? TextureResource(image: cg, options: .init(semantic: .color)) else { return nil }
+        AssetLedger.record(.material, "concealEye")
+        var m = UnlitMaterial(applyPostProcessToneMap: false)
+        m.color = .init(tint: .white, texture: .init(tex))
+        m.blending = .transparent(opacity: .init(floatLiteral: 1))
+        m.readsDepth = false
+        m.writesDepth = false
+        AssetLedger.record(.mesh, "concealEye")
+        return (MeshResource.generatePlane(width: 1, height: 1), m)
+    }()
+
     init(colorblind: Bool) {
         teams = TeamColors(colorblind: colorblind)
         var tex: TextureResource?

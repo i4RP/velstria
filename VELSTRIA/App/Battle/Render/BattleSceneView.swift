@@ -137,6 +137,10 @@ final class BattleRenderView: UIView {
     #endif
     /// テスター用の性能モニター（PerfProbe）。使えないビルドでは nil。
     let perfLabel: PerfProbeLabel? = PerfProbe.isAvailable ? PerfProbeLabel() : nil
+    #if DEBUG || TESTER_TOOLS
+    /// 内部ビルドの「ビルド番号 ブランチ@コミット」（左下、ホームバーの帯。実機の録画でどのビルドか分かるように）。UI テストでは出さない。
+    let buildTag: UILabel? = ProcessInfo.processInfo.arguments.contains("-uiTesting") ? nil : BattleRenderView.makeBuildTag()
+    #endif
 
     init(arView: ARView) {
         self.arView = arView
@@ -149,10 +153,26 @@ final class BattleRenderView: UIView {
         addSubview(combatText)
         #if DEBUG
         addSubview(debugOverlay)
+        debugOverlay.isHidden = !ProcessInfo.processInfo.arguments.contains("-hud-debug-stats")
         #endif
         if let perfLabel { addSubview(perfLabel) }
+        #if DEBUG || TESTER_TOOLS
+        if let buildTag { addSubview(buildTag) }
+        #endif
         addSubview(curtain)
     }
+
+    #if DEBUG || TESTER_TOOLS
+    private static func makeBuildTag() -> UILabel {
+        let l = UILabel()
+        l.font = UIFont.monospacedSystemFont(ofSize: 8, weight: .medium)
+        l.textColor = UIColor(white: 1, alpha: 0.6)
+        l.text = AppVersionInfo.buildTag
+        l.isUserInteractionEnabled = false
+        l.accessibilityIdentifier = "battle_build_tag"
+        return l
+    }
+    #endif
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
@@ -169,11 +189,19 @@ final class BattleRenderView: UIView {
         let inset = safeAreaInsets
         debugOverlay.frame = CGRect(x: max(8, inset.left + 6), y: max(8, inset.top) + 176, width: 196, height: 30)
         #endif
+        #if DEBUG || TESTER_TOOLS
+        // 左下のホームバーの帯（HUD は bottomEdge より下に何も置かない）
+        if let buildTag {
+            let h: CGFloat = 10
+            buildTag.frame = CGRect(x: max(8, safeAreaInsets.left + 6), y: bounds.height - max(safeAreaInsets.bottom, 8) + 1,
+                                    width: 220, height: min(h, max(safeAreaInsets.bottom, 8) - 1))
+        }
+        #endif
         // ミニマップと「全体マップ」ボタンの下・ヒーローパネルの上の隙間
         if let perfLabel {
             perfLabel.frame = CGRect(x: max(8, safeAreaInsets.left + 6), y: max(8, safeAreaInsets.top) + 200, width: 250, height: 56)
             #if DEBUG
-            debugOverlay.isHidden = !perfLabel.isHidden
+            debugOverlay.isHidden = !ProcessInfo.processInfo.arguments.contains("-hud-debug-stats") || !perfLabel.isHidden
             #endif
         }
     }

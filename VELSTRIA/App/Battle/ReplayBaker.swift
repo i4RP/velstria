@@ -76,7 +76,9 @@ enum ReplayBakeEngine {
     /// リプレイの最終 tick に達しても sim が終わっていなければ中断終了。
     static func advance(_ sim: Simulation, inputs: [Int: [HeroCommand]], finalTick: Int?,
                         builder: inout ReplayTimelineBuilder?, afterStep: (SimState) -> Void = { _ in }) {
-        let events = sim.step(commands: inputs[sim.state.tick + 1] ?? [])
+        // 協調スレッドのスタック（512 KB）では Debug の sim が溢れるので、スタックの大きい専用スレッドで進める
+        let commands = inputs[sim.state.tick + 1] ?? []
+        let events = LargeStackRunner.shared.run { sim.step(commands: commands) }
         builder?.observe(events: events, state: sim.state)
         afterStep(sim.state)
         if let final = finalTick, sim.state.tick >= final, !sim.isEnded {

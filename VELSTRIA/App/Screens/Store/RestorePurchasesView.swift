@@ -37,10 +37,10 @@ struct RestorePurchasesView: View {
                 .scrollIndicators(.hidden)
                 .frame(width: 290)
                 VStack(alignment: .leading, spacing: 6) {
-                    CollectionSectionTitle(title: L("購入履歴", "Purchase History"), symbol: "clock.arrow.circlepath",
+                    SectionTitle(title: L("購入履歴", "Purchase History"), symbol: "clock.arrow.circlepath",
                                            trailing: L("\(ledger.count) 件", "\(ledger.count) records"))
                     if ledger.isEmpty {
-                        CollectionEmptyState(symbol: "doc.text.magnifyingglass",
+                        EmptyStateView(symbol: "doc.text.magnifyingglass",
                                              title: L("購入履歴はありません", "No purchases yet"),
                                              message: L("App Store での購入はここに記録されます。", "App Store purchases will be listed here."))
                         Spacer()

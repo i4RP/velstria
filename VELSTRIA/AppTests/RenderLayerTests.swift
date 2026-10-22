@@ -121,6 +121,51 @@ final class RenderLayerTests: XCTestCase {
         XCTAssertNoThrow(try device.makeRenderPipelineState(descriptor: d))
     }
 
+    func testAntialiasSmoothsDiagonalWithoutBlurringFlatRegions() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else { throw XCTSkip("Metal 非対応の環境") }
+        let source = PostProcessor.shaderSource + """
+        kernel void testAntialias(texture2d<float, access::sample> source [[texture(0)]],
+                                  texture2d<float, access::write> output [[texture(1)]],
+                                  uint2 p [[thread_position_in_grid]]) {
+            if (p.x >= output.get_width() || p.y >= output.get_height()) return;
+            float2 uv = (float2(p) + 0.5) / float2(output.get_width(), output.get_height());
+            output.write(velAntialias(source, uv, 0.0), p);
+        }
+        """
+        let library = try device.makeLibrary(source: source, options: nil)
+        let function = try XCTUnwrap(library.makeFunction(name: "testAntialias"))
+        let pipeline = try device.makeComputePipelineState(function: function)
+        let size = 32
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm, width: size, height: size, mipmapped: false)
+        descriptor.storageMode = .shared
+        descriptor.usage = [.shaderRead, .shaderWrite]
+        let input = try XCTUnwrap(device.makeTexture(descriptor: descriptor))
+        let output = try XCTUnwrap(device.makeTexture(descriptor: descriptor))
+        var pixels = [UInt8](repeating: 255, count: size * size * 4)
+        for y in 0..<size { for x in 0..<size {
+            let value: UInt8 = y < x / 2 + 5 ? 255 : 0
+            let offset = (y * size + x) * 4
+            for c in 0..<3 { pixels[offset + c] = value }
+        } }
+        pixels.withUnsafeBytes { input.replace(region: MTLRegionMake2D(0, 0, size, size), mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: size * 4) }
+        let queue = try XCTUnwrap(device.makeCommandQueue())
+        let command = try XCTUnwrap(queue.makeCommandBuffer())
+        let encoder = try XCTUnwrap(command.makeComputeCommandEncoder())
+        encoder.setComputePipelineState(pipeline)
+        encoder.setTexture(input, index: 0)
+        encoder.setTexture(output, index: 1)
+        encoder.dispatchThreads(MTLSize(width: size, height: size, depth: 1), threadsPerThreadgroup: MTLSize(width: 8, height: 8, depth: 1))
+        encoder.endEncoding()
+        command.commit()
+        command.waitUntilCompleted()
+        XCTAssertNil(command.error)
+        var result = [UInt8](repeating: 0, count: pixels.count)
+        result.withUnsafeMutableBytes { output.getBytes($0.baseAddress!, bytesPerRow: size * 4, from: MTLRegionMake2D(0, 0, size, size), mipmapLevel: 0) }
+        XCTAssertEqual(result[0], 255, "平坦な白い領域は変えない")
+        XCTAssertEqual(result[(size - 1) * size * 4], 0, "平坦な黒い領域は変えない")
+        XCTAssertTrue(stride(from: 0, to: result.count, by: 4).contains { result[$0] > 0 && result[$0] < 255 }, "斜めの輪郭に中間色を作る")
+    }
+
     func testPostProcessLinearFormats() {
         XCTAssertTrue(PostProcessor.isLinear(.bgra8Unorm_srgb))
         XCTAssertTrue(PostProcessor.isLinear(.rgba16Float))

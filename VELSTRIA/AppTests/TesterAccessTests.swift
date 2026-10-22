@@ -41,6 +41,7 @@ final class TesterAccessTests: XCTestCase {
     func testGrantAddsEveryHeroKeepsOrderAndIsIdempotent() {
         let master = MasterData.shared
         var p = Profile()
+        p.ownedHeroIDs = ["H027", "H025"]
         let before = p.ownedHeroIDs
         XCTAssertTrue(TesterAccess.grantAllHeroes(to: &p, master: master))
         XCTAssertEqual(Array(p.ownedHeroIDs.prefix(before.count)), before)
@@ -53,8 +54,9 @@ final class TesterAccessTests: XCTestCase {
         let d = freshDefaults()
         let master = MasterData.shared
         var p = Profile()
+        p.ownedHeroIDs = ["H025"]
         TesterAccess.applyIfUnlocked(to: &p, master: master, defaults: d)
-        XCTAssertEqual(p.ownedHeroIDs.count, 6)
+        XCTAssertEqual(p.ownedHeroIDs.count, 1)
         d.set(true, forKey: TesterAccess.flagKey)
         TesterAccess.applyIfUnlocked(to: &p, master: master, defaults: d)
         XCTAssertEqual(p.ownedHeroIDs.count, master.heroes.count)

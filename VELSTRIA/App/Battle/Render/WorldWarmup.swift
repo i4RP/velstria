@@ -32,6 +32,9 @@ extension BattleWorld {
             _ = self.meshes.centeredQuad
             _ = self.materials.contactShadow
         })
+        // キットのマーク・凍結の表示（クリーチャーのプールを作る前に決める。作るのはプールの各体と同時）
+        let kitHeroes = controller.state.units.compactMap { $0.hero?.heroID }.filter { HeroKits.hasKit($0) }
+        units.prepareKitStatus(mark: !kitHeroes.isEmpty, ice: kitHeroes.contains(KitStatusVisuals.freezeHeroID))
         // クリーチャーのプール（種類ごと・12 体ずつ）
         let dummySpots = controller.state.world.dummySpots.count
         for (key, count) in UnitLayer.creaturePoolSizes(map: controller.ctx.map, dummySpots: dummySpots) {
@@ -54,14 +57,16 @@ extension BattleWorld {
         steps.append(WarmupStep("zones+aim") { [weak self] in
             guard let self else { return }
             let master = self.controller.ctx.master
-            self.zones.prewarm(count: BattleWorld.zonePoolSize,
-                               radii: ZoneLayer.plannedRadii(state: self.controller.state, master: master))
+            let state = self.controller.state
+            self.zones.prewarm(count: ZoneLayer.plannedPoolSize(state: state, master: master, base: BattleWorld.zonePoolSize),
+                               radii: ZoneLayer.plannedRadii(state: state, master: master),
+                               sectors: ZoneLayer.plannedSectors(state: state, master: master))
             self.aim.prewarm(ranges: AimLayer.plannedRanges(state: self.controller.state, humanID: self.controller.humanHeroID,
                                                             master: master))
         })
         steps.append(WarmupStep("text", heavy: true) { [weak self] in
             guard let self else { return }
-            self.text.prewarm(names: self.controller.state.units.compactMap { $0.hero?.displayName })
+            self.text.prewarm(names: self.controller.state.units.compactMap { $0.hero.map { PlayerNameRules.shown($0.displayName) } })
         })
         steps.append(WarmupStep("materials") { [weak self] in
             guard let self else { return }
@@ -181,11 +186,26 @@ extension BattleWorld {
         g.addModel(meshes.unitSphere, material: materials.lit, faded: true)
         g.addModel(meshes.unitSphere, material: materials.glow, faded: true)
         if let cs = materials.contactShadow { g.addModel(cs.mesh, material: cs.material, faded: true) }
+        if let eye = materials.concealEye { g.addModel(eye.mesh, material: eye.material, faded: false) }
         // 単色マテリアル全て（不透明・半透明・深度なし。OpacityComponent の変種も）
         for m in materials.builtUnlit { g.addModel(quad, material: m, size: 0.25, faded: true) }
         // メッシュ全て（GPU への転送を幕の裏で済ませる）
         for m in meshes.builtMeshes { g.addModel(m, material: materials.lit, faded: false) }
         for m in units.structureMeshList { g.addModel(m, material: materials.glow, faded: false) }
+        // 構造物・ミニオンの生成モデル（チーム別の材質。塔は隠す時・ミニオンは死亡時に半透明になる）
+        for model in StructureAssets.loadedModels {
+            for team in Team.players { g.addModel(model.mesh, material: model.material(team), faded: true) }
+        }
+        // 複数部品の塔（部品ごと。支柱は隠す時に半透明になる）と破損の材質
+        for rig in StructureAssets.loadedRigs {
+            for team in Team.players {
+                let set = rig.materials(team)
+                for part in rig.kind.parts {
+                    for p in rig.parts[part] ?? [] { g.addModel(p.mesh, material: set.levels[3], faded: part != .plinth) }
+                }
+                if let p = rig.parts[.plinth]?.first { g.addModel(p.mesh, material: set.ruin, faded: false) }
+            }
+        }
         let textMaterial = materials.unlit(RGB(1, 0.94, 0.72), alpha: 1, depthTest: false)
         for m in text.builtMeshes { g.addModel(m, material: textMaterial, size: 0.3, faded: false) }
         // スキル演出の材質（画像 × 色）全てと形全て

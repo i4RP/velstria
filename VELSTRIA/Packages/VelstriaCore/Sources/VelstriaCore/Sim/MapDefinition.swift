@@ -1,7 +1,7 @@
 import Foundation
 
 // 担当: core-world（草むら・障害物・河川の詳細設計はこのファイルで行う）。
-// タワー / Core / 泉 / レーン経路 / キャンプの座標は docs/DESIGN.md §2 の値を維持すること。
+// 保存版 standard の座標は docs/DESIGN.md §2。稼働版 relayout は docs/maps/RELAYOUT_2026-10.md。
 
 public struct TowerSpot: Codable, Hashable, Sendable {
     public var team: Team
@@ -69,27 +69,50 @@ public struct BrushArea: Codable, Hashable, Sendable {
 public enum Obstacle: Codable, Hashable, Sendable {
     case rect(Rect2)
     case circle(center: Vec2, radius: Double)
+    /// 多角形の壁（ミニマップからなぞった曲線の岩など）。頂点は地図座標（+y = 北）で反時計回り、自己交差なし（凹でもよい）、
+    /// 閉じる頂点は繰り返さない。滑らかな輪郭は `Obstacle.smoothPolygon` で制御点から作る。
+    case polygon([Vec2])
 
     public func contains(_ p: Vec2, inflatedBy r: Double = 0) -> Bool {
         switch self {
         case .rect(let rect):
-            return rect.expanded(by: r).contains(p)
+            // 角は半径 r で丸めて膨張する（2026-10-16 から。角まで四角く膨張すると、壁の角の何もない所で止まって見え、
+            // 角を回り込むときに引っかかる）
+            guard r > 0 else { return rect.expanded(by: r).contains(p) }
+            let dx = max(rect.minX - p.x, 0, p.x - rect.maxX)
+            let dy = max(rect.minY - p.y, 0, p.y - rect.maxY)
+            return dx * dx + dy * dy <= r * r
         case .circle(let c, let radius):
             return p.distanceSquared(to: c) <= (radius + r) * (radius + r)
+        case .polygon(let v):
+            // 内部か、境界から r 以内（角は丸く膨張）。r < 0 は内部で境界から −r 以上離れた所。
+            // signedDistance と同じ計算から判定し、`signedDistance(p) <= r` と必ず一致させる
+            let probe = Obstacle.probePolygon(v, p)
+            let d = probe.distanceSquared.squareRoot()
+            return r >= 0 ? (probe.inside || d <= r) : (probe.inside && d >= -r)
         }
     }
 }
 
 extension Obstacle {
     /// 点から障害物までの符号付き距離（内部は負）。
-    /// 矩形は `contains(_:inflatedBy:)` と一致させるため L∞ 距離（角も四角く膨張）で測る。
-    /// `signedDistance(p) <= r` ⇔ `contains(p, inflatedBy: r)`。
+    /// 矩形の外側はユークリッド距離（角の外は角の点までの距離）、内側は最も近い辺までの距離。多角形は境界までの距離。
+    /// `signedDistance(p) <= r` ⇔ `contains(p, inflatedBy: r)`（r ≥ 0）。
     public func signedDistance(to p: Vec2) -> Double {
         switch self {
         case .rect(let r):
-            return max(max(r.minX - p.x, p.x - r.maxX), max(r.minY - p.y, p.y - r.maxY))
+            let ex = max(r.minX - p.x, p.x - r.maxX), ey = max(r.minY - p.y, p.y - r.maxY)
+            if ex > 0 || ey > 0 {
+                let dx = max(ex, 0), dy = max(ey, 0)
+                return (dx * dx + dy * dy).squareRoot()
+            }
+            return max(ex, ey)
         case .circle(let c, let radius):
             return p.distance(to: c) - radius
+        case .polygon(let v):
+            let probe = Obstacle.probePolygon(v, p)
+            let d = probe.distanceSquared.squareRoot()
+            return probe.inside ? -d : d
         }
     }
 
@@ -99,13 +122,24 @@ extension Obstacle {
         case .rect(let r): return r
         case .circle(let c, let radius):
             return Rect2(minX: c.x - radius, minY: c.y - radius, maxX: c.x + radius, maxY: c.y + radius)
+        case .polygon(let v):
+            guard let first = v.first else { return Rect2(minX: 0, minY: 0, maxX: 0, maxY: 0) }
+            var lo = first, hi = first
+            for q in v {
+                lo = Vec2(min(lo.x, q.x), min(lo.y, q.y))
+                hi = Vec2(max(hi.x, q.x), max(hi.y, q.y))
+            }
+            return Rect2(minX: lo.x, minY: lo.y, maxX: hi.x, maxY: hi.y)
         }
     }
 
-    /// 点における外向き法線（最も近い面の向き）。
+    /// 点における外向き法線（最も近い面の向き。矩形の角の外側では角の点から外へ: 角を滑らかに回り込む）。
     public func outwardNormal(at p: Vec2) -> Vec2 {
         switch self {
         case .rect(let r):
+            let vx = p.x < r.minX ? p.x - r.minX : (p.x > r.maxX ? p.x - r.maxX : 0)
+            let vy = p.y < r.minY ? p.y - r.minY : (p.y > r.maxY ? p.y - r.maxY : 0)
+            if vx != 0 && vy != 0 { return Vec2(vx, vy).normalized }
             let d = [r.minX - p.x, p.x - r.maxX, r.minY - p.y, p.y - r.maxY]
             let normals = [Vec2(-1, 0), Vec2(1, 0), Vec2(0, -1), Vec2(0, 1)]
             var best = 0
@@ -114,6 +148,8 @@ extension Obstacle {
         case .circle(let c, _):
             let n = (p - c).normalized
             return n == .zero ? Vec2(1, 0) : n
+        case .polygon(let v):
+            return Obstacle.polygonNormal(v, p, Obstacle.probePolygon(v, p))
         }
     }
 
@@ -122,6 +158,8 @@ extension Obstacle {
         switch self {
         case .rect(let r): return .rect(r.mirrored)
         case .circle(let c, let radius): return .circle(center: c.mirrored, radius: radius)
+        // 180° 回転なので頂点の順はそのまま（反時計回りのまま）
+        case .polygon(let v): return .polygon(v.map(\.mirrored))
         }
     }
 
@@ -130,7 +168,116 @@ extension Obstacle {
         switch self {
         case .rect(let r): return .rect(Rect2(minX: r.minY, minY: r.minX, maxX: r.maxY, maxY: r.maxX))
         case .circle(let c, let radius): return .circle(center: Vec2(c.y, c.x), radius: radius)
+        // 鏡映で回る向きが逆になるので、頂点の順も逆にして反時計回りに戻す
+        case .polygon(let v): return .polygon(v.reversed().map { Vec2($0.y, $0.x) })
         }
+    }
+
+    /// 制御点を順に通る滑らかな閉曲線（centripetal Catmull-Rom）を、制御点の間ごとに samplesPerSpan 点ずつ標本化した
+    /// 多角形の壁。制御点は時計回りでもよい（反時計回りに直す）。制御点を結んだ多角形が自己交差しないこと。
+    /// 頂点は 1/64 単位に丸める（端数の多い値だと点対称の写像 `mirrored` を 2 回掛けても元の値に戻らず、
+    /// 点対称の検査で同じ壁と見なされない）。
+    /// 制御点を通る閉じた centripetal Catmull-Rom を、弦と曲線のずれ tolerance 以下・弦の長さ maxSegment 以下に
+    /// 細かく分けた多角形（曲がりのきつい所ほど頂点が多い。頂点は 1/64 へ丸め、反時計回りにする）。
+    public static func smoothPolygon(_ control: [Vec2], tolerance: Double, maxSegment: Double) -> Obstacle {
+        var v = Spline.closedCatmullRom(control, tolerance: tolerance, maxSegment: maxSegment).map {
+            Vec2(($0.x * 64).rounded() / 64, ($0.y * 64).rounded() / 64)
+        }
+        if Spline.signedArea(v) < 0 { v.reverse() }
+        return .polygon(v)
+    }
+
+    public static func smoothPolygon(_ control: [Vec2], samplesPerSpan: Int = 6) -> Obstacle {
+        var v = Spline.closedCatmullRom(control, samplesPerSpan: samplesPerSpan).map {
+            Vec2(($0.x * 64).rounded() / 64, ($0.y * 64).rounded() / 64)
+        }
+        if Spline.signedArea(v) < 0 { v.reverse() }
+        return .polygon(v)
+    }
+}
+
+// MARK: - 多角形の幾何（Obstacle.polygon と NavGrid が使う）
+
+extension Obstacle {
+    /// 多角形の境界で点に最も近い所と、点が内部か。
+    struct PolygonProbe {
+        /// 内部か（交差数の偶奇。境界上はどちらにもなりうるが、そこでは距離が 0 なので contains・signedDistance に効かない）。
+        var inside: Bool
+        /// 境界までの距離の 2 乗（頂点が無ければ +∞）。
+        var distanceSquared: Double
+        /// 境界上で最も近い点。
+        var closest: Vec2
+        /// closest を含む辺（v[edge] → v[edge + 1]）。頂点が無ければ -1。
+        var edge: Int
+    }
+
+    /// 辺を 1 周して、交差数と境界上の最近点を同時に求める。
+    static func probePolygon(_ v: [Vec2], _ p: Vec2) -> PolygonProbe {
+        var out = PolygonProbe(inside: false, distanceSquared: .infinity, closest: p, edge: -1)
+        let n = v.count
+        for i in 0..<n {
+            let a = v[i], b = v[i + 1 == n ? 0 : i + 1]
+            if crossesRay(a, b, p) { out.inside.toggle() }
+            let q = closestPointOnSegment(p, a, b)
+            let d2 = p.distanceSquared(to: q)
+            if d2 < out.distanceSquared {
+                out.distanceSquared = d2
+                out.closest = q
+                out.edge = i
+            }
+        }
+        return out
+    }
+
+    /// 外向き法線。外側は最も近い境界の点から p へ、内側は p から最も近い境界の点へ（凸の角の外では角を丸く回り込む）。
+    /// 境界上はその辺の外向き法線（反時計回りなので辺 a→b の右側 (e.y, −e.x)）。
+    static func polygonNormal(_ v: [Vec2], _ p: Vec2, _ probe: PolygonProbe) -> Vec2 {
+        guard probe.edge >= 0 else { return Vec2(1, 0) }
+        let n = (probe.inside ? probe.closest - p : p - probe.closest).normalized
+        if n != .zero { return n }
+        let a = v[probe.edge], b = v[probe.edge + 1 == v.count ? 0 : probe.edge + 1]
+        let e = Vec2(b.y - a.y, a.x - b.x).normalized
+        return e == .zero ? Vec2(1, 0) : e
+    }
+
+    /// 点が多角形の内部か（交差数の偶奇。境界上はどちらにもなりうる）。
+    static func polygonContains(_ v: [Vec2], _ p: Vec2) -> Bool {
+        var inside = false
+        let n = v.count
+        for i in 0..<n where crossesRay(v[i], v[i + 1 == n ? 0 : i + 1], p) { inside.toggle() }
+        return inside
+    }
+
+    /// 辺 a→b が p から +x 方向へ伸ばした半直線と交わるか（交差数の 1 回分。辺の下端を含み上端を含まない）。
+    @inline(__always) static func crossesRay(_ a: Vec2, _ b: Vec2, _ p: Vec2) -> Bool {
+        guard (a.y > p.y) != (b.y > p.y) else { return false }
+        return p.x < a.x + (p.y - a.y) * (b.x - a.x) / (b.y - a.y)
+    }
+
+    /// 線分 a–b 上で p に最も近い点。
+    @inline(__always) static func closestPointOnSegment(_ p: Vec2, _ a: Vec2, _ b: Vec2) -> Vec2 {
+        let e = b - a
+        let len2 = e.lengthSquared
+        guard len2 > 0 else { return a }
+        return a + e * max(0, min(1, (p - a).dot(e) / len2))
+    }
+
+    /// 線分 a–b が多角形に半径 r で触れるか（端点が内部・辺と交わる・辺から r 以内）。
+    static func polygonTouchesSegment(_ v: [Vec2], _ a: Vec2, _ b: Vec2, radius r: Double) -> Bool {
+        let minX = min(a.x, b.x) - r, maxX = max(a.x, b.x) + r
+        let minY = min(a.y, b.y) - r, maxY = max(a.y, b.y) + r
+        let r2 = r * r
+        var inside = false
+        let n = v.count
+        for i in 0..<n {
+            let p = v[i], q = v[i + 1 == n ? 0 : i + 1]
+            if crossesRay(p, q, a) { inside.toggle() }
+            // 外接矩形どうしが r より離れている辺は測らない
+            if max(p.x, q.x) < minX || min(p.x, q.x) > maxX || max(p.y, q.y) < minY || min(p.y, q.y) > maxY { continue }
+            if MapDefinition.segmentDistanceSquared(a, b, p, q) <= r2 { return true }
+        }
+        // どの辺にも触れずに a が内部なら、線分全体が内部
+        return inside
     }
 }
 
@@ -151,6 +298,14 @@ public struct MapDefinition: Codable, Hashable, Sendable {
     public var brushes: [BrushArea]
     public var obstacles: [Obstacle]
     public var riverWidth: Double
+    /// 草むらの細かい格子（MLBB のミニマップの形のまま。BushMask.swift）。nil なら `brushes` の矩形が草むら。
+    /// あるときは `brushes[k]` は草むら k の外接矩形で、判定は格子で行う。
+    public var bushMask: BushMask? = nil
+    /// 川の形（2026-10-16〜、設計図の 8 の字の水路: 左上と右下の池を中央の細い水路がつなぐ）。nil なら x + y = size の
+    /// 幅 riverWidth の帯（standard・乱闘）。
+    public var river: Obstacle? = nil
+    /// Authored stage identity; nil preserves older/procedural map fixtures and decoding.
+    public var stageID: String? = nil
 
     /// team のミニオンが進む経路。Red は Blue 経路の逆順。
     public func lanePath(_ lane: Lane, for team: Team) -> [Vec2] {
@@ -168,13 +323,45 @@ public struct MapDefinition: Codable, Hashable, Sendable {
 
     /// 点を含む草むらの番号（`BrushArea.bush`。複数の矩形からなる草むらはどの矩形でも同じ値）。
     public func brushIndex(at p: Vec2) -> Int? {
+        if let m = bushMask {
+            // `brushes` を空にした地図（テスト）では草むらなし
+            guard let k = m.bush(at: p), k < brushes.count else { return nil }
+            return brushes[k].bush
+        }
         for k in brushes.indices where brushes[k].rect.contains(p) { return brushes[k].bush }
         return nil
     }
 
-    /// 河川（x + y = size の帯）上か。
+    /// 河川上か（`river` の多角形、無ければ x + y = size の帯）。
     public func isInRiver(_ p: Vec2) -> Bool {
-        abs(p.x + p.y - size) / 2.0.squareRoot() <= riverWidth / 2
+        riverSignedDistance(p) <= 0
+    }
+
+    /// 川の岸までの距離（川の中は負）。
+    public func riverSignedDistance(_ p: Vec2) -> Double {
+        if let river { return river.signedDistance(to: p) }
+        return abs(p.x + p.y - size) / 2.0.squareRoot() - riverWidth / 2
+    }
+
+    /// ジャングルか川か（エンブレムの山野の主）。マップに区域の定義は無いので近似:
+    /// 川の帯、またはレーンの通り道（中心線から wildernessLaneHalfWidth）と両陣地（泉・コアの周り baseClearRadius）の外。
+    public func isInWilderness(_ p: Vec2) -> Bool {
+        if isInRiver(p) { return true }
+        for t in Team.players {
+            if p.distance(to: fountain(t)) < MapDefinition.baseClearRadius || p.distance(to: core(t)) < MapDefinition.baseClearRadius {
+                return false
+            }
+        }
+        return nearestLane(to: p).distance > MapDefinition.wildernessLaneHalfWidth
+    }
+
+    /// 山野の主の「レーンの通り道」の半幅（障害物はレーンの中心線から laneObstacleClearance 以上離れている）。
+    public static let wildernessLaneHalfWidth: Double = 400
+
+    /// p がどちらの陣地のジャングルか（川・レーン・基地は nil）。陣地は泉に近い方（地図は点対称なので川の帯の両岸に分かれる）。
+    public func jungleSide(of p: Vec2) -> Team? {
+        guard !isInRiver(p), isInWilderness(p) else { return nil }
+        return p.distanceSquared(to: fountain(.blue)) <= p.distanceSquared(to: fountain(.red)) ? .blue : .red
     }
 }
 
@@ -264,7 +451,8 @@ extension MapDefinition {
     /// レーン中心線から障害物までの最小距離（DESIGN §2）。
     public static let laneObstacleClearance: Double = 350
     /// 泉・Core 周辺で障害物を置かない半径。
-    static let baseClearRadius: Double = 1800
+    /// 2026-10-16 に 1800 → 1600（MLBB の拠点を囲む壁が Core から 1640 前後。遊ぶ地図の縮尺で）。
+    static let baseClearRadius: Double = 1600
 
     /// 泉・Core・mid の経路とタワー（標準マップと乱闘マップで共通）。
     static let standardBlueFountain = Vec2(600, 600)
@@ -381,10 +569,14 @@ extension MapDefinition {
         )
     }()
 
+    /// 2026-10 relayout: original `standard` remains an immutable comparison fixture.
+    /// Only positions and terrain extents change; obstacle footprints and gameplay stats do not.
+    public static let relayout: MapDefinition = makeCompactRelayout()
+
     /// モードに応じたマップ（`config.mode` から決定論的に導出する。リプレイはマップを保存しないため、
     /// `Simulation` を組む全箇所でこれを使うこと）。マジックチェスは専用の `magicChessBoard` を直接使う。
     public static func map(for mode: MatchMode) -> MapDefinition {
-        mode == .brawl ? .brawl : .standard
+        mode == .brawl ? .brawl : .canyon
     }
 
     /// 乱闘マップ（単レーン・ジャングル無し）。mid の対角 1 本だけを使う 5v5。
@@ -560,9 +752,24 @@ extension MapDefinition {
             }
         }
         for c in camps {
-            if let k = obstacleIndex(at: c.pos, inflatedBy: 300) {
+            if let k = obstacleIndex(at: c.pos, inflatedBy: MapDefinition.campClearance(c.kind)) {
                 issues.append("camp \(c.id) overlaps obstacle \(k)")
             }
+        }
+        if let m = bushMask {
+            // 格子の草むら: セルの中心が壁の中に入っていないこと（セルは 1 つの草むらにしか属さないので草むら同士は重ならない）
+            // 多角形の壁は 1 回の判定が重いので、外接矩形で先に絞る
+            let boxes = obstacles.map(\.bounds)
+            var reported = Set<Int>()
+            for (q, v) in m.cells.enumerated() where v != 0 && !reported.contains(Int(v) - 1) {
+                let p = m.center(col: q % m.cols, row: q / m.cols)
+                if let k = obstacles.indices.first(where: { boxes[$0].contains(p) && obstacles[$0].contains(p) }) {
+                    issues.append("brush \(Int(v) - 1) overlaps obstacle \(k)")
+                    reported.insert(Int(v) - 1)
+                }
+            }
+            if m.bushCount != brushes.count { issues.append("bush mask has \(m.bushCount) bushes for \(brushes.count) brushes") }
+            return issues
         }
         for b in brushes {
             for (k, o) in obstacles.enumerated() where MapDefinition.rect(b.rect, overlaps: o) {
@@ -573,6 +780,16 @@ extension MapDefinition {
             }
         }
         return issues
+    }
+
+    /// キャンプの中心から壁までの最小距離: 最も大きいモンスターの半径 + 40（2026-10-16。MLBB のモンスターは岩のくぼみの巣にいる。
+    /// 旧: どのキャンプも 300）。
+    static func campClearance(_ kind: CampKind) -> Double {
+        var largest = 0.0
+        for member in SpawnSystem.campMembers(kind) {
+            largest = max(largest, UnitFactory.monsterProfile(member.kind).radius)
+        }
+        return largest + 40
     }
 
     /// 障害物と折れ線の最短距離（ユークリッド）。
@@ -595,7 +812,55 @@ extension MapDefinition {
             var best = min(a.distance(to: rect.closestPoint(to: a)), b.distance(to: rect.closestPoint(to: b)))
             for q in corners { best = min(best, distancePointToSegment(q, a, b)) }
             return best
+        case .polygon(let v):
+            // 端点が内部なら 0。そうでなければ各辺との線分どうしの距離の最小（交われば 0）
+            let n = v.count
+            guard n > 0 else { return .infinity }
+            if Obstacle.polygonContains(v, a) || Obstacle.polygonContains(v, b) { return 0 }
+            var best = Double.infinity
+            for i in 0..<n { best = min(best, segmentDistanceSquared(a, b, v[i], v[i + 1 == n ? 0 : i + 1])) }
+            return best.squareRoot()
         }
+    }
+
+    /// 線分 a–b と c–d が交わるか（端点での接触・同一直線上の重なりを含む）。
+    static func segmentsIntersect(_ a: Vec2, _ b: Vec2, _ c: Vec2, _ d: Vec2) -> Bool {
+        let d1 = (d - c).cross(a - c), d2 = (d - c).cross(b - c)
+        let d3 = (b - a).cross(c - a), d4 = (b - a).cross(d - a)
+        if ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)) { return true }
+        // 端点が相手の直線上にあるときは、相手の線分の範囲に入っているか
+        func within(_ p: Vec2, _ s: Vec2, _ e: Vec2) -> Bool {
+            p.x >= min(s.x, e.x) && p.x <= max(s.x, e.x) && p.y >= min(s.y, e.y) && p.y <= max(s.y, e.y)
+        }
+        return (d1 == 0 && within(a, c, d)) || (d2 == 0 && within(b, c, d))
+            || (d3 == 0 && within(c, a, b)) || (d4 == 0 && within(d, a, b))
+    }
+
+    /// 線分 a–b と c–d の最短距離の 2 乗（交われば 0）。交わらない線分どうしの最短距離は、どちらかの端点と
+    /// もう一方の線分の間にある。
+    static func segmentDistanceSquared(_ a: Vec2, _ b: Vec2, _ c: Vec2, _ d: Vec2) -> Double {
+        if segmentsIntersect(a, b, c, d) { return 0 }
+        func pointToSegment(_ p: Vec2, _ s: Vec2, _ e: Vec2) -> Double {
+            p.distanceSquared(to: Obstacle.closestPointOnSegment(p, s, e))
+        }
+        return min(min(pointToSegment(a, c, d), pointToSegment(b, c, d)), min(pointToSegment(c, a, b), pointToSegment(d, a, b)))
+    }
+
+    /// 線分が開いた矩形（境界を含まない）の内部を通るか（スラブ法。境界をなぞる・角に触れるだけは通らない）。
+    static func segmentIntersectsOpenRect(_ a: Vec2, _ b: Vec2, _ r: Rect2) -> Bool {
+        var t0 = 0.0, t1 = 1.0
+        let d = b - a
+        let p = [-d.x, d.x, -d.y, d.y]
+        let q = [a.x - r.minX, r.maxX - a.x, a.y - r.minY, r.maxY - a.y]
+        for k in 0..<4 {
+            if p[k] == 0 {
+                if q[k] <= 0 { return false }
+            } else {
+                let t = q[k] / p[k]
+                if p[k] < 0 { t0 = max(t0, t) } else { t1 = min(t1, t) }
+            }
+        }
+        return t0 < t1
     }
 
     /// 線分が矩形（境界含む）と交差するか（スラブ法）。
@@ -622,6 +887,12 @@ extension MapDefinition {
             return r.minX < other.maxX && other.minX < r.maxX && r.minY < other.maxY && other.minY < r.maxY
         case .circle(let c, let radius):
             return r.closestPoint(to: c).distance(to: c) < radius
+        case .polygon(let v):
+            // 開いた矩形と多角形の内部が重なる ⇔ 多角形の辺が矩形の内部を通る（矩形の角が多角形の中・多角形の頂点が
+            // 矩形の中・辺の交差はどれもこれに当たる）か、矩形が多角形の中にすっぽり入っている（中心が内部）
+            let n = v.count
+            for i in 0..<n where segmentIntersectsOpenRect(v[i], v[i + 1 == n ? 0 : i + 1], r) { return true }
+            return n >= 3 && Obstacle.polygonContains(v, r.center)
         }
     }
 

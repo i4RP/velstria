@@ -376,11 +376,13 @@ final class RenderWarmupTests: XCTestCase {
         XCTAssertEqual(size(.monster(.campLarge)), 0)
         XCTAssertEqual(size(.monster(.astralWyrm)), 1)
         XCTAssertEqual(size(.monster(.ancientColossus)), 1)
-        // 1 波 = 近接 3（10:00 以降 4）+ 遠隔 3 × 3 レーン。2 波以上が重なっても足りる
-        let wave = SpawnSystem.waveComposition(waveIndex: 2, time: 11 * 60)
-        let melee = wave.filter { $0 == .melee }.count * 3, ranged = wave.filter { $0 == .ranged }.count * 3
-        XCTAssertGreaterThanOrEqual(size(.minion(.melee, .blue)), melee * 2)
-        XCTAssertGreaterThanOrEqual(size(.minion(.ranged, .red)), ranged * 2)
+        // 1 波 = 側レーン 近接・遠隔・攻城 各 1 + 中央 近接 1・遠隔 3（5:11 からは中央も各 1）。2 波以上が重なっても足りる
+        func perWave(_ type: MinionType, wave: Int) -> Int {
+            Lane.allCases.reduce(0) { n, lane in n + SpawnSystem.waveComposition(waveIndex: wave, lane: lane).filter { $0 == type }.count }
+        }
+        XCTAssertGreaterThanOrEqual(size(.minion(.melee, .blue)), perWave(.melee, wave: 0) * 2)
+        XCTAssertGreaterThanOrEqual(size(.minion(.ranged, .red)), perWave(.ranged, wave: 0) * 2)
+        XCTAssertGreaterThanOrEqual(size(.minion(.siege, .blue)), perWave(.siege, wave: Balance.earlyWaveCount) * 2)
         XCTAssertNil(sizes.first { $0.key == .dummy })
     }
 

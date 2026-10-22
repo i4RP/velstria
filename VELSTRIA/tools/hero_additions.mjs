@@ -13,6 +13,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { MLBB_HEROES, mlbbStatColumns } from "./hero_stats_spec.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DST = path.join(ROOT, "Packages/VelstriaCore/Sources/VelstriaCore/Resources/master_runtime.json");
@@ -39,13 +40,14 @@ const ROLE_JA = {
 };
 const ROLE_JA_CHECK = ["ヴァンガード", "デュエリスト", "レンジャー", "アルカニスト", "サポート", "アサシン"];
 
+// 能力値（HP・攻撃・防御・攻撃速度・HP 回復・リソース・移動速度・射程）は tools/hero_stats_spec.mjs の MLBB_HEROES（MLBB の値。
+// 2026-10-14）。追加するヒーローはそこにも行を足す。既存の行の更新は node tools/hero_stats_apply.mjs。
 // skill: [slot, name_ja|null(共通名は生成), damage_type, base, scaling_attack, scaling_power, cd, cost, range, radius, cc]
 // 共通名: Skill1 は「{code}式・一閃」、Skill2 は「星環シフト{番号}」
 const HEROES = [
   {
     // ミヤ（Miya）参照: 月の弓の射手。ゴールドレーン
     id: "H025", code: "Lumina", name: "月弦のルミナ", role: "Ranger", difficulty: 2, text: "ranged",
-    hp: [2780, 178], atk: [138, 5.4], def: [22, 3], mdef: [12, 1.8], ms: 262, range: 550, resource: "Mana", resourceMax: 500,
     cosmetic: "Recall",
     skills: [
       ["Passive", "月環の導き", "Physical", 0, 0, 0, 0, 0, 0, 0, "None"],
@@ -57,7 +59,6 @@ const HEROES = [
   {
     // エウドラ（Eudora）参照: 雷の魔導士。ミドルレーン
     id: "H026", code: "Euria", name: "紫電のエウリア", role: "Arcanist", difficulty: 3, text: "ranged",
-    hp: [2700, 172], atk: [124, 5.8], def: [19, 2.7], mdef: [20, 1.6], ms: 255, range: 550, resource: "Mana", resourceMax: 600,
     cosmetic: "Spawn",
     skills: [
       ["Passive", "紫電の囁き", "Magic", 0, 0, 0, 0, 0, 0, 0, "None"],
@@ -69,7 +70,6 @@ const HEROES = [
   {
     // 趙子龍（Zilong）参照: 竜槍の戦士。EXP レーン
     id: "H027", code: "Jarld", name: "竜槍のジャルド", role: "Duelist", difficulty: 2, text: "melee",
-    hp: [2850, 190], atk: [128, 4.9], def: [24, 3.1], mdef: [16, 1.7], ms: 270, range: 150, resource: "Energy", resourceMax: 480,
     cosmetic: "Emote",
     skills: [
       ["Passive", "竜鱗の構え", "Physical", 0, 0, 0, 0, 0, 0, 0, "None"],
@@ -81,7 +81,6 @@ const HEROES = [
   {
     // セイバー（Saber）参照: 剣の暗殺者。ジャングル
     id: "H028", code: "Zail", name: "断空のザイル", role: "Assassin", difficulty: 3, text: "melee",
-    hp: [2700, 180], atk: [116, 4], def: [22, 3.3], mdef: [16, 1.4], ms: 268, range: 150, resource: "Energy", resourceMax: 470,
     cosmetic: "AvatarFrame",
     skills: [
       ["Passive", "空断の理", "Physical", 0, 0, 0, 0, 0, 0, 0, "None"],
@@ -93,7 +92,6 @@ const HEROES = [
   {
     // ティグリアル（Tigreal）参照: 聖槌の重装騎士。ローム
     id: "H029", code: "Borg", name: "聖槌のボルグ", role: "Support", difficulty: 2, text: "vanguardLike",
-    hp: [2800, 185], atk: [124, 6.25], def: [24, 3], mdef: [18, 2], ms: 250, range: 150, resource: "Mana", resourceMax: 480,
     cosmetic: "KillEffect",
     skills: [
       ["Passive", "聖鎚の誓い", "Magic", 0, 0, 0, 0, 0, 0, 0, "None"],
@@ -106,7 +104,6 @@ const HEROES = [
   {
     // ライラ（Layla）参照: 長射程の砲撃手。ゴールドレーン
     id: "H030", code: "Raina", name: "星砲のライナ", role: "Ranger", difficulty: 1, text: "ranged",
-    hp: [2650, 165], atk: [142, 5.5], def: [20, 2.8], mdef: [10, 1.6], ms: 255, range: 550, resource: "Mana", resourceMax: 520,
     cosmetic: "Recall",
     skills: [
       ["Passive", "遠星の照準", "Physical", 0, 0, 0, 0, 0, 0, 0, "None"],
@@ -118,7 +115,6 @@ const HEROES = [
   {
     // オーロラ（Aurora）参照: 氷の魔導士。ミッドレーン
     id: "H031", code: "Oria", name: "氷嵐のオーリア", role: "Arcanist", difficulty: 3, text: "ranged",
-    hp: [2680, 170], atk: [122, 5.8], def: [18, 2.6], mdef: [22, 1.7], ms: 252, range: 550, resource: "Mana", resourceMax: 620,
     cosmetic: "Spawn",
     skills: [
       ["Passive", "霜華の祝福", "Magic", 0, 0, 0, 0, 0, 0, 0, "None"],
@@ -130,7 +126,6 @@ const HEROES = [
   {
     // ディロス（Dyrroth）参照: 拳剣の戦士。EXP レーン
     id: "H032", code: "Dias", name: "赤拳のディアス", role: "Duelist", difficulty: 3, text: "melee",
-    hp: [2900, 195], atk: [130, 4.9], def: [25, 3.2], mdef: [17, 1.7], ms: 262, range: 150, resource: "Energy", resourceMax: 500,
     cosmetic: "Emote",
     skills: [
       ["Passive", "紅血の拳", "Physical", 0, 0, 0, 0, 0, 0, 0, "None"],
@@ -142,7 +137,6 @@ const HEROES = [
   {
     // アルカード（Alucard）参照: 吸血の大剣士。ジャングル
     id: "H033", code: "Vald", name: "紅牙のヴァルド", role: "Assassin", difficulty: 2, text: "melee",
-    hp: [2780, 186], atk: [120, 4.2], def: [24, 3.3], mdef: [15, 1.4], ms: 265, range: 150, resource: "Energy", resourceMax: 480,
     cosmetic: "AvatarFrame",
     skills: [
       ["Passive", "吸血の渇き", "Physical", 0, 0, 0, 0, 0, 0, 0, "None"],
@@ -154,7 +148,6 @@ const HEROES = [
   {
     // フランコ（Franco）参照: 鎖鉤の大男。ローム
     id: "H034", code: "Gorm", name: "鎖鉤のゴルム", role: "Support", difficulty: 3, text: "vanguardLike",
-    hp: [2650, 190], atk: [124, 6.25], def: [21, 3], mdef: [16, 2], ms: 248, range: 150, resource: "Mana", resourceMax: 460,
     cosmetic: "KillEffect",
     skills: [
       ["Passive", "鉄鎖の執念", "Physical", 0, 0, 0, 0, 0, 0, 0, "None"],
@@ -199,7 +192,6 @@ function append(src, key, rows) {
   return src.slice(0, end) + "," + rows.map((r) => JSON.stringify(r)).join(",") + src.slice(end);
 }
 
-const f1 = (n) => n; // 数値はそのまま JSON へ
 let src = fs.readFileSync(DST, "utf8");
 const master = JSON.parse(src);
 
@@ -217,12 +209,12 @@ for (const h of HEROES) {
   if (!ROLE_JA[h.role]) throw new Error(`${h.id}: 未知のロール ${h.role}`);
   if (!ROLE_JA_CHECK.includes(ROLE_JA[h.role])) throw new Error("ロール表記");
   const t = TEXT[h.text];
+  const spec = MLBB_HEROES.find((m) => m.id === h.id);
+  if (!spec) throw new Error(`${h.id}: tools/hero_stats_spec.mjs の MLBB_HEROES に能力値がありません`);
   heroRows.push({
     hero_id: h.id, code_name: h.code, display_name_ja: h.name, role: h.role, role_ja: ROLE_JA[h.role],
     difficulty: h.difficulty,
-    base_hp: h.hp[0], hp_growth: h.hp[1], base_attack: h.atk[0], attack_growth: f1(h.atk[1]),
-    base_defense: h.def[0], defense_growth: h.def[1], base_magic_defense: h.mdef[0], magic_defense_growth: h.mdef[1],
-    move_speed: h.ms, attack_range: h.range, resource: h.resource, resource_max: h.resourceMax,
+    ...mlbbStatColumns(spec),
     lore: `星環崩壊後のベルシアで、${h.name}は失われた星核の断片を巡る戦いに身を投じる。`,
     strengths: t.strengths, weaknesses: t.weaknesses, counterplay: COUNTERPLAY,
   });

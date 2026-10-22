@@ -17,12 +17,8 @@ final class HUDLayoutTests: XCTestCase {
         ("iPhone 17 Pro Max", CGSize(width: 956, height: 440), 62, 20),
     ]
 
-    /// プレイヤーの右側の操作群（攻撃・スキル・スペル・帰還・習得ボタン）を確認する端末。
-    /// iPhone SE（667pt 幅）は最小倍率 0.84 でも操作群が収まらず 44pt を保てない（既知の課題: プレイヤーの HUD は SE 未対応）。
-    /// 観戦の配置は SE も含めて確認する。
-    private var playerClusterDevices: [(name: String, size: CGSize, side: CGFloat, bottom: CGFloat)] {
-        devices.filter { $0.size.width >= 800 }
-    }
+    /// 16:9 の SE を含め、全端末で同じ配置・44pt のタッチ領域を保証する。
+    private var playerClusterDevices: [(name: String, size: CGSize, side: CGFloat, bottom: CGFloat)] { devices }
 
     private struct Circle2 {
         var name: String
@@ -32,16 +28,16 @@ final class HUDLayoutTests: XCTestCase {
 
     private func controls(_ l: HUDLayout) -> [Circle2] {
         var out = AttackButtonSlot.allCases.map {
-            Circle2(name: "attack_\($0.rawValue)", center: l.attackCenter(for: $0), radius: l.attackDiameter(for: $0) / 2)
+            Circle2(name: "attack_\($0.rawValue)", center: l.attackCenter(for: $0), radius: max(44, l.attackDiameter(for: $0)) / 2)
         }
         for slot in SkillSlot.actives {
             out.append(Circle2(name: "skill\(slot.rawValue)", center: l.skillCenter(slot),
-                               radius: (slot == .ultimate ? l.ultDiameter : l.skillDiameter) / 2))
-            out.append(Circle2(name: "level\(slot.rawValue)", center: l.levelBadgeCenter(slot), radius: l.levelBadgeDiameter / 2))
+                               radius: max(44, slot == .ultimate ? l.ultDiameter : l.skillDiameter) / 2))
+            out.append(Circle2(name: "level\(slot.rawValue)", center: l.levelBadgeCenter(slot), radius: 44 / 2))
         }
-        out.append(Circle2(name: "spell0", center: l.spellCenter(0), radius: l.spellDiameter / 2))
-        out.append(Circle2(name: "spell1", center: l.spellCenter(1), radius: l.spellDiameter / 2))
-        out.append(Circle2(name: "recall", center: l.recallCenter, radius: l.recallDiameter / 2))
+        out.append(Circle2(name: "spell0", center: l.spellCenter(0), radius: max(44, l.spellDiameter) / 2))
+        out.append(Circle2(name: "spell1", center: l.spellCenter(1), radius: max(44, l.spellDiameter) / 2))
+        out.append(Circle2(name: "recall", center: l.recallCenter, radius: max(44, l.recallDiameter) / 2))
         return out
     }
 
@@ -69,17 +65,18 @@ final class HUDLayoutTests: XCTestCase {
                         XCTAssertGreaterThan(dist, a.radius + b.radius + 2, "\(d.name) \(left ? "左利き" : "右手") \(a.name) と \(b.name) が重なる")
                     }
                 }
-                // ヒーローパネルはスティックとスキル群の間に収まる
-                let panelMin = l.heroPanelCenterX - l.heroPanelWidth / 2
-                let panelMax = l.heroPanelCenterX + l.heroPanelWidth / 2
-                let joyNear = left ? l.joystickRest.x - l.joystickRadius : l.joystickRest.x + l.joystickRadius
-                if left {
-                    XCTAssertLessThan(panelMax, joyNear, "\(d.name) パネルとスティック")
-                    XCTAssertGreaterThan(panelMin, l.clusterInnerEdge, "\(d.name) パネルとスキル群")
-                } else {
-                    XCTAssertGreaterThan(panelMin, joyNear, "\(d.name) パネルとスティック")
-                    XCTAssertLessThan(panelMax, l.clusterInnerEdge, "\(d.name) パネルとスキル群")
+                // 大型カードの代わりに補助列だけを下中央へ配置。移動受付領域と重ならない。
+                for c in cs {
+                    let zone = l.joystickZone
+                    let nearest = CGPoint(x: min(max(c.center.x, zone.minX), zone.maxX),
+                                          y: min(max(c.center.y, zone.minY), zone.maxY))
+                    XCTAssertGreaterThan(hypot(c.center.x - nearest.x, c.center.y - nearest.y), c.radius,
+                                         "\(d.name) \(c.name) が移動の受付領域に重なる")
                 }
+                XCTAssertEqual(l.recallCenter.y, l.spellCenter(0).y)
+                XCTAssertEqual(l.spellCenter(0).y, l.spellCenter(1).y)
+                XCTAssertLessThan(abs(l.spellCenter(0).x - l.width / 2), l.width * 0.15,
+                                  "\(d.name) 補助列が下中央から離れすぎている")
                 // スティックの土台は Safe Area 内
                 XCTAssertGreaterThanOrEqual(l.joystickRest.x - l.joystickRadius, d.side)
                 XCTAssertLessThanOrEqual(l.joystickRest.x + l.joystickRadius, d.size.width - d.side)
@@ -95,12 +92,12 @@ final class HUDLayoutTests: XCTestCase {
             let l = HUDLayout(size: d.size, safe: EdgeInsets(top: 0, leading: d.side, bottom: d.bottom, trailing: d.side),
                               leftHanded: false)
             for slot in AttackButtonSlot.allCases {
-                XCTAssertGreaterThanOrEqual(l.attackDiameter(for: slot), 44)
+                XCTAssertGreaterThanOrEqual(max(44, l.attackDiameter(for: slot)), 44)
             }
-            XCTAssertGreaterThanOrEqual(l.skillDiameter, 44)
-            XCTAssertGreaterThanOrEqual(l.ultDiameter, 44)
-            XCTAssertGreaterThanOrEqual(l.spellDiameter, 44)
-            XCTAssertGreaterThanOrEqual(l.recallDiameter, 44)
+            XCTAssertGreaterThanOrEqual(max(44, l.skillDiameter), 44)
+            XCTAssertGreaterThanOrEqual(max(44, l.ultDiameter), 44)
+            XCTAssertGreaterThanOrEqual(max(44, l.spellDiameter), 44)
+            XCTAssertGreaterThanOrEqual(max(44, l.recallDiameter), 44)
             XCTAssertGreaterThanOrEqual(l.joystickRadius * 2, 44)
             XCTAssertGreaterThanOrEqual(l.minimapSize, 44)
         }
@@ -157,7 +154,7 @@ final class HUDLayoutTests: XCTestCase {
         }
     }
 
-    func testAttackButtonsStayInTopCenterBottomOrder() {
+    func testAttackIsLargestWithTargetSelectorsAroundItAndSkillsInAFan() {
         for d in devices {
             for left in [false, true] {
                 let safe = EdgeInsets(top: 0, leading: d.side, bottom: d.bottom, trailing: d.side)
@@ -165,12 +162,21 @@ final class HUDLayoutTests: XCTestCase {
                 let top = l.attackCenter(for: .top)
                 let center = l.attackCenter(for: .center)
                 let bottom = l.attackCenter(for: .bottom)
-                XCTAssertEqual(top.x, center.x)
-                XCTAssertEqual(center.x, bottom.x)
-                XCTAssertLessThan(top.y + l.attackDiameter(for: .top) / 2, center.y - l.attackDiameter / 2)
-                XCTAssertLessThan(center.y + l.attackDiameter / 2, bottom.y - l.attackDiameter(for: .bottom) / 2)
+                let direction: CGFloat = left ? -1 : 1
+                XCTAssertGreaterThan((top.x - center.x) * direction, 0, "タワー指定は攻撃の外側・上")
+                XCTAssertLessThan(top.y, center.y)
+                XCTAssertLessThan((bottom.x - center.x) * direction, 0, "ミニオン指定は攻撃の内側・下")
+                XCTAssertGreaterThan(bottom.y, center.y)
                 XCTAssertGreaterThan(l.attackDiameter, l.attackDiameter(for: .top))
                 XCTAssertGreaterThan(l.attackDiameter, l.attackDiameter(for: .bottom))
+                XCTAssertGreaterThan(l.attackDiameter, l.skillDiameter)
+                XCTAssertGreaterThan(l.attackDiameter, l.ultDiameter)
+                let first = l.skillCenter(.skill1), second = l.skillCenter(.skill2), ultimate = l.skillCenter(.ultimate)
+                XCTAssertLessThan((first.x - second.x) * direction, 0)
+                XCTAssertLessThan((second.x - ultimate.x) * direction, 0)
+                XCTAssertLessThan((ultimate.x - center.x) * direction, 0)
+                XCTAssertGreaterThan(first.y, second.y)
+                XCTAssertGreaterThan(second.y, ultimate.y)
                 XCTAssertEqual(center, l.attackCenter, "中央の攻撃ボタンをメイン操作として扱う")
             }
         }

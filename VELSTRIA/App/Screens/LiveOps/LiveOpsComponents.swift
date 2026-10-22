@@ -92,19 +92,8 @@ enum LiveOpsFormat {
         return f
     }
 
-    static func modeName(_ mode: MatchMode) -> String {
-        switch mode {
-        case .standard: return L("通常戦", "Standard")
-        case .ranked: return L("ランク戦", "Ranked")
-        case .practice: return L("練習場", "Practice")
-        case .tutorial: return L("チュートリアル", "Tutorial")
-        case .spectate: return L("観戦", "Spectate")
-        case .brawl: return L("乱闘", "Brawl")
-        case .custom: return L("カスタム", "Custom")
-        case .magicChess: return L("オートバトラー", "Auto Battler")
-        case .online: return L("オンライン対戦", "Online")
-        }
-    }
+    /// モードの名前（FlowText.mode と同じ。名前は 1 か所で決める）。
+    static func modeName(_ mode: MatchMode) -> String { FlowText.mode(mode) }
 
     static func modeSymbol(_ mode: MatchMode) -> String {
         switch mode {
@@ -136,15 +125,8 @@ enum LiveOpsFormat {
         }
     }
 
-    static func positionName(_ p: LanePosition) -> String {
-        switch p {
-        case .top: return L("トップ", "Top")
-        case .jungle: return L("ジャングル", "Jungle")
-        case .mid: return L("ミッド", "Mid")
-        case .carry: return L("キャリー", "Carry")
-        case .support: return L("サポート", "Support")
-        }
-    }
+    /// レーンの名前（試合の外の表記を 1 つにする: FlowText.position）。
+    static func positionName(_ p: LanePosition) -> String { FlowText.position(p) }
 
     static func teamName(_ t: Team) -> String {
         switch t {
@@ -175,55 +157,6 @@ enum LiveOpsFormat {
 
 // MARK: - 部品
 
-/// 進捗バー（0〜1）。
-struct LiveOpsProgressBar: View {
-    var fraction: Double
-    var tint: Color = Theme.cyan
-    var height: CGFloat = 8
-
-    var body: some View {
-        let f = fraction.isFinite ? min(1, max(0, fraction)) : 0
-        Capsule()
-            .fill(Color.white.opacity(0.10))
-            .overlay(alignment: .leading) {
-                GeometryReader { g in
-                    Capsule()
-                        .fill(LinearGradient(colors: [tint.opacity(0.7), tint], startPoint: .leading, endPoint: .trailing))
-                        .frame(width: f > 0 ? max(height, g.size.width * f) : 0)
-                }
-            }
-            .frame(height: height)
-            .accessibilityHidden(true)
-    }
-}
-
-/// 空状態の表示。
-struct LiveOpsEmptyState: View {
-    let symbol: String
-    let title: String
-    let message: String
-
-    var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(Theme.cyan.opacity(0.85))
-            Text(title)
-                .font(Theme.heading(17))
-                .foregroundStyle(Theme.textPrimary)
-                .multilineTextAlignment(.center)
-            Text(message)
-                .font(Theme.body(13))
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(24)
-        .frame(maxWidth: 440)
-        .accessibilityElement(children: .combine)
-    }
-}
-
 /// 小さなラベル（状態・種別表示）。
 struct LiveOpsTag: View {
     let text: String
@@ -242,25 +175,6 @@ struct LiveOpsTag: View {
         .padding(.vertical, 3)
         .background(Capsule().fill(color.opacity(0.16)))
         .overlay(Capsule().stroke(color.opacity(0.45), lineWidth: 0.5))
-    }
-}
-
-/// パネル見出し。
-struct LiveOpsSectionHeader: View {
-    let title: String
-    var symbol: String?
-    var tint: Color = Theme.gold
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if let symbol {
-                Image(systemName: symbol).foregroundStyle(tint)
-            }
-            Text(title)
-                .foregroundStyle(Theme.textPrimary)
-        }
-        .font(Theme.heading(15))
-        .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -296,101 +210,6 @@ struct LiveOpsCountdownLabel: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(text)
         }
-    }
-}
-
-/// セグメント選択肢。
-struct LiveOpsSegmentOption<Value: Hashable>: Identifiable {
-    let value: Value
-    let title: String
-    var symbol: String?
-    /// 右肩のバッジ数（0 で非表示）。
-    var badge: Int = 0
-    let identifier: String
-    var id: String { identifier }
-}
-
-/// 44pt 以上のタップ領域を持つセグメント選択。
-struct LiveOpsSegmented<Value: Hashable>: View {
-    let options: [LiveOpsSegmentOption<Value>]
-    @Binding var selection: Value
-    var axis: Axis = .horizontal
-    var tint: Color = Theme.cyan
-    var onChange: ((Value) -> Void)?
-
-    var body: some View {
-        let layout = axis == .horizontal ? AnyLayout(HStackLayout(spacing: 6)) : AnyLayout(VStackLayout(spacing: 6))
-        layout {
-            ForEach(options) { option in
-                segment(option)
-            }
-        }
-    }
-
-    private func segment(_ option: LiveOpsSegmentOption<Value>) -> some View {
-        let selected = option.value == selection
-        return Button {
-            guard selection != option.value else { return }
-            selection = option.value
-            onChange?(option.value)
-        } label: {
-            HStack(spacing: 6) {
-                if let symbol = option.symbol {
-                    Image(systemName: symbol).font(.system(size: 13, weight: .bold))
-                }
-                Text(option.title)
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                if option.badge > 0 {
-                    Text("\(option.badge)")
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 1)
-                        .background(Capsule().fill(Theme.gold))
-                }
-            }
-            .foregroundStyle(selected ? Color.black.opacity(0.85) : Theme.textPrimary)
-            .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(selected ? AnyShapeStyle(LinearGradient(colors: [tint, tint.opacity(0.75)], startPoint: .top, endPoint: .bottom))
-                                   : AnyShapeStyle(Color.white.opacity(0.07)))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(selected ? Color.white.opacity(0.5) : Theme.panelStroke, lineWidth: 1)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(option.identifier)
-        .accessibilityLabel(option.badge > 0 ? "\(option.title), \(L("受取可能", "claimable")) \(option.badge)" : option.title)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-    }
-}
-
-/// 報酬の小チップ（アイコン + 数量）。
-struct LiveOpsRewardChip: View {
-    let attachment: MailAttachment
-
-    var body: some View {
-        HStack(spacing: 4) {
-            RewardClaimIcon(attachment: attachment, size: 20)
-            Text(RewardClaimText.chipText(attachment))
-                .font(Theme.mono(12))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-                .monospacedDigit()
-        }
-        .padding(.leading, 3)
-        .padding(.trailing, 8)
-        .padding(.vertical, 3)
-        .background(Capsule().fill(Color.black.opacity(0.35)))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(RewardClaimText.name(attachment))
     }
 }
 

@@ -58,6 +58,9 @@ final class FriendTests: XCTestCase {
             var p = Profile()
             p.onboardingCompleted = true
             p.displayName = "Me"
+            // オンラインのルールに同意済みの大人（受信箱へ繋ぐ条件。OnlineAccess）
+            p.ageBracket = .adult
+            p.acceptedOnlineRulesVersion = FeatureFlags.currentOnlineRulesVersion
             profile = p
         }
     }
@@ -303,6 +306,26 @@ final class FriendTests: XCTestCase {
         host.profile.onboardingCompleted = false
         hub.start()
         XCTAssertTrue(net.sockets.isEmpty, "はじめの設定の前は繋がない")
+    }
+
+    /// オンラインのルールに同意するまで・13 歳未満は受信箱へ繋がない（ガイドライン 1.2 / 5.1。OnlineAccess）。
+    func testHubConnectsOnlyAfterOnlineConsentAndNotUnder13() {
+        let net = Network()
+        let clock = ManualRelayScheduler()
+        let host = StubHost()
+        let hub = FriendHub(baseURL: { InMemoryRelay.baseURL }, makeSocket: net.factory, schedule: clock.scheduler)
+        hub.host = host
+        hub.isEnabled = { true }
+        host.profile.acceptedOnlineRulesVersion = 0
+        hub.start()
+        XCTAssertTrue(net.sockets.isEmpty, "ルールに同意する前は繋がない")
+        host.profile.acceptedOnlineRulesVersion = FeatureFlags.currentOnlineRulesVersion
+        host.profile.ageBracket = .under13
+        hub.start()
+        XCTAssertTrue(net.sockets.isEmpty, "13 歳未満は繋がない")
+        host.profile.ageBracket = .age13to15
+        hub.start()
+        XCTAssertEqual(net.sockets.count, 1, "同意した 13 歳以上は繋ぐ")
     }
 
     func testRequestFriendSendsQueuedRequestAndTracksOutgoing() throws {
@@ -589,6 +612,285 @@ final class FriendTests: XCTestCase {
         XCTAssertEqual(rig.net.sockets.count, 2)
     }
 
+    // MARK: - ブロック（ガイドライン 1.2）
+
+    func testBlockRemovesFriendAndRequestsAndDropsTheirMessages() throws {
+        let rig = makeRig(friends: [friendA])
+        rig.net.last.receive(msg(from: friendB, #"{"k":"friendRequest","name":"Bob"}"#))
+        _ = rig.hub.requestFriend(code: stranger)
+        rig.hub.block(code: friendA, name: "F-A")
+        rig.hub.block(code: friendB, name: "Bob")
+        rig.hub.block(code: stranger, name: "")
+        XCTAssertTrue(rig.hub.friends.isEmpty, "ブロックしたフレンドは外れる")
+        XCTAssertTrue(rig.hub.incomingRequests.isEmpty, "届いた申請も消える")
+        XCTAssertTrue(rig.host.profile.outgoingFriendRequests.isEmpty, "送った申請も取り下げる（送り直さない）")
+        XCTAssertEqual(rig.host.profile.blockedPlayers.map(\.code), [friendA, friendB, stranger])
+        XCTAssertTrue(rig.hub.isBlocked(friendA))
+        let sentBefore = rig.net.last.sent.count
+        // 以後、申請・承認・招待は捨てる（返事もしない）
+        rig.net.last.receive(msg(from: friendB, #"{"k":"friendRequest","name":"Bob"}"#))
+        rig.net.last.receive(msg(from: friendA, #"{"k":"friendAccept","name":"F-A"}"#))
+        rig.net.last.receive(msg(from: friendA, invitePayload()))
+        XCTAssertTrue(rig.hub.incomingRequests.isEmpty)
+        XCTAssertTrue(rig.hub.friends.isEmpty)
+        XCTAssertNil(rig.hub.pendingInvite)
+        XCTAssertEqual(rig.net.last.sent.count, sentBefore, "ブロックした相手には何も送らない")
+        // 二重に登録しない・自分はブロックできない
+        rig.hub.block(code: friendA, name: "again")
+        rig.hub.block(code: rig.host.profile.friendCode, name: "Me")
+        XCTAssertEqual(rig.host.profile.blockedPlayers.count, 3)
+    }
+
+    func testBlockingTheInviterDeclinesTheShownInvite() throws {
+        let rig = makeRig(friends: [friendA])
+        rig.net.last.receive(msg(from: friendA, invitePayload()))
+        XCTAssertNotNil(rig.hub.pendingInvite)
+        rig.hub.block(code: friendA, name: "F-A")
+        XCTAssertNil(rig.hub.pendingInvite)
+        XCTAssertTrue(rig.joined.invites.isEmpty)
+        let reply = try XCTUnwrap(rig.net.last.sentJSON("send").last)
+        XCTAssertEqual((reply["m"] as? [String: Any])?["answer"] as? String, "decline")
+    }
+
+    func testRequestToBlockedPlayerIsRefusedUntilUnblocked() {
+        let rig = makeRig()
+        rig.hub.block(code: friendA, name: "A")
+        XCTAssertEqual(rig.hub.requestFriend(code: friendA), .blocked)
+        XCTAssertTrue(rig.host.profile.outgoingFriendRequests.isEmpty)
+        rig.hub.unblock(code: friendA)
+        XCTAssertFalse(rig.hub.isBlocked(friendA))
+        XCTAssertEqual(rig.hub.requestFriend(code: friendA), .sent)
+    }
+
+    func testOffensiveNamesFromTheInboxAreHidden() throws {
+        let rig = makeRig(friends: [friendA])
+        rig.net.last.receive(msg(from: friendB, #"{"k":"friendRequest","name":"fuck"}"#))
+        XCTAssertEqual(rig.hub.incomingRequests.first?.name, "", "不適切な名前は隠す（画面では「フレンド」）")
+        rig.net.last.receive(msg(from: friendA, #"{"k":"partyInvite","name":"A","room":"\#(roomCode)","roomName":"死ね部屋"}"#))
+        XCTAssertEqual(try XCTUnwrap(rig.hub.pendingInvite).roomName, "")
+    }
+
+    func testResetDropsRequestsAndInvites() {
+        let rig = makeRig(friends: [friendA])
+        rig.net.last.receive(msg(from: friendB, #"{"k":"friendRequest","name":"Bob"}"#))
+        rig.net.last.receive(msg(from: friendA, invitePayload()))
+        rig.hub.reset()
+        XCTAssertTrue(rig.hub.incomingRequests.isEmpty)
+        XCTAssertNil(rig.hub.pendingInvite)
+        XCTAssertEqual(rig.hub.status, .offline)
+    }
+
+    func testOldProfileWithoutSafetyKeysLoadsAndSanitizeCleansBlocks() throws {
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: PersistenceService.makeEncoder().encode(Profile())) as? [String: Any])
+        for key in ["blockedPlayers", "acceptedOnlineRulesVersion", "outgoingFriendRequestDates", "inboxRegistered"] { object[key] = nil }
+        let merged = PersistenceService.mergingDefaults(into: object)
+        let profile = try PersistenceService.makeDecoder().decode(Profile.self, from: JSONSerialization.data(withJSONObject: merged))
+        XCTAssertTrue(profile.blockedPlayers.isEmpty)
+        XCTAssertEqual(profile.acceptedOnlineRulesVersion, 0, "旧版の利用者もオンラインのルールに同意し直す")
+        XCTAssertTrue(profile.outgoingFriendRequestDates.isEmpty)
+        XCTAssertFalse(profile.inboxRegistered)
+
+        var p = Profile()
+        p.blockedPlayers = [BlockedPlayer(code: friendA, name: "A", blockedAt: Date()), BlockedPlayer(code: friendA, name: "dup", blockedAt: Date()),
+                            BlockedPlayer(code: "bad", name: "B", blockedAt: Date()), BlockedPlayer(code: p.friendCode, name: "self", blockedAt: Date())]
+        PersistenceService.sanitize(&p)
+        XCTAssertEqual(p.blockedPlayers.map(\.name), ["A"])
+    }
+
+    func testBackupRestoreKeepsBlocksAndOnlineConsent() {
+        var current = Profile()
+        current.blockedPlayers = [BlockedPlayer(code: friendA, name: "A", blockedAt: Date())]
+        current.acceptedOnlineRulesVersion = FeatureFlags.currentOnlineRulesVersion
+        var imported = Profile()
+        imported.blockedPlayers = [BlockedPlayer(code: friendB, name: "B", blockedAt: Date())]
+        let merged = BackupRestore.merged(imported: imported, current: current)
+        XCTAssertEqual(Set(merged.blockedPlayers.map(\.code)), [friendA, friendB], "古いバックアップでブロックが外れない")
+        XCTAssertEqual(merged.acceptedOnlineRulesVersion, FeatureFlags.currentOnlineRulesVersion)
+    }
+
+    // MARK: - 中継の受信箱の消去・利用停止（ガイドライン 5.1.1(v) / 1.2）
+
+    /// 消去の要求の送り手の代役（送った要求を覚え、応答の状態コード・通信の失敗を選べる）。
+    private final class EraseRecorder: @unchecked Sendable {
+        var requests: [URLRequest] = []
+        var status = 200
+        var fails = false
+
+        var transport: FriendInboxEraser.Transport {
+            { [self] request in
+                self.requests.append(request)
+                if self.fails { throw URLError(.notConnectedToInternet) }
+                return (Data(#"{"ok":true,"result":"erased"}"#.utf8),
+                        HTTPURLResponse(url: request.url!, statusCode: self.status, httpVersion: nil, headerFields: nil)!)
+            }
+        }
+    }
+
+    func testInboxEraseRequestUsesHTTPSAndKeepsTheKeyOutOfTheURL() throws {
+        let url = OnlineRelayConfig.inboxEraseURL(base: URL(string: "wss://relay.test/base/")!, code: friendA)
+        XCTAssertEqual(url.absoluteString, "https://relay.test/base/v1/inbox/\(friendA)/erase")
+        XCTAssertEqual(OnlineRelayConfig.inboxEraseURL(base: URL(string: "ws://127.0.0.1:8787")!, code: friendA).absoluteString,
+                       "http://127.0.0.1:8787/v1/inbox/\(friendA)/erase")
+        let request = FriendInboxEraser.request(base: InMemoryRelay.baseURL, code: friendA, key: "k-0123456789abcdef")
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertFalse(request.url!.absoluteString.contains("k-0123456789abcdef"), "鍵は URL に載せない")
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: String])
+        XCTAssertEqual(body, ["key": "k-0123456789abcdef"])
+        XCTAssertEqual(FriendInboxEraser.result(status: 200), .erased)
+        XCTAssertEqual(FriendInboxEraser.result(status: 403), .erased, "ほかの鍵の持ち主のコード = 自分の受信箱は無い")
+        XCTAssertEqual(FriendInboxEraser.result(status: 500), .failed)
+        XCTAssertEqual(FriendInboxEraser.result(status: 0), .failed)
+    }
+
+    func testEraseServerDataDeletesTheInboxAndStartsOverWithANewCode() async throws {
+        let rig = makeRig(friends: [friendA])
+        let recorder = EraseRecorder()
+        rig.hub.eraseTransport = recorder.transport
+        _ = rig.hub.requestFriend(code: friendB)
+        rig.hub.block(code: stranger, name: "S")
+        let oldCode = rig.host.profile.friendCode, oldKey = rig.host.profile.inboxKey
+        XCTAssertTrue(rig.host.profile.inboxRegistered, "繋がった（hello を受けた）ら記録する")
+        XCTAssertTrue(rig.hub.hasServerData)
+
+        let done = expectation(description: "erased")
+        var ok: Bool?
+        rig.hub.eraseServerData { result in
+            ok = result
+            done.fulfill()
+        }
+        XCTAssertEqual(rig.hub.status, .offline, "消す前に受信箱を切る")
+        await fulfillment(of: [done], timeout: 5)
+        XCTAssertEqual(ok, true)
+        // クラウドのランク（同じコードと鍵の RankAccount）とアカウントを先に消し、続けて受信箱を消す。鍵は本文に入れる
+        XCTAssertEqual(recorder.requests.map { $0.url?.path },
+                       ["/v1/rank/\(oldCode)/erase", "/v1/account/\(oldCode)/erase", "/v1/inbox/\(oldCode)/erase"])
+        for request in recorder.requests {
+            XCTAssertEqual(try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: String], ["key": oldKey])
+        }
+        let p = rig.host.profile
+        XCTAssertNotEqual(p.friendCode, oldCode, "消したコードは二度と使えないので、新しいコードにする")
+        XCTAssertNotEqual(p.inboxKey, oldKey)
+        XCTAssertTrue(FriendCode.isValid(p.friendCode))
+        XCTAssertTrue(p.friends.isEmpty)
+        XCTAssertTrue(p.outgoingFriendRequests.isEmpty)
+        XCTAssertTrue(p.outgoingFriendRequestDates.isEmpty)
+        XCTAssertFalse(p.inboxRegistered)
+        XCTAssertEqual(p.blockedPlayers.map(\.code), [stranger], "ブロックは残す")
+        XCTAssertFalse(rig.hub.hasServerData)
+    }
+
+    func testEraseServerDataFailureKeepsTheProfile() async {
+        let rig = makeRig(friends: [friendA])
+        let recorder = EraseRecorder()
+        recorder.fails = true
+        rig.hub.eraseTransport = recorder.transport
+        let oldCode = rig.host.profile.friendCode
+        let done = expectation(description: "failed")
+        var ok: Bool?
+        rig.hub.eraseServerData { result in
+            ok = result
+            done.fulfill()
+        }
+        await fulfillment(of: [done], timeout: 5)
+        XCTAssertEqual(ok, false)
+        XCTAssertEqual(rig.host.profile.friendCode, oldCode, "通信に失敗したら端末の状態は変えない（もう一度試せる）")
+        XCTAssertEqual(rig.host.profile.friends.map(\.code), [friendA])
+        XCTAssertEqual(recorder.requests.map { $0.url?.path }, ["/v1/rank/\(oldCode)/erase"],
+                       "ランクを消せなければ受信箱も消さない（受信箱を消すとコードが変わり、古いコードのランクを消せなくなる）")
+    }
+
+    /// クラウドのランクの消去: https・鍵は本文だけ。200 と 403 forbidden（ほかの鍵の持ち主のコード）は消えたもの、
+    /// 403 suspended・500・通信の失敗はもう一度試す。
+    func testRankEraseRequestAndResults() async throws {
+        let key = "k-0123456789abcdef"
+        let request = RankCloud.request(base: InMemoryRelay.baseURL, code: friendA, op: "erase", body: ["key": key])
+        XCTAssertEqual(request.url?.absoluteString, "https://relay.test/v1/rank/\(friendA)/erase")
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertFalse(request.url!.absoluteString.contains(key), "鍵は URL に載せない")
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: String], ["key": key])
+
+        func erase(status: Int, body: String, fails: Bool = false) async -> Bool {
+            await RankCloud.erase(code: friendA, key: key, base: InMemoryRelay.baseURL) { r in
+                if fails { throw URLError(.notConnectedToInternet) }
+                return (Data(body.utf8), HTTPURLResponse(url: r.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
+            }
+        }
+        let erased = await erase(status: 200, body: #"{"ok":true,"state":{}}"#)
+        let otherOwner = await erase(status: 403, body: "forbidden\n")
+        let suspended = await erase(status: 403, body: "suspended\n")
+        let serverError = await erase(status: 500, body: "")
+        let offline = await erase(status: 200, body: "", fails: true)
+        XCTAssertTrue(erased)
+        XCTAssertTrue(otherOwner, "ほかの鍵の持ち主のコード = 自分のランクは無い")
+        XCTAssertFalse(suspended)
+        XCTAssertFalse(serverError)
+        XCTAssertFalse(offline)
+    }
+
+    func testClientStopsWhenSuspendedAndReportsAnErasedInbox() {
+        let net = Network(), clock = ManualRelayScheduler()
+        let client = makeClient(net, clock)
+        client.start()
+        net.last.receive(#"{"t":"hello","code":"\#(friendA)"}"#)
+        net.last.serverClose(4013)
+        guard case .failed(let message) = client.status else { return XCTFail("4013 は諦める") }
+        XCTAssertTrue(message.contains(FeatureFlags.supportEmail))
+        clock.runAll()
+        XCTAssertEqual(net.sockets.count, 1, "利用停止では繋ぎ直さない")
+
+        let net2 = Network(), clock2 = ManualRelayScheduler()
+        let erased = makeClient(net2, clock2)
+        var reported = 0
+        erased.onErased = { reported += 1 }
+        erased.start()
+        net2.last.serverClose(4014)
+        XCTAssertEqual(reported, 1)
+        XCTAssertEqual(erased.status, .offline)
+        clock2.runAll()
+        XCTAssertEqual(net2.sockets.count, 1, "消された受信箱へは繋ぎ直さない")
+    }
+
+    func testErasedInboxIsReplacedWithANewCodeAndReconnects() {
+        let rig = makeRig(friends: [friendA])
+        let oldCode = rig.host.profile.friendCode
+        rig.net.last.serverClose(4014)
+        let newCode = rig.host.profile.friendCode
+        XCTAssertNotEqual(newCode, oldCode)
+        XCTAssertTrue(rig.host.profile.friends.isEmpty)
+        XCTAssertEqual(rig.net.sockets.count, 2, "新しいコードで繋ぎ直す")
+        XCTAssertTrue(rig.net.last.url.path.hasSuffix("/v1/inbox/\(newCode)"))
+        XCTAssertTrue(rig.notices.texts.contains { $0.contains("新しいフレンドコード") })
+    }
+
+    func testOutgoingRequestsStopBeingResentAfter14Days() {
+        var t = Date(timeIntervalSince1970: 1_000_000)
+        let rig = makeRig(online: false)
+        rig.hub.now = { t }
+        XCTAssertEqual(rig.hub.requestFriend(code: friendA), .sent)
+        XCTAssertEqual(rig.host.profile.outgoingFriendRequestDates[friendA], t)
+        // 旧版で記録した日時の無い申請は、今から数える
+        rig.host.profile.outgoingFriendRequests.append(friendB)
+        rig.net.last.receive(#"{"t":"hello","code":"\#(rig.host.profile.friendCode)"}"#)
+        XCTAssertEqual(Set(rig.net.last.sentJSON("send").compactMap { $0["to"] as? String }), [friendA, friendB])
+        XCTAssertEqual(rig.host.profile.outgoingFriendRequestDates[friendB], t)
+
+        // 14 日を過ぎたら、繋ぎ直しても送り直さずに取り下げる
+        t = t.addingTimeInterval(FriendHub.outgoingRequestLifetime + 60)
+        rig.hub.stop()
+        rig.hub.start()
+        rig.net.last.receive(#"{"t":"hello","code":"\#(rig.host.profile.friendCode)"}"#)
+        XCTAssertTrue(rig.net.last.sentJSON("send").isEmpty, "期限を過ぎた申請は送り直さない")
+        XCTAssertTrue(rig.host.profile.outgoingFriendRequests.isEmpty)
+        XCTAssertTrue(rig.host.profile.outgoingFriendRequestDates.isEmpty)
+    }
+
+    func testBackupRestoreKeepsInboxRegistration() {
+        var current = Profile()
+        current.inboxRegistered = true
+        let merged = BackupRestore.merged(imported: Profile(), current: current)
+        XCTAssertTrue(merged.inboxRegistered, "全データの削除で中継の受信箱も消せるように、繋いだ記録は残す")
+    }
+
     // MARK: - パーティの席
 
     private func room(hostSeat: Int?, taken: [Int: String] = [:], phase: OnlineRoomPhase = .lobby) -> OnlineRoom {
@@ -597,6 +899,32 @@ final class FriendTests: XCTestCase {
         for (i, id) in taken { room.seats[i].peerID = id }
         room.phase = phase
         return room
+    }
+
+    /// リザルトの通報・ブロックの相手は、試合を始めた時の座席から引く（隠した名前は「プレイヤー」に揃い、名前では区別できない）。
+    func testSeatPlayersAreCapturedBySeatNotByName() {
+        var r = room(hostSeat: 0, taken: [1: "p1", 6: "p2"])
+        r.peers = [OnlinePeer(id: "host", name: "Host", friendCode: stranger),
+                   OnlinePeer(id: "p1", name: "Player", friendCode: friendA),
+                   OnlinePeer(id: "p2", name: "Player", friendCode: friendB)]
+        for (i, hero) in [(0, "H025"), (1, "H026"), (6, "H027")] {
+            r.seats[i].loadout.heroID = hero
+            r.seats[i].name = "Player"
+        }
+        let config = r.makeConfig(seed: 1, master: MasterData.shared)
+        let seated = OnlineSeatPlayer.capture(room: r, players: config.players)
+        XCTAssertEqual(Set(seated.keys), [0, 1, 6])
+        XCTAssertEqual(seated[1], OnlineSeatPlayer(peerID: "p1", friendCode: friendA))
+        XCTAssertEqual(seated[6], OnlineSeatPlayer(peerID: "p2", friendCode: friendB))
+        for (i, who) in seated {
+            XCTAssertEqual(config.players[i].controller, .human, "座席 \(i) は試合の構成でも人間の枠")
+            XCTAssertEqual(config.players[i].heroID, r.seats[i].loadout.heroID, "座席の並び = 試合の構成の並び（\(who.peerID)）")
+        }
+        // 同じ名前でも、座席が違えば別の相手（通報の対象の ID も座席で分かれる）
+        let a = PlayerReportTarget(name: "Player", friendCode: friendA, peerID: "p1", source: .match, seat: 1)
+        let b = PlayerReportTarget(name: "Player", source: .match, seat: 6)
+        let c = PlayerReportTarget(name: "Player", source: .match, seat: 7)
+        XCTAssertEqual(Set([a.id, b.id, c.id]).count, 3)
     }
 
     func testPartySeatIsFirstFreeSeatOnHostsTeam() {

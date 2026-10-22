@@ -56,11 +56,11 @@ struct InventoryView: View {
 
     private var currencyRow: some View {
         HStack(spacing: 8) {
-            currencyCard(title: "StarlightCoin", symbol: "star.circle.fill", color: Theme.gold, amount: app.profile.starlightCoin,
+            currencyCard(title: "StarlightCoin", symbol: "star.circle.fill", currency: .coin, color: Theme.gold, amount: app.profile.starlightCoin,
                          note: L("プレイ報酬", "Play rewards"))
-            currencyCard(title: L("AstralGem（無償）", "AstralGem (Free)"), symbol: "diamond.fill", color: Theme.cyan,
+            currencyCard(title: L("AstralGem（無償）", "AstralGem (Free)"), symbol: "diamond.fill", currency: .gem, color: Theme.cyan,
                          amount: app.profile.freeGem, note: L("報酬で獲得・先に消費", "From rewards, spent first"))
-            currencyCard(title: L("AstralGem（有償）", "AstralGem (Paid)"), symbol: "diamond.fill",
+            currencyCard(title: L("AstralGem（有償）", "AstralGem (Paid)"), symbol: "diamond.fill", currency: .paidGem,
                          color: Color(red: 0.72, green: 0.52, blue: 1.0), amount: app.profile.paidGem,
                          note: L("購入分", "Purchased"))
             currencyCard(title: L("Gem 合計", "Total Gems"), symbol: "sum", color: Theme.textPrimary, amount: app.profile.totalGem,
@@ -68,11 +68,15 @@ struct InventoryView: View {
         }
     }
 
-    private func currencyCard(title: String, symbol: String, color: Color, amount: Int, note: String?) -> some View {
+    private func currencyCard(title: String, symbol: String, currency: CurrencyIcon.Kind? = nil, color: Color, amount: Int, note: String?) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: symbol)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(color)
+            if let currency {
+                CurrencyIcon(kind: currency, size: 20)
+            } else {
+                Image(systemName: symbol)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(color)
+            }
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(Theme.body(10)).foregroundStyle(Theme.textSecondary).lineLimit(1).minimumScaleFactor(0.7)
                 Text(amount.formatted()).font(Theme.mono(15)).foregroundStyle(Theme.textPrimary).monospacedDigit()
@@ -105,7 +109,8 @@ struct InventoryView: View {
         HStack(spacing: 6) {
             ScrollView(.horizontal) {
                 HStack(spacing: 6) {
-                    ForEach(InventoryTab.allCases) { t in
+                    // スキンは出しているヒーローの分が無い間はタブごと出さない（空のスキンストアへ案内しない。ストアのホームと同じ）
+                    ForEach(InventoryTab.allCases.filter { $0 != .heroSkin || counts($0).total > 0 }) { t in
                         let c = counts(t)
                         CollectionFilterChip(title: "\(t.title) \(c.owned)/\(c.total)", symbol: t.symbol, color: Theme.cyan,
                                              isSelected: tab == t) { tab = t }
@@ -135,7 +140,7 @@ struct InventoryView: View {
             let owned = CosmeticInfo.owned(type, profile: app.profile, master: app.master)
             if owned.isEmpty {
                 VStack(spacing: 8) {
-                    CollectionEmptyState(symbol: CollectionStyle.cosmeticTypeSymbol(type),
+                    EmptyStateView(symbol: CollectionStyle.cosmeticTypeSymbol(type),
                                          title: L("\(CollectionStyle.cosmeticTypeName(type))をまだ所持していません",
                                                   "You don't own any \(CollectionStyle.cosmeticTypeName(type)) yet"),
                                          message: L("ストアやイベント報酬で入手できます。", "Get them from the store or event rewards."))

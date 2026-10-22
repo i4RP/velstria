@@ -3,8 +3,12 @@
 // tools/stage/build_shaders.sh が metallib（実機 / シミュレータ / macOS）を作り App/Resources/Stage/ へ置く。
 // テクスチャの割り当て・配合マップの意味は docs/STAGE.md の 3.4 を参照。
 //
-// 座標: 地図座標 m = (x, -z)（m）。+m.y が北（画面の上）。地面の配合マップは m = (-20…140, -20…140) を覆い、
-// 画像の上端が北（m.y = 140）。テクスチャは画像の上端が v = 0（Metal の向き。RealityKit 標準材質の UV とは上下が逆）。
+// 座標: 地図座標 m = (x, -z)（m）。+m.y が北（画面の上）。地面の配合マップは m = (-20…152, -20…152) を覆い、
+// 画像の上端が北（m.y = 152）。テクスチャは画像の上端が v = 0（Metal の向き。RealityKit 標準材質の UV とは上下が逆）。
+//
+// 素材のセット（StageArtSet）: custom_parameter の「新セット」の値（地面は w、崖の芯は x、小物・草花は y）が 1 のとき
+// 2026-10-12 の「遺跡と森」の色合わせ・石畳の風化・個体ごとの揺れを使う。0 は 2026-10-05 の旧セット（-legacyStage）の
+// 見た目のまま（旧セットの式は変えない）。
 
 #include <metal_stdlib>
 #include <RealityKit/RealityKit.h>
@@ -20,7 +24,7 @@ constexpr sampler mapSampler(coord::normalized, address::clamp_to_edge, filter::
 constexpr sampler atlasSampler(coord::normalized, address::clamp_to_edge, filter::linear, mip_filter::linear, max_anisotropy(2));
 
 constant float kMapOrigin = -20.0;
-constant float kMapSpan = 160.0;
+constant float kMapSpan = 172.0;
 
 // タイルの実寸の周期（m）
 constant float kPeriodGrass = 6.0;
@@ -115,8 +119,9 @@ inline float caustics(float2 m, float t) {
     float3 mp = params.geometry().model_position();
     float2 m = float2(mp.x, -mp.z);
     float t = params.uniforms().time();
-    // x: タイルの繰り返し対策の強さ（low 0）、y: 水面の動きの強さ、z: 異方性（1 / 2 / 4）、w: 予備
+    // x: タイルの繰り返し対策の強さ（low 0）、y: 水面の動きの強さ、z: 異方性（1 / 2 / 4）、w: 新セット（1）/ 旧セット（0）
     float4 cp = params.uniforms().custom_parameter();
+    bool ruins = cp.w > 0.5;
     auto tex = params.textures();
     float2 dmx = dfdx(m), dmy = dfdy(m);
 
@@ -138,24 +143,55 @@ inline float caustics(float2 m, float t) {
     // 各層（重みが無い層は読まない）
     half3 cGrass = half3(0), cForest = half3(0), cDirt = half3(0), cPave = half3(0), cBed = half3(0);
     float hGrass = 0, hForest = 0, hDirt = 0, hPave = 0, hBed = 0;
+    // 石畳の風化（aux.a、新セットだけ。0 = 拠点の中央のきれいな床、1 = 縁の苔むした石）
+    float wear = ruins ? float(aux.a) : 0.0;
     if (wGrass > 0.004) {
         cGrass = sampleTile(tex.base_color(), m, kPeriodGrass, dmx, dmy, variation, 0.0, aniso);
-        cGrass *= half3(0.93, 0.98, 0.86);
-        cGrass = saturateColor(cGrass, 0.86h);
+        if (ruins) {
+            cGrass = saturateColor(cGrass, 0.76h) * half3(0.74, 0.89, 0.94);
+        } else {
+            cGrass *= half3(0.93, 0.98, 0.86);
+            cGrass = saturateColor(cGrass, 0.86h);
+        }
         hGrass = luma(cGrass) * 0.9 + 0.12;
     }
     if (wForest > 0.004) {
         cForest = sampleTile(tex.specular(), m, kPeriodForest, dmx, dmy, variation, 0.31, aniso);
-        cForest *= half3(0.95, 1.0, 0.95);
+        cForest *= ruins ? half3(1.0, 1.04, 1.0) : half3(0.95, 1.0, 0.95);
         hForest = luma(cForest) * 0.9 + 0.1;
     }
     if (wDirt > 0.004) {
         cDirt = sampleTile(tex.emissive_color(), m, kPeriodDirt, dmx, dmy, variation, 0.57, aniso);
-        cDirt = saturateColor(cDirt, 0.58h) * half3(0.97, 0.9, 0.82);
-        hDirt = (1.0 - luma(cDirt)) * 0.35 + 0.2; // 割れ目（暗い所）は低い → 草が被さる
+        if (ruins) {
+            // 踏み固めた土: 草地より明るく暖かく（道を読みやすく）。小石（明るい所）は高く、土の窪みに草が被さる
+            cDirt = saturateColor(cDirt, 0.9h) * half3(1.2, 1.13, 1.02);
+            hDirt = luma(cDirt) * 0.5 + 0.16;
+        } else {
+            cDirt = saturateColor(cDirt, 0.58h) * half3(0.97, 0.9, 0.82);
+            hDirt = (1.0 - luma(cDirt)) * 0.35 + 0.2; // 割れ目（暗い所）は低い → 草が被さる
+        }
     }
     if (wPave > 0.004) {
-        cPave = sampleTile(tex.roughness(), m, kPeriodPaving, dmx, dmy, variation, 0.19, aniso) * half3(0.92, 0.93, 0.95);
+        cPave = sampleTile(tex.roughness(), m, kPeriodPaving, dmx, dmy, variation, 0.19, aniso);
+        if (ruins) {
+            // 中央のきれいな床は石目のコントラストを抑えて明るく揃える（ユニットの足元を読みやすく）。
+            // 風化した所は石を苔寄りに暗くし、石ごとのむらを強め、暗い目地を苔（森の下草のタイル）で埋める
+            auto pt = tex.roughness();
+            half3 pMean = pt.sample(tileSampler1, float2(0.5), level(float(pt.get_num_mip_levels() - 1))).rgb;
+            float rel = luma(cPave) / max(1e-3, luma(pMean));
+            cPave = pMean + (cPave - pMean) * half(mix(0.72, 1.0, wear));
+            float slab = vnoise(m * 1.7 + 4.1);
+            half3 worn = cPave * half3(0.80, 0.90, 0.76) * half(0.84 + 0.26 * slab);
+            cPave = mix(cPave * half3(1.12, 1.12, 1.09), worn, half(wear * 0.8));
+            if (wear > 0.03) {
+                half3 mossC = wForest > 0.004 ? cForest
+                    : sampleTile(tex.specular(), m, kPeriodForest, dmx, dmy, variation, 0.31, aniso);
+                float grout = smoothstep(0.8, 0.45, rel) * smoothstep(0.03, 0.5, wear);
+                cPave = mix(cPave, mossC * half3(1.05, 1.15, 1.0), half(grout * 0.85));
+            }
+        } else {
+            cPave *= half3(0.92, 0.93, 0.95);
+        }
         hPave = luma(cPave) * 0.8 + 0.25;
     }
     if (wRiver > 0.004) {
@@ -195,14 +231,15 @@ inline float caustics(float2 m, float t) {
     if (wRiver > 0.004) {
         float d = float(aux.b);                      // 0 = 岸、1 = 中央
         float wet = smoothstep(0.15, 0.55, wRiver);  // 水に覆われている度合い
-        // 色は線形値（sRGB で浅瀬 (60,150,150)、深み (25,85,105) 相当）
-        half3 shallow = half3(0.03, 0.20, 0.22);
-        half3 deep = half3(0.008, 0.07, 0.12);
+        // 参照の川は青灰色の浅瀬。中央でも川底の石を残す（色は線形値）。
+        half3 shallow = ruins ? half3(0.055, 0.13, 0.13) : half3(0.03, 0.20, 0.22);
+        half3 deep = ruins ? half3(0.03, 0.08, 0.10) : half3(0.008, 0.07, 0.12);
         half3 water = mix(shallow, deep, half(smoothstep(0.0, 1.0, d)));
-        half3 under = color * half3(0.40, 0.62, 0.68) * half(mix(0.85, 0.3, d));
-        half3 surf = mix(under, water, half(0.55 + 0.4 * d));
+        half3 under = color * (ruins ? half3(0.50, 0.72, 0.78) : half3(0.40, 0.62, 0.68))
+            * half(ruins ? mix(1.0, 0.8, d) : mix(0.85, 0.3, d));
+        half3 surf = mix(under, water, half(ruins ? 0.52 + 0.18 * d : 0.55 + 0.4 * d));
         // 浅瀬のコースティクス
-        float caus = caustics(m, t * cp.y) * (1.0 - d) * 0.10;
+        float caus = caustics(m, t * cp.y) * (1.0 - d) * (ruins ? 0.012 : 0.10);
         surf += half3(0.55, 0.85, 0.8) * half(caus);
         // さざ波の明暗と照り返し（太陽は左上の奥）
         float r0 = rippleHeight(m, t * cp.y);
@@ -210,14 +247,14 @@ inline float caustics(float2 m, float t) {
         float ry = rippleHeight(m + float2(0, 0.15), t * cp.y) - r0;
         float glint = pow(saturate(0.5 + (-rx * 0.8 + ry * 1.1) * 3.5), 6.0);
         float sparkle = step(0.86, vnoise(m * 4.0 + float2(t * 0.9, -t * 0.7))) * step(0.6, vnoise(m * 1.3 - t * 0.3));
-        emissive += half3(0.75, 0.95, 1.0) * half((glint * 0.12 + sparkle * 0.25) * wet * cp.y);
+        emissive += half3(0.75, 0.95, 1.0) * half((glint * 0.12 + sparkle * 0.25) * wet * cp.y * (ruins ? 0.08 : 1.0));
         surf *= half(0.93 + r0 * 0.14);
         // 岸の泡
         float foam = (1.0 - smoothstep(0.0, 0.55, abs(float(wRiver) - 0.42) * 4.0)) * step(0.45, vnoise(m * 2.4 + float2(t * 0.25, 0)));
-        surf = mix(surf, half3(0.62, 0.78, 0.76), half(foam * 0.3));
+        surf = mix(surf, half3(0.62, 0.78, 0.76), half(foam * (ruins ? 0.04 : 0.3)));
         color = mix(color, surf, half(wet));
-        roughness = mix(roughness, 0.18h, half(wet));
-        specular = mix(specular, 0.5h, half(wet));
+        roughness = mix(roughness, ruins ? 0.82h : 0.18h, half(wet));
+        specular = mix(specular, ruins ? 0.08h : 0.5h, half(wet));
     }
 
     // 遮蔽（崖の根元・木陰・草むらの下）: 色を青緑寄りに暗くする
@@ -247,13 +284,16 @@ inline float caustics(float2 m, float t) {
     half3 rock = sx * half(w.x) + sz * half(w.z) + sy * half(w.y);
     half3 moss = tex.roughness().sample(tileSampler2, p.xz / kPeriodMoss).rgb;
     float nz = vnoise(p.xz * 1.7 + p.y * 0.9);
-    float top = smoothstep(0.45, 0.8, n.y + (nz - 0.5) * 0.45);
-    half3 color = mix(rock, moss * half3(0.92, 1.0, 0.9), half(top));
+    // x: 新セット（1）/ 旧セット（0）。新セットは苔が上面の縁から少し垂れる
+    bool ruins = params.uniforms().custom_parameter().x > 0.5;
+    float top = ruins ? smoothstep(0.32, 0.72, n.y + (nz - 0.5) * 0.6) : smoothstep(0.45, 0.8, n.y + (nz - 0.5) * 0.45);
+    half3 color = mix(rock, moss * (ruins ? half3(0.9, 0.97, 0.88) : half3(0.92, 1.0, 0.9)), half(top));
     // 頂点色: rgb = 個体ごとの色味（0.5 が中立）
     half4 vc = half4(params.geometry().color());
     color *= vc.rgb * 2.0h;
-    // 根元を暗く
-    color *= half(mix(0.5, 1.0, smoothstep(0.0, 0.9, p.y)));
+    // 根元を暗く（新セットは湿った石の青緑寄り）
+    float base = smoothstep(0.0, 0.9, p.y);
+    color *= ruins ? mix(half3(0.46, 0.52, 0.5), half3(1.0), half(base)) : half3(half(mix(0.5, 1.0, base)));
     params.surface().set_base_color(color);
     params.surface().set_roughness(0.9h);
     params.surface().set_metallic(0.0h);
@@ -271,7 +311,22 @@ inline float caustics(float2 m, float t) {
     half4 vc = half4(params.geometry().color());
     c *= vc.rgb * 2.0h;
     float y = params.geometry().model_position().y;
-    c *= half(mix(0.62, 1.0, smoothstep(0.0, 0.7, y)));
+    if (params.uniforms().custom_parameter().y > 0.5) {
+        // 新セット: 接地する根元を湿った石・土の暗い青緑へ（地面に埋まって見える）
+        c *= mix(half3(0.5, 0.57, 0.54), half3(1.0), half(smoothstep(0.0, 0.8, y)));
+        // 葉（頂点色の a = 揺れの重み > 0）: 上を向いた面ほど日の当たる黄緑へ、葉の房のむらで平板さを崩す。
+        // 真上から見るカメラでは樹冠の上面が一番よく見えるが、Tripo の葉の色は暗い青緑で、そのままだと濡れた塊に見える
+        if (vc.a > 0.02) {
+            float3 p = params.geometry().model_position();
+            float up = saturate(normalize(params.geometry().normal()).y);
+            float leaf = vnoise(p.xz * 2.6 + p.y * 1.9) * 0.6 + vnoise(p.xz * 6.1 - p.y * 3.3) * 0.4;
+            c = saturateColor(c, 0.8h);
+            float lit = up * (0.5 + 0.5 * leaf);
+            c *= mix(half3(0.95, 1.0, 0.97), half3(1.4, 1.38, 1.02), half(lit));
+        }
+    } else {
+        c *= half(mix(0.62, 1.0, smoothstep(0.0, 0.7, y)));
+    }
     params.surface().set_base_color(c);
     params.surface().set_roughness(0.86h);
     params.surface().set_metallic(0.0h);
@@ -292,15 +347,69 @@ inline float caustics(float2 m, float t) {
     params.surface().set_specular(0.3h);
 }
 
+// Cutout keeps depth writes and avoids sorting dozens of overlapping transparent cards.
+// Fractional edge coverage uses a stable screen-door mask; rim emission models transmitted light.
+[[visible]] void stageBrushSurface(realitykit::surface_parameters params) {
+    float2 uv = params.geometry().uv0();
+    uv.y = 1.0 - uv.y;
+    half4 leaf = params.textures().base_color().sample(stage::atlasSampler, uv);
+    float2 pixel = floor(params.geometry().screen_position().xy);
+    float threshold = 0.18 + 0.58 * stage::hash12(pixel);
+    if (float(leaf.a) < threshold) { discard_fragment(); }
+    half3 tint = half3(params.geometry().color().rgb) * 2.0h;
+    half tip = half(1.0 - uv.y);
+    half rim = (1.0h - leaf.a) * tip;
+    // 葉の濃淡は残し、黄緑の房を青緑のリードに統一。根元は暗く、先端は鈍い青緑。
+    half luminance = dot(leaf.rgb, half3(0.2126h, 0.7152h, 0.0722h));
+    half tone = clamp(luminance * 2.8h, 0.0h, 1.0h);
+    half3 reed = mix(half3(0.012h, 0.060h, 0.052h), half3(0.075h, 0.245h, 0.225h), tone);
+    params.surface().set_base_color(reed * tint);
+    params.surface().set_emissive_color(reed * (0.025h + rim * 0.08h));
+    params.surface().set_roughness(0.96h);
+    params.surface().set_specular(0.07h);
+    params.surface().set_metallic(0.0h);
+    params.surface().set_ambient_occlusion(0.72h + tip * 0.28h);
+}
+
 // MARK: - 風の揺れ（頂点色の a = 揺れの重み。0 の頂点は動かない）
+// custom_parameter: x = 揺れの強さ（low 0）、y = 新セット（1）/ 旧セット（0）
 
 [[visible]] void stageWindGeometry(realitykit::geometry_parameters params) {
-    float w = params.geometry().color().a;
+    float4 vc = params.geometry().color();
+    float w = vc.a;
     float amp = params.uniforms().custom_parameter().x;
     if (w * amp <= 0.0005) { return; }
     float3 wp = params.geometry().world_position();
     float t = params.uniforms().time();
     float ph = dot(wp.xz, float2(0.23, 0.17));
+    if (params.uniforms().custom_parameter().y > 0.5) {
+        // 新セット: 個体ごとに位相と速さをずらす。頂点色の rgb は 1 個（木・茂み・草の房）の中で同じ値（個体の色味）
+        // なので、そのハッシュを個体の番号に使う（隣どうしが揃って揺れない）。ゆっくり流れる突風で強さを波打たせ、
+        // 葉先だけ細かく震わせる。どれも数 cm に抑える
+        float id = fract(sin(dot(vc.rgb, float3(12.9898, 78.233, 37.719))) * 43758.5453);
+        float phase = id * 6.2832 + ph * 0.5;
+        float speed = 0.85 + 0.3 * id;
+        float gust = 0.7 + 0.3 * sin(t * 0.31 + dot(wp.xz, float2(0.045, 0.03)));
+        float s = sin(t * 1.35 * speed + phase) * 0.7 + sin(t * 2.4 * speed + phase * 1.9) * 0.3;
+        float flutter = sin(t * 5.3 + dot(wp, float3(3.1, 2.3, 2.9))) * 0.012;
+        float3 off = float3(s * 0.065 * gust + flutter, flutter * 0.5, s * 0.032 * gust - flutter * 0.7);
+        params.geometry().set_world_position_offset(off * (w * amp));
+        return;
+    }
     float s = sin(t * 1.35 + ph) * 0.7 + sin(t * 2.4 + ph * 1.9) * 0.3;
     params.geometry().set_world_position_offset(float3(s * 0.07, 0.0, s * 0.035) * (w * amp));
+}
+
+// Authored 5v5 stage: its diffuse maps already contain lighting. Alpha cutout retains
+// opaque depth writes for foliage; no sorted transparent object per leaf/card.
+// Trilinear mip filtering with a small positive bias suppresses fine paving/leaf shimmer.
+constexpr sampler canyonSampler(coord::normalized, address::clamp_to_edge, filter::linear,
+                                 mip_filter::linear, max_anisotropy(4));
+[[visible]] void stageCanyonSurface(realitykit::surface_parameters params) {
+    float2 uv = params.geometry().uv0();
+    uv.y = 1.0 - uv.y;
+    half4 color = params.textures().base_color().sample(canyonSampler, uv, bias(0.35));
+    if (color.a < 0.45h) { discard_fragment(); }
+    // Unlit custom materials consume emissive only (RealityKit ignores base_color).
+    params.surface().set_emissive_color(color.rgb);
 }

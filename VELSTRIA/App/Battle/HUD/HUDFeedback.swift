@@ -194,7 +194,7 @@ struct HUDToastView: View {
 // MARK: - 死亡オーバーレイ
 
 /// 倒れている間の味方追従（コンパクト。操作部品より上に重ねる。復活までの秒とデス情報は HUDDeathInfoLayer のエンブレム）:
-/// - ヒーローパネルの上: 味方の一覧（タップでその味方を追う。もう一度タップで自分へ）と「自動」（戦っている味方を自動で追う）
+/// - 移動と戦闘操作の間: 横スクロールできる味方の一覧（タップでその味方を追う。もう一度タップで自分へ）と「自動」（戦っている味方を自動で追う）
 /// 敵は追えない（霧の向こうが見えてしまう。HUDModel.follow の方針）。復活すると自分の追従へ戻る。
 struct HUDDeathOverlay: View {
     let model: HUDModel
@@ -230,16 +230,22 @@ struct HUDDeathOverlay: View {
     // MARK: 味方の一覧
 
     private func strip(_ allies: [HUDDeathAlly]) -> some View {
-        HStack(spacing: HUDDeathMetrics.spacing) {
-            ForEach(Array(allies.enumerated()), id: \.element.id) { k, ally in
-                allyButton(ally, index: k)
+        ScrollView(.horizontal, showsIndicators: true) {
+            HStack(spacing: HUDDeathMetrics.spacing) {
+                ForEach(Array(allies.enumerated()), id: \.element.id) { k, ally in
+                    allyButton(ally, index: k)
+                }
+                autoButton
             }
-            autoButton
+            .padding(HUDDeathMetrics.padding)
         }
-        .padding(HUDDeathMetrics.padding)
-        .hudGlass(cornerRadius: 14)
+        .frame(width: HUDDeathMetrics.stripFrame(layout, allies: allies.count).width,
+               height: HUDDeathMetrics.stripSize(allies: allies.count).height)
+        .background(RoundedRectangle(cornerRadius: 6).fill(HUDStyle.surface.opacity(0.4)))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(HUDStyle.rim.opacity(0.45), lineWidth: 0.6))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(L("味方を見る", "Watch an ally"))
+        .accessibilityHint(L("左右にスクロールして味方と自動追従を選択", "Scroll horizontally to select allies or automatic following"))
     }
 
     private func allyButton(_ ally: HUDDeathAlly, index: Int) -> some View {
@@ -366,7 +372,7 @@ enum HUDDeathMetrics {
     /// 味方の一覧の 1 枠（タッチ領域 44pt）。
     static let cell: CGFloat = 44
     static let spacing: CGFloat = 4
-    static let padding: CGFloat = 5
+    static let padding: CGFloat = 2
 
     /// 味方の一覧の大きさ（味方 n 人 + 自動）。
     static func stripSize(allies n: Int) -> CGSize {
@@ -374,20 +380,29 @@ enum HUDDeathMetrics {
         return CGSize(width: cells * cell + (cells - 1) * spacing + padding * 2, height: cell + padding * 2)
     }
 
-    /// 味方の一覧: ヒーローパネルのすぐ上（スティックとスキル群の間）。
+    /// 移動の受付領域と戦闘操作の間に置く。クイックチャットを開いても動かない。
+    /// 狭い端末は列を横スクロールし、各44ptの味方・自動追従ボタンを維持する。
     static func stripCenter(_ l: HUDLayout) -> CGPoint {
-        let h = cell + padding * 2
-        return CGPoint(x: l.heroPanelCenterX, y: l.bottomEdge - HUDRootMetrics.heroPanelHeight(l) - 6 - h / 2)
+        let f = stripFrame(l, allies: 4)
+        return CGPoint(x: f.midX, y: f.midY)
     }
 
     static func stripFrame(_ l: HUDLayout, allies n: Int) -> CGRect {
-        let size = stripSize(allies: n)
-        let c = stripCenter(l)
-        return CGRect(x: c.x - size.width / 2, y: c.y - size.height / 2, width: size.width, height: size.height)
+        let natural = stripSize(allies: n)
+        // いったん右手配置へ戻し、左右とも同じ空き幅を使う。
+        let movementEdge = l.leftHanded ? l.mx(l.joystickZone.minX) : l.joystickZone.maxX
+        let chatEdge = l.leftHanded ? l.mx(l.signalChatMenuFrame.maxX) : l.signalChatMenuFrame.minX
+        let skillEdge = l.mx(l.levelBadgeCenter(.skill1).x)
+        let left = movementEdge + 4
+        let right = min(chatEdge - 4, skillEdge - 26)
+        let width = min(natural.width, max(cell + padding * 2, right - left))
+        let centerX = l.mx(left + width / 2)
+        let bottom = min(l.itemActiveCenter.y, l.gearActiveCenter.y) - 26
+        return CGRect(x: centerX - width / 2, y: bottom - natural.height,
+                      width: width, height: natural.height)
     }
 
     /// 降参投票のカード（avoiding）と重なる時は、味方の一覧をカードの内側（画面中央側）の隣へずらす。
-    /// 狭い画面ではスキル群の側へはみ出すが、倒れている間に使えないサモナースペルにだけ掛かる（単体テストで確認）。
     static func stripCenter(_ l: HUDLayout, allies n: Int, avoiding vote: CGRect?) -> CGPoint {
         let f = stripFrame(l, allies: n, avoiding: vote)
         return CGPoint(x: f.midX, y: f.midY)

@@ -68,9 +68,18 @@ public enum Role: String, Codable, Hashable, Sendable, CaseIterable {
     }
 }
 
+/// スキルのリソース（MLBB の「リソースバー」）。
 public enum ResourceKind: String, Codable, Hashable, Sendable {
     case mana = "Mana"
+    /// エナジー（最大 Balance.energyMax = 100）。
     case energy = "Energy"
+    /// 怒り（MLBB のディロスなど。マナは無く、スキルのコストは 0。怒りの量はキットが持つ: Kit_H032.diasRage）。
+    case rage = "Rage"
+    /// リソースなし（MLBB のアルカードなど。スキルのコストは 0）。`.none` は Optional と紛れるので別名にする。
+    case noResource = "None"
+
+    /// スキルを使うとリソースを消費するか（マナ・エナジー）。怒り・なしはユニットのリソースを持たない（最大 0）。
+    public var usesPool: Bool { self == .mana || self == .energy }
 }
 
 public enum DamageType: String, Codable, Hashable, Sendable {
@@ -174,16 +183,8 @@ public enum ItemCategory: String, Codable, Hashable, Sendable, CaseIterable {
     case movement = "Movement"
     /// ジャングルの祝福（靴に付ける。装備としては売っていない。GearOption）。
     case jungle = "Jungle"
-    /// ロームの祝福（靴に付ける。共有収入を得る代わりに自分の狩りの収入が減る。GearOption）。
+    /// ロームの祝福（靴に付ける。共栄・無私の収入を得る代わりに、最初の 8 分は単独で倒した報酬が 30%。GearOption）。
     case roam = "Roam"
-}
-
-public enum RunePath: String, Codable, Hashable, Sendable, CaseIterable {
-    case valor = "Valor"
-    case arcana = "Arcana"
-    case resolve = "Resolve"
-    case cunning = "Cunning"
-    case harmony = "Harmony"
 }
 
 public enum EffectType: String, Codable, Hashable, Sendable {
@@ -228,7 +229,7 @@ public enum Difficulty: Int, Codable, Hashable, Sendable, CaseIterable {
 public enum MatchMode: Int, Codable, Hashable, Sendable {
     /// 5v5 対 AI（通常）。
     case standard
-    /// ランク戦（対 AI、BAN あり）。
+    /// ランク戦（対 AI、ピックのドラフト）。
     case ranked
     /// 練習場（敵ヒーローなし・人形あり）。
     case practice

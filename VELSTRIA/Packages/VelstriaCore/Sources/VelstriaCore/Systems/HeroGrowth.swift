@@ -4,23 +4,25 @@ import Foundation
 // レベル成長・XP 付与/分配・スキルポイント（DESIGN §4, §6, §8）。
 
 public enum HeroGrowth {
-    /// レベル成長込みの素の能力値（DESIGN §4）。
+    /// レベル成長込みの素の能力値（DESIGN §4）。MLBB と同じく、どの項目も Lv1 の値 + 成長 × (Lv − 1)。
+    /// ヒーローごとの値は master（docs/HERO_STATS.md）。移動速度は MLBB の値のまま（マップ縮尺は StatCalculator が掛ける）、
+    /// 攻撃速度は基礎だけ（追加の攻撃速度は StatCalculator が比率を掛けて足す）。
     public static func baseStats(def: HeroDef, level: Int) -> Stats {
         let lv = min(max(1, level), Balance.maxLevel)
         let n = Double(lv - 1)
         var st = Stats()
         st.maxHP = def.baseHP + def.hpGrowth * n
-        st.maxResource = def.resourceMax
+        st.maxResource = def.resource.usesPool ? max(0, def.resourceMax + def.resourceGrowth * n) : 0
         st.attack = def.baseAttack + def.attackGrowth * n
         st.armor = def.baseDefense + def.defenseGrowth * n
         st.magicResist = def.baseMagicDefense + def.magicDefenseGrowth * n
-        let baseAS = def.isRanged ? Balance.rangedAttackSpeed : Balance.meleeAttackSpeed
-        st.attackSpeed = baseAS * (1 + Balance.attackSpeedPerLevel * n)
-        st.moveSpeed = def.moveSpeed * Balance.heroMoveSpeedScale
+        st.attackSpeed = def.attackSpeed + def.attackSpeedGrowth * n
+        st.attackSpeedRatio = def.attackSpeedRatio
+        st.moveSpeed = def.moveSpeed
         st.attackRange = def.attackRange
         st.sightRange = Balance.heroSight
-        st.hpRegen = 4 + 0.6 * Double(lv)
-        st.resourceRegen = def.resource == .energy ? Balance.energyRegenPerSecond : 3 + 0.35 * Double(lv)
+        st.hpRegen = def.hpRegen + def.hpRegenGrowth * n
+        st.resourceRegen = def.resource.usesPool ? def.resourceRegen + def.resourceRegenGrowth * n : 0
         return st
     }
 
@@ -75,11 +77,16 @@ public enum HeroGrowth {
 
     /// ミニオン・モンスターの XP を team の周囲ヒーローで分配する（DESIGN §8）。
     /// 1 人なら ×1.0、2 人以上なら合計 ×1.3 を等分。対象は pos から xpShareRadius 以内の生存ヒーロー。
-    /// isMonster = 中立モンスター由来（ローム靴の収入制限の対象。ミニオン由来はジャングル靴の制限も受ける）。
+    /// isMonster = 中立モンスター由来（狩猟持ちは +60%）。ミニオン由来は、狩猟持ちが最初の 2 分は分け合わない。
+    /// ローム持ちは最初の 8 分、単独ならどちらも 30%（GearEffects.monsterRewardMultiplier / sharesMinionRewards / roamSoloRewardMultiplier）。
     public static func shareXP(_ s: inout SimState, _ ctx: SimContext, team: Team, around pos: Vec2, amount: Double,
                                isMonster: Bool = false) {
         guard amount > 0, team != .neutral else { return }
         var receivers = nearbyHeroes(s, team: team, around: pos, radius: Balance.xpShareRadius)
+        // 狩猟持ちは最初の 2 分、ミニオンの XP を分け合わない（分け前を受けず、人数にも入らない）
+        if !isMonster {
+            receivers.removeAll { s.units[$0].hero.map { !GearEffects.sharesMinionRewards($0, time: s.time) } ?? false }
+        }
         guard !receivers.isEmpty else { return }
         // ロームの祝福（無私）: 味方がいればローム持ちは分け前を取らず、味方の取り分とは別に 30% を得る
         if receivers.count > 1, let r = GearEffects.activeRoamer(s, team: team, master: ctx.master),
@@ -93,8 +100,8 @@ public enum HeroGrowth {
         for i in receivers {
             var share = each
             if let h = s.units[i].hero {
-                share *= isMonster ? GearEffects.monsterRewardMultiplier(h, time: s.time, master: ctx.master)
-                                   : GearEffects.minionRewardMultiplier(h, time: s.time, master: ctx.master)
+                if isMonster { share *= GearEffects.monsterRewardMultiplier(h, time: s.time, master: ctx.master) }
+                share *= GearEffects.roamSoloRewardMultiplier(s, heroIndex: i, master: ctx.master)
             }
             grantXP(&s, ctx, heroIndex: i, amount: share)
         }
@@ -140,7 +147,10 @@ public enum HeroGrowth {
 
 /// スキルポイントの割り振り（DESIGN §6）。
 public enum SkillLeveling {
-    /// その枠を今上げられるか。
+    /// その枠を今上げられるか（MLBB の規則。Balance.basicSkillMaxRank の注記）。
+    /// - アルティメット: Lv4 / 8 / 12 で 1 段ずつ（最大 3 段）。
+    /// - スキル1・2: 段 ≤ ceil(Lv / 2)（Lv1・3・5・7・9・11 で 1〜6 段目。最大 6 段）。
+    /// 6 + 6 + 3 = 15 = Lv15 までのスキルポイントの数なので、どの Lv でも割り振れないポイントは残らない。
     public static func canLevel(_ hero: HeroData, slot: SkillSlot) -> Bool {
         guard slot != .passive, hero.skillPoints > 0 else { return false }
         let rank = hero.rank(slot)
@@ -148,7 +158,7 @@ public enum SkillLeveling {
         if slot == .ultimate {
             return rank < Balance.ultimateUnlockLevels.filter { hero.level >= $0 }.count
         }
-        // 基本スキルは (Lv+1)/2 までに制限
+        // 基本スキルは ceil(Lv/2) = (Lv+1)/2 までに制限
         return rank < (hero.level + 1) / 2
     }
 

@@ -26,6 +26,8 @@ enum CollectionStyle {
         switch r {
         case .mana: return L("マナ", "Mana")
         case .energy: return L("エナジー", "Energy")
+        case .rage: return L("怒り", "Rage")
+        case .noResource: return L("リソースなし", "No Resource")
         }
     }
 
@@ -33,11 +35,18 @@ enum CollectionStyle {
         switch r {
         case .mana: return Color(red: 0.38, green: 0.62, blue: 1.0)
         case .energy: return Color(red: 1.0, green: 0.85, blue: 0.35)
+        case .rage: return Color(red: 1.0, green: 0.38, blue: 0.3)
+        case .noResource: return Color(red: 0.7, green: 0.7, blue: 0.74)
         }
     }
 
     static func resourceSymbol(_ r: ResourceKind) -> String {
-        r == .mana ? "drop.fill" : "bolt.fill"
+        switch r {
+        case .mana: return "drop.fill"
+        case .energy: return "bolt.fill"
+        case .rage: return "flame.fill"
+        case .noResource: return "circle.slash"
+        }
     }
 
     static func damageTypeName(_ d: DamageType) -> String {
@@ -239,48 +248,6 @@ enum CollectionStyle {
         case ...1: return Color(red: 0.72, green: 0.76, blue: 0.84)
         case 2: return Color(red: 0.45, green: 0.78, blue: 1.0)
         default: return Theme.gold
-        }
-    }
-
-    // MARK: ルーン
-
-    static func runePathName(_ p: RunePath) -> String {
-        switch p {
-        case .valor: return L("勇気", "Valor")
-        case .arcana: return L("秘術", "Arcana")
-        case .resolve: return L("堅守", "Resolve")
-        case .cunning: return L("狡知", "Cunning")
-        case .harmony: return L("調和", "Harmony")
-        }
-    }
-
-    static func runePathSymbol(_ p: RunePath) -> String {
-        switch p {
-        case .valor: return "flame.fill"
-        case .arcana: return "sparkles"
-        case .resolve: return "shield.lefthalf.filled"
-        case .cunning: return "eye.fill"
-        case .harmony: return "leaf.fill"
-        }
-    }
-
-    static func runePathColor(_ p: RunePath) -> Color {
-        switch p {
-        case .valor: return Color(red: 1.0, green: 0.45, blue: 0.35)
-        case .arcana: return Color(red: 0.72, green: 0.52, blue: 1.0)
-        case .resolve: return Color(red: 0.40, green: 0.72, blue: 1.0)
-        case .cunning: return Color(red: 1.0, green: 0.80, blue: 0.32)
-        case .harmony: return Color(red: 0.40, green: 0.92, blue: 0.62)
-        }
-    }
-
-    static func runePathTagline(_ p: RunePath) -> String {
-        switch p {
-        case .valor: return L("攻撃力を高める", "Raises attack")
-        case .arcana: return L("魔力とスキルダメージ", "Power & skill damage")
-        case .resolve: return L("最大HPと防御", "Max HP & defenses")
-        case .cunning: return L("移動速度とCD短縮", "Speed & cooldowns")
-        case .harmony: return L("回復と自然回復", "Healing & regen")
         }
     }
 

@@ -29,6 +29,7 @@ final class LaneRoleTests: XCTestCase {
         XCTAssertEqual(map.lane(for: .carry), .bot)
     }
 
+    /// MLBB: 最初の 10 ウェーブの Gold レーンの攻城ミニオンは Gold +45%（ほかのミニオンには付かない）。
     func testGoldLaneMinionGivesMoreGoldEarly() {
         var f = EconomyFixture.standard()
         f.parkHeroesAtFountains()
@@ -36,15 +37,20 @@ final class LaneRoleTests: XCTestCase {
         f.place(a, at: spot)
         let goldLane = f.ctx.map.goldLane!
         f.s.time = 100
-        let gold0 = f.hero(a).gold
-        let m = f.addMinion(.melee, team: .red, at: spot, lane: goldLane)
+        var gold0 = f.hero(a).gold
+        let m = f.addMinion(.siege, team: .red, at: spot, lane: goldLane, wave: 2)
         f.kill(m, by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold0, Balance.Economy.minionGold(.melee, at: 100) * (1 + Balance.Economy.goldLaneGoldBonus),
+        XCTAssertEqual(f.hero(a).gold - gold0, Balance.Economy.minionGold(.siege, at: 100) * (1 + Balance.Economy.goldLaneGoldBonus),
                        accuracy: 1e-9)
         // XP は補正なし
-        XCTAssertEqual(f.hero(a).xp, 60, accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).xp, Balance.Economy.minionXP(.siege), accuracy: 1e-9)
+        // 近接には付かない
+        gold0 = f.hero(a).gold
+        f.kill(f.addMinion(.melee, team: .red, at: spot, lane: goldLane, wave: 2), by: f.id(a))
+        XCTAssertEqual(f.hero(a).gold - gold0, Balance.Economy.minionGold(.melee, at: 100), accuracy: 1e-9)
     }
 
+    /// MLBB: 最初の 10 ウェーブの EXP レーンの攻城ミニオンは EXP +35%。
     func testExpLaneMinionGivesMoreXPEarly() {
         var f = EconomyFixture.standard()
         f.parkHeroesAtFountains()
@@ -52,10 +58,10 @@ final class LaneRoleTests: XCTestCase {
         f.place(a, at: spot)
         f.s.time = 100
         let gold0 = f.hero(a).gold
-        let m = f.addMinion(.melee, team: .red, at: spot, lane: f.ctx.map.expLane!)
+        let m = f.addMinion(.siege, team: .red, at: spot, lane: f.ctx.map.expLane!, wave: 3)
         f.kill(m, by: f.id(a))
-        XCTAssertEqual(f.hero(a).xp, 60 * (1 + Balance.Economy.expLaneXPBonus), accuracy: 1e-9)
-        XCTAssertEqual(f.hero(a).gold - gold0, Balance.Economy.minionGold(.melee, at: 100), accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).xp, Balance.Economy.minionXP(.siege) * (1 + Balance.Economy.expLaneXPBonus), accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).gold - gold0, Balance.Economy.minionGold(.siege, at: 100), accuracy: 1e-9)
     }
 
     func testLaneBonusEndsAndMidIsUnaffected() {
@@ -63,15 +69,15 @@ final class LaneRoleTests: XCTestCase {
         f.parkHeroesAtFountains()
         let a = f.heroes(.blue)[0]
         f.place(a, at: spot)
-        // 補正終了後
-        f.s.time = Balance.Economy.laneBonusEnd
+        // 11 波目（ウェーブ 10）からは付かない
+        f.s.time = 320
         var gold0 = f.hero(a).gold
-        f.kill(f.addMinion(.melee, team: .red, at: spot, lane: f.ctx.map.goldLane!), by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold0, Balance.Economy.minionGold(.melee, at: Balance.Economy.laneBonusEnd), accuracy: 1e-9)
+        f.kill(f.addMinion(.siege, team: .red, at: spot, lane: f.ctx.map.goldLane!, wave: Balance.earlyWaveCount), by: f.id(a))
+        XCTAssertEqual(f.hero(a).gold - gold0, Balance.Economy.minionGold(.siege, at: 320), accuracy: 1e-9)
         // 序盤でも中央レーンは補正なし
         f.s.time = 100
         gold0 = f.hero(a).gold
-        f.kill(f.addMinion(.melee, team: .red, at: spot, lane: .mid), by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold0, Balance.Economy.minionGold(.melee, at: 100), accuracy: 1e-9)
+        f.kill(f.addMinion(.siege, team: .red, at: spot, lane: .mid, wave: 2), by: f.id(a))
+        XCTAssertEqual(f.hero(a).gold - gold0, Balance.Economy.minionGold(.siege, at: 100), accuracy: 1e-9)
     }
 }

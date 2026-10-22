@@ -116,60 +116,166 @@ final class Kit_H027Tests: XCTestCase {
         }
     }
 
-    /// 1 スロットの単体総ダメージは汎用の 0.8〜1.3 倍。
-    private func damageRatio(_ slot: SkillSlot, level: Int, rank: Int) throws -> Double {
-        let (w, k) = world(level: level)
-        let m = MasterData.shared
-        let hero = try XCTUnwrap(m.hero("H027"))
-        let skill = try XCTUnwrap(m.skill(hero: "H027", slot: slot))
-        let stats = w.s.units[k].stats
-        let generic = SkillCatalog.genericNumbers(for: skill, hero: hero, rank: rank, stats: stats)
-        let kitN = SkillCatalog.numbers(for: skill, hero: hero, rank: rank, stats: stats)
-        return kitN.totalDamage / generic.totalDamage
+    /// 公式の表（日本語クライアント = REAL_DATA.md「H027 ジャルド = 子龍(Zilong)」。Liquipedia・Fandom と一致）。
+    /// スキル1・2 は Lv1〜6、アルティメットは Lv1〜3 をそのまま（rank = 公式の Lv）。
+    private enum Official {
+        static let flipBase: [Double] = [250, 270, 290, 310, 330, 350]
+        static let flipCD: [Double] = [12.0, 11.5, 11.0, 10.5, 10.0, 9.5]
+        static let flipMP: [Double] = [80, 85, 90, 95, 100, 105]
+        static let strikeBase: [Double] = [250, 290, 330, 370, 410, 450]
+        static let strikeCD: [Double] = [12.0, 11.4, 10.8, 10.2, 9.6, 9.0]
+        static let strikeShred: [Double] = [15, 18, 21, 24, 27, 30]
+        static let ultCD: [Double] = [35, 31, 27]
+        static let ultMP: [Double] = [120, 140, 160]
+        static let ultAttackSpeed: [Double] = [0.35, 0.45, 0.55]
     }
 
-    func testNumbersStayWithinDamageBudgetAndFollowCooldownFormula() throws {
-        for level in [1, 6, 12] {
-            for rank in 1...Balance.basicSkillMaxRank {
-                for slot in [SkillSlot.skill1, .skill2] {
-                    let r = try damageRatio(slot, level: level, rank: rank)
-                    XCTAssertGreaterThanOrEqual(r, 0.8, "\(slot) Lv\(level) r\(rank)")
-                    XCTAssertLessThanOrEqual(r, 1.3, "\(slot) Lv\(level) r\(rank)")
-                }
+    private func skill(_ slot: SkillSlot) throws -> SkillDef {
+        try XCTUnwrap(MasterData.shared.skill(hero: "H027", slot: slot))
+    }
+
+    /// ダメージ = 公式の基礎[Lv] + 係数 × 合計の物理攻撃（スキル1 80% / スキル2 60%）。換算・スロット倍率・補間なし。
+    /// CD = 公式の秒数[Lv] × (1 − CD 短縮)。出典: REAL_DATA.md（日本語クライアント）。
+    func testSkillDamageAndCooldownEqualTheOfficialTables() throws {
+        let hero = try XCTUnwrap(MasterData.shared.hero("H027"))
+        XCTAssertEqual(SkillSlot.skill1.maxRank, 6)
+        XCTAssertEqual(SkillSlot.ultimate.maxRank, 3)
+        for level in [1, 6, 12, 15] {
+            let (w, k) = world(level: level)
+            let st = w.s.units[k].stats
+            let cdr = HeroKits.cooldownReduction(st)
+            for rank in 1...6 {
+                let s1 = SkillCatalog.numbers(for: try skill(.skill1), hero: hero, rank: rank, stats: st)
+                XCTAssertEqual(s1.damage, Official.flipBase[rank - 1] + 0.8 * st.attack, accuracy: 1e-9, "S1 Lv\(level) r\(rank)")
+                XCTAssertEqual(s1.cooldown, Official.flipCD[rank - 1] * (1 - cdr), accuracy: 1e-9, "S1 CD r\(rank)")
+                let s2 = SkillCatalog.numbers(for: try skill(.skill2), hero: hero, rank: rank, stats: st)
+                XCTAssertEqual(s2.damage, Official.strikeBase[rank - 1] + 0.6 * st.attack, accuracy: 1e-9, "S2 Lv\(level) r\(rank)")
+                XCTAssertEqual(s2.cooldown, Official.strikeCD[rank - 1] * (1 - cdr), accuracy: 1e-9, "S2 CD r\(rank)")
+                XCTAssertEqual(s2.extras.first { $0.key == "shred" }?.value, Official.strikeShred[rank - 1], "S2 shred r\(rank)")
+                XCTAssertEqual(s1.extras.first { $0.key == "base" }?.value, Official.flipBase[rank - 1])
+                XCTAssertEqual(s2.extras.first { $0.key == "base" }?.value, Official.strikeBase[rank - 1])
+            }
+            for rank in 1...3 {
+                let u = SkillCatalog.numbers(for: try skill(.ultimate), hero: hero, rank: rank, stats: st)
+                XCTAssertEqual(u.cooldown, Official.ultCD[rank - 1] * (1 - cdr), accuracy: 1e-9, "ULT CD r\(rank)")
+                XCTAssertEqual(u.damage, 0, "奥義は自己強化（ダメージなし）")
+                XCTAssertEqual(u.cc, .none)
             }
         }
-        // 奥義はダメージを持たない（自己強化。ダメージの予算は無し: 理由は docs/kits/Zilong.md の対応表）
-        let (w, k) = world()
-        let n = w.numbers(k, .ultimate)
-        XCTAssertEqual(n.damage, 0)
-        XCTAssertEqual(n.cc, .none)
-        // クールダウン = MLBB の秒数（ランクで線形）× 全体倍率 × (1 − CD 短縮)
-        let cdr = w.s.units[k].stats.cooldownReduction
-        func expected(_ a: Double, _ b: Double, rank: Int, maxRank: Int) -> Double {
-            (a + (b - a) * Double(rank - 1) / Double(maxRank - 1)) * (1 - cdr) * Balance.Skills.cooldownScale
-        }
+        // 係数は合計の物理攻撃（追加物理攻撃ではない）: 物理攻撃が 50 増えると +40 / +30、追加物理攻撃だけを変えても変わらない
+        let (w, k) = world(level: 6)
+        var st = w.s.units[k].stats
+        let s1 = SkillCatalog.numbers(for: try skill(.skill1), hero: hero, rank: 3, stats: st).damage
+        let s2 = SkillCatalog.numbers(for: try skill(.skill2), hero: hero, rank: 3, stats: st).damage
+        st.extraAttack += 999
+        XCTAssertEqual(SkillCatalog.numbers(for: try skill(.skill1), hero: hero, rank: 3, stats: st).damage, s1, accuracy: 1e-9)
+        st.attack += 50
+        XCTAssertEqual(SkillCatalog.numbers(for: try skill(.skill1), hero: hero, rank: 3, stats: st).damage, s1 + 40, accuracy: 1e-9)
+        XCTAssertEqual(SkillCatalog.numbers(for: try skill(.skill2), hero: hero, rank: 3, stats: st).damage, s2 + 30, accuracy: 1e-9)
+        // 段を超える rank は最後の段に丸める（6 / 3）
+        XCTAssertEqual(Kit.level(Tune.flipBase, rank: 9), 350)
+        XCTAssertEqual(Kit.level(Tune.ultCooldown, rank: 5), 27)
+    }
+
+    /// パッシブ・通常攻撃の式（公式の値そのまま。出典: REAL_DATA.md の狂龍乱舞）。
+    func testPassiveAndBasicAttackFormulasAreTheOfficialValues() throws {
+        // 通常攻撃 100 (+80% 物理攻撃)
+        XCTAssertEqual(Kit_H027.basicDamage(attack: 200), 100 + 160, accuracy: 1e-9)
+        XCTAssertEqual(Kit_H027.basicDamage(attack: 123), 100 + 0.8 * 123, accuracy: 1e-9)
+        // 狂龍乱舞 1 撃 80 (+30% 物理攻撃)、回復 50 (+20% 物理攻撃)、攻撃エフェクト 50%、HP 50% 未満で +30
+        XCTAssertEqual(Kit_H027.flurryHitDamage(attack: 200), 80 + 60, accuracy: 1e-9)
+        XCTAssertEqual(Kit_H027.flurryHeal(attack: 200), 50 + 40, accuracy: 1e-9)
+        XCTAssertEqual(Tune.flurryAttackEffect, 0.5)
+        XCTAssertEqual(Tune.executeFlat, 30)
+        XCTAssertEqual(Tune.executeBelow, 0.5)
+        XCTAssertEqual(Tune.flurryHits, 3)
+        XCTAssertEqual(Tune.chargeNormal, 3)
+        XCTAssertEqual(Tune.chargeUlt, 2)
+        // 三連突き中の射程の伸び: MLBB の 1.8 → 2.5（+0.7 ユニット × 100）
+        XCTAssertEqual(Tune.flurryRangeBonus, 70)
+        // 説明文に出す値も公式の値（数値のトークン）
+        let (w, k) = world(level: 6)
+        let pn = w.numbers(k, .passive)
+        let atk = w.s.units[k].stats.attack
+        XCTAssertEqual(pn.damage, 80 + 0.3 * atk, accuracy: 1e-9)
+        XCTAssertEqual(pn.heal, 50 + 0.2 * atk, accuracy: 1e-9)
+        func extra(_ key: String) -> Double? { pn.extras.first { $0.key == key }?.value }
+        XCTAssertEqual(extra("attackEffect"), 50)
+        XCTAssertEqual(extra("flurryFlat"), 80)
+        XCTAssertEqual(extra("flurryPct") ?? 0, 30, accuracy: 1e-9)
+        XCTAssertEqual(extra("healFlat"), 50)
+        XCTAssertEqual(extra("healPct") ?? 0, 20, accuracy: 1e-9)
+        XCTAssertEqual(extra("basicFlat"), 100)
+        XCTAssertEqual(extra("basicPct") ?? 0, 80, accuracy: 1e-9)
+        XCTAssertNil(extra("nonHeroHeal"), "ヒーロー以外への回復の半減は MLBB に無いので外した")
+    }
+
+    func testOfficialCostsAndTags() throws {
         let hero = try XCTUnwrap(MasterData.shared.hero("H027"))
-        for rank in 1...4 {
-            let sk = try XCTUnwrap(MasterData.shared.skill(hero: "H027", slot: .skill1))
-            let got = SkillCatalog.numbers(for: sk, hero: hero, rank: rank, stats: w.s.units[k].stats).cooldown
-            XCTAssertEqual(got, expected(12, 9.5, rank: rank, maxRank: 4), accuracy: 1e-9)
-            let sk2 = try XCTUnwrap(MasterData.shared.skill(hero: "H027", slot: .skill2))
-            XCTAssertEqual(SkillCatalog.numbers(for: sk2, hero: hero, rank: rank, stats: w.s.units[k].stats).cooldown,
-                           expected(12, 9, rank: rank, maxRank: 4), accuracy: 1e-9)
+        let (w, k) = world(level: 6)
+        let st = w.s.units[k].stats
+        // マナ（公式: S1 80 / 85 / 90 / 95 / 100 / 105、S2 40 一定、ULT 120 / 140 / 160）。MLBB の趙子龍は Mana のヒーローなので
+        // 公式の値そのまま（以前は Energy で × energyCostMultiplier が掛かっていた）
+        XCTAssertEqual(hero.resource, .mana)
+        for rank in 1...6 {
+            XCTAssertEqual(SkillSystem.cost(for: try skill(.skill1), hero: hero, rank: rank), Official.flipMP[rank - 1],
+                           accuracy: 1e-9, "S1 r\(rank)")
+            XCTAssertEqual(SkillSystem.cost(for: try skill(.skill2), hero: hero, rank: rank), 40, accuracy: 1e-9, "S2 r\(rank)")
+            XCTAssertEqual(SkillCatalog.numbers(for: try skill(.skill1), hero: hero, rank: rank, stats: st).cost,
+                           Official.flipMP[rank - 1], accuracy: 1e-9)
         }
         for rank in 1...3 {
-            let sk = try XCTUnwrap(MasterData.shared.skill(hero: "H027", slot: .ultimate))
-            XCTAssertEqual(SkillCatalog.numbers(for: sk, hero: hero, rank: rank, stats: w.s.units[k].stats).cooldown,
-                           expected(35, 27, rank: rank, maxRank: 3), accuracy: 1e-9)
+            XCTAssertEqual(SkillSystem.cost(for: try skill(.ultimate), hero: hero, rank: rank), Official.ultMP[rank - 1],
+                           accuracy: 1e-9, "ULT r\(rank)")
         }
-        // ランクが上がるほど強く（ダメージ・防御ダウン）、CD は短く
-        let sk2 = try XCTUnwrap(MasterData.shared.skill(hero: "H027", slot: .skill2))
-        let r1 = SkillCatalog.numbers(for: sk2, hero: hero, rank: 1, stats: w.s.units[k].stats)
-        let r4 = SkillCatalog.numbers(for: sk2, hero: hero, rank: 4, stats: w.s.units[k].stats)
-        XCTAssertGreaterThan(r4.damage, r1.damage)
-        XCTAssertLessThan(r4.cooldown, r1.cooldown)
-        XCTAssertEqual(r1.extras.first?.value, 15)
-        XCTAssertEqual(r4.extras.first?.value, 30)
+        // 実際の消費もこの値
+        var (v, j) = world(ranks: [6, 1, 1])
+        let target = addEnemy(&v, dx: 200)
+        let before = v.s.units[j].resource
+        XCTAssertTrue(v.cast(j, .skill1, .unit(v.id(target))))
+        XCTAssertEqual(before - v.s.units[j].resource, 105, accuracy: 1e-9)
+        // タグ（日本語クライアント: パッシブ = バフ・ヒール、S1 = 妨害・攻撃、S2 = ブリンク・デバフ、ULT = 加速・バフ）
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .passive), ["buff", "heal"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .skill1), ["disrupt", "damage"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .skill2), ["mobility", "debuff"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .ultimate), ["haste", "buff"])
+        XCTAssertEqual(HeroKits.tags(heroID: "H027", slot: .ultimate).first, KitTag.haste)
+        for slot in SkillSlot.allCases {
+            for tag in HeroKits.tags(heroID: "H027", slot: slot) { XCTAssertTrue(KitTag.all.contains(tag), tag) }
+        }
+    }
+
+    /// 説明文は公式の数値そのもの（{基礎}(+{係数}%物理攻撃)。日本語クライアントの文の節: 攻撃エフェクト 50%）。
+    func testTextsPrintTheOfficialNumbers() throws {
+        let hero = try XCTUnwrap(MasterData.shared.hero("H027"))
+        let (w, k) = world(level: 6)
+        let st = w.s.units[k].stats
+        func ja(_ slot: SkillSlot, rank: Int) throws -> String {
+            let n = SkillCatalog.numbers(for: try skill(slot), hero: hero, rank: rank, stats: st)
+            return try XCTUnwrap(HeroKits.text(heroID: "H027", slot: slot)).filled(
+                english: false, numbers: n, targeting: SkillCatalog.targeting(for: try skill(slot), hero: hero))
+        }
+        let s1a = try ja(.skill1, rank: 1), s1f = try ja(.skill1, rank: 6)
+        XCTAssertTrue(s1a.contains("250(+80%物理攻撃)の物理ダメージ"), s1a)
+        XCTAssertTrue(s1f.contains("350(+80%物理攻撃)の物理ダメージ"), s1f)
+        XCTAssertTrue(s1a.contains("跳ね上げ"), s1a)
+        let s2a = try ja(.skill2, rank: 1), s2f = try ja(.skill2, rank: 6)
+        XCTAssertTrue(s2a.contains("250(+60%物理攻撃)の物理ダメージ") && s2a.contains("物理防御を2秒間15低下"), s2a)
+        XCTAssertTrue(s2f.contains("450(+60%物理攻撃)の物理ダメージ") && s2f.contains("物理防御を2秒間30低下"), s2f)
+        XCTAssertTrue(s2a.contains("キルするたびに"), s2a)
+        let p = try ja(.passive, rank: 1)
+        XCTAssertTrue(p.hasPrefix("攻撃エフェクト: 50%"), p)
+        XCTAssertTrue(p.contains("80(+30%物理攻撃)の通常攻撃ダメージ") && p.contains("50(+20%物理攻撃)"), p)
+        XCTAssertTrue(p.contains("通常攻撃は100(+80%物理攻撃)の物理ダメージ"), p)
+        XCTAssertTrue(p.contains("ダメージが30増加する"), p)
+        // 外した独自ルール・公式の文に無い間隔の但し書きは書かない
+        XCTAssertFalse(p.contains("ヒーロー以外"), p)
+        XCTAssertFalse(p.contains("秒おき"), p)
+        let u = try ja(.ultimate, rank: 3)
+        XCTAssertTrue(u.contains("攻撃速度+55%") && u.contains("移動速度+40%") && u.contains("7.5秒間"), u)
+        let en = try XCTUnwrap(HeroKits.text(heroID: "H027", slot: .passive)).filled(
+            english: true, numbers: w.numbers(k, .passive), targeting: w.targeting(k, .passive))
+        XCTAssertTrue(en.hasPrefix("Attack Effect: 50%"), en)
     }
 
     func testTextFillsEverySlotWithSimNumbers() throws {
@@ -195,16 +301,17 @@ final class Kit_H027Tests: XCTestCase {
             english: false, numbers: pn, targeting: SkillCatalog.targeting(for: passiveSkill, hero: hero))
         XCTAssertTrue(ja.contains("\(Int((80 + 0.3 * stats.attack).rounded()))"), ja)
         XCTAssertTrue(ja.contains("\(Int((50 + 0.2 * stats.attack).rounded()))"), ja)
+        XCTAssertTrue(ja.contains("\(Int((100 + 0.8 * stats.attack).rounded()))"), ja)
         XCTAssertEqual(pn.hits, 3)
         let ultSkill = try XCTUnwrap(MasterData.shared.skill(hero: "H027", slot: .ultimate))
         let un = SkillCatalog.numbers(for: ultSkill, hero: hero, rank: 2, stats: stats)
         XCTAssertEqual(un.extras.map(\.value), [40, 45, 7.5, 2])
-        // 文の整理: スキル2 のリセット条件・奥義は他の CC を防がない
+        // 文の整理: スキル2 のリセット条件（キルのたび + ミニオン・モンスターの 0.5 秒）・奥義は他の CC を防がない
         let s2Skill = try XCTUnwrap(MasterData.shared.skill(hero: "H027", slot: .skill2))
         let s2n = SkillCatalog.numbers(for: s2Skill, hero: hero, rank: 1, stats: stats)
         let s2ja = try XCTUnwrap(HeroKits.text(heroID: "H027", slot: .skill2)).filled(
             english: false, numbers: s2n, targeting: SkillCatalog.targeting(for: s2Skill, hero: hero))
-        XCTAssertTrue(s2ja.contains("倒したとき、または"), s2ja)
+        XCTAssertTrue(s2ja.contains("キルするたびに") && s2ja.contains("ミニオン・モンスターが0.5秒以内"), s2ja)
         let ultja = try XCTUnwrap(HeroKits.text(heroID: "H027", slot: .ultimate)).filled(
             english: false, numbers: un, targeting: SkillCatalog.targeting(for: ultSkill, hero: hero))
         XCTAssertTrue(ultja.contains("スタン"), ultja)
@@ -227,8 +334,10 @@ final class Kit_H027Tests: XCTestCase {
         // 3 回は単発、4 回目が三連、その後また 3 回単発 → 三連
         XCTAssertEqual(volleys.prefix(8).map(\.count), [1, 1, 1, 3, 1, 1, 1, 3])
         let atk = w.s.units[k].stats.attack
-        let flurryHit = 80 + 0.3 * atk
-        for hit in volleys[0] { XCTAssertEqual(hit.amount, w.mitigated(atk, .physical, on: e), accuracy: 1e-6) }
+        let flurryHit = Kit_H027.flurryHitDamage(attack: atk)
+        // 単発の通常攻撃は公式の式 (100 + 80% 物理攻撃) × 換算（汎用の攻撃力 100% ではない）
+        let basic = Kit_H027.basicDamage(attack: atk)
+        for hit in volleys[0] { XCTAssertEqual(hit.amount, w.mitigated(basic, .physical, on: e), accuracy: 1e-6) }
         for hit in volleys[3] { XCTAssertEqual(hit.amount, w.mitigated(flurryHit, .physical, on: e), accuracy: 1e-6) }
         XCTAssertLessThanOrEqual(kit(w, k).jarldCharge, 3)
     }
@@ -254,7 +363,6 @@ final class Kit_H027Tests: XCTestCase {
         let expected = (50 + 0.2 * st.attack) * (1 + st.healShieldPower) * st.healingReceivedMultiplier
         for h in healed { XCTAssertEqual(h, expected, accuracy: 1e-6) }
         XCTAssertEqual(kit(w, k).jarldCharge, 0, "三連突きの命中は竜気にならない")
-        XCTAssertEqual(kit(w, k).jarldFlurryHitsLeft, 0)
         // 通常の攻撃は回復しない
         w.log.removeAll()
         let normal = attackVolleys(&w, target: e, ticks: 60)
@@ -297,7 +405,8 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertEqual(kit(w, k).jarldCharge, Tune.chargeUlt)
     }
 
-    /// 三連突きの 3 発は同じ tick に重ならず、4 tick（約 0.133 秒）おきに当たる。1 発目は通常攻撃と同じ tick。
+    /// 三連突きの 3 発は同じ tick に重ならず、4 tick（0.133 秒）おきに当たる。1 発目は通常攻撃と同じ tick。
+    /// MLBB の画面収録（30fps）でも、的の総ダメージ・体力の表示が 1 発目から 4 / 8 コマ後に変わる（9 回すべて。奥義中も同じ）。
     func testFlurryHitsLandOnSeparateTicksAboutAFlurryGapApart() {
         var (w, k) = world(level: 12)
         let e = addEnemy(&w, dx: 140)
@@ -309,7 +418,8 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertEqual(Set(ticks).count, 3, "3 発が同じ tick に重ならない: \(ticks)")
         // 予約は撃った tick を 1 回目に数えて減るので、実際に当たるのは ceil(gap / dt) - 1 tick 後
         let gap = Int((Tune.flurryGap / Balance.dt).rounded(.up)) - 1
-        XCTAssertEqual(ticks[1] - ticks[0], gap, "2 発目は 1 発目の約 0.13 秒後")
+        XCTAssertEqual(gap, 4, "画面収録の 4 コマ（30fps）と同じ")
+        XCTAssertEqual(ticks[1] - ticks[0], gap, "2 発目は 1 発目の 0.133 秒後")
         XCTAssertEqual(ticks[2] - ticks[1], gap)
         XCTAssertGreaterThan(Double(gap) * Balance.dt, 0.12, "被弾演出の間引き（0.12 秒）に潰されない")
         // 予約は撃った時点で 2 つ入り、当たり切ると空になる
@@ -325,11 +435,60 @@ final class Kit_H027Tests: XCTestCase {
         w2.run(seconds: 0.5)
         XCTAssertEqual(Kit.scheduledCount(w2.s, caster: k2), 0)
         XCTAssertEqual(kit(w2, k2).jarldCharge, 0, "三連突きの命中は竜気にならない")
-        XCTAssertEqual(kit(w2, k2).jarldFlurryHitsLeft, 0)
     }
 
-    /// ヒーロー以外（ミニオン）が相手なら、三連突きの回復は 1 発ごとに半分。
-    func testFlurryHealIsHalvedAgainstNonHeroTargets() throws {
+    /// 三連突きの各撃は攻撃エフェクト 50%（公式「攻撃エフェクト: 50%」）: 通常攻撃吸収は半分、命中数・竜気には数えない。
+    /// 三連突きでない通常攻撃は 100%（命中数・通常攻撃吸収とも通常どおり）。
+    func testFlurryHitsCarryHalfTheAttackEffect() throws {
+        // 整形された payload（1 発目 = 通常攻撃そのもの）
+        var (w0, k0) = world(level: 12)
+        let e0 = addEnemy(&w0, dx: 140)
+        w0.s.units[k0].hero!.kit!.jarldCharge = 3
+        let raw = HitPayload(damage: w0.s.units[k0].stats.attack, damageType: .physical, source: .basicAttack,
+                             appliesOnHit: true)
+        var plan = BasicAttackPlan(payload: raw, ranged: false)
+        Kit_H027().shapeBasicAttack(&w0.s, w0.ctx, attacker: k0, target: e0, plan: &plan)
+        XCTAssertEqual(plan.payload.attackEffect, 0.5)
+        XCTAssertEqual(plan.payload.attackEffectRatio, 0.5)
+        XCTAssertFalse(plan.payload.appliesOnHit, "割合の命中は命中数・命中フックに数えない")
+        var normal = BasicAttackPlan(payload: raw, ranged: false)
+        Kit_H027().shapeBasicAttack(&w0.s, w0.ctx, attacker: k0, target: e0, plan: &normal)
+        XCTAssertNil(normal.payload.attackEffect)
+        XCTAssertTrue(normal.payload.appliesOnHit)
+        XCTAssertEqual(normal.payload.attackEffectRatio, 1)
+
+        // 実際の命中: 通常攻撃吸収 20% のとき、三連突きの各撃は ダメージ × 20% × 50%、通常の攻撃は ダメージ × 20%
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 140)
+        CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .lifestealBoost, duration: 60, magnitude: 0.2,
+                                                                 tag: "test.lifesteal"))
+        w.tick()
+        w.s.units[k].hp = w.s.units[k].stats.maxHP * 0.2
+        w.s.units[k].hero!.kit!.jarldCharge = 3
+        w.s.units[k].attackTargetID = w.id(e)
+        // 4 発（三連突き 3 + 通常の攻撃 1）が当たったところで止める
+        var hits: [(damage: DamageEvent, healed: Double)] = []
+        for _ in 0..<120 where hits.count < 4 {
+            w.log.removeAll(keepingCapacity: true)
+            w.tick()
+            let healed = heals(w, of: k).reduce(0, +)
+            for d in w.damageEvents where d.targetID == w.id(e) && d.source == .basicAttack { hits.append((d, healed)) }
+        }
+        XCTAssertEqual(hits.count, 4)
+        let st = w.s.units[k].stats
+        let hrm = st.healingReceivedMultiplier
+        let flurryHeal = (50 + 0.2 * st.attack) * (1 + st.healShieldPower) * hrm
+        for h in hits.prefix(3) {
+            XCTAssertEqual(h.healed, flurryHeal + h.damage.amount * 0.2 * 0.5 * hrm, accuracy: 1e-6, "三連突き: 吸収は半分")
+        }
+        XCTAssertEqual(hits[3].healed, hits[3].damage.amount * 0.2 * hrm, accuracy: 1e-6, "通常の攻撃: 吸収は 100%")
+        // 命中数（通常攻撃の命中）は三連突きでない攻撃だけ
+        XCTAssertEqual(w.s.units[k].hero!.basicAttackCount, 1)
+        XCTAssertEqual(kit(w, k).jarldCharge, 1, "三連突きの命中は竜気にならず、次の通常攻撃で 1")
+    }
+
+    /// 三連突きの回復は相手の種類によらず公式の 50 (+20% 物理攻撃)。以前の「ヒーロー以外には半分」は MLBB の文に無いので外した。
+    func testFlurryHealIsTheSameAgainstNonHeroTargets() throws {
         var (w, k) = world(level: 12)
         let m = w.addMinion(team: .red, at: skillArena + Vec2(120, 0))
         w.s.units[m].baseStats.maxHP = 1e6
@@ -351,13 +510,13 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertEqual(healed.count, 3)
         let st = w.s.units[k].stats
         let full = (50 + 0.2 * st.attack) * (1 + st.healShieldPower) * st.healingReceivedMultiplier
-        for h in healed { XCTAssertEqual(h, full * Tune.flurryHealNonHero, accuracy: 1e-6) }
-        // 説明文にも書いてある
+        for h in healed { XCTAssertEqual(h, full, accuracy: 1e-6, "ミニオンが相手でも回復は公式の値そのまま") }
+        // 説明文にも半減の但し書きは無い
         let ja = try XCTUnwrap(HeroKits.text(heroID: "H027", slot: .passive)).filled(
             english: false, numbers: w.numbers(k, .passive), targeting: SkillCatalog.targeting(
                 for: try XCTUnwrap(MasterData.shared.skill(hero: "H027", slot: .passive)),
                 hero: try XCTUnwrap(MasterData.shared.hero("H027"))))
-        XCTAssertTrue(ja.contains("ヒーロー以外"), ja)
+        XCTAssertFalse(ja.contains("ヒーロー以外"), ja)
         XCTAssertFalse(ja.contains("{"), ja)
     }
 
@@ -399,7 +558,7 @@ final class Kit_H027Tests: XCTestCase {
         var (w, k) = world(level: 12)
         let e = addEnemy(&w, dx: 140)
         let atk = w.s.units[k].stats.attack
-        let base = 80 + 0.3 * atk
+        let base = Kit_H027.flurryHitDamage(attack: atk)
         let first = w.mitigated(base, .physical, on: e)
         // 1 発目の前は 50% より少し上、1 発目のあとで 50% を割る
         w.s.units[e].hp = w.s.units[e].stats.maxHP * 0.5 + first * 0.5
@@ -439,16 +598,16 @@ final class Kit_H027Tests: XCTestCase {
     func testExecuteBonusAddsFlatDamageBelowHalfHealth() {
         var (w, k) = world(level: 12)
         let e = addEnemy(&w, dx: 140)
-        let atk = w.s.units[k].stats.attack
+        let basic = Kit_H027.basicDamage(attack: w.s.units[k].stats.attack)
         w.s.units[e].hp = w.s.units[e].stats.maxHP * 0.4
         w.s.units[k].attackTargetID = w.id(e)
         let low = attackVolleys(&w, target: e, ticks: 20)
-        XCTAssertEqual(low.first?.first?.amount ?? 0, w.mitigated(atk + 30, .physical, on: e), accuracy: 1e-6)
+        XCTAssertEqual(low.first?.first?.amount ?? 0, w.mitigated(basic + 30, .physical, on: e), accuracy: 1e-6)
         // 半分以上なら無し
         fullHP(&w, e)
         w.s.units[e].hp = w.s.units[e].stats.maxHP * 0.6
         let high = attackVolleys(&w, target: e, ticks: 40)
-        XCTAssertEqual(high.first?.first?.amount ?? 0, w.mitigated(atk, .physical, on: e), accuracy: 1e-6)
+        XCTAssertEqual(high.first?.first?.amount ?? 0, w.mitigated(basic, .physical, on: e), accuracy: 1e-6)
         // 三連突きの 1 撃ごとに +30
         var (w2, k2) = world(level: 12)
         let e2 = addEnemy(&w2, dx: 140)
@@ -456,7 +615,7 @@ final class Kit_H027Tests: XCTestCase {
         w2.s.units[e2].hp = w2.s.units[e2].stats.maxHP * 0.4
         w2.s.units[k2].attackTargetID = w2.id(e2)
         let flurry = attackVolleys(&w2, target: e2, ticks: 45)
-        let hit = 80 + 0.3 * w2.s.units[k2].stats.attack + 30
+        let hit = Kit_H027.flurryHitDamage(attack: w2.s.units[k2].stats.attack) + 30
         XCTAssertEqual(flurry.first?.map(\.amount) ?? [], Array(repeating: w2.mitigated(hit, .physical, on: e2), count: 3))
     }
 
@@ -484,14 +643,76 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertEqual(ev.shape, .lockOn)
         XCTAssertEqual(ev.targetUnitID, w.id(e))
         XCTAssertEqual(ev.duration, Tune.flipAirborne)
-        // 術者の頭上を越えて背後に着地する
-        w.run(seconds: 0.4)
+        // 持ち上げている間（命中から 0.4 秒）はその場に浮いたまま
+        let at = w.s.units[e].pos
+        w.run(seconds: 0.3)
+        XCTAssertEqual(w.s.units[e].pos, at, "持ち上げている間は動かない")
         XCTAssertFalse(w.s.units[e].canAct, "宙に浮いている間は行動できない")
-        w.run(seconds: 0.6)
-        XCTAssertFalse(w.s.units[e].has(.airborne))
+        // 0.4 秒で頭上を越えて飛び、0.6 秒で背後に着地する。打ち上げは命中から 1.0 秒まで残る
+        w.run(seconds: 0.4)
         XCTAssertEqual(w.s.units[e].pos.x, w.s.units[k].pos.x - Tune.flipLandingGap, accuracy: 3)
         XCTAssertEqual(w.s.units[e].pos.y, w.s.units[k].pos.y, accuracy: 3)
+        XCTAssertNil(w.s.units[e].displacement, "着地している")
+        XCTAssertTrue(w.s.units[e].has(.airborne), "着地の後も打ち上げは続く")
+        XCTAssertFalse(w.s.units[e].canAct)
+        w.run(seconds: 0.4)
+        XCTAssertFalse(w.s.units[e].has(.airborne))
         XCTAssertTrue(w.s.units[e].canAct)
+    }
+
+    /// 打ち上げ 1.0 秒・持ち上げ 0.4 秒・飛ぶ 0.2 秒・背後 144 は MLBB の画面収録で測った値（docs/kits/Zilong.md「動画で測った値」）。
+    /// 放り投げる時刻を tick で確かめる: 命中から flipHold 秒まではその場、そこから flipFlight 秒で着地。
+    func testFlipThrowStartsAfterTheHoldAndLandsAfterTheFlight() throws {
+        XCTAssertEqual(Tune.flipAirborne, 1.0)
+        XCTAssertEqual(Tune.flipHold, 0.4)
+        XCTAssertEqual(Tune.flipFlight, 0.2)
+        XCTAssertEqual(Tune.flipLandingGap, 144)
+        XCTAssertLessThan(Tune.flipHold + Tune.flipFlight, Tune.flipAirborne, "着地してから打ち上げが解ける")
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 220)
+        let at = w.s.units[e].pos
+        XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: 3), 1, "放り投げの予約")
+        var started: Int?
+        var landed: Int?
+        for n in 1...40 {
+            w.tick()
+            if started == nil, w.s.units[e].pos != at { started = n }
+            if started != nil, landed == nil, w.s.units[e].displacement == nil { landed = n }
+        }
+        let s0 = try XCTUnwrap(started)
+        let s1 = try XCTUnwrap(landed)
+        XCTAssertEqual(Double(s0) * Balance.dt, Tune.flipHold, accuracy: 2 * Balance.dt, "\(s0) tick")
+        XCTAssertEqual(Double(s1 - s0) * Balance.dt, Tune.flipFlight, accuracy: 2 * Balance.dt, "\(s1 - s0) tick")
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k), 0)
+    }
+
+    /// 放り投げは対象に入った打ち上げの続き: 持ち上げている間に術者がスタンされても投げる。打ち上げが先に解けた・
+    /// 術者が倒れたら投げない（その場に落ちる）。
+    func testFlipThrowSurvivesCasterStunButNotCasterDeathOrCleanse() {
+        func landing(_ mutate: (inout SkillWorld, Int, Int) -> Void) -> Vec2 {
+            var (w, k) = world(level: 12)
+            let e = addEnemy(&w, dx: 220)
+            XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))))
+            w.tick(3)
+            mutate(&w, k, e)
+            w.run(seconds: 1.2)
+            return w.s.units[e].pos - skillArena
+        }
+        let thrown = landing { _, _, _ in }
+        XCTAssertEqual(thrown.x, -Tune.flipLandingGap, accuracy: 3)
+        let stunned = landing { w, k, e in
+            CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 1, sourceID: w.id(e)))
+        }
+        XCTAssertEqual(stunned.x, -Tune.flipLandingGap, accuracy: 3, "術者のスタンでは取り消さない")
+        let cleansed = landing { w, _, e in w.s.units[e].statuses.removeAll { $0.kind == .airborne } }
+        XCTAssertEqual(cleansed.x, 220, accuracy: 1, "打ち上げが解けていたら投げない")
+        let dead = landing { w, k, e in
+            CombatSystem.applyDamage(&w.s, w.ctx, sourceID: w.id(e), targetIndex: k, amount: 1e9, type: .trueDamage,
+                                     source: .spell)
+            DeathSystem.process(&w.s, w.ctx)
+        }
+        XCTAssertEqual(dead.x, 220, accuracy: 1, "術者が倒れたら投げない")
     }
 
     func testFlipRejectedWithoutTargetInReachAndKeepsResources() {
@@ -555,6 +776,21 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertEqual(w.damage(to: e), w.mitigated(n.damage + 30, .physical, on: e), accuracy: 1e-6)
     }
 
+    /// バインド（敵の root）は移動とブリンク・突進のスキルを封じる（MLBB の用語説明）。竜牙突き（ブリンク）は撃てず、
+    /// 術者を動かさない跳槍撃と自己強化の奥義は撃てる。
+    func testBindBlocksTheStrikeButNotTheFlipOrTheUltimate() {
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 250)
+        CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .root, duration: 2, sourceID: w.id(e)))
+        XCTAssertTrue(w.s.units[k].isBound)
+        let before = w.s.units[k].resource
+        XCTAssertFalse(w.cast(k, .skill2, .unit(w.id(e))), "バインド中は竜牙突きを撃てない")
+        XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill2), 0)
+        XCTAssertEqual(w.s.units[k].resource, before)
+        XCTAssertTrue(w.cast(k, .skill1, .unit(w.id(e))), "跳槍撃は術者を動かさないので撃てる")
+        XCTAssertTrue(w.cast(k, .ultimate), "自己強化は撃てる")
+    }
+
     // MARK: - S2: 竜牙の踏み込み
 
     func testStrikeDashesHitsOnceOnArrivalShredsArmorThenAttacks() throws {
@@ -573,55 +809,124 @@ final class Kit_H027Tests: XCTestCase {
         w.run(seconds: 0.4)
         let hits = w.damageEvents.filter { $0.targetID == w.id(e) && $0.source == .skill(.skill2) }
         XCTAssertEqual(hits.count, 1, "到着した tick に 1 度だけ")
-        XCTAssertEqual(hits[0].amount, n.damage * 100 / (100 + armor0), accuracy: 1e-6,
+        // MLBB の防御の式 120 / (120 + 防御)
+        XCTAssertEqual(hits[0].amount, n.damage * 120 / (120 + armor0), accuracy: 1e-6,
                        "防御ダウンはこの 1 撃には掛からない（掛かる前の防御で軽減）")
         XCTAssertNil(kit(w, k).sweep)
         // 対象の縁で止まる
         let gap = w.s.units[k].radius + w.s.units[e].radius
         XCTAssertEqual(w.s.units[k].pos.distance(to: w.s.units[e].pos), gap + 5, accuracy: 6)
-        // 防御ダウン: 固定値 15（ランク 1）を 2 秒
-        let shred = try XCTUnwrap(w.s.units[e].statuses.first { $0.kind == .armorShred })
-        XCTAssertEqual(shred.magnitude, 15 / armor0, accuracy: 1e-9)
+        // 物理防御ダウン: 固定値 15（Lv1）を 2 秒（割合の armorShred へは換算しない）
+        let shred = try XCTUnwrap(w.s.units[e].statuses.first { $0.kind == .flatArmorMod && $0.tag == Tune.shredTag })
+        XCTAssertEqual(shred.magnitude, -15, accuracy: 1e-9)
+        XCTAssertEqual(shred.remaining, Tune.shredDuration, accuracy: 0.4)
         XCTAssertEqual(w.s.units[e].stats.armor, armor0 - 15, accuracy: 1e-6)
+        XCTAssertEqual(w.s.units[e].stats.magicResist, w.s.units[e].baseStats.magicResist, accuracy: 1e-6, "物理防御だけ")
+        XCTAssertFalse(w.s.units[e].statuses.contains { $0.kind == .armorShred })
         // そのまま通常攻撃に移る
         XCTAssertEqual(w.s.units[k].attackTargetID, w.id(e))
         w.run(seconds: 0.6)
         XCTAssertGreaterThan(w.damage(to: e, from: .basicAttack), 0, "踏み込み後の通常攻撃")
         // 2 秒で戻る
         w.run(seconds: 1.5)
-        XCTAssertFalse(w.s.units[e].statuses.contains { $0.kind == .armorShred })
+        XCTAssertFalse(w.s.units[e].statuses.contains { $0.kind == .flatArmorMod })
         XCTAssertEqual(w.s.units[e].stats.armor, armor0, accuracy: 1e-6)
     }
 
-    func testStrikeShredScalesWithRankAndNeverExceedsArmor() {
-        var (w, k) = world(level: 12, ranks: [1, 4, 1])
-        let e = addEnemy(&w, dx: 300)
-        let armor0 = w.s.units[e].stats.armor
+    /// 突進の速さは MLBB の画面収録で測った毎秒 15.2 単位（= 1520。3.40 単位を 6.7 コマ、3.66 単位を 7.25 コマ）。
+    /// 到着の tick（= 踏み込みの一撃）は 距離 / 速さ。
+    func testStrikeDashSpeedIsTheMeasuredValue() throws {
+        XCTAssertEqual(Tune.strikeSpeed, 1520)
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 400)
+        let travel = 400 - (w.s.units[k].radius + w.s.units[e].radius + 5)
         XCTAssertTrue(w.cast(k, .skill2, .unit(w.id(e))))
-        w.run(seconds: 0.4)
-        XCTAssertEqual(w.s.units[e].stats.armor, armor0 - 30, accuracy: 1e-6)
-        // 防御が固定値より低い相手でも 0 未満にならない（割合は 0.9 まで）
-        var (w2, k2) = world(level: 12, ranks: [1, 4, 1])
+        var hitTick: Int?
+        for n in 1...30 {
+            w.log.removeAll(keepingCapacity: true)
+            w.tick()
+            if w.damageEvents.contains(where: { $0.targetID == w.id(e) && $0.source == .skill(.skill2) }) {
+                hitTick = n
+                break
+            }
+        }
+        let n = try XCTUnwrap(hitTick)
+        XCTAssertEqual(Double(n) * Balance.dt, travel / Tune.strikeSpeed, accuracy: 2 * Balance.dt, "\(n) tick")
+    }
+
+    /// 物理防御ダウンは公式の固定値の表（15 / 18 / 21 / 24 / 27 / 30）。相手の防御によらず同じ量を引く（固定値なので 0 を下回ってよい。
+    /// 実効防御の下限は CombatSystem.mitigationMultiplier）。出典: REAL_DATA.md の破陣槍。
+    func testStrikeShredIsTheOfficialFlatTable() {
+        for rank in 1...6 {
+            var (w, k) = world(level: 12, ranks: [1, rank, 1])
+            let e = addEnemy(&w, dx: 300)
+            let armor0 = w.s.units[e].stats.armor
+            XCTAssertTrue(w.cast(k, .skill2, .unit(w.id(e))))
+            w.run(seconds: 0.4)
+            XCTAssertEqual(w.s.units[e].stats.armor, armor0 - Official.strikeShred[rank - 1], accuracy: 1e-6, "r\(rank)")
+        }
+        // 防御が固定値より低い相手も同じ量
+        var (w2, k2) = world(level: 12, ranks: [1, 6, 1])
         let e2 = addEnemy(&w2, dx: 300)
         w2.s.units[e2].baseStats.armor = 5
         StatCalculator.recompute(&w2.s, e2, w2.ctx)
+        let armor0 = w2.s.units[e2].stats.armor
         XCTAssertTrue(w2.cast(k2, .skill2, .unit(w2.id(e2))))
         w2.run(seconds: 0.4)
-        XCTAssertGreaterThanOrEqual(w2.s.units[e2].stats.armor, 0)
+        XCTAssertEqual(w2.s.units[e2].stats.armor, armor0 - 30, accuracy: 1e-6)
     }
 
-    func testStrikeIsCancelledByHardCrowdControlMidDash() {
+    /// 突進中のノックアップ（高レベルのコントロール）は突進と踏み込みの一撃を取り消す。
+    func testStrikeIsCancelledByKnockUpMidDash() {
         var (w, k) = world(level: 12)
         let e = addEnemy(&w, dx: 440)
         XCTAssertTrue(w.cast(k, .skill2, .unit(w.id(e))))
         w.tick(2)
-        CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 1))
+        Kit.knockUp(&w.s, target: k, duration: 1, sourceID: w.id(e))
         w.run(seconds: 0.6)
         XCTAssertNil(kit(w, k).sweep)
         XCTAssertEqual(w.damage(to: e), 0, "突進が止まったので踏み込みの一撃は無い")
         XCTAssertLessThan(w.s.units[k].pos.x, skillArena.x + 440 - 150)
         XCTAssertEqual(kit(w, k).jarldDashTargetID, 0)
         XCTAssertGreaterThan(w.s.units[k].hero!.cooldown(.skill2), 0, "クールダウンは戻らない")
+    }
+
+    /// スタン（基本のコントロール）は進行中の突進を止めない（MLBB: ブリンク・突進を中断するのはノックアップ・制圧）。
+    /// 突進は対象まで届き、踏み込みの一撃も当たる。
+    func testStunMidDashDoesNotStopTheStrike() {
+        var (w, k) = world(level: 12)
+        let e = addEnemy(&w, dx: 440)
+        let n = w.numbers(k, .skill2)
+        let armor0 = w.s.units[e].stats.armor
+        XCTAssertTrue(w.cast(k, .skill2, .unit(w.id(e))))
+        w.tick(2)
+        CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 1, sourceID: w.id(e)))
+        w.run(seconds: 0.4)
+        let hits = w.damageEvents.filter { $0.targetID == w.id(e) && $0.source == .skill(.skill2) }
+        XCTAssertEqual(hits.count, 1, "突進は止まらず、到着で一撃")
+        XCTAssertEqual(hits.first?.amount ?? 0, n.damage * 120 / (120 + armor0), accuracy: 1e-6)
+        XCTAssertNil(kit(w, k).sweep)
+        XCTAssertEqual(kit(w, k).jarldDashTargetID, 0)
+    }
+
+    /// 三連突きの残りの予約があるときのスタン: 予約（中断できる）は消えるが、突進の記録は残って一撃が当たる。
+    func testStunCancelsPendingFlurryHitsButKeepsTheDash() {
+        var (w, k) = world(level: 12)
+        let near = addEnemy(&w, dx: 140)
+        let far = addEnemy(&w, dx: 0, dy: 420, hero: "H003")
+        w.s.units[k].hero!.kit!.jarldCharge = 3
+        w.s.units[k].attackTargetID = w.id(near)
+        for _ in 0..<60 {
+            w.tick()
+            if w.damage(to: near, from: .basicAttack) > 0 { break }
+        }
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: 2), 2, "三連突きの残り 2 発が予約されている")
+        XCTAssertTrue(w.cast(k, .skill2, .unit(w.id(far))))
+        CombatSystem.addStatus(&w.s, targetIndex: k, StatusEffect(kind: .stun, duration: 1, sourceID: w.id(near)))
+        w.run(seconds: 0.4)
+        XCTAssertEqual(Kit.scheduledCount(w.s, caster: k, code: 2), 0, "スタンで三連突きの残りは取り消し")
+        XCTAssertEqual(w.damageEvents.filter { $0.targetID == w.id(far) && $0.source == .skill(.skill2) }.count, 1,
+                       "突進は止まらず一撃が当たる")
     }
 
     func testStrikeMissesWhenTargetEscapesOrDiesDuringDash() {
@@ -663,7 +968,9 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertFalse(w2.cast(k2, .skill1, .unit(w2.id(e2))))
     }
 
-    func testStrikeCooldownResetsOnKill() {
+    /// ヒーロー: 止めを刺したとき（キル）だけリセット（公式「敵をキルするたびに」）。アシストでは戻らない
+    /// （直前に傷つけたヒーローが 0.5 秒以内に他人に倒されても戻らない。0.5 秒の窓はミニオン・モンスターだけ）。
+    func testStrikeCooldownResetsOnHeroKillButNotOnAssist() {
         var (w, k) = world(level: 12)
         let e = addEnemy(&w, dx: 400)
         w.s.units[e].hp = 1
@@ -671,6 +978,8 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertGreaterThan(w.s.units[k].hero!.cooldown(.skill2), 1, "初回は必ずクールダウンを消費")
         w.run(seconds: 0.4)
         XCTAssertFalse(w.s.units[e].isAlive)
+        XCTAssertGreaterThan(w.s.units[k].hero!.cooldown(.skill2), 1, "ヒーローは 0.5 秒の窓ではなくキルの処理で戻る")
+        DeathSystem.process(&w.s, w.ctx)
         XCTAssertEqual(w.s.units[k].hero!.cooldown(.skill2), 0, accuracy: 1e-9, "倒したのでリセット")
         // 倒せなかったときは戻らない
         var (w2, k2) = world(level: 12)
@@ -678,21 +987,34 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertTrue(w2.cast(k2, .skill2, .unit(w2.id(e2))))
         w2.run(seconds: 0.4)
         XCTAssertGreaterThan(w2.s.units[k2].hero!.cooldown(.skill2), 1)
+        // アシスト: 竜牙突きで傷つけた直後（0.2 秒）に味方が止めを刺す → 戻らない
+        let ally = w2.addHero("H003", team: .blue, at: skillArena + Vec2(0, 600), level: 12)
+        w2.run(seconds: 0.2)
+        CombatSystem.applyDamage(&w2.s, w2.ctx, sourceID: w2.id(ally), targetIndex: e2, amount: 1e6, type: .trueDamage,
+                                 source: .spell)
+        w2.tick(2)
+        DeathSystem.process(&w2.s, w2.ctx)
+        XCTAssertFalse(w2.s.units[e2].isAlive)
+        XCTAssertGreaterThan(w2.s.units[k2].hero!.cooldown(.skill2), 1, "アシストではリセットしない")
     }
 
     func testStrikeResetsWhenDamagedMinionDiesWithinHalfASecond() {
-        func scenario(waitBeforeKill: Double, viaBasicAttack: Bool = false) -> Double {
+        func scenario(waitBeforeKill: Double, viaBasicAttack: Bool = false, viaFlurry: Bool = false) -> Double {
             var (w, k) = world(level: 12)
             let helper = addEnemy(&w, dx: 0, dy: 800)
             let m = w.addMinion(team: .red, at: skillArena + Vec2(120, 0))
             w.s.units[k].hero!.skillCooldowns[SkillSlot.skill2.rawValue] = 60
-            if viaBasicAttack {
+            // 三連突き（攻撃エフェクト 50% の命中。通常攻撃の命中フックは通らない）でも窓が開く
+            if viaFlurry { w.s.units[k].hero!.kit!.jarldCharge = 3 }
+            if viaBasicAttack || viaFlurry {
                 // 実際の通常攻撃が当たった tick から数える
                 w.s.units[k].attackTargetID = w.id(m)
                 for _ in 0..<90 {
                     w.tick()
                     if w.damage(to: m, from: .basicAttack) > 0 { break }
                 }
+                // 1 発だけ当てて攻撃をやめる（MLBB の攻撃速度では 0.8 秒の間に次の通常攻撃が当たり、窓が開き直してしまう）
+                w.s.units[k].attackTargetID = nil
             } else {
                 w.hit(k, m, SkillWorld.truePayload(10))
             }
@@ -705,6 +1027,7 @@ final class Kit_H027Tests: XCTestCase {
         }
         XCTAssertEqual(scenario(waitBeforeKill: 0.2), 0, accuracy: 1e-9, "0.5 秒以内に倒れた")
         XCTAssertEqual(scenario(waitBeforeKill: 0.2, viaBasicAttack: true), 0, accuracy: 1e-9, "通常攻撃でも同じ")
+        XCTAssertEqual(scenario(waitBeforeKill: 0.2, viaFlurry: true), 0, accuracy: 1e-9, "三連突きでも同じ")
         XCTAssertGreaterThan(scenario(waitBeforeKill: 0.8), 3, "窓を過ぎたら戻らない")
         XCTAssertGreaterThan(scenario(waitBeforeKill: 0.8, viaBasicAttack: true), 3)
     }
@@ -737,7 +1060,8 @@ final class Kit_H027Tests: XCTestCase {
         XCTAssertTrue(w.damageEvents.isEmpty, "ダメージを持たない")
         w.tick(2)
         XCTAssertEqual(w.s.units[k].stats.moveSpeed, baseMS * 1.4, accuracy: 1e-6)
-        XCTAssertEqual(w.s.units[k].stats.attackSpeed, baseAS * 1.35, accuracy: 1e-6)
+        // 攻撃速度 +35% は追加の攻撃速度 +0.35 回/秒（MLBB: 基礎 + 追加 × 攻撃速度比率）
+        XCTAssertEqual(w.s.units[k].stats.attackSpeed, baseAS + 0.35 * w.s.units[k].stats.attackSpeedRatio, accuracy: 1e-6)
         XCTAssertEqual(kit(w, k).jarldUltRemaining, Tune.ultDuration, accuracy: 0.1)
         let ev = try XCTUnwrap(w.castEvents.last)
         XCTAssertEqual(ev.shape, .selfRing)
@@ -764,7 +1088,8 @@ final class Kit_H027Tests: XCTestCase {
             ref.tick(2)
             XCTAssertTrue(w.cast(k, .ultimate))
             w.tick(2)
-            XCTAssertEqual(w.s.units[k].stats.attackSpeed, ref.s.units[rk].stats.attackSpeed * (1 + expected),
+            XCTAssertEqual(w.s.units[k].stats.attackSpeed,
+                           ref.s.units[rk].stats.attackSpeed + expected * w.s.units[k].stats.attackSpeedRatio,
                            accuracy: 1e-6, "rank \(rank)")
         }
     }

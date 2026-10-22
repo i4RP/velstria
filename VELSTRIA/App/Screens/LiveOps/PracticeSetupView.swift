@@ -10,10 +10,10 @@ enum PracticeSetup {
     static func defaultHeroID(profile: Profile, master: MasterData = .shared) -> String {
         if let last = profile.lastPickedHeroID, master.hero(last) != nil { return last }
         if let owned = profile.ownedHeroIDs.first(where: { master.hero($0) != nil }) { return owned }
-        return master.heroes.first?.heroID ?? "H001"
+        return master.heroes.first?.heroID ?? HeroRoster.defaultHeroID
     }
 
-    /// ロードアウト（スペル・ルーン・スキン・自動習得）を反映した練習場の設定。未所持ヒーローも練習可能。
+    /// ロードアウト（スペル・エンブレム・スキン・自動習得）を反映した練習場の設定。未所持ヒーローも練習可能。
     static func config(heroID: String, options: PracticeOptions, profile: Profile, seed: UInt64,
                        master: MasterData = .shared) -> MatchConfig {
         var opts = options
@@ -25,11 +25,12 @@ enum PracticeSetup {
         if let spells = spells(heroID: heroID, profile: profile, master: master) {
             config.players[i].spells = spells
         }
-        config.players[i].runes = runes(profile: profile, master: master)
+        config.players[i].emblem = emblem(heroID: heroID, profile: profile, master: master)
         if let skin = profile.equippedSkins[heroID], profile.ownedCosmeticIDs.contains(skin) {
             config.players[i].skinID = skin
         }
         config.players[i].autoLevelSkills = profile.settings.autoLevelSkills
+        config.players[i].buildPlan = profile.heroBuildPlans[heroID]
         return config
     }
 
@@ -37,13 +38,12 @@ enum PracticeSetup {
     static func spells(heroID: String, profile: Profile, master: MasterData = .shared) -> [String]? {
         let chosen = profile.heroSpells[heroID] ?? profile.defaultSpells
         guard chosen.count == 2, Set(chosen).count == 2, chosen.allSatisfy({ master.spell($0) != nil }) else { return nil }
-        return SpellLoadoutRules.normalized(chosen, master: master)
+        return SpellLoadoutRules.effective(heroID: heroID, profile: profile)
     }
 
-    /// 選択中ルーンページの有効なルーン。
-    static func runes(profile: Profile, master: MasterData = .shared) -> [String] {
-        guard profile.runePages.indices.contains(profile.selectedRunePage) else { return [] }
-        return profile.runePages[profile.selectedRunePage].runeIDs.filter { !$0.isEmpty && master.rune($0) != nil }
+    /// 試合で使うエンブレム（一括設定で付けたもの、無ければ選んだバトルプランのもの。EmblemMath.loadout）。
+    static func emblem(heroID: String, profile: Profile, master: MasterData = .shared) -> EmblemLoadout? {
+        EmblemMath.loadout(for: heroID, profile: profile, master: master)
     }
 
     static func newSeed() -> UInt64 { UInt64.random(in: 1...UInt64(UInt32.max)) }

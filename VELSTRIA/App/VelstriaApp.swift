@@ -19,6 +19,7 @@ struct VelstriaApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background {
                         app.persistence.saveNow(app.profile)
+                        app.account.autoSave()
                         app.friends.stop()
                     }
                     // 日付を跨いで復帰した場合のログインボーナス・デイリー更新（同日なら何もしない）
@@ -128,7 +129,7 @@ private struct BrandLaunchView: View {
                                 .font(Theme.heading(12))
                                 .tracking(2)
                                 .foregroundStyle(.white.opacity(0.9))
-                            FlowProgressBar(value: progress, tint: Theme.gold, height: 5)
+                            CelestialProgressBar(value: progress, tint: Theme.gold, height: 5)
                                 .frame(maxWidth: min(760, geo.size.width * 0.72))
                         }
                         .padding(.bottom, 30)
@@ -221,7 +222,11 @@ struct BattleSessionView: View {
                 phase = .result(outcome, report)
             }
         case .result(let outcome, let report):
-            MatchResultView(outcome: outcome, report: report) { app.dismissBattle() }
+            if outcome.launch.config.mode == .ranked, report.rankAfter != nil, outcome.launch.replay == nil {
+                RankedResultFlowView(outcome: outcome, report: report) { app.dismissBattle() }
+            } else {
+                MatchResultView(outcome: outcome, report: report) { app.dismissBattle() }
+            }
         }
     }
 }

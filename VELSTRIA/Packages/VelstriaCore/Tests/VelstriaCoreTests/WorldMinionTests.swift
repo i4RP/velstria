@@ -252,14 +252,16 @@ final class WorldMinionTests: XCTestCase {
         XCTAssertLessThan(q.distance(to: Vec2(2600, 11300)), 60)
     }
 
-    func testColossusBlessingEmpowersNearbyMinions() {
+    func testAlliedLordEmpowersNearbyMinions() {
         var (s, ctx) = makeField()
         let m = Kit.addMinion(&s, ctx, team: .blue, pos: Vec2(5000, 5000))
         let far = Kit.addMinion(&s, ctx, team: .blue, pos: Vec2(3000, 3000))
         let enemy = Kit.addMinion(&s, ctx, team: .red, pos: Vec2(5300, 5300))
-        let hero = Kit.addHero(&s, ctx, team: .blue, pos: Vec2(5600, 5600))
-        s.units[hero].statuses.append(StatusEffect(kind: .colossusBlessing, duration: 180))
-        s.units[enemy].statuses.append(StatusEffect(kind: .colossusBlessing, duration: 180)) // ミニオンの加護は無関係
+        // 味方として出撃したロード（MLBB のロードはミニオンを強化する。量は非公表なので旧来の ×1.5）
+        var lordUnit = UnitFactory.makeMonster(kind: .ancientColossus, campID: -1, pos: Vec2(5600, 5600), time: s.time)
+        lordUnit.team = .blue
+        let lordID = s.addUnit(lordUnit)
+        let hero = s.index(of: lordID)!
         let baseHP = s.units[m].stats.maxHP, baseAtk = s.units[m].stats.attack
         s.units[m].hp = baseHP * 0.5
         refresh(&s, ctx)
@@ -273,8 +275,8 @@ final class WorldMinionTests: XCTestCase {
         refresh(&s, ctx)
         StatCalculator.recompute(&s, m, ctx)
         XCTAssertEqual(s.units[m].stats.maxHP, baseHP * 1.5, accuracy: 1e-9)
-        // 加護が切れたら元に戻る
-        s.units[hero].statuses.removeAll()
+        // ロードが倒れたら元に戻る
+        s.units[hero].isAlive = false
         refresh(&s, ctx)
         XCTAssertEqual(s.units[m].minion?.empowered, false)
         XCTAssertEqual(s.units[m].stats.maxHP, baseHP, accuracy: 1e-9)

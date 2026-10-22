@@ -136,8 +136,8 @@ public enum AutoCombatResolver {
         raw *= (1 + fighters[a].damageBonus)
         let type: DamageType = fighters[a].magicDamage ? .magic : .physical
         let mult = CombatSystem.mitigationMultiplier(type, armor: fighters[t].armor, magicResist: fighters[t].magicResist)
-        let dr = min(Balance.maxDamageReduction, fighters[t].damageReduction)
-        var dmg = max(1, raw * mult * (1 - dr))
+        // 被ダメ軽減は上限なし（バトルと同じ CombatSystem.damageReductionMultiplier）
+        var dmg = max(1, raw * mult * CombatSystem.damageReductionMultiplier(fighters[t].damageReduction))
         if fighters[t].shield > 0 {
             let absorbed = min(fighters[t].shield, dmg)
             fighters[t].shield -= absorbed
@@ -206,7 +206,10 @@ public enum AutoCombatResolver {
 
             // シナジー適用（簡易）。
             if vanguard > 0 { damageReduction += vanguard == 2 ? 0.20 : 0.10 }
-            if duelist > 0 { attackSpeed *= duelist == 2 ? 1.30 : 1.15 }
+            // 攻撃速度の加算は MLBB の式（基礎 + 追加 × 攻撃速度比率、上限 3）。バトルの StatCalculator.finalize と同じ
+            if duelist > 0 {
+                attackSpeed = min(Balance.maxAttackSpeed, attackSpeed + (duelist == 2 ? 0.30 : 0.15) * st.attackSpeedRatio)
+            }
             if ranger > 0, def.role == .ranger { attack *= ranger == 2 ? 1.25 : 1.12 }
             if arcanist > 0, def.role == .arcanist { attack *= arcanist == 2 ? 1.35 : 1.15 }
             if support > 0 { shield += maxHP * (support == 2 ? 0.30 : 0.15) }
@@ -221,7 +224,9 @@ public enum AutoCombatResolver {
             out.append(Fighter(team: team, heroID: unit.heroID, star: unit.star,
                                pos: Vec2(x, y), hp: maxHP, maxHP: maxHP, shield: shield,
                                attack: attack, attackSpeed: attackSpeed, attackRange: st.attackRange,
-                               moveSpeed: max(150, st.moveSpeed), armor: st.armor, magicResist: st.magicResist,
+                               // 移動速度はバトルと同じく MLBB の値 × マップ縮尺（盤面の単位はワールドと同じ）
+                               moveSpeed: max(150, st.moveSpeed * Balance.mapScale), armor: st.armor,
+                               magicResist: st.magicResist,
                                critChance: min(1, critChance), critMult: st.critMultiplier, lifesteal: st.lifesteal,
                                damageReduction: damageReduction, damageBonus: st.damageBonus, magicDamage: magic,
                                cooldown: 1.0 / max(0.1, attackSpeed)))

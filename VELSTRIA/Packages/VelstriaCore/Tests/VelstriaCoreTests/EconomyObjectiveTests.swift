@@ -5,16 +5,20 @@ import XCTest
 final class EconomyObjectiveTests: XCTestCase {
     private let spot = Vec2(6000, 6000)
 
+    /// MLBB: 塔を壊すとチーム全員にアウター 60・インナー 80・ベースタワー 100。近くにいたヒーローは 50 を分け合う
+    /// （1 人なら 110 / 130 / 150）。ラストヒットのボーナスは無い。
     func testTowerGoldForLastHitterAndTeam() {
         var f = EconomyFixture.standard()
+        f.parkHeroesAtFountains()
         let blue = f.heroes(.blue)
-        let a = blue[0]
+        let a = blue[0], b = blue[1]
         let t = f.tower(team: .red, lane: .mid, tier: .outer)
+        f.place(a, at: f.s.units[t].pos + Vec2(-300, -300))
         let golds = blue.map { f.hero($0).gold }
         let ev = f.kill(t, by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - golds[0], 270)
+        XCTAssertEqual(f.hero(a).gold - golds[0], 110)
         for (n, i) in blue.enumerated().dropFirst() {
-            XCTAssertEqual(f.hero(i).gold - golds[n], 120)
+            XCTAssertEqual(f.hero(i).gold - golds[n], 60)
         }
         XCTAssertEqual(f.hero(a).score.towersDestroyed, 1)
         XCTAssertEqual(f.s.teams[Team.blue.rawValue].towersDestroyed, 1)
@@ -22,16 +26,36 @@ final class EconomyObjectiveTests: XCTestCase {
         XCTAssertEqual(ev.announcements, [.towerDestroyed(team: .red, lane: .mid, tier: .outer)])
         XCTAssertTrue(ev.contains { if case .structureDestroyed(_, .tower, .red, .mid, .outer, _) = $0 { return true }
             return false })
+        // インナー: 近くの 2 人で 50 を分ける（80 + 25）
+        let inner = f.tower(team: .red, lane: .mid, tier: .inner)
+        f.place(a, at: f.s.units[inner].pos + Vec2(-300, -300))
+        f.place(b, at: f.s.units[inner].pos + Vec2(-400, -200))
+        let golds2 = blue.map { f.hero($0).gold }
+        f.kill(inner, by: nil)
+        XCTAssertEqual(f.hero(a).gold - golds2[0], 105)
+        XCTAssertEqual(f.hero(b).gold - golds2[1], 105)
+        XCTAssertEqual(f.hero(blue[2]).gold - golds2[2], 80)
+        // ベースタワー: 1 人なら 150
+        let base = f.tower(team: .red, lane: .mid, tier: .base)
+        f.place(b, at: f.ctx.map.fountain(.blue))
+        f.place(a, at: f.s.units[base].pos + Vec2(-300, -300))
+        let golds3 = blue.map { f.hero($0).gold }
+        f.kill(base, by: f.id(a))
+        XCTAssertEqual(f.hero(a).gold - golds3[0], 150)
+        XCTAssertEqual(f.hero(b).gold - golds3[1], 100)
+        XCTAssertEqual(f.hero(a).score.towersDestroyed, 2)
+        XCTAssertEqual(f.s.teams[Team.blue.rawValue].towersDestroyed, 3)
     }
 
     func testTowerKilledByMinionGivesTeamGoldOnly() {
         var f = EconomyFixture.standard()
+        f.parkHeroesAtFountains()
         let blue = f.heroes(.blue)
         let m = f.addMinion(.siege, team: .blue, at: spot)
         let t = f.tower(team: .red, lane: .top, tier: .outer)
         let golds = blue.map { f.hero($0).gold }
         f.kill(t, by: f.id(m))
-        for (n, i) in blue.enumerated() { XCTAssertEqual(f.hero(i).gold - golds[n], 120) }
+        for (n, i) in blue.enumerated() { XCTAssertEqual(f.hero(i).gold - golds[n], 60) }
         XCTAssertEqual(blue.reduce(0) { $0 + f.hero($1).score.towersDestroyed }, 0)
     }
 
@@ -75,8 +99,9 @@ final class EconomyObjectiveTests: XCTestCase {
         let gold = f.hero(a).gold
         let m = f.addMonster(.blueSentinel, at: spot)
         let ev = f.kill(m, by: f.id(a))
-        // 蒼晶の番人 90（仔 20 と合わせて 110）、XP は Patch 2.1.88 に合わせて小さい（小キャンプの主が多い）
-        XCTAssertEqual(f.hero(a).gold - gold, 90)
+        // 蒼晶の番人 100 × 0.925（2.1.18）× 1.2（2.1.90）= 111、XP は Patch 2.1.88 に合わせて小さい（小キャンプの主が多い）
+        let blueGold = Balance.Economy.monsterGold(.blueSentinel).rounded()
+        XCTAssertEqual(f.hero(a).gold - gold, blueGold)
         XCTAssertEqual(f.hero(a).xp, 35, accuracy: 1e-9)
         XCTAssertEqual(f.hero(a).score.monsterKills, 1)
         XCTAssertEqual(f.hero(a).score.objectivesTaken, 1)
@@ -87,7 +112,7 @@ final class EconomyObjectiveTests: XCTestCase {
 
         let r = f.addMonster(.redSentinel, at: spot)
         f.kill(r, by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold, 90 + 110)
+        XCTAssertEqual(f.hero(a).gold - gold, blueGold + Balance.Economy.monsterGold(.redSentinel).rounded())
         // 赤バフの貫通はロールで決まる（後衛 10% / 前衛 5%）
         let pen = JungleBuffs.isFrontline(f.hero(a).role) ? Balance.Jungle.redFrontPenetration : Balance.Jungle.redBackPenetration
         XCTAssertEqual(f.s.units[a].status(.redBuff)?.magnitude ?? 0, pen, accuracy: 1e-9)
@@ -104,13 +129,13 @@ final class EconomyObjectiveTests: XCTestCase {
         f.s.units[a].hero!.itemInvested = [250]
         f.s.units[a].hero!.gear = GearState(option: .flame)
         StatCalculator.recompute(&f.s, a, f.ctx)
-        XCTAssertEqual(f.s.units[a].stats.monsterGoldBonus, 0.2, accuracy: 1e-9)
+        XCTAssertEqual(f.s.units[a].stats.monsterGoldBonus, 0, accuracy: 1e-9)
         let gold = f.hero(a).gold
         f.kill(f.addMonster(.campLarge, at: spot), by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold, 48)
+        XCTAssertEqual(f.hero(a).gold - gold, 64)
         f.kill(f.addMonster(.campSmall, at: spot), by: f.id(a))
-        XCTAssertEqual(f.hero(a).gold - gold, 48 + 18)
-        XCTAssertEqual(f.hero(a).xp, 80, accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).gold - gold, 64 + 24)
+        XCTAssertEqual(f.hero(a).xp, 128, accuracy: 1e-9)
     }
 
     func testWyrmRewardsWholeTeam() {
@@ -165,13 +190,14 @@ final class EconomyObjectiveTests: XCTestCase {
         let c = f.addMonster(.ancientColossus, at: Vec2(3700, 8300))
         let ev = f.kill(c, by: f.id(red[2]))
         for (n, i) in red.enumerated() {
-            XCTAssertEqual(f.hero(i).gold - golds[n], 300)
+            // 全員に 50 + 10×分（MLBB Patch 2.1.40a。5:00 なら 100）
+            XCTAssertEqual(f.hero(i).gold - golds[n], Balance.Economy.colossusTeamGold(at: f.s.time))
             XCTAssertEqual(f.hero(i).level, 2)   // 300 XP → Lv2 + 40
-            XCTAssertEqual(f.s.units[i].status(.colossusBlessing)?.remaining ?? 0, 180, accuracy: 1e-9)
+            XCTAssertNil(f.s.units[i].status(.colossusBlessing), "巨像の加護（与ダメ +15%・帰還 2 秒）は MLBB に無い")
         }
         XCTAssertEqual(f.s.teams[Team.red.rawValue].colossusKills, 1)
         XCTAssertTrue(ev.announcements.contains(.colossusSlain(team: .red)))
-        XCTAssertEqual(RecallSystem.recallDuration(f.s.units[red[0]]), Balance.empoweredRecallChannel)
+        XCTAssertEqual(RecallSystem.recallDuration(f.s.units[red[0]]), Balance.recallChannel)
         XCTAssertEqual(RecallSystem.recallDuration(f.s.units[f.heroes(.blue)[0]]), Balance.recallChannel)
     }
 
@@ -183,7 +209,7 @@ final class EconomyObjectiveTests: XCTestCase {
         f.place(b, at: spot)
         f.kill(f.addMonster(.campLarge, at: spot), by: f.id(a))
         XCTAssertEqual(f.hero(a).xp, 50 * 1.3 / 2, accuracy: 1e-9)
-        XCTAssertEqual(f.hero(b).xp, 50 * 1.3 / 2, accuracy: 1e-9)
+        XCTAssertEqual(f.hero(b).xp, 50 * 1.3 / 2 * 1.6, accuracy: 1e-9)
         XCTAssertEqual(f.hero(a).score.monsterKills, 1)
     }
 }

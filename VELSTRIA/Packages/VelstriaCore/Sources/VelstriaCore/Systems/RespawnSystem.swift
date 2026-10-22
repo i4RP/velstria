@@ -4,10 +4,14 @@ import Foundation
 // 死亡中タイマーの進行と泉での復活（DESIGN §8）。
 
 public enum RespawnSystem {
-    /// DESIGN §8: 4 + 2×Lv 秒、12:00 以降 ×1.25、上限 40 秒。
+    /// 復活までの秒数: 3.2 + 2.1 × Lv + 試合時間（分。切り捨て）、上限 90 秒（MLBB 1.4.86 の式。docs/TOWER_BASE_MLBB.md）。
+    /// 18:00 から大きく伸びる（量は資料に無いので、18 分を越えた分は 1 分につき 2 秒にした）。買い戻しは無い。
     public static func respawnTime(level: Int, time: Double) -> Double {
-        var t = Balance.respawnBase + Balance.respawnPerLevel * Double(level)
-        if time >= Balance.respawnLateGameTime { t *= Balance.respawnLateGameMultiplier }
+        let minutes = (max(0, time) / 60 + 1e-9).rounded(.down)
+        let late = Balance.respawnLateGameTime / 60
+        let timeTerm = minutes <= late ? minutes * Balance.respawnPerMinute
+            : late * Balance.respawnPerMinute + (minutes - late) * Balance.respawnLateGamePerMinute
+        let t = Balance.respawnBase + Balance.respawnPerLevel * Double(level) + timeTerm
         return min(Balance.respawnMax, t)
     }
 

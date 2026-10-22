@@ -24,6 +24,31 @@ SSS級の品質達成を示す検証ではない。目視は既存ギャラリ�
 `-heroGallery -galleryState run -galleryDetail H025 -galleryYaw 90`（IDを各ヒーローへ変更）で
 側面・正面、歩き始め／停止、移動攻撃を確認する。
 
+## 現行10体の固有待機（2026-10-21）
+
+`HeroIdle.swift` に停止時の立ち姿・呼吸・視線・肩の追従・時折見せる仕草を定義する。
+共通の `ready_idle` / `combat_idle` 等はこの10体の待機を上書きしない。プレビュー・バトルとも同じ経路を使う。
+
+| ヒーロー | 立ち姿と仕草 |
+| --- | --- |
+| H025 ルミナ | 脚をほぼ平行にして背筋を伸ばす。弓を安定させ、静かに視線を送る |
+| H026 エウリア | 球電を見せる非対称の構え。視線に遅れて右手を持ち上げる |
+| H027 ジャルド | 胸を張った前後の構え。槍を支えたまま周囲を見渡す |
+| H028 ザイル | 低い半身の構え。視線を先行させ、肩と空いた手が追従する |
+| H029 ボルグ | 巨体を支える足幅。重い呼吸と、ゆっくり顔を上げる仕草 |
+| H030 ライナ | 大砲を支える非対称の構え。砲へ視線を落とし、首を傾ける |
+| H031 オーリア | 狭い足幅と高い顎。穏やかに手を上げる |
+| H032 ディアス | 前足と左右の腕の高さをずらす。顎を上げ、腕を引き締める |
+| H033 ヴァルド | 剣側の肩を前へ出す。周囲へ視線を送り、空いた手を動かす |
+| H034 ゴルム | 幅のある構えと大きな呼吸。左手を腹の近くへ持ち上げる |
+
+脚・骨盤の姿勢は待機中固定し、上半身だけを動かす。呼吸は3.1〜6.4秒、仕草は9.2〜16秒の個別周期。
+仕草の始終は速度・加速度とも0へ戻す。停止専用の時計は移動・攻撃でリセットし、復帰時は静かな立ち姿から始める。
+攻撃や詠唱の `profile.rest` と、足接地の基準は維持する。待機は `plant = 0` とし、戦闘用の足目標へ戻されるのを防ぐ。
+Entity・クリップ・タイマー・装飾の追加なし。`HeroIdleTests` に全10体の65秒評価、ルミナの足幅、共通クリップ上書き防止、
+歩行／攻撃からの復帰、周期境界の回帰テストを追加。WindowsではXcode/iOSテスト・実機の見た目は未確認。
+目視は `-heroGallery -galleryDetail H025 -galleryState idle` で約20秒待ち、各ID・側面でも確認する。
+
 ## 座標と記号
 
 - ヒーロー空間: Y 上・正面 -Z・キャラの右手 +X・メートル（`SkinnedHeroModel` の motion エンティティのローカル）。
@@ -106,7 +131,8 @@ SSS級の品質達成を示す検証ではない。目視は既存ギャラリ�
   非同期で読む。プレビュー・テストは同期）。無い・壊れていれば空のライブラリ = 手続きアニメーションだけで動く。
 - `HeroMotionSets`（HeroMotionSets.swift）がヒーローごとの割り当て: 通常攻撃（順に繰り返す）・待機・死亡・勝利。
   ライブラリに無い名前は黙って落とす。移動は手続き（速度に合わせた歩幅）、帰還の膝立ちも手続き。
-  スキルの詠唱はスキル演出の手続きモーション（SkillMotion の MotionClip、docs/SKILL_FX.md）に任せる。演出の打撃の時刻は
+  スキルの詠唱はスキル演出の手続きモーション（SkillMotion の MotionClip、docs/SKILL_FX.md。全身のモーションのヒーローは
+  下の「全身のモーション」）に任せる。演出の打撃の時刻は
   そのモーションのキーに合わせてあり、クリップを重ねるとずれるため（HeroMotionSet.casts の仕組みは残してあるが使わない）。
 - `HeroClipLayer`（HeroAnimation.swift）が手続きの `HeroPose` に重ねるクリップ・時刻・重み・マスクを持ち、
   `SkinnedHeroModel.apply` が区間ごとに手続きとクリップを slerp してから `HeroSkeletonPoser.solve` する。
@@ -124,6 +150,14 @@ SSS級の品質達成を示す検証ではない。目視は既存ギャラリ�
 - 武器: クリップ再生中は手の区間に付ける（位置）。向きは割り当ての grip があれば手の区間 × grip（振る武器。既定の拳の握り =
   +Y を手の区間の正面 -Z へ）、grip が nil なら手続きの武器角をクリップの胴に対して保つ（杖・槍・銃・弓・盾・灯籠）。
   体に付ける籠手・爪は手の区間そのもの。
+  - 状態のクリップ（待機・勝利など、腕を下ろした立ち姿）の間は、割り当ての `idleWeaponR` / `idleWeaponL`（胴座標の武器角）へ
+    0.1 秒ほどで寄せる（攻撃・詠唱のクリップへ移ると手続きの角へ戻る）。槍（H005・H008・H023）は -0.22 で立て、
+    弓（H003・H020）は -0.38 で上の弓先を前へ傾け、H015 の鐘口の大筒は -2.2 で銃口を前の下へ下ろす（腰だめの構えのままだと
+    穂先が顔の前を横切る・下の弓先が足元に立つ・鐘口が顔に重なる）。
+  - 灯籠（`SkinnedHeroModel.hangingGear`）は武器角に関係なく胴の向きのまま真下へ吊るす。
+  - スキンメッシュだけの装備の拡縮 `SkinnedHeroModel.gearScale`（弩 0.78・月弓/光の弓 0.84。entity の拡縮なので先端・発射位置も縮む）。
+  - 確認: `-heroGallery -galleryHeroes H003,H020,H006 -galleryState idle -galleryFreeze 1.5 -galleryYaw 270`（左の側面）。
+    検査は AppTests/HeroGripTests（同梱ヒーロー全員の握りの距離・槍・弓・灯籠の向き）。
 - 手続きモデル（スキンメッシュが無いヒーロー）は従来の手続きクリップのまま。
 
 ## 武器の軌跡・発射位置（HeroModelHandle.weaponTrailSample / attackLaunchPoint）
@@ -144,6 +178,56 @@ SSS級の品質達成を示す検証ではない。目視は既存ギャラリ�
   使わない）。近接は `WeaponTrail`（LowLevelMesh の帯。読み込み中にヒーローの見た目 1 体につき 1〜2 本作り、`swing` の間だけ
   標本を積む。低画質・軌跡を切った自動調整では出さない）、遠隔は `ProjectileLayer` のヒーロー別の弾（`attackLaunchPoint` から
   出し、ずれは残り距離に比例して消す）と `HeroAttackFX` の発射炎（`.attackReleased` の後、姿勢の更新後に発射位置へ）・着弾。
+
+## 全身のモーション（HeroSkillMotions・ヒーローごとの opt-in）
+
+スキルの詠唱・再使用の段・命中の後・通常攻撃を、上半身だけでなく踏み込み・腰のひねり・跳びまで全身で書く仕組み。
+目録 `HeroSkillMotions.scripts`（App/Battle/Heroes/HeroSkillMotions.swift）にあるヒーローだけが使い（2026-10-18: H029 ボルグ・
+H034 ゴルム。定義は App/Battle/Heroes/Motions/Motion_H0xx.swift）、それ以外のヒーローの動きは変わらない（演出の定義
+`FX_H0xx.motion` の詠唱とモーションクリップの通常攻撃のまま。AppTests/HeroFullBodyMotionTests が確かめる）。
+
+- **打撃の時刻 = sim の判定の時刻**: キーの時刻は `KitTimes`（HeroSkillMotions.swift）が `HeroKits.fxValues`（キットの Tune を名前・
+  単位つきで返す読み取り専用の口。照準・判定・演出の FXSkillInfo と同じ。docs/vfx/RANGES.md）から読んで作る。値を写さないので、
+  sim の時刻を変えるとモーションの打撃も一緒に動く。無い key は `KitTimes.misses` に残る（テストが空を確かめる）。
+  ヒーローごとの時刻の表は docs/vfx/H0xx.md「モーション（打撃の時刻）」。
+- **描画だけの体の位置**: `HeroPose.offset`（踏み込み・跳び。motion エンティティの位置）は sim の位置を動かさない。
+  キーで書いたずれはクリップの終わり（`total`）で 0 に戻る（最後のキー → 待機の姿勢へ `recover` 秒で戻す）。水平のずれは 0.6 m 未満。
+- **強い通常攻撃だけのモーション**（2026-10-21: H027 子龍の三連突き・H032 ディアスの円撃。`HeroMotionScript.empoweredAttack`）:
+  sim の `attackStarted` で次の通常攻撃が強い（`HeroKits.empoweredAttackReady`）とき、描画が `playAttack(windup:interval:empowered: true)`
+  を呼び、普段の通常攻撃（モーションクリップ）の代わりに全身のモーションを 1 回振る。打撃（impact）= windup 秒後 = 1 発目の命中。
+  打撃の後は等速（三連突きの 2・3 発目のキーが sim の命中の時刻 = `flurryInterval` おきに来る。攻撃速度で縮めない）。普段の通常攻撃が
+  来たら打ち切る。円撃は体の向き（yaw）を 1 回転させ、戻りで巻き戻さない（`MotionClip.wrapsYaw`）。普段の通常攻撃・詠唱は変わらない。
+  次の通常攻撃が強い間は武器の先の光（`HeroModelHandle.setEmpoweredReady` → 詠唱の光の下限 0.7）を灯す。
+- **足の接地**（`HeroLegIK.swift` の `HeroLegRig`）: `HeroPose.plant`（0〜1）が立つ間、足首を `footR` / `footL`
+  （待機の足首からのずれ、ヒーロー空間・m、-z = 前）へ置く腿・脛の角度を 2 関節の IK で解き、作者の脚の角度と plant の重みで混ぜる。
+  足首が地面（待機の足首の高さ）より下なら体ごと持ち上げる。寸法は読み込み時に 1 度だけ（手続きモデル = BodyMetrics、
+  スキンメッシュ = 骨の待機の位置。腰の沈み hipsDrop は手続きの脚に対する値をスキンの脚へ伸ばす = `hipsDropScale`）。
+  キーの間で目標が動く足は弧を描いて踏み出す（上げる高さ = 動く距離の 0.45 倍・最大 0.16 m × sin(πu)。`MotionClip.liftSteps`）。
+  クリップの入り・戻りも接地したまま（重みを混ぜると上げた足が地面に残って滑る）。
+- **移動中は下半身を移動の姿勢へ**（`MotionClip.yieldsLowerWhenMoving`）: 立ち止まっていれば全身、移動中（sim が動かす突進を含む）は
+  下半身・体の位置・接地を 0.12 秒で移動の姿勢へ寄せる（`HeroAnimator.actionLower`）。上半身の振りは移動中も出す。
+- **角度を体の鉛直に対して書く**（`MotionBuilder.worldAngles`）: 腕の pitch・武器角・頭の pitch を、胴ではなく体の鉛直に対して書き、
+  胴の前傾（torsoPitch）の分を足し引きして胴の座標で積む（胴を大きく倒しても武器が胴と一緒に後ろへ回らない）。
+  腕の pitch 0 = 真下・π/2 = 前・π = 真上、武器角 0 = 真上・-π/2 = 前・±π = 真下・+ = 後ろ。
+- **盾**: 盾持ちの左腕は既定で胸の前に固定（`MotionBuilder.shieldGuard`）。外すと盾を掲げる・叩きつける技も書ける。
+- **再使用の段**（`HeroMotionScript.cast(slot, stage:)`、stage >= 1）: 描画側は `SkillCastEvent.stage` を
+  `HeroVisual.noteCast(_:stage:time:)` へ渡し、段に固有のモーションがあれば同じスロットの詠唱中でも始め直す
+  （`HeroModelHandle.castRestarts / playCast`）。無い段は従来どおり（詠唱中なら続ける）。
+- **命中の後のモーション**（`HeroMotionScript.onHit`）: 詠唱中のスロットのスキルのダメージ（`DamageEvent.source = .skill`）が
+  最初に来た時に、今の姿勢からつないで始める（1 回の詠唱で 1 度。`HeroModelHandle.playCastHit`。詠唱状態をその長さだけ延ばす）。
+  距離で時刻の変わる判定（鎖鉤の命中 → 0.45 秒後の引き寄せ）に打撃のキーを合わせるため。
+- **全身の通常攻撃**（`HeroMotionScript.attacks`、`HeroMotionProfile.attackMotions`）: `impact`（`MotionBuilder.markImpact`）を
+  `playAttack(windup:interval:)` の windup 秒後へ合わせる（打撃まで 0.5〜4 倍速、打撃の後は戻りが interval - windup に収まる速さ。
+  モーションクリップの通常攻撃と同じ規則）。攻撃状態が終わっても戻りの終わりまで再生し、それから待機のクリップへ。
+  武器の軌跡の振りは打撃の前 0.18 秒〜後 0.06 秒（クリップ時刻）。この間、割り当て表（HeroMotionSets）の通常攻撃のクリップは使わない。
+- **長さの上限**: 通常スキル 1.1 秒・奥義 1.7 秒（SkillFXTests）。sim が術者を止めておく奥義（`MotionClip.simLock`。ゴルムの拘束
+  2.05 秒）は拘束 + 0.6 秒まで。命中の後のモーションも 1.1 秒以内。
+- **性能**: クリップはロード時に 1 度だけ作る（値型・配列はプロファイルが持つ）。毎フレームは姿勢の補間と、plant > 0 の間だけ
+  脚 2 本の IK（三角関数数回）。ユニットごとのタイマー・全キャラの走査は足していない（状態は HeroAnimator の中）。
+
+確認: 手元（Windows）は MotionLab（%TEMP%/vfxwork/motion/harness。モーションの純粋な部分だけを Swift でビルドして、接地・足の滑り・
+体の位置の戻りを測り、棒人形を描く）、実機に近い画は演出の撮影の `fxcap-motion-*` タグ（体の横が見える向き・細かい時刻・
+通常攻撃。tools/fx_capture/run_ci.sh の MOTION）。目録の notes にスキンの脚の寸法（`legRig`）が出る。
 
 ## クリップの作り方（tools/heroref）
 1. 動作の購入: `node tools/meshy.mjs anim --rig H002 --actions <id,...>`（1 動作 3 credits、既存の rig を使う。rig は 3 日で失効）。

@@ -2,16 +2,16 @@ import XCTest
 @testable import VelstriaCore
 
 /// 装備（Mobile Legends の図鑑をそのまま写した 92 個。tools/equipment_spec.mjs）:
-/// データの整合・多段の合成・靴の制限・売却・ポーション・固有の能力値・適応攻撃・MP・ルーン・推奨購入（DESIGN §8）。
+/// データの整合・多段の合成・靴の制限・売却・ポーション・固有の能力値・適応攻撃・MP・エンブレム・推奨購入（DESIGN §8）。
 final class EconomyItemTests: XCTestCase {
     private let master = MasterData.shared
 
-    /// 人間（H003、Mana の射手）の所持 Gold を決め、ルーンを外して能力値を計算し直す。
+    /// 人間（H003、Mana の射手）の所持 Gold を決め、エンブレムを外して能力値を計算し直す。
     private func setup(spells: [String]? = nil, gold: Double = 5000) -> EconomyFixture {
         var f = EconomyFixture.standard()
         let i = f.human
         f.s.units[i].hero!.gold = gold
-        f.s.units[i].hero!.runes = []
+        f.s.units[i].hero!.emblem = nil
         if let spells { f.s.units[i].hero!.spells = spells }
         StatCalculator.recompute(&f.s, i, f.ctx)
         f.s.events.removeAll()
@@ -378,7 +378,7 @@ final class EconomyItemTests: XCTestCase {
         var st = Stats()
         st.resourceRegen = 10
         // ダガー ×2・バイタリティクリスタル・守り人の兜・デモンブーツ・賢者の書
-        ItemStats.apply(items: ["EQ133", "EQ133", "EQ324", "EQ309", "EQ401", "EQ221"], runes: [], to: &st, master: master)
+        ItemStats.apply(items: ["EQ133", "EQ133", "EQ324", "EQ309", "EQ401", "EQ221"], to: &st, master: master)
         XCTAssertEqual(st.attack, 30, accuracy: 1e-9)
         XCTAssertEqual(st.abilityPower, 8, accuracy: 1e-9)
         XCTAssertEqual(st.maxHP, 1 + 230 + 1800, accuracy: 1e-9)
@@ -392,31 +392,31 @@ final class EconomyItemTests: XCTestCase {
     func testUniqueStatsTakeTheMaxOncePerItem() {
         var st = Stats()
         // 固有の物理貫通: ハンターストライク 15・オーシャンエッジ 15・レイシハンマー 12 → 15
-        ItemStats.apply(items: ["EQ105", "EQ107", "EQ122", "EQ105"], runes: [], to: &st, master: master)
+        ItemStats.apply(items: ["EQ105", "EQ107", "EQ122", "EQ105"], to: &st, master: master)
         XCTAssertEqual(st.armorPenFlat, 15, accuracy: 1e-9)
         XCTAssertEqual(st.attack, 80 * 2 + 70 + 35, accuracy: 1e-9, "通常の能力値は個数分")
         // 撃砕（物理貫通 30%）は重ならない
         var pen = Stats()
-        ItemStats.apply(items: ["EQ101", "EQ112"], runes: [], to: &pen, master: master)
+        ItemStats.apply(items: ["EQ101", "EQ112"], to: &pen, master: master)
         XCTAssertEqual(pen.armorPenPct, 0.30, accuracy: 1e-9)
         // 固有のクリティカルダメージ +30% は 2 本でも 1 回、クリティカル率は足し算で 100% が上限
         var crit = Stats()
         let baseMultiplier = crit.critMultiplier
-        ItemStats.apply(items: ["EQ110", "EQ110", "EQ110", "EQ110", "EQ110"], runes: [], to: &crit, master: master)
+        ItemStats.apply(items: ["EQ110", "EQ110", "EQ110", "EQ110", "EQ110"], to: &crit, master: master)
         XCTAssertEqual(crit.critMultiplier, baseMultiplier + 0.30, accuracy: 1e-9)
         XCTAssertEqual(crit.critChance, 1, accuracy: 1e-9)
         // 固有と通常は別: ジーニアスワンド（固有の魔法貫通 10）+ アーケインブーツ（通常の魔法貫通 10）
         var magic = Stats()
-        ItemStats.apply(items: ["EQ203", "EQ404", "EQ203"], runes: [], to: &magic, master: master)
+        ItemStats.apply(items: ["EQ203", "EQ404", "EQ203"], to: &magic, master: master)
         XCTAssertEqual(magic.magicPenFlat, 20, accuracy: 1e-9)
         // 混合吸血: 濃縮エネルギー（固有 20/20）+ ブラッドクロウ（固有 20）→ 20/20、ヴァンパイアハンマー（通常 8）は足す
         var vamp = Stats()
-        ItemStats.apply(items: ["EQ209", "EQ111", "EQ130"], runes: [], to: &vamp, master: master)
+        ItemStats.apply(items: ["EQ209", "EQ111", "EQ130"], to: &vamp, master: master)
         XCTAssertEqual(vamp.lifesteal, 0.20 + 0.08, accuracy: 1e-9)
         XCTAssertEqual(vamp.spellVamp, 0.20, accuracy: 1e-9)
         // ブレイドアーマーのクリティカルダメージ軽減も固有
         var blade = Stats()
-        ItemStats.apply(items: ["EQ313", "EQ313"], runes: [], to: &blade, master: master)
+        ItemStats.apply(items: ["EQ313", "EQ313"], to: &blade, master: master)
         XCTAssertEqual(blade.critDamageReduction, 0.20, accuracy: 1e-9)
         XCTAssertEqual(blade.armor, 160, accuracy: 1e-9)
     }
@@ -426,7 +426,7 @@ final class EconomyItemTests: XCTestCase {
         let magical = heroData("H004")      // スキルは魔法
         func apply(_ items: [String], _ hero: HeroData?) -> Stats {
             var st = Stats()
-            ItemStats.apply(items: items, runes: [], to: &st, master: master, hero: hero)
+            ItemStats.apply(items: items, to: &st, master: master, hero: hero)
             return st
         }
         // エキスパートグローブ（適応 30）だけ: 装備の攻撃力・魔力が同じ（0）なのでスキルの種類
@@ -456,9 +456,9 @@ final class EconomyItemTests: XCTestCase {
         mana.items = ["EQ223", "EQ201"]     // パワークリスタル 280 + ウィッシュランタン 400
         energy.items = mana.items
         var a = Stats(), b = Stats(), c = Stats()
-        ItemStats.apply(items: mana.items, runes: [], to: &a, master: master, hero: mana)
-        ItemStats.apply(items: energy.items, runes: [], to: &b, master: master, hero: energy)
-        ItemStats.apply(items: mana.items, runes: [], to: &c, master: master)
+        ItemStats.apply(items: mana.items, to: &a, master: master, hero: mana)
+        ItemStats.apply(items: energy.items, to: &b, master: master, hero: energy)
+        ItemStats.apply(items: mana.items, to: &c, master: master)
         XCTAssertEqual(a.maxResource, 680, accuracy: 1e-9)
         XCTAssertEqual(b.maxResource, 0, accuracy: 1e-9)
         XCTAssertEqual(c.maxResource, 0, accuracy: 1e-9, "ヒーローが分からなければ足さない")
@@ -471,40 +471,18 @@ final class EconomyItemTests: XCTestCase {
         XCTAssertEqual(f.s.units[i].stats.maxResource, before + 280, accuracy: 1e-9)
     }
 
-    func testRunesValorArcanaResolve() {
-        var st = Stats()
-        st.attack = 100; st.abilityPower = 100; st.maxHP = 1000; st.armor = 50; st.magicResist = 40
-        // RN01 Valor 3% (T1) / RN12 Arcana 7% (T2) / RN23 Resolve 4% (T3)。不正 ID・同 Tier の 2 個目は無視
-        ItemStats.apply(items: [], runes: ["RN01", "BOGUS", "", "RN06", "RN12", "RN23"], to: &st, master: master)
-        XCTAssertEqual(st.attack, 103, accuracy: 1e-9)
-        XCTAssertEqual(st.abilityPower, 107, accuracy: 1e-9)
-        XCTAssertEqual(st.skillDamageBonus, 0.035, accuracy: 1e-9)
-        XCTAssertEqual(st.maxHP, 1040, accuracy: 1e-9)
-        XCTAssertEqual(st.armor, 52, accuracy: 1e-9)
-        XCTAssertEqual(st.magicResist, 41.6, accuracy: 1e-9)
-        XCTAssertEqual(ItemStats.validRunes(["RN01", "BOGUS", "RN06", "RN12", "RN23"], master: master).map(\.runeID),
-                       ["RN01", "RN12", "RN23"])
-    }
-
-    func testRunesCunningHarmonyApplyAfterItems() {
-        var st = Stats()
-        st.moveSpeed = 300; st.hpRegen = 10; st.resourceRegen = 5
-        // RN04 Cunning 6% (T1) / RN20 Harmony 8% (T2) + スイフトブーツ（+40 移動速度）
-        ItemStats.apply(items: ["EQ403"], runes: ["RN04", "RN20"], to: &st, master: master)
-        XCTAssertEqual(st.moveSpeed, 340 * 1.03, accuracy: 1e-9)
-        XCTAssertEqual(st.cooldownReduction, 0.03, accuracy: 1e-9)
-        XCTAssertEqual(st.hpRegen, 10 * 1.24, accuracy: 1e-9)
-        XCTAssertEqual(st.resourceRegen, 5 * 1.24, accuracy: 1e-9)
-        XCTAssertEqual(st.healShieldPower, 0.08, accuracy: 1e-9)
-    }
-
-    func testHeroStatsIncludeRunesViaStatCalculator() {
+    func testHeroStatsIncludeEmblemViaStatCalculator() {
+        // エンブレムの能力値は StatCalculator（ItemStats.apply）で装備と同じ所に入る。詳しい検証は EmblemTests
         var f = setup()
         let i = f.human
-        let before = f.s.units[i].stats.attack
-        f.s.units[i].hero!.runes = ["RN06"]    // Valor 8%
+        let before = f.s.units[i].stats
+        // 通常共通 Lv60（HP +275・適応攻撃 +22・混合回復 +12）+ 活力（HP +225）。H003 は物理なので適応攻撃は物理攻撃に入る
+        f.s.units[i].hero!.emblem = EmblemLoadout(.common, .vitality, .seasonedHunter, .impureRage)
         StatCalculator.recompute(&f.s, i, f.ctx)
-        XCTAssertEqual(f.s.units[i].stats.attack, before * 1.08, accuracy: 1e-6)
+        XCTAssertEqual(f.s.units[i].stats.maxHP, before.maxHP + 275 + 225, accuracy: 1e-6)
+        XCTAssertEqual(f.s.units[i].stats.attack, before.attack + 22, accuracy: 1e-6)
+        XCTAssertEqual(f.s.units[i].stats.abilityPower, before.abilityPower, accuracy: 1e-6)
+        XCTAssertEqual(f.s.units[i].stats.hpRegen, before.hpRegen + 12, accuracy: 1e-6)
     }
 
     // MARK: - 推奨購入

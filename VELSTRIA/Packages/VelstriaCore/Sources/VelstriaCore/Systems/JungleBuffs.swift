@@ -36,7 +36,10 @@ public enum JungleBuffs {
         case .monster: pct = Balance.Jungle.purpleKillHealMonster
         case .tower, .core, .dummy: return
         }
-        CombatSystem.heal(&s, ctx, sourceID: nil, targetIndex: k, amount: s.units[k].stats.maxHP * pct)
+        // 狩猟印持ちはモンスターの報酬（回復を含む）が多い
+        let hunt = s.units[v].kind == .monster && s.units[k].hero?.spells.contains(Balance.Economy.smiteSpellID) == true
+        CombatSystem.heal(&s, ctx, sourceID: nil, targetIndex: k,
+                          amount: s.units[k].stats.maxHP * pct * (hunt ? Balance.Gear.jungleMonsterMultiplier : 1))
     }
 
     // MARK: - 赤バフ
@@ -89,19 +92,15 @@ public enum JungleBuffs {
     /// 回復バフ: 350 HP と最大 Mana の 5%（Energy のヒーローは HP のみ）。
     static func grantHealingBuff(_ s: inout SimState, _ ctx: SimContext, heroIndex k: Int) {
         guard s.units[k].isAlive, s.units[k].hero?.isDead == false else { return }
-        CombatSystem.heal(&s, ctx, sourceID: nil, targetIndex: k, amount: Balance.Jungle.healingBuffHP)
+        let hunt = s.units[k].hero?.spells.contains(Balance.Economy.smiteSpellID) == true
+        CombatSystem.heal(&s, ctx, sourceID: nil, targetIndex: k,
+                          amount: Balance.Jungle.healingBuffHP * (hunt ? Balance.Gear.jungleMonsterMultiplier : 1))
         if s.units[k].hero?.resourceKind == .mana {
             let st = s.units[k].stats
             s.units[k].resource = min(st.maxResource, s.units[k].resource + st.maxResource * Balance.Jungle.healingBuffManaPct)
         }
     }
 
-    /// Gold バフ（宝殻蟹）: total を duration 秒に均して入れる。
-    static func grantGoldBuff(_ s: inout SimState, heroIndex k: Int, total: Double, duration: Double, sourceID: EntityID) {
-        guard duration > 0, s.units[k].isAlive else { return }
-        CombatSystem.addStatus(&s, targetIndex: k, StatusEffect(kind: .goldBuff, duration: duration,
-                                                                magnitude: total / duration, sourceID: sourceID, tag: "crab"))
-    }
 
     /// 苔草（苔甲の徘徊者）を撃破者に付け、近くの味方に少しの Gold。
     static func wandererReward(_ s: inout SimState, _ ctx: SimContext, killer k: Int?, team: Team, at pos: Vec2,
@@ -175,6 +174,44 @@ public enum JungleBuffs {
         }
     }
 
+    // MARK: - 味方のロードの加護
+
+    /// 味方になって進化したロードの近くの味方ヒーローに付く印のタグ（RiverObjectiveSystem.abilities が付け直す）。
+    static let lordAuraTag = "lord.magic"
+
+    /// 加護: 印を持つヒーローの通常攻撃・スキルが敵ヒーローに当たると、追加の魔法ダメージ 400 + 物理攻撃 60% + 魔法攻撃 60%
+    /// + 最大 HP 3%（攻撃したヒーローの値。CD 2 秒。MLBB Patch 1.6.84）。CD は印の tickTimer に「次に撃てる時刻」として持つ。
+    static func lordAuraStrike(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int, source: DamageSource) {
+        switch source {
+        case .basicAttack, .skill: break
+        default: return
+        }
+        guard s.units[a].kind == .hero, s.units[t].kind == .hero, s.units[t].team != s.units[a].team,
+              CombatSystem.isLiving(s, t),
+              let k = s.units[a].statuses.firstIndex(where: { $0.tag == lordAuraTag }),
+              s.time + CombatSystem.timeEpsilon >= s.units[a].statuses[k].tickTimer else { return }
+        typealias J = Balance.Jungle
+        s.units[a].statuses[k].tickTimer = s.time + J.lordAuraCooldown
+        let st = s.units[a].stats
+        let damage = J.lordAuraBase + J.lordAuraAttackRatio * st.attack + J.lordAuraPowerRatio * st.abilityPower
+            + J.lordAuraMaxHPRatio * st.maxHP
+        CombatSystem.applyDamage(&s, ctx, sourceID: s.units[a].id, targetIndex: t, amount: damage, type: .magic,
+                                 source: .passive)
+    }
+
+    // MARK: - 川の流れ
+
+    /// 川の流れ（タートルの出現・消滅の前後）: 川の中で巣の方へ動くヒーローの移動速度 +最大 50%（向きが巣に近いほど大きい）。
+    static func applyRiverCurrent(_ s: SimState, _ ctx: SimContext, _ i: Int, to stats: inout Stats) {
+        let u = s.units[i]
+        guard u.kind == .hero, u.isAlive, u.pos != u.prevPos, let pit = RiverObjectiveSystem.riverCurrentTarget(s, ctx),
+              ctx.map.isInRiver(u.pos) else { return }
+        let moved = u.pos - u.prevPos, toPit = pit - u.pos
+        guard moved.lengthSquared > 1e-6, toPit.lengthSquared > 1e-6 else { return }
+        let along = moved.normalized.dot(toPit.normalized)
+        stats.moveSpeedBonus += Balance.Jungle.riverCurrentSpeed * max(0, along)
+    }
+
     // MARK: - 能力値（StatCalculator が StatusModifiers の後に呼ぶ）
 
     /// 位置・レベル・シールドに依存する補正: 赤バフの適応貫通、苔草の川での加速、星喰竜の加護の攻撃力。
@@ -186,7 +223,7 @@ public enum JungleBuffs {
             if magical { stats.magicPenPct += red.magnitude } else { stats.armorPenPct += red.magnitude }
         }
         if u.has(.mossGrass), map.isInRiver(u.pos) {
-            stats.moveSpeed *= 1 + Balance.Jungle.mossGrassRiverSpeed
+            stats.moveSpeedBonus += Balance.Jungle.mossGrassRiverSpeed
         }
         if u.has(.wyrmBlessing), u.shields.contains(where: { $0.tag == wyrmShieldTag && $0.amount > 0 }) {
             let level = Double(u.hero?.level ?? 1)

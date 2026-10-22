@@ -1,249 +1,154 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: ui-collection。UI044 スペル（既定 2 枠 + ヒーロー別の上書き）。
-
 struct SpellLoadoutView: View {
     @Environment(AppModel.self) private var app
-    /// nil = 既定のスペル、それ以外 = そのヒーロー専用。
     @State private var heroID: String?
-    @State private var slot = 0
+    var body: some View {
+        ScreenScaffold(title: L("バトルスキル", "Battle Skills")) {
+            VStack(spacing: 8) {
+                Picker(L("ヒーロー", "Hero"), selection: $heroID) {
+                    Text(L("既定", "Default")).tag(String?.none)
+                    ForEach(app.master.heroes.filter { app.owns(heroID: $0.heroID) }) { hero in
+                        Text(MasterText.hero(hero)).tag(Optional(hero.heroID))
+                    }
+                }.pickerStyle(.menu)
+                BattleSkillPicker(current: SpellLoadoutRules.effective(heroID: heroID, profile: app.profile)[0]) { id in
+                    let value = [id, SpellLoadoutRules.fixedSpellID]
+                    if let heroID { app.profile.heroSpells[heroID] = value }
+                    else { app.profile.defaultSpells = value }
+                    app.showToast(L("バトルスキルを設定しました", "Battle skill equipped"))
+                }
+            }.padding(.horizontal, 20)
+        }
+    }
+}
 
-    private let columns = [GridItem(.adaptive(minimum: 150), spacing: 8)]
+
+/// バトルスキルの選択（MLBB の「バトルスキル」のポップアップと同じ作り: 丸いアイコンを 4 × 3 に並べ、名前と副題を添え、
+/// 選んでいる物は金の輪。右の欄に名前・副題・CD・説明と「OK」）。並びも MLBB と同じ。
+/// 狩猟はジャングル担当だけが選べる（lane を渡したとき。ほかのレーンでは鍵を付ける）。
+struct BattleSkillPicker: View {
+    let current: String
+    /// 担当レーン（nil = レーンの制限なし。ヒーロー詳細・既定のスキルの設定）。
+    var lane: LanePosition? = nil
+    var onEquip: (String) -> Void
+    @Environment(AppModel.self) private var app
+    @State private var picked: String?
+
+    /// MLBB の並び（1 行目: 回復の泉・奮起・火炎弾・報復 / 2 行目: 狩猟・瞬間移動・執行・石化 / 3 行目: 疾走・守護・浄化・降臨）。
+    static let order = ["BS16", "BS12", "BS14", "BS15", "BS05", "BS01", "BS11", "BS13", "BS06", "BS04", "BS02", "BS09"]
 
     var body: some View {
-        let current = SpellLoadoutRules.effective(heroID: heroID, profile: app.profile)
-        ScreenScaffold(title: L("バトルスペル", "Battle Spells")) {
-            VStack(spacing: 6) {
-                scopeBar
-                HStack(alignment: .top, spacing: 12) {
-                    ScrollView {
-                        slotsPanel(current)
+        let id = picked ?? current
+        let spell = app.master.spell(id)
+        let lock = lockReason(id)
+        HStack(spacing: 14) {
+            ScrollView {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 10) {
+                    ForEach(Self.order, id: \.self) { skill in
+                        cell(skill, isPicked: skill == id)
                     }
-                    .scrollIndicators(.hidden)
-                    .frame(width: 212)
-                    ScrollView {
-                        LazyVGrid(columns: columns, spacing: 8) {
-                            ForEach(app.master.spells) { spell in
-                                spellCard(spell, current: current)
-                            }
-                        }
-                        .padding(.bottom, 12)
-                    }
-                    .scrollIndicators(.hidden)
-                }
+                }.padding(6)
             }
-            .padding(.horizontal, 20)
-        }
-    }
-
-    // MARK: 対象（既定 / ヒーロー別）
-
-    private var scopeBar: some View {
-        let owned = app.master.heroes.filter { app.owns(heroID: $0.heroID) }
-        return ScrollView(.horizontal) {
-            HStack(spacing: 6) {
-                CollectionFilterChip(title: L("既定", "Default"), symbol: "star.fill", color: Theme.gold, isSelected: heroID == nil) {
-                    heroID = nil
+            VStack(alignment: .leading, spacing: 6) {
+                Text(spell.map { MasterText.spell($0) } ?? id).font(Celestial.title(20)).lineLimit(1).minimumScaleFactor(0.7)
+                Text(SpellInfo.subtitle(id)).font(Theme.body(12)).foregroundStyle(Theme.textSecondary)
+                Text(L("CD：", "CD: ") + String(format: "%.1f", spell?.cooldownSec ?? 0))
+                    .font(.system(size: 16, design: .serif))
+                    .padding(.top, 6)
+                ScrollView {
+                    Text(SpellInfo.of(id).effect).font(Theme.body(13)).frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .accessibilityIdentifier("spells_scope_default")
-                Rectangle().fill(Theme.panelStroke).frame(width: 1, height: 26)
-                ForEach(owned) { h in
-                    let selected = heroID == h.heroID
-                    Button {
-                        app.haptics.tap()
-                        heroID = h.heroID
-                    } label: {
-                        ZStack(alignment: .bottomTrailing) {
-                            HeroPortraitView(heroID: h.heroID, size: 36, showsRole: false)
-                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? Theme.gold : Color.clear, lineWidth: 2.5))
-                                .opacity(selected || heroID == nil ? 1 : 0.6)
-                            if app.profile.heroSpells[h.heroID] != nil {
-                                Circle().fill(Theme.gold).frame(width: 9, height: 9)
-                                    .overlay(Circle().stroke(Color.black, lineWidth: 1))
-                                    .offset(x: 2, y: 2)
-                            }
-                        }
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(MasterText.hero(h) + (app.profile.heroSpells[h.heroID] != nil ? L("（専用設定あり）", " (custom)") : ""))
-                    .accessibilityAddTraits(selected ? .isSelected : [])
-                    .accessibilityIdentifier("spells_scope_\(h.heroID)")
+                if let lock {
+                    Label(lock, systemImage: "lock.fill").font(Theme.body(11)).foregroundStyle(Theme.gold)
                 }
-            }
-        }
-        .scrollIndicators(.hidden)
-    }
-
-    // MARK: 2 枠
-
-    private func slotsPanel(_ current: [String]) -> some View {
-        let hero = heroID.flatMap { app.master.hero($0) }
-        let hasOverride = heroID.map { app.profile.heroSpells[$0] != nil } ?? false
-        return VStack(alignment: .leading, spacing: 8) {
-            Text(hero.map { MasterText.hero($0) } ?? L("既定のスペル", "Default Spells"))
-                .font(Theme.heading(14))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-            Text(hero == nil ? L("専用設定の無いヒーローで使用されます", "Used by heroes without a custom setup")
-                 : (hasOverride ? L("このヒーロー専用の設定です", "Custom setup for this hero")
-                    : L("既定を使用中。変更するとこのヒーロー専用になります", "Using defaults. Changes create a custom setup")))
-                .font(Theme.body(10))
-                .foregroundStyle(Theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 10) {
-                ForEach(0..<SpellLoadoutRules.slotCount, id: \.self) { i in
-                    slotButton(i, spellID: i < current.count ? current[i] : "")
-                }
-            }
-            Text(L("右のスペルをタップして1枠目を変更（2枠目は治癒波で固定）", "Tap a spell to change slot 1 (slot 2 is always Heal)"))
-                .font(Theme.body(10))
-                .foregroundStyle(Theme.textSecondary)
-            if let heroID, hasOverride {
                 Button {
-                    app.profile.heroSpells[heroID] = nil
+                    guard lock == nil else { return }
                     app.haptics.tap()
-                    app.showToast(L("既定のスペルに戻しました", "Reverted to default spells"))
+                    onEquip(id)
                 } label: {
-                    Label(L("既定に戻す", "Use Defaults"), systemImage: "arrow.counterclockwise")
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                    Text("OK").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(SecondaryButtonStyle())
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("spells_reset_hero")
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(lock != nil)
+                .accessibilityIdentifier("battle_skill_confirm")
             }
-            // ジャングル担当になり得るロール（DESIGN §10: Assassin / Duelist）には狩猟印を案内する
-            if let hero, hero.role == .assassin || hero.role == .duelist, !current.contains(BuildRules.smiteSpellID) {
-                let smite = BuildRules.smiteName(master: app.master)
-                Label(L("ジャングル担当なら「\(smite)」が必要です（靴にジャングルの祝福を付ける条件）",
-                        "Junglers need \(smite) (required for jungle blessings on your boots)"), systemImage: "lightbulb.fill")
-                    .font(Theme.body(10))
-                    .foregroundStyle(Theme.gold)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            .padding(14)
+            .frame(width: 225)
+            .background(HomeChamfer(cut: 9).fill(Celestial.inkRaised.opacity(0.92)))
+            .overlay(HomeChamfer(cut: 9).stroke(Celestial.ice.opacity(0.4), lineWidth: 0.6))
         }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.panel))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
-        .padding(.bottom, 12)
+        .foregroundStyle(Theme.textPrimary)
     }
 
-    private func slotButton(_ i: Int, spellID: String) -> some View {
-        let locked = i == SpellLoadoutRules.fixedSlot
-        let selected = slot == i && !locked
-        let spell = app.master.spell(spellID)
+    private func cell(_ skill: String, isPicked: Bool) -> some View {
+        let lock = lockReason(skill)
         return Button {
+            picked = skill
             app.haptics.tap()
-            slot = i
         } label: {
-            VStack(spacing: 4) {
-                SpellIconView(spellID: spellID, size: 48)
-                    .overlay(Circle().stroke(selected ? Theme.gold : Color.clear, lineWidth: 2.5).padding(-4))
-                    .scaleEffect(selected ? 1.04 : 1)
-                    .padding(.vertical, 5)
-                Text(spell.map { MasterText.spell($0) } ?? "—")
-                    .font(Theme.body(11))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                HStack(spacing: 2) {
-                    if locked { Image(systemName: "lock.fill").font(.system(size: 8)) }
-                    Text(locked ? L("固定", "Fixed") : L("スペル\(i + 1)", "Spell \(i + 1)"))
-                        .font(Theme.mono(9))
-                }
-                .foregroundStyle(selected ? Theme.gold : Theme.textSecondary)
+            VStack(spacing: 3) {
+                SpellIconView(spellID: skill, size: 50)
+                    .overlay(Circle()
+                        .stroke(isPicked ? AnyShapeStyle(HomeStyle.goldGradient) : AnyShapeStyle(Celestial.ice.opacity(0.35)),
+                                lineWidth: isPicked ? 3 : 1)
+                        .padding(-3))
+                    .shadow(color: isPicked ? Theme.gold.opacity(0.7) : .clear, radius: 6)
+                    .opacity(lock == nil ? 1 : 0.55)
+                    .overlay(alignment: .topTrailing) {
+                        if lock != nil {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(4)
+                                .background(Circle().fill(Celestial.ink.opacity(0.9)))
+                                .overlay(Circle().stroke(Celestial.ice.opacity(0.6), lineWidth: 0.6))
+                                .offset(x: 6, y: -4)
+                        }
+                    }
+                Text(FlowText.spellName(skill)).font(Celestial.heading(13)).lineLimit(1).minimumScaleFactor(0.7)
+                Text(SpellInfo.subtitle(skill)).font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1).minimumScaleFactor(0.7)
             }
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 12).fill(selected ? Theme.gold.opacity(0.12) : Color.white.opacity(0.04)))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 2)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(locked)
-        .animation(.spring(duration: 0.25), value: selected)
-        .accessibilityLabel(L("枠\(i + 1): ", "Slot \(i + 1): ") + (spell.map { MasterText.spell($0) } ?? "")
-                            + (locked ? L("（固定）", " (fixed)") : ""))
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("spell_slot_\(i)")
+        .accessibilityLabel(FlowText.spellName(skill) + "、" + SpellInfo.subtitle(skill) + (lock.map { "、" + $0 } ?? ""))
+        .accessibilityIdentifier("spell_\(skill)")
     }
 
-    // MARK: スペル一覧
-
-    private func spellCard(_ spell: SpellDef, current: [String]) -> some View {
-        let info = SpellInfo.of(spell.spellID)
-        let equippedSlot = current.firstIndex(of: spell.spellID)
-        let fixed = !SpellLoadoutRules.isSelectable(spell.spellID)
-        return Button {
-            assign(spell.spellID)
-        } label: {
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 8) {
-                    SpellIconView(spellID: spell.spellID, size: 36)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(MasterText.spell(spell))
-                            .font(Theme.heading(13))
-                            .foregroundStyle(Theme.textPrimary)
-                            .lineLimit(1)
-                        HStack(spacing: 3) {
-                            Image(systemName: "timer").font(.system(size: 9, weight: .bold))
-                            Text(CollectionStyle.seconds(spell.cooldownSec)).font(Theme.mono(10))
-                        }
-                        .foregroundStyle(Theme.textSecondary)
-                    }
-                    Spacer(minLength: 0)
-                    if fixed {
-                        Label(L("固定", "Fixed"), systemImage: "lock.fill")
-                            .font(Theme.mono(9))
-                            .foregroundStyle(Theme.textSecondary)
-                    } else if let equippedSlot {
-                        Text("\(equippedSlot + 1)")
-                            .font(.system(size: 11, weight: .black, design: .rounded))
-                            .foregroundStyle(.black)
-                            .frame(width: 20, height: 20)
-                            .background(Circle().fill(Theme.gold))
-                    }
-                }
-                Text(info.effect)
-                    .font(Theme.body(10))
-                    .foregroundStyle(Theme.textPrimary.opacity(0.85))
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if let tip = info.tip {
-                    Text(tip)
-                        .font(Theme.body(9))
-                        .foregroundStyle(info.color)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(8)
-            .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
-            .background(RoundedRectangle(cornerRadius: 12).fill(equippedSlot != nil ? info.color.opacity(0.12) : Color.white.opacity(0.05)))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(equippedSlot != nil ? info.color.opacity(0.8) : Theme.panelStroke.opacity(0.5), lineWidth: 1))
-            .contentShape(Rectangle())
+    /// 選べない理由（アカウントのレベル、狩猟はジャングル以外）。選べるなら nil。
+    private func lockReason(_ skill: String) -> String? {
+        if let level = BattleSpell(rawValue: skill)?.unlockLevel, app.profile.accountLevel < level {
+            return L("Lv\(level) で解放", "Unlocks at Lv \(level)")
         }
-        .buttonStyle(CollectionPressStyle())
-        .disabled(fixed)
-        .accessibilityLabel("\(MasterText.spell(spell))、\(info.effect)" + (fixed ? L("（固定）", " (fixed)") : ""))
-        .accessibilityAddTraits(equippedSlot != nil ? .isSelected : [])
-        .accessibilityIdentifier("spell_\(spell.spellID)")
+        if let lane, !SpellLoadoutRules.isAllowed(skill, lane: lane) {
+            return L("ジャングル担当だけが使えます", "Jungle role only")
+        }
+        return nil
     }
+}
 
-    private func assign(_ spellID: String) {
-        let base = SpellLoadoutRules.effective(heroID: heroID, profile: app.profile)
-        let next = SpellLoadoutRules.assigning(spellID, slot: SpellLoadoutRules.selectableSlot, in: base)
-        guard next != base else { return }
-        withAnimation(.spring(duration: 0.3)) {
-            if let heroID {
-                app.profile.heroSpells[heroID] = next
-            } else {
-                app.profile.defaultSpells = next
-            }
+extension SpellInfo {
+    /// 副題（MLBB のバトルスキルの画面の 2 行目）。
+    static func subtitle(_ id: String) -> String {
+        switch id {
+        case "BS16": return L("広範囲ヒール", "Area heal")
+        case "BS12": return L("通常攻撃強化", "Basic attack boost")
+        case "BS14": return L("攻防一体", "Offense & defense")
+        case "BS15": return L("ダメージ反射", "Damage reflection")
+        case "BS05": return L("ジャングル専用", "Jungle only")
+        case "BS01": return L("機動性", "Mobility")
+        case "BS11": return L("低HPキル", "Low-HP finisher")
+        case "BS13": return L("範囲コントロール", "Area control")
+        case "BS06": return L("持続的加速", "Sustained speed")
+        case "BS04": return L("シールド", "Shield")
+        case "BS02": return L("状態異常解除", "Remove debuffs")
+        case "BS09": return L("テレポート", "Teleport")
+        default: return ""
         }
-        app.haptics.tap()
     }
 }

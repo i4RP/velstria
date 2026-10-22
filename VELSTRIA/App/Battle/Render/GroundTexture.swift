@@ -114,14 +114,26 @@ enum GroundTextureGenerator {
                     fill(RGB(0.12, 0.20, 0.13), a)
                     ctx.fillEllipse(in: circle(c, radius + e))
                 }
+            case .polygon(let points):
+                // 多角形は膨らませずに 2 回重ねる（手続き地形の予備。通常はステージの配合マップ）
+                for a in [0.3, 0.5] {
+                    fill(RGB(0.12, 0.20, 0.13), a)
+                    ctx.addLines(between: points.map { CGPoint(x: $0.x, y: $0.y) })
+                    ctx.closePath()
+                    ctx.fillPath()
+                }
             }
         }
-        for b in map.brushes {
-            let r = b.rect
+        for k in map.brushes.indices {
+            // 細かい格子の草むらは形どおり（行ごとのセルの連なりを 1 つのパスにまとめて塗る: 重なりで濃くならない）
+            let rects = map.brushRects(k, step: 2)
             for (e, a) in [(90.0, 0.35), (30.0, 0.55)] {
                 fill(RGB(0.10, 0.28, 0.14), a)
-                let rr = CGRect(x: r.minX - e, y: r.minY - e, width: r.width + e * 2, height: r.height + e * 2)
-                ctx.addPath(CGPath(roundedRect: rr, cornerWidth: 80, cornerHeight: 80, transform: nil))
+                for r in rects {
+                    let rr = CGRect(x: r.minX - e, y: r.minY - e, width: r.width + e * 2, height: r.height + e * 2)
+                    let corner = min(80, rr.width / 2, rr.height / 2)
+                    ctx.addPath(CGPath(roundedRect: rr, cornerWidth: corner, cornerHeight: corner, transform: nil))
+                }
                 ctx.fillPath()
             }
         }
@@ -149,11 +161,28 @@ enum GroundTextureGenerator {
             (rw * 0.72, RGB(0.17, 0.44, 0.57), 0.85),
             (rw * 0.34, RGB(0.24, 0.53, 0.64), 0.55),
         ]
-        for (w, c, a) in riverLayers {
-            stroke(c, a, width: w)
-            ctx.move(to: riverA)
-            ctx.addLine(to: riverB)
-            ctx.strokePath()
+        if case .polygon(let bank)? = map.river {
+            // 8 の字の川: 岸の帯（外側の層）を輪郭の線で、水面を塗りで
+            func bankPath() {
+                ctx.move(to: CGPoint(x: bank[0].x, y: bank[0].y))
+                for q in bank.dropFirst() { ctx.addLine(to: CGPoint(x: q.x, y: q.y)) }
+                ctx.closePath()
+            }
+            for (w, c, a) in riverLayers where w > rw {
+                stroke(c, a, width: (w - rw) * 2)
+                bankPath()
+                ctx.strokePath()
+            }
+            fill(RGB(0.13, 0.36, 0.49))
+            bankPath()
+            ctx.fillPath()
+        } else {
+            for (w, c, a) in riverLayers {
+                stroke(c, a, width: w)
+                ctx.move(to: riverA)
+                ctx.addLine(to: riverB)
+                ctx.strokePath()
+            }
         }
         // さざ波と岸の小石
         let along = Vec2(1, -1).normalized, across = Vec2(1, 1).normalized
@@ -161,6 +190,7 @@ enum GroundTextureGenerator {
             let t = Double(rng.range(-200, Float(map.size * 1.414) + 200))
             let o = Double(rng.range(-0.40, 0.40)) * map.riverWidth
             let c = Vec2(0, map.size) + along * t + across * o
+            if map.river != nil, !map.isInRiver(c) { continue }
             let len = Double(rng.range(90, 280))
             stroke(RGB(0.62, 0.86, 0.92), Double(rng.range(0.18, 0.42)), width: CGFloat(rng.range(10, 22)))
             ctx.move(to: CGPoint(x: c.x, y: c.y))
@@ -173,6 +203,7 @@ enum GroundTextureGenerator {
             let side: Double = rng.chance(0.5) ? 1 : -1
             let o = side * (map.riverWidth / 2 + Double(rng.range(10, 130)))
             let c = Vec2(0, map.size) + along * t + across * o
+            if map.river != nil { continue }  // 8 の字の川の岸は帯の縁と合わない
             fill(rng.chance(0.5) ? RGB(0.55, 0.54, 0.52) : RGB(0.74, 0.70, 0.60), 0.8)
             let r = Double(rng.range(14, 34))
             ctx.fillEllipse(in: CGRect(x: c.x - r, y: c.y - r * 0.75, width: r * 2, height: r * 1.5))

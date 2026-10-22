@@ -6,12 +6,14 @@ import Foundation
 //     靴を合成しても祝福は残り、靴を売ると外れる。
 //   ・ジャングル（炎撃・氷刺・血刃の狩猟）: 狩猟印が必要（狩猟印を持つと靴は必ずジャングルの祝福になる）。
 //     モンスターに与えたダメージの後に確定ダメージ（狩人）。モンスター・キル・アシストの合計 5 で狩猟印がヒーローにも使え、
-//     祝福の効果（奪取）が付く。合計 15 で物理攻撃・魔法攻撃 +10、最大 HP +100。
+//     祝福の効果（奪取）が付く。合計 15 で物理攻撃・魔法攻撃 +10、最大 HP +100（MLBB Patch 1.6.66 で +15 → +10）。
 //   ・ローム（激励・恩恵・致命傷・隠蔽）: 狩猟印があると付けられない。2:00 を過ぎると新たには付けられない。
 //     5 秒ごとの共栄（Gold・EXP）、近くの味方の稼ぎの 30%（無私）、敵ヒーローへのダメージで報酬（15 秒に 1 回）。
 //     ローム持ちが複数いれば、所持 Gold が最も少ない 1 人だけが収入を得る。共栄・無私で得た Gold（共栄ゴールド）が
-//     1000 に達すると祝福の能力が解放される。
-// 数値は Balance.Gear。出典は MLBB の日本語クライアントの祝福の説明とパッチノート（2.1.18〜2.1.88）。
+//     1000 に達すると祝福の能力が解放される。最初の 8 分は単独で倒したミニオン・モンスターの報酬が 30%（MLBB Patch 2.1.88）。
+//     味方の視界から 5 秒以上消えていた敵を暴くと報酬（MLBB Patch 2.1.40）。
+//   ・靴: スピードブーツ（Tier 1、250）から付けられ、上位の靴に引き継ぐ。
+// 数値は Balance.Gear。出典は MLBB の日本語クライアントの祝福の説明とパッチノート（2.1.18〜2.1.88。docs/JUNGLE_ROAM_MLBB.md）。
 
 // MARK: - 祝福
 
@@ -36,6 +38,17 @@ public enum GearOption: String, Codable, Hashable, Sendable, CaseIterable {
 
     public static func options(for category: ItemCategory) -> [GearOption] {
         allCases.filter { $0.category == category }
+    }
+
+    /// ヒーロー固有のロームの祝福（MLBB の日本語クライアントの推奨ビルド。無いヒーローは役割別）。
+    /// ゴルム（フランコ）= ラピッドブーツ（激励）。
+    public static let heroRoamOptions: [String: GearOption] = ["H034": .encourage]
+
+    /// 自動で付ける時の既定（バトルプランの靴の祝福 → ヒーロー固有 → 役割別）。plan = 選んだプランの添字（nil は「有効」のプラン）。
+    public static func defaultOption(for category: ItemCategory, role: Role, heroID: String, plan: Int? = nil) -> GearOption? {
+        if let planned = ItemSystem.plan(heroID: heroID, chosen: plan)?.blessing, planned.category == category { return planned }
+        if category == .roam, let own = heroRoamOptions[heroID] { return own }
+        return defaultOption(for: category, role: role)
     }
 
     /// 自動で付ける時の既定（ジャングル = 炎撃、ローム = 役割別）。
@@ -83,12 +96,14 @@ extension Balance {
         public static let baseBootsID = "EQ408"
 
         // MARK: ジャングル
-        /// この時刻（秒）までは、ジャングルの祝福を持つとミニオンの Gold/XP が減る（2:00 まで共有できない）。
-        public static let jungleMinionPenaltyEnd: Double = 120
-        public static let jungleMinionMultiplier: Double = 0.5
+        /// 狩猟を持つと、この時刻（秒）までは味方とミニオンの報酬を分け合わない（XP の分け前を受けず、分ける人数にも入らない）。
+        /// 日本語の説明（MLJPWiki、2025-06）は「試合開始後の2分間」、英語の公式 Academy（2024-08）は「最初の 5 分」で食い違う。新しい日本語の文に合わせた。
+        public static let jungleMinionShareEnd: Double = 120
+        /// 狩猟を持つと、モンスターから得る報酬（Gold・XP・回復）が 1.6 倍（狩猟の説明「狩猟報酬 +60%」）。
+        public static let jungleMonsterMultiplier: Double = 1.6
         /// 狩猟印の強化（ヒーローに使える）に必要な「モンスター + キル + アシスト」の合計。
         public static let jungleBlessingUnlockCount = 5
-        /// 2 段目の強化（物理攻撃・魔法攻撃 +10、最大 HP +100）に必要な合計。
+        /// 2 段目の強化（物理攻撃・魔法攻撃 +jungleSecondAttack、最大 HP +jungleSecondHP）に必要な合計。
         public static let jungleSecondUnlockCount = 15
         public static let jungleSecondAttack: Double = 10
         public static let jungleSecondHP: Double = 100
@@ -114,8 +129,10 @@ extension Balance {
         // MARK: ローム
         /// この時刻（秒）を過ぎるとロームの祝福を新たには付けられない。
         public static let roamPurchaseDeadline: Double = 120
-        /// この時刻（秒）を境に共栄が増える。
+        /// この時刻（秒）を境に共栄が増える。この時刻までは、ローム持ちが単独で（周り devotionRadius に味方ヒーローが居ない時に）
+        /// 倒したミニオン・モンスターの報酬が roamOwnRewardMultiplier 倍（MLBB Patch 2.1.88。それより前は 5 分・ミニオンだけ・50%）。
         public static let roamPhaseEnd: Double = 480
+        public static let roamOwnRewardMultiplier: Double = 0.3
         public static let thrivingInterval: Double = 5
         public static let thrivingGoldEarly: Double = 6
         public static let thrivingXPEarly: Double = 12
@@ -125,12 +142,22 @@ extension Balance {
         public static let devotionShare: Double = 0.30
         public static let devotionRadius: Double = 1400
         public static let devotionGoldCap: Double = 2000
-        /// 無私: 敵ヒーローにダメージを与えると（15 秒に 1 回）30 + 2×レベル Gold、20 + 8×レベル EXP。
+        /// 無私: 敵ヒーローにダメージを与えると（15 秒に 1 回）30 + 2×レベル Gold、20 + 8×レベル EXP（MLBB Patch 2.1.40 の値。
+        /// 2.1.88 で全祝福が対象になり額が下げられたが、下げた後の値は非公表）。
         public static let devotionHitCooldown: Double = 15
         public static let devotionHitGoldBase: Double = 30
         public static let devotionHitGoldPerLevel: Double = 2
         public static let devotionHitXPBase: Double = 20
         public static let devotionHitXPPerLevel: Double = 8
+        /// 暴き: 味方の視界から revealHiddenTime 秒以上消えていた敵ヒーローを、視界かスキルで最初に暴くと
+        /// 30 + 1×レベル Gold・25 + 5×レベル EXP（無私の上限 2000 に数える。MLBB Patch 2.1.40 の値。2.1.88 で下げた後の値は非公表）。
+        public static let revealHiddenTime: Double = 5
+        public static let revealGoldBase: Double = 30
+        public static let revealGoldPerLevel: Double = 1
+        public static let revealXPBase: Double = 25
+        public static let revealXPPerLevel: Double = 5
+        /// 暴きを自分のスキルによるものとみなす、命中からの秒数。
+        public static let revealBySkillWindow: Double = 0.5
         /// 祝福の能力が解放される共栄ゴールド。
         public static let blessingUnlockGold: Double = 1000
         /// アシスト時の追加報酬（MLBB の現行のロームには無い）。
@@ -149,11 +176,13 @@ extension Balance {
         /// 激励: 自分と周りの味方ヒーローの混合防御 +20。
         public static let encourageRadius: Double = 700
         public static let encourageDefense: Double = 20
-        /// 恩恵: 15 秒ごとに、味方への回復・シールドで、周り 5 マスの最も HP の低い味方（自分を含む）を 400 回復。
+        /// 恩恵: 15 秒ごとに、自分の回復・シールドのスキルで味方を回復・シールドすると、周り 5 マスで HP（実数）が最も少ない
+        /// 味方ヒーロー 1 体（自分を含む）を 400 回復（日本語版の説明「HPが最も少ない味方ヒーロー1体」）。
         public static let favorRadius: Double = 500
         public static let favorCooldown: Double = 15
         public static let favorHeal: Double = 400
-        /// 致命傷: 移動 1 マスにつきフォース 1（最大 40、フォース 1 につき移動速度 +1）。20 以上で次の攻撃がフォース × 7.5 の確定ダメージ。
+        /// 致命傷: 移動 1 マスにつきフォース 1（最大 40、フォース 1 につき移動速度 +1。速度は非公表なので仮）。20 以上で次のスキルか
+        /// 通常攻撃（バトルスペルは除く）がフォース × 7.5（150〜300）の確定ダメージ。
         public static let direHitDistancePerStack: Double = 100
         public static let direHitMaxStacks: Double = 40
         public static let direHitMinStacks: Double = 20
@@ -194,17 +223,26 @@ public enum GearEffects {
         return o
     }
 
-    /// ミニオンを倒した時の自分の Gold/XP 倍率（ジャングルの祝福は 2:00 まで半減）。
-    public static func minionRewardMultiplier(_ h: HeroData, time: Double, master: MasterData) -> Double {
-        if time < Balance.Gear.jungleMinionPenaltyEnd, has(h, .jungle, master: master) {
-            return Balance.Gear.jungleMinionMultiplier
-        }
-        return 1
+    /// ミニオンの XP を分け合えるか（狩猟持ちは最初の 2 分は分け合わない）。
+    public static func sharesMinionRewards(_ h: HeroData, time: Double) -> Bool {
+        time >= Balance.Gear.jungleMinionShareEnd || !h.spells.contains(Balance.Economy.smiteSpellID)
     }
 
-    /// モンスターを倒した時の Gold/XP 倍率（今の MLBB のロームには自分の狩りの減額が無いので 1）。
+    /// モンスターから得る自分の Gold/XP の倍率（狩猟印持ちは 1.6 倍）。ローム持ちの単独の減額は roamSoloRewardMultiplier。
     public static func monsterRewardMultiplier(_ h: HeroData, time: Double, master: MasterData) -> Double {
-        1
+        h.spells.contains(Balance.Economy.smiteSpellID) ? Balance.Gear.jungleMonsterMultiplier : 1
+    }
+
+    /// ローム持ちが単独で（周り devotionRadius に生きている味方ヒーローが居ない時に）倒したミニオン・モンスターの報酬の倍率
+    /// （最初の 8 分は 0.3。MLBB Patch 2.1.88）。
+    public static func roamSoloRewardMultiplier(_ s: SimState, heroIndex i: Int, master: MasterData) -> Double {
+        guard s.time < Balance.Gear.roamPhaseEnd, let h = s.units[i].hero, has(h, .roam, master: master) else { return 1 }
+        let r2 = Balance.Gear.devotionRadius * Balance.Gear.devotionRadius
+        let pos = s.units[i].pos
+        let accompanied = s.heroIndices(team: s.units[i].team).contains { j in
+            j != i && s.units[j].isAlive && s.units[j].hero?.isDead == false && s.units[j].pos.distanceSquared(to: pos) <= r2
+        }
+        return accompanied ? 1 : Balance.Gear.roamOwnRewardMultiplier
     }
 
     /// ジャングルの祝福の進み（モンスター + キル + アシスト）。
@@ -227,7 +265,6 @@ public enum GearEffects {
         guard let o = option(of: h, master: master) else { return }
         switch o.category {
         case .jungle:
-            stats.monsterGoldBonus += Balance.Economy.jungleMonsterGoldBonus
             if jungleProgress(h) >= Balance.Gear.jungleSecondUnlockCount {
                 stats.attack += Balance.Gear.jungleSecondAttack
                 stats.abilityPower += Balance.Gear.jungleSecondAttack
@@ -325,9 +362,9 @@ public enum GearSystem {
         let hasSmite = h.spells.contains(Balance.Economy.smiteSpellID)
         var option: GearOption?
         if hasSmite {
-            option = GearOption.defaultOption(for: .jungle, role: h.role)
+            option = GearOption.defaultOption(for: .jungle, role: h.role, heroID: h.heroID, plan: h.buildPlan)
         } else if h.controller == .bot, h.position == .support, time <= Balance.Gear.roamPurchaseDeadline {
-            option = GearOption.defaultOption(for: .roam, role: h.role)
+            option = GearOption.defaultOption(for: .roam, role: h.role, heroID: h.heroID, plan: h.buildPlan)
         }
         guard let option else { return }
         var g = h.gear ?? GearState()
@@ -395,6 +432,8 @@ public enum GearSystem {
     /// ロームの祝福を持つヒーローが敵ヒーローにダメージを与えた時（無私の報酬、致命傷の消費、隠蔽の解除）。
     /// ジャングルの祝福を持つヒーローがモンスターにダメージを与えた時（狩人）。ItemEffects.onDamageDealt から呼ばれる。
     static func onDamageDealt(_ s: inout SimState, _ ctx: SimContext, attacker a: Int, target t: Int, source: DamageSource) {
+        // 隠蔽: 攻撃すると隠れた状態も加速も解ける（祝福を持たない味方も同じ）
+        endConceal(&s, heroIndex: a)
         guard let h = s.units[a].hero, let option = GearEffects.option(of: h, master: ctx.master) else { return }
         let k = Balance.Gear.self
         if option.category == .jungle {
@@ -408,7 +447,6 @@ public enum GearSystem {
             return
         }
         guard s.units[t].kind == .hero else { return }
-        endConceal(&s, heroIndex: a)
         var g = h.gear ?? GearState()
         // 無私: 敵ヒーローへのダメージ（収入を得るローム持ちだけ）
         if s.time >= g.devotionHitReadyAt, GearEffects.activeRoamer(s, team: s.units[a].team, master: ctx.master) == a {
@@ -421,8 +459,9 @@ public enum GearSystem {
             HeroGrowth.grantXP(&s, ctx, heroIndex: a, amount: k.devotionHitXPBase + k.devotionHitXPPerLevel * level)
             g = s.units[a].hero?.gear ?? g
         }
-        // 致命傷: フォースが 20 以上なら全部使って確定ダメージ
-        if option == .direHit, GearEffects.roamBlessingUnlocked(h), g.force >= k.direHitMinStacks, source != .item {
+        // 致命傷: フォースが 20 以上なら、次のスキルか通常攻撃で全部使って確定ダメージ（バトルスペルでは使わない）
+        if option == .direHit, GearEffects.roamBlessingUnlocked(h), g.force >= k.direHitMinStacks,
+           source == .basicAttack || source.isSkill {
             let damage = g.force * k.direHitDamagePerStack
             g.force = 0
             s.units[a].hero?.gear = g
@@ -432,12 +471,48 @@ public enum GearSystem {
         }
     }
 
+    /// 暴き（VisionSystem.update の後）: 味方の視界から 5 秒以上消えていた敵ヒーローが見えた時、収入を得るローム持ちの視界か
+    /// スキルの命中で暴いたのなら報酬。消えていた時間は敵ヒーローごとに数える（倒れている間は数えない）。
+    static func rewardReveals(_ s: inout SimState, _ ctx: SimContext) {
+        let k = Balance.Gear.self
+        for e in s.units.indices where s.units[e].kind == .hero {
+            let viewer = s.units[e].team.opponent
+            guard viewer != .neutral, let eh = s.units[e].hero else { continue }
+            guard s.units[e].isAlive, !eh.isDead else {
+                s.units[e].hero?.lastSeenByEnemyAt = s.time
+                continue
+            }
+            guard s.units[e].visibleMask & viewer.visionBit != 0 else { continue }
+            let hiddenFor = s.time - (eh.lastSeenByEnemyAt ?? 0)
+            s.units[e].hero?.lastSeenByEnemyAt = s.time
+            guard hiddenFor >= k.revealHiddenTime,
+                  let r = GearEffects.activeRoamer(s, team: viewer, master: ctx.master),
+                  s.units[r].isAlive, s.units[r].hero?.isDead == false else { continue }
+            let sight = VisionSystem.sightRadius(s, r) ?? 0
+            let byVision = s.units[r].pos.distanceSquared(to: s.units[e].pos) <= sight * sight
+            let rid = s.units[r].id
+            let bySkill = eh.recentDamagers.contains { $0.sourceID == rid && s.time - $0.time <= k.revealBySkillWindow }
+            guard byVision || bySkill else { continue }
+            var g = s.units[r].hero?.gear ?? GearState()
+            let level = Double(s.units[r].hero?.level ?? 1)
+            let gold = min(max(0, k.devotionGoldCap - g.devotionGold), k.revealGoldBase + k.revealGoldPerLevel * level)
+            if gold > 0 {
+                g.devotionGold += gold
+                g.roamGold += gold
+                s.units[r].hero?.gear = g
+                EconomyRewards.grantGold(&s, heroIndex: r, amount: gold, visible: false)
+            }
+            HeroGrowth.grantXP(&s, ctx, heroIndex: r, amount: k.revealXPBase + k.revealXPPerLevel * level)
+        }
+    }
+
     /// 祝福を持つヒーローがダメージを受けた時（隠蔽の解除）。
     static func onDamageTaken(_ s: inout SimState, _ ctx: SimContext, victim t: Int) {
         endConceal(&s, heroIndex: t)
     }
 
-    /// 恩恵: 味方（自分以外）を回復・シールドした時、周りで最も HP の低い味方（自分を含む）を 400 回復（15 秒に 1 回）。
+    /// 恩恵: 自分の回復・シールドのスキルで味方（自分以外）を回復・シールドした時、周りで HP（実数）が最も少ない味方ヒーロー
+    /// （自分を含む）を 400 回復（15 秒に 1 回）。バトルスペル・装備の回復では働かない（CombatSystem.heal の bySkill）。
     static func onSupport(_ s: inout SimState, _ ctx: SimContext, source src: Int, target t: Int) {
         guard src != t, s.units[src].kind == .hero, let h = s.units[src].hero, s.units[t].team == s.units[src].team,
               s.units[t].kind == .hero, GearEffects.option(of: h, category: .roam, master: ctx.master) == .favor,
@@ -446,17 +521,16 @@ public enum GearSystem {
         s.units[src].hero?.gear?.abilityReadyAt = s.time + k.favorCooldown
         let r2 = k.favorRadius * k.favorRadius
         var best: Int?
-        var bestRatio = Double.infinity
+        var bestHP = Double.infinity
         for j in s.units.indices where isLivingAlly(s, j, team: s.units[src].team)
             && s.units[j].pos.distanceSquared(to: s.units[src].pos) <= r2 {
-            let ratio = s.units[j].hp / max(1, s.units[j].stats.maxHP)
-            if ratio < bestRatio {
-                bestRatio = ratio
+            if s.units[j].hp < bestHP {
+                bestHP = s.units[j].hp
                 best = j
             }
         }
         guard let best else { return }
-        CombatSystem.heal(&s, ctx, sourceID: s.units[src].id, targetIndex: best, amount: k.favorHeal)
+        CombatSystem.heal(&s, ctx, sourceID: s.units[src].id, targetIndex: best, amount: k.favorHeal, bySkill: false)
     }
 
     /// 隠蔽（.useGearActive）。自分と周りの味方を隠れさせて加速する。

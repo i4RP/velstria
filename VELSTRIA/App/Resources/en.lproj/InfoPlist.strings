@@ -1,0 +1,2 @@
+/* 英語の権限の説明（project.yml の info.properties が日本語の既定。CFBundleLocalizations = [ja, en]） */
+"NSLocalNetworkUsageDescription" = "VELSIA looks for other VELSIA devices on the same network so you can play online matches with nearby players.";

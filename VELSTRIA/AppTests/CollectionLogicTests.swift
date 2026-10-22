@@ -14,49 +14,66 @@ final class CollectionLogicTests: XCTestCase {
 
     // MARK: スキル
 
-    func testSkillDamageScalesThirtyPercentPerRank() {
-        XCTAssertEqual(SkillMath.damage(base: 100, rank: 1), 100, accuracy: 1e-9)
-        XCTAssertEqual(SkillMath.damage(base: 100, rank: 2), 130, accuracy: 1e-9)
-        XCTAssertEqual(SkillMath.damage(base: 100, rank: 4), 190, accuracy: 1e-9)
-    }
-
-    func testSkillCooldownDropsSixPercentPerRank() throws {
+    /// 汎用のスキルは MLBB のロール × 枠の型（Balance.Skills.GenericTemplate）の段の表をそのまま使う（docs/GENERIC_SKILLS.md）。
+    func testGenericSkillDamageFollowsTheMlbbTemplateTable() throws {
         let skill = try XCTUnwrap(master.skill("SK001_2"))
-        let scale = Balance.Skills.cooldownScale
-        XCTAssertEqual(SkillMath.cooldown(skill, rank: 1), skill.cooldownSec * scale, accuracy: 1e-9)
-        XCTAssertEqual(SkillMath.cooldown(skill, rank: 3), skill.cooldownSec * 0.88 * scale, accuracy: 1e-9)
+        let hero = try XCTUnwrap(master.hero(skill.heroID))
+        let t = try XCTUnwrap(Balance.Skills.genericTemplate(role: hero.role, slot: skill.slot))
+        for rank in 1...Balance.basicSkillMaxRank {
+            XCTAssertEqual(SkillMath.numbers(skill, hero: hero, rank: rank).damage,
+                           t.base[rank - 1] * skill.baseDamage / t.meanBase, accuracy: 1e-9, "rank \(rank)")
+        }
     }
 
-    func testEnergyHeroesPaySixtyPercentCost() throws {
+    /// 汎用の CD は 1 段 −4%（スキル1・2）/ −9%（アルティメット）。MLBB の段の表の中央値。
+    func testSkillCooldownDropsFourPercentPerRank() throws {
+        let skill = try XCTUnwrap(master.skill("SK001_2"))
+        XCTAssertEqual(SkillMath.cooldown(skill, rank: 1), skill.cooldownSec, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.cooldown(skill, rank: 3), skill.cooldownSec * 0.92, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.cooldown(skill, rank: 6), skill.cooldownSec * 0.80, accuracy: 1e-9)
+        let ult = try XCTUnwrap(master.skill(hero: skill.heroID, slot: .ultimate))
+        XCTAssertEqual(SkillMath.cooldown(ult, rank: 3), ult.cooldownSec * 0.82, accuracy: 1e-9)
+    }
+
+    /// エナジーのヒーローは master の cost（Mana 基準）× energyCostMultiplier（エナジーの上限 100 に合わせた 0.12）。
+    /// 怒り・リソースなし（MLBB のディロス・アルカード）は 0。
+    func testEnergyHeroesPayScaledCostAndPoollessHeroesPayNothing() throws {
         let skill = try XCTUnwrap(master.skill(hero: "H002", slot: .skill1))
         XCTAssertEqual(master.hero("H002")?.resource, .energy)
-        XCTAssertEqual(SkillMath.cost(skill, resource: .energy), skill.cost * 0.6, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.cost(skill, resource: .energy), skill.cost * Balance.energyCostMultiplier, accuracy: 1e-9)
         XCTAssertEqual(SkillMath.cost(skill, resource: .mana), skill.cost, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.cost(skill, resource: .rage), 0)
+        XCTAssertEqual(SkillMath.cost(skill, resource: .noResource), 0)
     }
 
     func testRankListsPerSlot() {
         XCTAssertEqual(SkillMath.ranks(for: .passive), [])
-        XCTAssertEqual(SkillMath.ranks(for: .skill2), [1, 2, 3, 4])
+        // MLBB と同じ 6 / 6 / 3
+        XCTAssertEqual(SkillMath.ranks(for: .skill1), [1, 2, 3, 4, 5, 6])
+        XCTAssertEqual(SkillMath.ranks(for: .skill2), [1, 2, 3, 4, 5, 6])
         XCTAssertEqual(SkillMath.ranks(for: .ultimate), [1, 2, 3])
     }
 
     // スキル詳細の数値はシミュレーション（SkillCatalog.numbers）と一致すること。
 
-    func testSkillNumbersIncludeSlotMultiplier() throws {
+    func testSkillNumbersUseTheTemplateWithoutGlobalMultipliers() throws {
+        // SK001_2（H001 ヴァンガードの Skill1。魔法）: 型の基礎 × 個性 + 型の係数 × 個性 × 魔法攻撃。物理攻撃では伸びない
         let skill = try XCTUnwrap(master.skill("SK001_2"))
         let hero = try XCTUnwrap(master.hero(skill.heroID))
-        let scale = Balance.Skills.damageScale(.skill1)
-        XCTAssertEqual(SkillMath.numbers(skill, hero: hero, rank: 1).damage, skill.baseDamage * scale, accuracy: 1e-9)
-        XCTAssertEqual(SkillMath.numbers(skill, hero: hero, rank: 4).damage, skill.baseDamage * 1.9 * scale, accuracy: 1e-9)
-        // 係数もスロット倍率込み（攻撃力は 0.6 の共通補正も掛かる）
+        let t = try XCTUnwrap(Balance.Skills.genericTemplate(role: hero.role, slot: skill.slot))
+        XCTAssertEqual(skill.damageType, .magic)
+        XCTAssertEqual(SkillMath.numbers(skill, hero: hero, rank: 1).damage, t.base[0] * skill.baseDamage / t.meanBase,
+                       accuracy: 1e-9)
         let s = SkillMath.scaling(skill, hero: hero)
-        XCTAssertEqual(s.damage.attack, skill.scalingAttack * Balance.skillAttackScalingFactor * scale, accuracy: 1e-9)
-        XCTAssertEqual(s.damage.power, skill.scalingPower * scale, accuracy: 1e-9)
+        XCTAssertEqual(s.damage.attack, 0, accuracy: 1e-9)
+        XCTAssertEqual(s.damage.power, t.ratio * skill.scalingPower / t.meanScaling, accuracy: 1e-9)
     }
 
     func testSkillNumbersMatchSimulationForEverySkill() throws {
+        // 物理攻撃の増分は装備から（総物理攻撃と追加物理攻撃の両方。SkillMath.scaling の見本と同じ）
         var stats = Stats()
         stats.attack = 150
+        stats.extraAttack = 150
         stats.abilityPower = 80
         for skill in master.skills where skill.slot != .passive {
             let hero = try XCTUnwrap(master.hero(skill.heroID))
@@ -71,31 +88,35 @@ final class CollectionLogicTests: XCTestCase {
     }
 
     func testSupportSkillsShowHealInsteadOfRawDamage() throws {
-        // SK005_5 ヴォスの Ult（味方全体回復）: ダメージ 0、回復 = 基礎 × 2.4 × 1.2
+        // SK005_5 ヴォスの Ult（味方全体回復）: ダメージ 0、回復 = サポートの奥義の型 250 × 個性（base_damage / 平均）
         let ult = try XCTUnwrap(master.skill("SK005_5"))
         let voss = try XCTUnwrap(master.hero(ult.heroID))
         let t = SkillCatalog.targeting(for: ult, hero: voss)
         XCTAssertEqual(t.archetype, .teamHeal)
         XCTAssertEqual(SkillMath.figures(t.archetype), [.heal, .shield])
         let n = SkillMath.numbers(ult, hero: voss, rank: 1)
+        let template = try XCTUnwrap(Balance.Skills.genericTemplate(role: voss.role, slot: .ultimate))
         XCTAssertEqual(n.damage, 0)
-        XCTAssertEqual(n.heal, ult.baseDamage * Balance.Skills.healScale * Balance.Skills.teamHealRatio, accuracy: 1e-9)
-        XCTAssertEqual(SkillMath.figureValue(.heal, n), "590")
+        XCTAssertEqual(n.heal, template.base[0] * ult.baseDamage / template.meanBase, accuracy: 1e-9)
+        XCTAssertEqual(SkillMath.figureValue(.heal, n), CollectionStyle.number(n.heal, digits: 0))
+        XCTAssertEqual(n.shield, n.heal * Balance.Skills.teamHealShieldRatio, accuracy: 1e-9)
     }
 
-    func testMultiStrikeAndEmpowerUseArchetypeRatios() throws {
-        // SK002_5 リラの Ult（連続斬り 45% × 3）、SK020_3 など遠隔 Skill2（強化攻撃 50%）
+    func testMultiStrikeAndEmpowerUseTheTemplateValues() throws {
+        // SK002_5 リラの Ult（連続斬り 3 回。型の値は 1 撃）、遠隔 Skill2（型の値は強化攻撃の追加分）
         let ult = try XCTUnwrap(master.skill("SK002_5"))
         let lyra = try XCTUnwrap(master.hero(ult.heroID))
         let n = SkillMath.numbers(ult, hero: lyra, rank: 1)
+        let strike = try XCTUnwrap(Balance.Skills.genericTemplate(role: lyra.role, slot: .ultimate))
         XCTAssertEqual(n.hits, 3)
-        XCTAssertEqual(n.damage, ult.baseDamage * Balance.Skills.damageScale(.ultimate) * 0.45, accuracy: 1e-9)
+        XCTAssertEqual(n.damage, strike.base[0] * ult.baseDamage / strike.meanBase, accuracy: 1e-9)
         XCTAssertTrue(SkillMath.figureValue(.damage, n).hasPrefix("3×"))
-        let ranged = try XCTUnwrap(master.heroes.first { $0.isRanged })
+        let ranged = try XCTUnwrap(master.allHeroes.first { $0.isRanged && !HeroKits.hasKit($0.heroID) })
         let blink = try XCTUnwrap(master.skill(hero: ranged.heroID, slot: .skill2))
+        let empower = try XCTUnwrap(Balance.Skills.genericTemplate(role: ranged.role, slot: .skill2))
         XCTAssertEqual(SkillMath.figures(SkillCatalog.targeting(for: blink, hero: ranged).archetype), [.bonusDamage])
         XCTAssertEqual(SkillMath.numbers(blink, hero: ranged, rank: 1).damage,
-                       blink.baseDamage * Balance.Skills.damageScale(.skill2) * 0.5, accuracy: 1e-9)
+                       empower.base[0] * blink.baseDamage / empower.meanBase, accuracy: 1e-9)
     }
 
     func testSkillDescriptionsUseSimulationNumbers() throws {
@@ -129,7 +150,7 @@ final class CollectionLogicTests: XCTestCase {
     /// キット（ヒーロー固有スキル）のヒーローの説明文は HeroKits.text から。プレースホルダが残らず、日英で違い、
     /// キットの無いヒーローは従来の文のまま。
     func testKitDescriptionsComeFromTheKit() throws {
-        let kitHeroes = master.heroes.map(\.heroID).filter { HeroKits.hasKit($0) }
+        let kitHeroes = master.allHeroes.map(\.heroID).filter { HeroKits.hasKit($0) }
         try XCTSkipIf(kitHeroes.isEmpty, "有効なキットが無い")
         defer { Loc.current = .ja }
         for id in kitHeroes {
@@ -150,7 +171,7 @@ final class CollectionLogicTests: XCTestCase {
             }
         }
         // キットの無いヒーローはキットの説明を持たない（従来の生成文）
-        let plain = try XCTUnwrap(master.heroes.first { !HeroKits.hasKit($0.heroID) })
+        let plain = try XCTUnwrap(master.allHeroes.first { !HeroKits.hasKit($0.heroID) })
         let skill = try XCTUnwrap(master.skill(hero: plain.heroID, slot: .skill1))
         XCTAssertNil(SkillMath.kitDescription(skill, hero: plain, english: false))
     }
@@ -183,7 +204,7 @@ final class CollectionLogicTests: XCTestCase {
         let t = SkillCatalog.targeting(for: ult, hero: hero)
         XCTAssertEqual(SkillMath.figures(ult, hero: hero, archetype: t.archetype), [])
         // キットの無いヒーローは従来どおり
-        let plain = try XCTUnwrap(master.heroes.first { !HeroKits.hasKit($0.heroID) })
+        let plain = try XCTUnwrap(master.allHeroes.first { !HeroKits.hasKit($0.heroID) })
         let sk = try XCTUnwrap(master.skill(hero: plain.heroID, slot: .skill1))
         XCTAssertEqual(SkillMath.cooldown(sk, hero: plain, rank: 2), SkillMath.cooldown(sk, rank: 2), accuracy: 1e-9)
         let pt = SkillCatalog.targeting(for: sk, hero: plain)
@@ -425,7 +446,7 @@ final class CollectionLogicTests: XCTestCase {
     }
 
     func testRecommendedBuildIsSanitizedAndWithinSlots() {
-        for hero in master.heroes {
+        for hero in master.allHeroes {
             let build = BuildRules.recommended(for: hero.heroID, master: master)
             XCTAssertEqual(build.count, BuildRules.slotCount, hero.heroID)
             XCTAssertEqual(BuildRules.sanitized(build, master: master), build)
@@ -460,89 +481,198 @@ final class CollectionLogicTests: XCTestCase {
                        BuildRules.recommended(for: "H003", master: master), "旧装備だけのビルドはおすすめに戻す")
     }
 
-    // MARK: ルーン
+    /// バトルプラン: 3 つから「使う」を選ぶと保存され、おすすめビルドと試合の構成（人間の枠）に反映される。
+    func testBattlePlanChoiceDrivesRecommendedBuildAndMatchConfig() {
+        var p = Profile()
+        let plans = BuildRules.plans(for: "H027")
+        XCTAssertEqual(plans.count, 3)
+        XCTAssertNil(BuildRules.chosenPlanIndex(for: "H027", profile: p))
+        XCTAssertEqual(BuildRules.activePlanIndex(for: "H027", profile: p), 1, "既定は日本語クライアントで「有効」の「爆発力」")
+        XCTAssertEqual(BuildRules.recommended(for: "H027", profile: p, master: master), plans[1].items)
+        XCTAssertEqual(BuildRules.recommended(for: "H027", profile: p, master: master),
+                       BuildRules.recommended(for: "H027", master: master))
+        BuildRules.choosePlan(2, for: "H027", profile: &p)
+        XCTAssertEqual(p.heroBuildPlans["H027"], 2)
+        XCTAssertEqual(BuildRules.activePlanIndex(for: "H027", profile: p), 2)
+        XCTAssertEqual(BuildRules.recommended(for: "H027", profile: p, master: master), plans[2].items)
+        XCTAssertEqual(BuildRules.current(for: "H027", profile: p, master: master), plans[2].items)
+        // 試合の構成: 選んだプランは人間の枠だけに入る
+        let practice = PracticeSetup.config(heroID: "H027", options: PracticeOptions(), profile: p, seed: 1)
+        XCTAssertEqual(practice.humanSlot?.buildPlan, 2)
+        let custom = CustomSetup.config(heroID: "H027", side: .blue, mapKind: .standard,
+                                        allyDifficulty: .normal, enemyDifficulty: .hard, profile: p, seed: 7)
+        XCTAssertEqual(custom.humanSlot?.buildPlan, 2)
+        XCTAssertTrue(custom.players.filter { $0.controller == .bot }.allSatisfy { $0.buildPlan == nil })
+        let brawl = CustomSetup.config(heroID: "H027", side: .red, mapKind: .brawl,
+                                       allyDifficulty: .normal, enemyDifficulty: .hard, profile: p, seed: 7)
+        XCTAssertEqual(brawl.humanSlot?.buildPlan, 2)
+        let rising = RisingService.config(for: RisingService.ladder[0], heroID: "H027", profile: p, seed: 3)
+        XCTAssertEqual(rising.humanSlot?.buildPlan, 2)
+        // カスタムビルドは選んだプランより優先（戦闘中のおすすめ購入も同じ順）
+        p.customBuilds["H027"] = ["EQ101", "EQ106"]
+        XCTAssertEqual(BuildRules.current(for: "H027", profile: p, master: master), ["EQ101", "EQ106"])
+        p.customBuilds["H027"] = nil
+        // 既定のプランを選び直すと保存値は消える。範囲外は無視
+        BuildRules.choosePlan(1, for: "H027", profile: &p)
+        XCTAssertNil(p.heroBuildPlans["H027"])
+        BuildRules.choosePlan(5, for: "H027", profile: &p)
+        XCTAssertNil(p.heroBuildPlans["H027"])
+        // 範囲外の保存値（古いデータ）は「有効」のプランとして扱う
+        p.heroBuildPlans["H027"] = 9
+        XCTAssertNil(BuildRules.chosenPlanIndex(for: "H027", profile: p))
+        XCTAssertEqual(BuildRules.activePlanIndex(for: "H027", profile: p), 1)
+        // プランの無いヒーロー
+        XCTAssertTrue(BuildRules.plans(for: "H003").isEmpty)
+        XCTAssertNil(BuildRules.activePlanIndex(for: "H003", profile: p))
+        // 表示: 日本語は画面の文字、タグ・スペルの英語表記
+        XCTAssertEqual(BuildRules.planName(plans[2]), "終盤の中核")
+        XCTAssertEqual(BuildRules.planTag("クリティカル"), "クリティカル")
+        Loc.current = .en
+        XCTAssertEqual(BuildRules.planName(plans[2]), plans[2].nameEN)
+        XCTAssertEqual(BuildRules.planTag("クリティカル"), "Crit")
+        XCTAssertEqual(BuildRules.planSpell("天罰"), "Retribution")
+        Loc.current = .ja
+    }
 
-    func testDefaultRunePageSelectsOneRunePerTierFromPath() {
-        for path in RunePath.allCases {
-            let page = RuneMath.defaultPage(name: "P", path: path, master: master)
-            XCTAssertEqual(page.runeIDs.count, 3)
-            for (i, id) in page.runeIDs.enumerated() {
-                let rune = master.rune(id)
-                XCTAssertEqual(rune?.path, path)
-                XCTAssertEqual(rune?.tier, i + 1)
-            }
+    // MARK: エンブレム
+
+    func testEmblemPagesDefaultToTheSetTalentsAndEquipStaysInTier() {
+        var p = Profile()
+        // 新規: 保存が無ければセットの既定の天賦。通常共通だけ解放済みで、どれも Lv1
+        for set in EmblemSetID.allCases {
+            XCTAssertEqual(EmblemMath.page(set, profile: p), EmblemCatalog.defaultLoadout(set: set, level: 1))
+            XCTAssertEqual(EmblemMath.isUnlocked(set, profile: p), set == .common, "\(set)")
+            XCTAssertEqual(EmblemMath.level(set, profile: p), 1)
         }
+        // Lv1 は天賦の段がどれも未解放なので付け替えられない
+        EmblemMath.equip(.fatal, set: .common, profile: &p)
+        XCTAssertEqual(EmblemMath.page(.common, profile: p).tier1, .thrill)
+        // 旧版から引き継いだプレイヤー（全セット解放済みの Lv60）
+        EmblemService.grandfather(&p)
+        for set in EmblemSetID.allCases {
+            XCTAssertEqual(EmblemMath.page(set, profile: p), EmblemCatalog.defaultLoadout(set: set))
+            XCTAssertTrue(EmblemMath.isUnlocked(set, profile: p))
+            XCTAssertEqual(EmblemMath.level(set, profile: p), 60)
+        }
+        // 組み換え自由: タンクのセットにコアの弱点分析・2 段目の武器マスター
+        EmblemMath.equip(.weaknessFinder, set: .tank, profile: &p)
+        EmblemMath.equip(.weaponMaster, set: .tank, profile: &p)
+        let tank = EmblemMath.page(.tank, profile: p)
+        XCTAssertEqual(tank, EmblemLoadout(.tank, .vitality, .weaponMaster, .weaknessFinder))
+        XCTAssertEqual(EmblemMath.page(.common, profile: p), EmblemCatalog.defaultLoadout(set: .common), "ほかのセットは変わらない")
+        // 解放していないセットは付け替えられない
+        p.emblemSetProgress[EmblemSetID.mage.rawValue] = EmblemSetProgress(unlocked: false)
+        EmblemMath.equip(.fatal, set: .mage, profile: &p)
+        XCTAssertEqual(EmblemMath.page(.mage, profile: p).tier1, .inspire)
+        XCTAssertEqual(EmblemMath.selectedSet(p), .common)
+        p.selectedEmblemSet = "EM_BOGUS"
+        XCTAssertEqual(EmblemMath.selectedSet(p), .common)
     }
 
-    func testNormalizedRunePageRepairsMismatches() {
-        let page = RunePage(name: "   とても長いルーンページの名前ですよ   ", primaryPath: .arcana, runeIDs: ["RN01", "RN12"])
-        let fixed = RuneMath.normalized(page, master: master)
-        XCTAssertEqual(fixed.runeIDs, ["RN02", "RN12", "RN22"])
-        XCTAssertLessThanOrEqual(fixed.name.count, RuneMath.maxNameLength)
-        XCTAssertFalse(fixed.name.hasPrefix(" "))
-        let switched = RuneMath.changingPath(fixed, to: .harmony, master: master)
-        XCTAssertEqual(switched.primaryPath, .harmony)
-        XCTAssertTrue(switched.runeIDs.allSatisfy { master.rune($0)?.path == .harmony })
+    func testEmblemBulkApplyAndMatchLoadout() {
+        var p = Profile()
+        EmblemService.grandfather(&p)
+        // 一括設定が無ければ選んだバトルプラン（未設定は「有効」）のエンブレム
+        XCTAssertEqual(EmblemMath.loadout(for: "H027", profile: p, master: master),
+                       ItemSystem.plan(heroID: "H027", chosen: nil)?.emblem)
+        p.heroBuildPlans["H027"] = 2
+        XCTAssertEqual(EmblemMath.loadout(for: "H027", profile: p, master: master), ItemSystem.heroPlans["H027"]?[2].emblem)
+        // 一括設定: セットの今の天賦を選んだヒーローに付ける
+        EmblemMath.equip(.braveSmite, set: .fighter, profile: &p)
+        XCTAssertEqual(EmblemMath.apply(set: .fighter, to: ["H027", "H032"], profile: &p), 2)
+        let fighter = EmblemLoadout(.fighter, .firmness, .festivalOfBlood, .braveSmite)
+        XCTAssertEqual(EmblemMath.loadout(for: "H027", profile: p, master: master), fighter)
+        XCTAssertEqual(EmblemMath.custom(for: "H032", profile: p), fighter)
+        XCTAssertEqual(EmblemMath.heroesUsing(fighter, profile: p), ["H027", "H032"])
+        // 練習場などの試合構成にも入る
+        XCTAssertEqual(PracticeSetup.emblem(heroID: "H027", profile: p, master: master), fighter)
+        // 外すとプランに戻る
+        EmblemMath.clearCustom(heroID: "H027", profile: &p)
+        XCTAssertEqual(EmblemMath.loadout(for: "H027", profile: p, master: master), ItemSystem.heroPlans["H027"]?[2].emblem)
+        // 一括設定の候補はロールで絞れる（ハンター = レンジャー）
+        let hunters = EmblemMath.bulkCandidates(filter: .marksman, profile: p, master: master)
+        XCTAssertFalse(hunters.isEmpty)
+        XCTAssertTrue(hunters.allSatisfy { $0.role == .ranger })
+        XCTAssertEqual(EmblemMath.bulkCandidates(filter: .all, profile: p, master: master).count,
+                       master.heroes.filter { p.ownedHeroIDs.contains($0.heroID) }.count)
+        // 候補のいないロールのタブは出さない（今の名簿にヴァンガードはいない）
+        let filters = EmblemMath.bulkFilters(profile: p, master: master)
+        XCTAssertEqual(filters.first, .all)
+        XCTAssertFalse(filters.contains(.tank))
+        XCTAssertTrue(filters.contains(.support) && filters.contains(.marksman))
+        // 解放していないセットは一括設定できず、付けていたヒーローは通常共通になる
+        p.emblemSetProgress[EmblemSetID.fighter.rawValue] = EmblemSetProgress(unlocked: false)
+        XCTAssertEqual(EmblemMath.apply(set: .fighter, to: ["H030"], profile: &p), 0)
+        XCTAssertNil(EmblemMath.custom(for: "H032", profile: p))
     }
 
-    func testRuneBonusFollowsPathRules() {
-        // Valor: RN01 3% + RN11 6% + RN21 2% = 攻撃力 +11%
-        let valor = RunePage(name: "V", primaryPath: .valor, runeIDs: ["RN01", "RN11", "RN21"])
-        XCTAssertEqual(RuneMath.bonus(for: valor, master: master).attackPct, 11, accuracy: 1e-9)
-        // Arcana: 魔力 +X、スキルダメ +X/2
-        let arcana = RuneMath.bonus(path: .arcana, percent: 8)
-        XCTAssertEqual(arcana.abilityPowerPct, 8)
-        XCTAssertEqual(arcana.skillDamagePct, 4)
-        // Resolve: HP と防御 +X
-        let resolve = RuneMath.bonus(path: .resolve, percent: 5)
-        XCTAssertEqual(resolve.maxHPPct, 5)
-        XCTAssertEqual(resolve.defensesPct, 5)
-        // Cunning: 移動 X/2・CD X/2
-        let cunning = RuneMath.bonus(path: .cunning, percent: 6)
-        XCTAssertEqual(cunning.moveSpeedPct, 3)
-        XCTAssertEqual(cunning.cooldownReductionPct, 3)
-        // Harmony: 回復 3X・回復量 X
-        let harmony = RuneMath.bonus(path: .harmony, percent: 4)
-        XCTAssertEqual(harmony.regenPct, 12)
-        XCTAssertEqual(harmony.healingPct, 4)
-        XCTAssertEqual(harmony.lines.count, 2)
+    func testEmblemTexts() {
+        let common = EmblemCatalog.set(.common)
+        XCTAssertEqual(EmblemMath.attributeValue(common.attributes[0], level: 60), "+12.00")
+        XCTAssertEqual(EmblemMath.currentMaxText(EmblemCatalog.set(.marksman).attributes[2], level: 60), "+10.00% / 10.00%")
+        XCTAssertEqual(EmblemMath.tierLabel(.tier1), "通常天賦")
+        XCTAssertEqual(EmblemMath.tierLabel(.core), "コア天賦")
+        XCTAssertEqual(EmblemMath.talentName(.weaponMaster), "武器マスター")
+        XCTAssertEqual(EmblemMath.talentSubtitle(.tenacity), "低HP時防御力上昇")
+        XCTAssertNil(EmblemMath.talentSubtitle(.vitality), "1 段目には小見出しが無い")
+        XCTAssertEqual(EmblemMath.summary(EmblemCatalog.defaultLoadout(set: .tank)), "オーダーエンブレム(タンク) · 活力 / 強靭 / 強震撃")
+        Loc.current = .en
+        XCTAssertEqual(EmblemMath.talentName(.weaponMaster), "Weapon Master")
+        XCTAssertEqual(EmblemMath.tierLabel(.core), "Core Talent")
+        Loc.current = .ja
     }
 
     // MARK: スペル
 
     func testSpellInfoCoversAllMasterSpells() {
-        XCTAssertEqual(SpellInfo.all.count, master.spells.count)
-        for spell in master.spells {
+        XCTAssertEqual(BattleSpell.selectable.count, 12)
+        for spell in master.spells.filter({ SpellLoadoutRules.isSelectable($0.spellID) || $0.spellID == "BS03" }) {
             let info = SpellInfo.of(spell.spellID)
             XCTAssertEqual(info.id, spell.spellID)
             XCTAssertFalse(info.effectJa.isEmpty)
             XCTAssertFalse(info.effectEn.isEmpty)
         }
-        XCTAssertNotNil(SpellInfo.of("BS05").tip)
+        XCTAssertFalse(SpellInfo.of("BS05").effect.isEmpty)
     }
 
     func testSpellAssignmentKeepsHealFixed() {
         // 1 枠目だけ変えられる。2 枠目は常に治癒波（BS03）
-        XCTAssertEqual(SpellLoadoutRules.assigning("BS07", slot: 0, in: ["BS01", "BS03"]), ["BS07", "BS03"])
-        XCTAssertEqual(SpellLoadoutRules.assigning("BS07", slot: 1, in: ["BS01", "BS03"]), ["BS01", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.assigning("BS11", slot: 0, in: ["BS01", "BS03"]), ["BS11", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.assigning("BS11", slot: 1, in: ["BS01", "BS03"]), ["BS01", "BS03"])
         XCTAssertEqual(SpellLoadoutRules.assigning("BS03", slot: 0, in: ["BS01", "BS03"]), ["BS01", "BS03"])
         XCTAssertEqual(SpellLoadoutRules.normalized([]), ["BS01", "BS03"])
         // 旧データ（治癒波が 1 枠目・重複・他スペルが 2 枠目）は治癒波を 2 枠目に寄せる
         XCTAssertEqual(SpellLoadoutRules.normalized(["BS03", "BS01"]), ["BS01", "BS03"])
         XCTAssertEqual(SpellLoadoutRules.normalized(["BS03", "BS03"]), ["BS01", "BS03"])
-        XCTAssertEqual(SpellLoadoutRules.normalized(["BS07", "BS01"]), ["BS07", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.normalized(["BS11", "BS01"]), ["BS11", "BS03"])
         // 不明な ID は除外して既定で補う
-        XCTAssertEqual(SpellLoadoutRules.normalized(["BS99", "BS07"]), ["BS07", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.normalized(["BS99", "BS11"]), ["BS11", "BS03"])
         XCTAssertEqual(SpellLoadoutRules.normalized(["", "BS02"]), ["BS02", "BS03"])
     }
 
+    func testSmiteOnlyForJungleLane() {
+        // MLBB のドラフト: 狩猟はジャングル担当だけ（ほかのレーンでは鍵）
+        XCTAssertTrue(SpellLoadoutRules.isAllowed("BS05", lane: .jungle))
+        for lane in [LanePosition.top, .mid, .carry, .support] {
+            XCTAssertFalse(SpellLoadoutRules.isAllowed("BS05", lane: lane), "\(lane)")
+            XCTAssertTrue(SpellLoadoutRules.isAllowed("BS01", lane: lane))
+            XCTAssertEqual(SpellLoadoutRules.forLane(["BS05", "BS03"], lane: lane), ["BS01", "BS03"], "ジャングル以外の狩猟は瞬歩へ")
+        }
+        XCTAssertEqual(SpellLoadoutRules.forLane(["BS05", "BS03"], lane: .jungle), ["BS05", "BS03"])
+        XCTAssertEqual(SpellLoadoutRules.forLane(["BS11", "BS03"], lane: .mid), ["BS11", "BS03"])
+        // 並びは MLBB の「バトルスキル」の画面と同じ 4 × 3、選べる 12 個がすべて副題を持つ
+        XCTAssertEqual(Set(BattleSkillPicker.order), Set(BattleSpell.selectable.map(\.rawValue)))
+        for id in BattleSkillPicker.order { XCTAssertFalse(SpellInfo.subtitle(id).isEmpty, id) }
+    }
+
     func testSmiteNameFollowsMasterSpellName() {
-        XCTAssertEqual(BuildRules.smiteName(master: master), "狩猟印")
+        XCTAssertEqual(BuildRules.smiteName(master: master), "狩猟")
         XCTAssertEqual(BuildRules.smiteName(master: master), master.spell(BuildRules.smiteSpellID).map { MasterText.spell($0) })
     }
 
     func testEffectiveSpellsUseHeroOverride() {
         var p = Profile()
+        p.accountLevel = 23
         p.defaultSpells = ["BS02", "BS04"]
         p.heroSpells["H006"] = ["BS05", "BS01"]
         XCTAssertEqual(SpellLoadoutRules.effective(heroID: nil, profile: p), ["BS02", "BS03"])
@@ -580,11 +710,11 @@ final class CollectionLogicTests: XCTestCase {
 
     func testHeroListFilter() {
         let owned = ["H001", "H002", "H007"]
-        XCTAssertEqual(HeroListFilter.heroes(master.heroes, role: nil, ownership: .all, owned: owned).count, 34)
-        XCTAssertEqual(HeroListFilter.heroes(master.heroes, role: nil, ownership: .owned, owned: owned).map(\.heroID), owned)
-        XCTAssertEqual(HeroListFilter.heroes(master.heroes, role: .vanguard, ownership: .owned, owned: owned).map(\.heroID),
+        XCTAssertEqual(HeroListFilter.heroes(master.allHeroes, role: nil, ownership: .all, owned: owned).count, 34)
+        XCTAssertEqual(HeroListFilter.heroes(master.allHeroes, role: nil, ownership: .owned, owned: owned).map(\.heroID), owned)
+        XCTAssertEqual(HeroListFilter.heroes(master.allHeroes, role: .vanguard, ownership: .owned, owned: owned).map(\.heroID),
                        ["H001", "H007"])
-        XCTAssertEqual(HeroListFilter.heroes(master.heroes, role: .vanguard, ownership: .locked, owned: owned).map(\.heroID),
+        XCTAssertEqual(HeroListFilter.heroes(master.allHeroes, role: .vanguard, ownership: .locked, owned: owned).map(\.heroID),
                        ["H013", "H019"])
     }
 
@@ -600,6 +730,6 @@ final class CollectionLogicTests: XCTestCase {
             XCTAssertFalse(text.isEmpty)
             XCTAssertNil(text.range(of: "[\\u3040-\\u30ff\\u3400-\\u9fff]", options: .regularExpression), text)
         }
-        XCTAssertTrue(SpellInfo.of("BS01").effect.hasPrefix("Teleport"))
+        XCTAssertTrue(SpellInfo.of("BS01").effect.hasPrefix("Blink"))
     }
 }

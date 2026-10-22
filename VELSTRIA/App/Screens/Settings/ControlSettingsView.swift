@@ -96,7 +96,7 @@ struct ControlLayoutPreview: View {
     var body: some View {
         Panel(padding: 10) {
             VStack(alignment: .leading, spacing: 8) {
-                LiveOpsSectionHeader(title: L("プレビュー", "Preview"), symbol: "eye.fill")
+                SectionTitle(title: L("プレビュー", "Preview"), symbol: "eye.fill")
                 screen
                     .aspectRatio(2.05, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))

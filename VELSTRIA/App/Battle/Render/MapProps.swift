@@ -139,6 +139,32 @@ enum MapProps {
         glow.box(size: [0.08, ph * 0.5, 0.02], color: .solid(rune), transform: m * MX.t(0, 0.2 + ph * 0.25, 0.235))
     }
 
+    /// 遺跡の標柱（新セットのステージの拠点の門）: 灰緑の花崗岩の角柱 + 暗い青銅の帯 + 頂部のチーム色の小さな結晶。
+    /// 光るのは結晶だけ（旧来の柱の光る縦の線は付けない）。p = 地面。
+    static func ruinPost(_ b: inout MeshBuilder, glow: inout MeshBuilder, at p: SIMD3<Float>, height h: Float,
+                         crystal: Ramp, seed: UInt64) {
+        var rng = RenderRNG(seed: seed)
+        let m = MX.t(p) * MX.ry(rng.range(0, 6.28))
+        let stone: PaletteColor = .ramp(.mossRock, from: 0.0, to: 0.3)
+        // 台石（角を落とした低い四角錐台）と角柱（上へわずかに細る）
+        b.frustum(bottomRadius: 0.5, topRadius: 0.42, height: 0.2, segments: 4, color: stone, transform: m * MX.ry(.pi / 4))
+        b.frustum(bottomRadius: 0.32, topRadius: 0.26, height: h, segments: 4, color: .ramp(.mossRock, from: 0.0, to: 0.38),
+                  capTop: true, transform: m * MX.t(0, 0.2, 0) * MX.ry(.pi / 4))
+        // 青銅の帯 2 本と冠石
+        for y in [0.2 + h * 0.18, 0.2 + h * 0.78] {
+            let r = 0.32 + (0.26 - 0.32) * ((y - 0.2) / h) + 0.02
+            b.frustum(bottomRadius: r, topRadius: r, height: 0.07, segments: 4, color: .solid(.barkDark),
+                      transform: m * MX.t(0, y, 0) * MX.ry(.pi / 4))
+        }
+        b.frustum(bottomRadius: 0.34, topRadius: 0.24, height: 0.12, segments: 4, color: stone,
+                  transform: m * MX.t(0, 0.2 + h, 0) * MX.ry(.pi / 4))
+        // 頂部の結晶（受け皿から 2 本）
+        glow.crystal(radius: 0.09, height: 0.42, sides: 5, waist: 0.4, color: .ramp(crystal, from: 0.35, to: 1),
+                     transform: m * MX.t(0, 0.3 + h, 0))
+        glow.crystal(radius: 0.05, height: 0.24, sides: 4, waist: 0.4, color: .ramp(crystal, from: 0.3, to: 0.9),
+                     transform: m * MX.t(0.08, 0.3 + h, 0.02) * MX.rz(-0.5))
+    }
+
     /// 吊りランタン（支柱 + 灯）。p = 地面。
     static func lanternPost(_ b: inout MeshBuilder, glow: inout MeshBuilder, at p: SIMD3<Float>, height h: Float,
                             yaw: Float) {

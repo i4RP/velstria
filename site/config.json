@@ -1,6 +1,6 @@
 {
-  "baseURL": "https://velsia.bitcessing.com",
-  "onlineMatch": false,
+  "baseURL": "https://velsia.xyz",
+  "onlineMatch": true,
   "ja": {
     "PUBLISHER_NAME": "BitcoinPay株式会社",
     "REPRESENTATIVE_NAME": "代表取締役 杉田 翔栄",
@@ -8,8 +8,9 @@
     "PHONE_NUMBER": "請求があった場合は遅滞なく電子メールにて開示します（お問い合わせはメールでお願いします）",
     "SUPPORT_EMAIL": "info@btcpay.jp",
     "EFFECTIVE_DATE": "2026年10月7日",
+    "UPDATED_DATE": "2026年10月12日",
     "COURT": "東京地方裁判所",
-    "TERMS_URL": "https://velsia.bitcessing.com/terms"
+    "TERMS_URL": "https://velsia.xyz/terms"
   },
   "en": {
     "PUBLISHER_NAME": "BITCOINPAY K.K.",
@@ -18,7 +19,8 @@
     "PHONE_NUMBER": "Disclosed by email without delay upon request",
     "SUPPORT_EMAIL": "info@btcpay.jp",
     "EFFECTIVE_DATE": "October 7, 2026",
+    "UPDATED_DATE": "October 12, 2026",
     "COURT": "Tokyo District Court",
-    "TERMS_URL": "https://velsia.bitcessing.com/en/terms"
+    "TERMS_URL": "https://velsia.xyz/en/terms"
   }
 }

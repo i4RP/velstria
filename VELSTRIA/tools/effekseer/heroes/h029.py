@@ -10,16 +10,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from kit import *  # noqa: E402
 
 S = Style(core=(255, 250, 225), main=(95, 155, 255), accent=(255, 208, 95), dark=(30, 55, 135))
+# 通常攻撃は MLBB のティグラルの槌の金（白金の芯 → 金の三日月・金の火花）。スキル（SkillFX の FX_H029）の金のパレットにそろえる
+A = Style(core=(255, 250, 228), main=(255, 192, 72), accent=(255, 228, 130), dark=(130, 78, 24))
 P = "H029_"
 
 
-def hammer_smash(flip=False, size=1.0, delay=0):
+def hammer_smash(flip=False, size=1.0, delay=0, s=S):
     """大槌の叩きつけ（重い三日月 + 地面の衝撃 + 金の火花）。"""
     yaw = -8 if flip else 8
-    return [crescent("smash", S.core, 3.8 * size, 10, y=0.3, z=-1.6 * size, delay=delay, yaw=-yaw, a=250),
-            crescent("smashB", S.main, 4.8 * size, 12, y=0.2, z=-1.8 * size, delay=delay + 1, yaw=-yaw, a=200),
-            ground_pulse(S.accent, 0.3, 2.0 * size, 12, y=-0.85, delay=delay + 3, a=230),
-            flecks(S.accent, n=6, speed=(2, 5), size=0.22, y=0.1, delay=delay + 3, gravity=-4, c2=S.core, spread=0.6)]
+    return [crescent("smash", s.core, 3.8 * size, 10, y=0.3, z=-1.6 * size, delay=delay, yaw=-yaw, a=250),
+            crescent("smashB", s.main, 4.8 * size, 12, y=0.2, z=-1.8 * size, delay=delay + 1, yaw=-yaw, a=200),
+            ground_pulse(s.accent, 0.3, 2.0 * size, 12, y=-0.85, delay=delay + 3, a=230),
+            flecks(s.accent, n=6, speed=(2, 5), size=0.22, y=0.1, delay=delay + 3, gravity=-4, c2=s.core, spread=0.6)]
 
 
 def shield_glint(n=3, delay=0, size=1.6, y=0.6, radius=0.9):
@@ -36,9 +38,9 @@ def sanctuary_motes(n=14, radius=2.4, delay=0, y=-0.7, count=None, life=(34, 54)
 def build():
     E = []
     # 通常攻撃: 大槌の叩きつけ
-    E.append(make(P + "atk_cast", hammer_smash(False, 1.0), 26))
-    E.append(make(P + "atk_cast2", hammer_smash(True, 1.0), 26))
-    E.append(make(P + "atk_hit", hit_burst(S, 1.05, extra=[ground_pulse(S.main, 0.3, 2.0, 14, y=-0.8), scatter("Fx_Diamond", S.accent, n=5, size=0.5, speed=(2, 5), life=(14, 22))]), 28))
+    E.append(make(P + "atk_cast", hammer_smash(False, 1.0, s=A), 26))
+    E.append(make(P + "atk_cast2", hammer_smash(True, 1.0, s=A), 26))
+    E.append(make(P + "atk_hit", hit_burst(A, 1.05, extra=[ground_pulse(A.main, 0.3, 2.0, 14, y=-0.8), scatter("Fx_Diamond", A.accent, n=5, size=0.5, speed=(2, 5), life=(14, 22))]), 28))
     # S1 聖槌の衝撃波: 叩きつけた衝撃が前へ走る（スロー）
     waves = [flat_streak(f"wave{i}", S.main if i % 2 else S.core, 3.2 + i * 0.6, 0.9 - i * 0.12, 12, z=-1.6 - i * 1.5, delay=i * 2, a=225, y=0.1) for i in range(3)]
     E.append(make(P + "s1_cast", hammer_smash(False, 1.2) + waves + [glow_core("flare", S.core, 2.0, 10, z=-0.5)], 30))

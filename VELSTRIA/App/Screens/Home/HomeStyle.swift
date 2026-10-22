@@ -10,39 +10,15 @@ import VelstriaCore
 enum HomeStyle {
     /// 紫のネオン（#9D6BFF）。
     static let violet = Color(red: 0.616, green: 0.420, blue: 1.0)
-    /// エネルギー橙。
-    static let ember = Color(red: 1.0, green: 0.55, blue: 0.18)
     /// パネルの地色（暗い藍のガラス）。
     static let ink = Color(red: 0.028, green: 0.043, blue: 0.110)
     static let inkRaised = Color(red: 0.070, green: 0.100, blue: 0.230)
-    /// 金の濃淡（飾り線・START）。
+    /// 金の濃淡（飾り線・枠）。
     static let goldLight = Color(red: 1.0, green: 0.93, blue: 0.68)
     static let goldDeep = Color(red: 0.78, green: 0.50, blue: 0.15)
-    /// 金〜橙の面に載せる文字色。
-    static let onGold = Color(red: 0.16, green: 0.08, blue: 0.02)
 
     static var goldGradient: LinearGradient {
         LinearGradient(colors: [goldLight, Theme.gold, goldDeep], startPoint: .top, endPoint: .bottom)
-    }
-
-    static func tint(_ mode: HomeMode) -> Color {
-        switch mode {
-        case .ranked: return Theme.gold
-        case .classic: return Theme.cyan
-        case .brawl: return ember
-        case .arcade: return Theme.success
-        case .rising: return Color(red: 1.0, green: 0.46, blue: 0.62)
-        case .custom: return Color(red: 0.56, green: 0.70, blue: 1.0)
-        case .magicChess: return violet
-        }
-    }
-
-    static func tint(_ link: HomeQuickLink) -> Color {
-        switch link {
-        case .missions: return Theme.success
-        case .store: return Theme.gold
-        case .records: return violet
-        }
     }
 }
 
@@ -108,28 +84,6 @@ enum HomeFont {
     /// 端末で解決できない同梱フォントの PostScript 名（正常なら空。UIAppFonts の登録漏れの検出用）。
     static var unresolvedFaces: [String] {
         Face.allCases.map(\.rawValue).filter { UIFont(name: $0, size: 12) == nil }
-    }
-}
-
-/// 等幅に並べた数字。Chakra Petch は等幅数字を持たないので、数字 1 文字ずつを同じ幅の枠に置く（桁区切りや単位は自然な幅）。
-struct HomeTabularNumber: View {
-    let text: String
-    var size: CGFloat = 13
-    var color: Color = Theme.textPrimary
-
-    var body: some View {
-        let digitWidth = (size * 0.65).rounded(.up)
-        HStack(spacing: 0) {
-            ForEach(Array(text.enumerated()), id: \.offset) { _, character in
-                Text(String(character))
-                    .frame(width: character.isNumber ? digitWidth : nil)
-            }
-        }
-        .font(HomeFont.tech(size))
-        .foregroundStyle(color)
-        .fixedSize()
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(text)
     }
 }
 
@@ -222,20 +176,6 @@ struct HomeChamferAccent: Shape {
     }
 }
 
-/// 右レールの折りたたみ取っ手（右辺がレールに接する台形）。
-struct HomeHandleShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        let slant = min(rect.height * 0.22, rect.width)
-        var p = Path()
-        p.move(to: CGPoint(x: rect.maxX, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - slant))
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.minY + slant))
-        p.closeSubpath()
-        return p
-    }
-}
-
 /// 菱形（飾り）。
 struct HomeDiamond: Shape {
     func path(in rect: CGRect) -> Path {
@@ -295,37 +235,14 @@ extension View {
         modifier(HomePanel(cut: cut, corners: corners, tint: tint, opacity: opacity, highlighted: highlighted, accent: accent))
     }
 
-    /// 全画面座標の矩形に置く（HomeMetrics の矩形用）。
+    /// 矩形に置く（ロビーでは板の座標の HomeLobbySlot）。
     func homePlaced(in rect: CGRect) -> some View {
         frame(width: max(0, rect.width), height: max(0, rect.height))
             .position(x: rect.midX, y: rect.midY)
     }
 }
 
-/// 帯（ヘッダー・フッター）の地。画面端まで敷き、内側の辺に光る線を引く。
-struct HomeBandBackground: View {
-    enum Side { case top, bottom }
-    /// 帯が付いている画面の辺。
-    let side: Side
-
-    var body: some View {
-        let outer: UnitPoint = side == .top ? .top : .bottom
-        let inner: UnitPoint = side == .top ? .bottom : .top
-        ZStack(alignment: side == .top ? .bottom : .top) {
-            LinearGradient(colors: [HomeStyle.ink.opacity(0.96), HomeStyle.ink.opacity(0.78)], startPoint: outer, endPoint: inner)
-            LinearGradient(colors: [HomeStyle.inkRaised.opacity(0.0), HomeStyle.inkRaised.opacity(0.55)], startPoint: outer, endPoint: inner)
-            // 帯の外へ落ちる影（背景のアートとなじませる）
-            LinearGradient(colors: [Color.black.opacity(0.35), .clear], startPoint: outer, endPoint: inner)
-                .frame(height: 10)
-                .offset(y: side == .top ? 10 : -10)
-            HomeEdgeLine()
-        }
-        .accessibilityHidden(true)
-        .allowsHitTesting(false)
-    }
-}
-
-/// 帯の縁の線（両端へ消えるシアン + 中央の金）。
+/// メニュードロワーの縁の線（両端へ消えるシアン + 中央の金）。
 struct HomeEdgeLine: View {
     var body: some View {
         ZStack {
@@ -358,6 +275,42 @@ struct HomePressStyle: ButtonStyle {
     }
 }
 
+/// ホーム専用の常時演出。前面以外では phaseAnimator を外し、更新を止める。
+/// レイアウト寸法は変えず、描画だけを小さく動かす。
+struct HomeAmbientMotion: ViewModifier {
+    let animated: Bool
+    var travel: CGFloat = 1.2
+    var duration: Double = 3.2
+
+    func body(content: Content) -> some View {
+        if animated {
+            content.phaseAnimator([-1.0, 1.0]) { view, phase in
+                view
+                    .offset(y: CGFloat(phase) * travel)
+                    .brightness((phase + 1) * 0.018)
+            } animation: { _ in
+                .easeInOut(duration: duration)
+            }
+        } else {
+            content
+        }
+    }
+}
+
+/// 各ボタンに呼吸するような浮遊を加え、タップ領域は元の位置に保つ。
+struct HomeAmbientButtonStyle: ButtonStyle {
+    let animated: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .modifier(HomeAmbientMotion(animated: animated))
+            .brightness(configuration.isPressed ? 0.16 : 0)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .animation(.spring(duration: 0.18), value: configuration.isPressed)
+            .contentShape(Rectangle())
+    }
+}
+
 /// 記号を載せた面取りタイル（リスト項目・ドロワー項目のアイコン）。
 struct HomeGlyphTile: View {
     let symbol: String
@@ -379,34 +332,6 @@ struct HomeGlyphTile: View {
             .accessibilityHidden(true)
     }
 }
-
-/// ヘッダーのアイコンボタン（表示 40pt・当たり判定 44pt）。
-struct HomeIconButton: View {
-    let symbol: String
-    let label: String
-    var badge = 0
-    var tint: Color = Theme.cyan
-    let identifier: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 17, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
-                .frame(width: 40, height: 40)
-                .homePanel(cut: 8, tint: tint, opacity: 0.8, accent: false)
-                .overlay(alignment: .topTrailing) { FlowCountBadge(count: badge).offset(x: 5, y: -3) }
-                .frame(width: HomeMetrics.minTapSize, height: HomeMetrics.minTapSize)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(HomePressStyle(scale: 0.9))
-        .accessibilityLabel(badge > 0 ? "\(label) \(L("未読", "unread")) \(badge)" : label)
-        .accessibilityIdentifier(identifier)
-    }
-}
-
-// MARK: - 光の演出
 
 /// 斜めの光沢が左から右へ走る（待ち → 走る を繰り返す）。
 /// 止める手段を持たないので、ホームが前面の間だけ階層に入れること（`if animated { HomeSheen() }`）。
@@ -432,41 +357,5 @@ struct HomeSheen: View {
                 swept = true
             }
         }
-    }
-}
-
-/// 形の背後でゆっくり明滅する発光。animated が偽の間は一定の明るさで止まる。
-struct HomeGlow<S: Shape>: View {
-    let shape: S
-    var color: Color
-    var radius: CGFloat = 12
-    var animated: Bool
-
-    var body: some View {
-        Group {
-            if animated {
-                HomeGlowPulse(shape: shape, color: color, radius: radius)
-            } else {
-                shape.fill(color).blur(radius: radius).opacity(0.6)
-            }
-        }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-}
-
-private struct HomeGlowPulse<S: Shape>: View {
-    let shape: S
-    let color: Color
-    let radius: CGFloat
-    @State private var bright = false
-
-    var body: some View {
-        shape.fill(color)
-            .blur(radius: radius)
-            .opacity(bright ? 0.95 : 0.4)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) { bright = true }
-            }
     }
 }

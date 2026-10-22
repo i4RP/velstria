@@ -5,13 +5,16 @@ import XCTest
 final class ContractSmokeTests: XCTestCase {
     func testMasterDataLoads() {
         let m = MasterData.shared
-        XCTAssertEqual(m.heroes.count, 34)
+        XCTAssertEqual(m.allHeroes.count, 34)
+        XCTAssertEqual(Set(m.heroes.map(\.heroID)), Set(HeroRoster.activeHeroIDs))
         XCTAssertEqual(m.skills.count, 136)
         XCTAssertEqual(m.items.count, 92)  // MLBB の図鑑: 攻撃 34・魔法 25・防御 25・移動 8
-        XCTAssertEqual(m.spells.count, 15)
-        XCTAssertEqual(m.runes.count, 30)
-        XCTAssertEqual(m.cosmetics.count, 102)
-        XCTAssertEqual(m.store.count, 154)
+        XCTAssertEqual(m.spells.count, 16)
+        // ルーンはエンブレムに置き換えた（7 セット・タレント 8 / 8 / 10。EmblemTests）
+        XCTAssertEqual(EmblemCatalog.sets.count, 7)
+        XCTAssertEqual(EmblemCatalog.talents.count, 26)
+        XCTAssertEqual(m.allCosmetics.count, 102)
+        XCTAssertEqual(m.allStore.count, 154)
         XCTAssertEqual(m.skills(forHero: "H001").map(\.slot), SkillSlot.allCases)
         XCTAssertEqual(m.item("EQ133")?.attack, 15)          // ダガー
         XCTAssertEqual(m.item("EQ108")?.effectID, "typhoon")   // ウィンドテラー

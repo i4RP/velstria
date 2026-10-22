@@ -11,6 +11,11 @@ name: Build & Upload
 #   CI_PROFILE_BASE64                         App Store プロビジョニングプロファイル「VELSTRIA AppStore CI」
 on:
   workflow_call:
+    inputs:
+      run_tests:
+        # ユーザー指示（2026-10-13）: 配信にテストは不要。既定は省略し、手動実行で選んだ時だけ流す
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -42,15 +47,19 @@ jobs:
           brew install xcodegen
 
       - name: 配信ツール（asc.mjs）のテスト
+        if: inputs.run_tests
         run: node --test tools/asc.test.mjs
 
       - name: コアのテスト
+        if: inputs.run_tests
         working-directory: VELSTRIA/Packages/VelstriaCore
         run: swift test -c release
 
       - name: HUD・チュートリアル・オンライン対戦・観戦の単体テストと UI テスト
+        if: inputs.run_tests
         # GPU の無いランナーは描画が遅く、UI の問い合わせが時間切れになる不安定な失敗が起きる。
         # 落ちたテストだけを最大 3 回まで自動で再実行する（3 回とも落ちれば失敗。網羅は減らさない）
+        # FlowUITests の観戦・練習場のリザルトは試合を最後まで早送りする（CI のシミュレータでは 15 分を超える）ので外す
         run: |
           xcodegen generate --quiet
           mkdir -p build
@@ -72,10 +81,24 @@ jobs:
             -only-testing:VELSTRIATests/HomeScreenTests \
             -only-testing:VELSTRIATests/RenderLogicTests \
             -only-testing:VELSTRIATests/SkillFXTests \
+            -only-testing:VELSTRIATests/HeroFullBodyMotionTests \
+            -only-testing:VELSTRIATests/SkillFXRangeTests \
+            -only-testing:VELSTRIATests/EmpoweredAttackFXTests \
+            -only-testing:VELSTRIATests/BattleFeelTests \
+            -only-testing:VELSTRIATests/FXCheckTests \
+            -only-testing:VELSTRIATests/EffekseerPostTests \
+            -only-testing:VELSTRIATests/EffekseerKitStackTests \
+            -only-testing:VELSTRIATests/AudioFilesTests \
+            -only-testing:VELSTRIATests/ServicesAudioSynthTests \
+            -only-testing:VELSTRIATests/ServicesAudioServiceTests \
+            -only-testing:VELSTRIATests/RenderLayerTests/testPostProcessShadersCompile \
             -only-testing:VELSTRIATests/HeroModelTests/testAllHeroesBuildWithinBudget \
             -only-testing:VELSTRIATests/SkinnedHeroModelTests/testBundledHeroAssetsMeetContract \
             -only-testing:VELSTRIATests/HeroMotionClipTests \
             -only-testing:VELSTRIATests/StageTests/testTriangleBudget \
+            -only-testing:VELSTRIATests/TowerPoseTests \
+            -only-testing:VELSTRIATests/StructureAssetsTests \
+            -only-testing:VELSTRIATests/TowerPartModelsTests \
             -only-testing:VELSTRIATests/OnlineProtocolTests \
             -only-testing:VELSTRIATests/OnlineSessionTests \
             -only-testing:VELSTRIATests/OnlineTransportTests \
@@ -91,20 +114,40 @@ jobs:
             -only-testing:VELSTRIATests/ReplayBakerTests \
             -only-testing:VELSTRIATests/CameraDirectorTests \
             -only-testing:VELSTRIATests/SpectatorCameraTests \
+            -only-testing:VELSTRIATests/CoreFinaleTests \
             -only-testing:VELSTRIATests/DeathSpectateTests \
             -only-testing:VELSTRIATests/ReplayLibraryTests \
             -only-testing:VELSTRIATests/SpectateSetupTests \
+            -only-testing:VELSTRIATests/FlowNameAndOnboardingTests \
+            -only-testing:VELSTRIATests/FlowDraftTests \
+            -only-testing:VELSTRIATests/FlowMatchModelTests \
+            -only-testing:VELSTRIATests/FlowResultTests \
+            -only-testing:VELSTRIATests/FlowReviewFixTests \
+            -only-testing:VELSTRIATests/FlowLaneAndModeTests \
+            -only-testing:VELSTRIATests/FlowDraftHelpTests \
+            -only-testing:VELSTRIATests/PublicProfileServiceTests \
+            -only-testing:VELSTRIATests/ServicesRankTests \
+            -only-testing:VELSTRIATests/ServicesLiveOpsTests \
+            -only-testing:VELSTRIATests/OnlineSafetyTests \
+            -only-testing:VELSTRIATests/EmblemEconomyTests \
+            -only-testing:VELSTRIATests/CollectionLogicTests \
+            -only-testing:VELSTRIATests/MatchMedalTests \
+            -only-testing:VELSTRIATests/ServicesSeasonTests \
             -only-testing:VELSTRIAUITests/HUDTacticalMapUITests \
             -only-testing:VELSTRIAUITests/BattleHUDUITests \
             -only-testing:VELSTRIAUITests/SpectatorHUDUITests \
             -only-testing:VELSTRIAUITests/ReplayLibraryUITests \
             -only-testing:VELSTRIAUITests/OnlineSpectateLobbyUITests \
+            -only-testing:VELSTRIAUITests/FlowUITests \
+            -skip-testing:VELSTRIAUITests/FlowUITests/testSpectateResult \
+            -skip-testing:VELSTRIAUITests/FlowUITests/testPracticeResult \
+            -only-testing:VELSTRIAUITests/OutgameShotsUITests \
             -parallel-testing-enabled NO \
             -retry-tests-on-failure -test-iterations 3 \
             CODE_SIGNING_ALLOWED=NO
 
       - name: HUD テストのスクリーンショットを書き出す
-        if: always()
+        if: always() && inputs.run_tests
         continue-on-error: true
         run: |
           if [[ -d build/HUDTests.xcresult ]]; then
@@ -114,7 +157,7 @@ jobs:
           fi
 
       - name: HUD テスト結果とスクリーンショットを保存
-        if: always()
+        if: always() && inputs.run_tests
         uses: actions/upload-artifact@v4
         with:
           name: hud-tests-${{ github.run_id }}-${{ github.run_attempt }}

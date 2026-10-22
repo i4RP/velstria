@@ -15,6 +15,8 @@ struct HeroMotionSet {
     /// スキル詠唱（Skill1, Skill2, Ultimate の順。nil = 手続き）。
     var casts: [String?] = [nil, nil, nil]
     var idle: String?
+    /// 待機のクリップが専用の収録（H025）。HeroIdle の個別の待機より優先する。
+    var dedicatedIdle = false
     var walk: String?
     var run: String?
     var death: String?
@@ -26,6 +28,12 @@ struct HeroMotionSet {
     /// nil = 向きは手続きの武器角を胴に対して保ち、位置だけ手に付ける（杖・槍・銃・弓・盾・灯籠。手首の向きで寝かせない）。
     var weaponGrip: simd_quatf? = HeroMotionSet.fistGrip
     var offhandGrip: simd_quatf? = nil
+    /// 状態のクリップ（待機・勝利など。腕を下ろした立ち姿）を重ねている間の武器角（grip が nil の武器だけ。手続きの武器角 θ と同じ:
+    /// 胴座標の絶対角、0 = 真上、-π/2 = 前）。nil = 手続きの構え（rest）の角のまま。
+    /// 槍の構え（rest -1.0 = 前へ寝かせる）は腕を下ろした待機だと穂先が顔の前を横切るので立てて持ち、
+    /// 弓（rest 0 = 真っ直ぐ）は上の弓先を少し前へ傾けて手に握っているように見せる（下の弓先が足元に立たない）。
+    var idleWeaponR: Float?
+    var idleWeaponL: Float?
 
     /// 拳で握る（+Y → -Z）。剣・槍・杖・盾・弓。
     static let fistGrip = rx(-.pi / 2)
@@ -41,6 +49,7 @@ struct HeroMotionBinding {
     /// Skill1, Skill2, Ultimate。
     let casts: [Int?]
     let idle: Int?
+    let dedicatedIdle: Bool
     let walk: Int?
     let run: Int?
     let death: Int?
@@ -49,6 +58,8 @@ struct HeroMotionBinding {
     let channel: Int?
     let weaponGrip: simd_quatf?
     let offhandGrip: simd_quatf?
+    let idleWeaponR: Float?
+    let idleWeaponL: Float?
 
     /// どのクリップも見つからなければ nil（重ねる層を持たず、手続きと完全に同じ）。
     init?(set: HeroMotionSet, library: HeroMotionLibrary) {
@@ -56,6 +67,7 @@ struct HeroMotionBinding {
         attacks = set.attacks.compactMap { library.index(of: $0) }
         casts = (0..<3).map { $0 < set.casts.count ? find(set.casts[$0]) : nil }
         idle = find(set.idle)
+        dedicatedIdle = set.dedicatedIdle && idle != nil
         walk = find(set.walk)
         run = find(set.run)
         death = find(set.death)
@@ -69,6 +81,8 @@ struct HeroMotionBinding {
         attackMask = set.attackMask
         weaponGrip = set.weaponGrip
         offhandGrip = set.offhandGrip
+        idleWeaponR = set.idleWeaponR
+        idleWeaponL = set.idleWeaponL
     }
 
     /// スキル枠 → casts の添字（パッシブは Skill1 と同じ。HeroAnimator.castIndex と同じ対応）。
@@ -77,12 +91,21 @@ struct HeroMotionBinding {
 
 enum HeroMotionSets {
     /// heroID の割り当て（未知の ID は nil = 手続きのみ）。
-    static func set(heroID: String) -> HeroMotionSet? { table[heroID] }
+    static func set(heroID: String) -> HeroMotionSet? {
+        guard var set = table[heroID] else { return nil }
+        if HeroIdle.authored(for: heroID) != nil {
+            set.idle = nil
+            set.idleWeaponR = nil
+            set.idleWeaponL = nil
+        }
+        return set
+    }
 
     private static func make(_ attacks: [String], idle: String? = nil, death: String = "death_back",
                              victory: String = "victory_pump", mask: HeroClipMask = .full,
                              weaponGrip: simd_quatf? = HeroMotionSet.fistGrip,
-                             offhandGrip: simd_quatf? = nil) -> HeroMotionSet {
+                             offhandGrip: simd_quatf? = nil,
+                             idleWeaponR: Float? = nil, idleWeaponL: Float? = nil) -> HeroMotionSet {
         var s = HeroMotionSet()
         s.attacks = attacks
         s.attackMask = mask
@@ -94,15 +117,22 @@ enum HeroMotionSets {
         // 移動は手続き（速度に合わせた歩幅）。帰還の片膝立ちは手続き（kneel クリップは脚の長さの違いで腰が浮く）
         s.weaponGrip = weaponGrip
         s.offhandGrip = offhandGrip
+        s.idleWeaponR = idleWeaponR
+        s.idleWeaponL = idleWeaponL
         return s
     }
 
     /// 杖・槍・銃など、向きを胴に対して保つ武器。
     private static let held: simd_quatf? = nil
+    /// 待機のクリップ中に槍を立てて持つ角（わずかに穂先を前へ）。
+    private static let spearIdle: Float = -0.22
+    /// 待機のクリップ中の弓（上の弓先を前へ傾ける）。
+    private static let bowIdle: Float = -0.38
 
     private static let lumina: HeroMotionSet = {
         var s = make(["h025_bow_attack"], idle: "h025_idle", death: "death_forward",
                      victory: "victory_cheer", offhandGrip: rx(-.pi / 2) * ry(-0.6))
+        s.dedicatedIdle = true
         s.walk = "h025_walk"
         s.run = "h025_run"
         return s
@@ -118,17 +148,18 @@ enum HeroMotionSets {
                      idle: "ready_idle",
                      death: "death_forward", victory: "victory_cheer"),
         // 灰刃の弓（Ranger・遠隔。弓は左手の副手）
-        "H003": make(["bow_shot", "bow_shot_b"], idle: "idle_b", death: "death_forward"),
+        "H003": make(["bow_shot", "bow_shot_b"], idle: "idle_b", death: "death_forward", idleWeaponL: bowIdle),
         // 潮の杖（Arcanist・遠隔）
         "H004": make(["cast_point", "cast_a"], idle: "idle_b", victory: "victory_cheer", weaponGrip: held),
         // 黒雷の槍（Support・遠隔: 投げ・指し示し）
-        "H005": make(["javelin_throw", "cast_point"], idle: "idle_b", weaponGrip: held),
+        "H005": make(["javelin_throw", "cast_point"], idle: "idle_b", weaponGrip: held, idleWeaponR: spearIdle),
         // 三日月の短刀 + 月の灯籠（Assassin・近接）
         "H006": make(["dual_combo_c", "sword_slash_r"], idle: "ready_idle", death: "death_forward"),
         // 岩の籠手（Vanguard・拳）
         "H007": make(["punch_a", "punch_a2", "punch_b", "hook_l"], idle: "ready_idle"),
         // 風の旗槍（Duelist・近接の突き）
-        "H008": make(["thrust", "sword_upward"], idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
+        "H008": make(["thrust", "sword_upward"], idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held,
+                     idleWeaponR: spearIdle),
         // 連弩（Ranger・両手）
         "H009": make(["gun_fire"], idle: "idle_b", death: "death_forward", weaponGrip: held),
         // 掌の炎 + 魔導書（Arcanist）
@@ -144,7 +175,8 @@ enum HeroMotionSets {
                      idle: "ready_idle", death: "death_forward",
                      offhandGrip: HeroMotionSet.fistGrip),
         // 鐘口の大筒（Ranger・両手）
-        "H015": make(["gun_fire"], idle: "idle_b", weaponGrip: held),
+        // 待機は銃口を前の下へ下ろして持つ（腰だめの -0.75 だと大きな鐘口が正面・見下ろしのどちらからも顔に重なる）
+        "H015": make(["gun_fire"], idle: "idle_b", weaponGrip: held, idleWeaponR: -2.2),
         // 環の杖（Arcanist）
         "H016": make(["cast_a", "cast_point"], idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
         // 深淵の香炉（Support・吊るす）
@@ -154,34 +186,38 @@ enum HeroMotionSets {
         // 攻城槌（Vanguard・両手の重い振り）
         "H019": make(["overhead_2h", "axe_chop"], idle: "idle_b"),
         // 光矢の刃 + 光の弓（Duelist）
-        "H020": make(["sword_slash_r", "sword_combo2_a", "sword_slash_l"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
+        "H020": make(["sword_slash_r", "sword_combo2_a", "sword_slash_l"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer",
+                     idleWeaponL: bowIdle),
         // 長銃（Ranger・両手）
         "H021": make(["gun_fire"], idle: "idle_b", weaponGrip: held),
         // 蒼い爪（Arcanist・遠隔: 爪を振って放つ）
         "H022": make(["hook_l", "cast_throw"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
         // 雷の騎槍（Support・遠隔: 投げ・指し示し）
-        "H023": make(["javelin_throw", "cast_point"], idle: "idle_b", weaponGrip: held),
+        "H023": make(["javelin_throw", "cast_point"], idle: "idle_b", weaponGrip: held, idleWeaponR: spearIdle),
         // 夢の針 二刀（Assassin）
         "H024": make(["dual_combo_b", "dual_combo_d", "thrust"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", offhandGrip: HeroMotionSet.fistGrip),
         // 三日月の長弓（Ranger・遠隔。弓は左手の副手）
         "H025": lumina,
-        // 雷杖（Arcanist・遠隔: 指し示し・払い）
+        // 右手の上の球電（Arcanist・遠隔: 杖は持たず、指し示し・払い）
         "H026": make(["cast_a", "cast_point", "cast_throw"], idle: "ready_idle", victory: "victory_cheer", weaponGrip: held),
         // 竜牙の長槍（Duelist・近接の突き）
         "H027": make(["thrust", "sword_slash_r", "sword_upward"], idle: "ready_idle", death: "death_forward", weaponGrip: held),
         // 光刃の長剣（Assassin・近接の連斬り）
         "H028": make(["sword_slash_r", "sword_combo_2", "sword_combo2_b"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
-        // 聖槌 + 円盾（Support・近接の片手振り。盾は左手に構えたまま）
+        // 聖槌 + 円盾（Support・近接の片手振り。盾は左手に構えたまま）。通常攻撃は全身のモーション（HeroSkillMotions の
+        // Motion_H029.attacks）が先なので、ここの攻撃のクリップは使わない（待機・死亡・勝利だけ使う）
         "H029": make(["sword_combo_1", "axe_chop"], idle: "combat_idle"),
         // 星砲（Ranger・遠隔の両手持ち）
         "H030": make(["gun_fire"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
-        // 氷の杖（Arcanist・遠隔: 払い・指し示し）
-        "H031": make(["cast_a", "cast_point"], idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
-        // 拳剣（Duelist・近接。右手の籠手で薙ぐ・打ち上げる）
-        "H032": make(["sword_slash_r", "uppercut_r", "sword_combo_1"], idle: "ready_idle", death: "death_forward"),
-        // 血の大剣（Assassin・近接の両手の重い振り）
-        "H033": make(["overhead_2h", "sword_charged", "sword_upward"], idle: "combat_idle", death: "death_forward"),
-        // 鎖鉤（Support・近接の振り回し）
+        // 氷華の右手（Arcanist・遠隔: 杖は持たず手から放つ・指し示し）
+        "H031": make(["cast_throw", "cast_point"], idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
+        // 両手首の刃の輪（Duelist・近接の左右交互の連撃）
+        "H032": make(["dual_combo_a", "dual_combo_b", "dual_combo_c"], idle: "ready_idle", death: "death_forward",
+                     offhandGrip: HeroMotionSet.fistGrip),
+        // 魔狩りの大剣（Assassin・近接の片手の連斬り。アルーカードは巨大な剣を片手で振る）。左手を柄へ添える両手の振り
+        // （overhead_2h・sword_upward）や左手も大きく動く溜め斬り（sword_charged）ではなく、右手で振る剣のクリップ
+        "H033": make(["sword_slash_r", "sword_combo_3", "sword_slash_l2"], idle: "combat_idle", death: "death_forward"),
+        // 鎖鉤（Support・近接の振り回し）。通常攻撃は全身のモーション（Motion_H034.attacks）が先なので、ここの攻撃のクリップは使わない
         "H034": make(["axe_chop", "sword_slash_r", "sword_combo_1"], idle: "combat_idle"),
     ]
 }

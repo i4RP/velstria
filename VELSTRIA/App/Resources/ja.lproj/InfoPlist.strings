@@ -1,0 +1,2 @@
+/* 日本語の権限の説明（project.yml の NSLocalNetworkUsageDescription と同じ文面に揃える） */
+"NSLocalNetworkUsageDescription" = "近くのプレイヤーとオンライン対戦するために、同じネットワーク上の VELSIA を探して接続します。";

@@ -10,7 +10,7 @@ struct OnboardingFlowView: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             content
                 .id(step)
                 .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
@@ -272,19 +272,25 @@ struct TermsAgreementView: View {
     private var sections: [Section] {
         [
             Section(id: 0, symbol: "gamecontroller.fill", title: L("サービス内容", "The Service"),
-                    body: L("VELSIA は端末内で完結するオフラインの 5v5 対戦ゲームです。味方と敵はすべて AI が操作します。インターネット接続は不要です。",
-                            "VELSIA is an offline 5v5 game that runs entirely on your device. All allies and enemies are controlled by AI. No internet connection is required.")
-                        + (FeatureFlags.lanMatch ? L("（部屋コードで遊ぶオンライン対戦を除く）", " (except online matches played with a room code)") : "")),
+                    body: FeatureFlags.lanMatch
+                        ? L("VELSIA は 5v5 対戦ゲームです。ひとりで遊ぶモードは端末内で完結し、味方と敵は AI が操作します（インターネット接続は不要）。オンライン機能（フレンド・部屋コード・同じ Wi-Fi の対戦）は、初めて使う時にオンラインのルールへ同意してから使えます（13 歳未満の方は利用できません）。",
+                            "VELSIA is a 5v5 battle game. Single-player modes run on your device with AI allies and enemies (no internet needed). Online features (friends, room codes and same-Wi-Fi matches) require accepting the online rules the first time you use them (not available to players under 13).")
+                        : L("VELSIA は端末内で完結するオフラインの 5v5 対戦ゲームです。味方と敵はすべて AI が操作します。インターネット接続は不要です。",
+                            "VELSIA is an offline 5v5 game that runs entirely on your device. All allies and enemies are controlled by AI. No internet connection is required.")),
             Section(id: 1, symbol: "diamond.fill", title: L("有償アイテム", "Paid Items"),
-                    body: L("AstralGem はスキンなどの見た目アイテム（コスメ）に使えます。ヒーローはプレイで貯まる StarlightCoin で解放します。戦闘能力を高める商品は販売しません。年齢区分に応じた月間購入上限があり、返金は Apple の規約に従います。有償・無償の Gem は区別して管理し、無償分から先に消費します。",
-                            "AstralGems are used for cosmetics. Heroes are unlocked with StarlightCoins earned by playing. We never sell combat power. Monthly limits apply by age group, and refunds follow Apple's policies. Paid and free Gems are tracked separately; free Gems are spent first.")),
+                    body: L("AstralGem は見た目アイテム（コスメ）に使えます。ヒーローは全員が最初から使え、販売しません。戦闘能力を高める商品は販売しません。年齢区分に応じた月間購入上限があり、返金は Apple の規約に従います。有償・無償の Gem は区別して管理し、無償分から先に消費します。",
+                            "AstralGems are used for cosmetics. Every hero is available from the start and heroes are never sold. We never sell combat power. Monthly limits apply by age group, and refunds follow Apple's policies. Paid and free Gems are tracked separately; free Gems are spent first.")),
             Section(id: 2, symbol: "lock.shield.fill", title: L("データの取り扱い", "Your Data"),
-                    body: L("プレイデータはこの端末内にのみ保存され、外部のサーバーへ送信されません。広告や行動追跡は行いません。お問い合わせの際は、あなたが送信したメールの内容のみを受け取ります。",
-                            "Your play data is stored only on this device and is never sent to external servers. There is no advertising or tracking. When you contact support, we only receive the email you choose to send.")
+                    body: L("プレイデータはこの端末内に保存され、分析や広告のために外部へ送信しません。広告や行動追跡は行いません。お問い合わせの際は、あなたが送信したメールの内容のみを受け取ります。",
+                            "Your play data is stored on this device and is never sent anywhere for analytics or ads. There is no advertising or tracking. When you contact support, we only receive the email you choose to send.")
                         + (FeatureFlags.lanMatch ? " " + OnlineRelayConfig.privacyNote : "")),
             Section(id: 3, symbol: "hand.raised.fill", title: L("禁止事項", "Prohibited Conduct"),
                     body: L("アプリの改ざん、不正な手段による通貨やアイテムの取得、公序良俗に反するプレイヤー名の使用を禁止します。",
-                            "Tampering with the app, obtaining currency or items by illegitimate means, and offensive player names are prohibited.")),
+                            "Tampering with the app, obtaining currency or items by illegitimate means, and offensive player names are prohibited.")
+                        + (FeatureFlags.lanMatch
+                           ? L("オンラインでの嫌がらせ・なりすまし・チートなど、不適切なコンテンツや迷惑行為は一切容認しません。",
+                               " We do not tolerate objectionable content or abusive behavior online, such as harassment, impersonation or cheating.")
+                           : "")),
             Section(id: 4, symbol: "externaldrive.fill", title: L("バックアップ", "Backups"),
                     body: L("端末の故障や削除でデータが失われることがあります。「アカウント連携」画面からバックアップファイルを作成できます。",
                             "Data may be lost if your device is damaged or the app is deleted. You can create a backup file from the Account & Data screen.")),
@@ -390,7 +396,7 @@ struct TermsUpdateView: View {
 
     var body: some View {
         ZStack {
-            StarfieldBackground()
+            CelestialBackdrop()
             TermsAgreementView(isUpdate: true) {
                 FlowFX.confirm(app)
             }
@@ -469,9 +475,24 @@ private struct OnboardingNameStep: View {
                     Label(PlayerNameRules.message(issue), systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(Theme.danger)
                 } else {
-                    Label(L("名前は他のプレイヤーに公開されません（オフライン）。", "Your name stays on this device (offline)."),
-                          systemImage: "lock.fill")
-                        .foregroundStyle(Theme.textSecondary)
+                    if FeatureFlags.lanMatch {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label(L("オンライン機能を使うと、名前は同じ部屋のプレイヤーやフレンドに表示されます。本名や連絡先は使わないでください。",
+                                    "If you use online features, your name is shown to players in the same room and to friends. Don't use your real name or contact details."),
+                                  systemImage: "person.2.fill")
+                                .foregroundStyle(Theme.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Link(L("名前のルール（コミュニティガイドライン）", "Name rules (Community Guidelines)"),
+                                 destination: FeatureFlags.communityGuidelinesURL)
+                                .foregroundStyle(Theme.cyan)
+                                .frame(minHeight: 32)
+                                .accessibilityIdentifier("onb_name_guidelines")
+                        }
+                    } else {
+                        Label(L("名前は他のプレイヤーに公開されません（オフライン）。", "Your name stays on this device (offline)."),
+                              systemImage: "lock.fill")
+                            .foregroundStyle(Theme.textSecondary)
+                    }
                 }
             }
             .font(Theme.body(12))
@@ -538,7 +559,7 @@ private struct OnboardingPrepareStep: View {
                         .foregroundStyle(Theme.gold)
                         .monospacedDigit()
                 }
-                FlowProgressBar(value: progress, tint: Theme.gold, height: 10)
+                CelestialProgressBar(value: progress, tint: Theme.gold, height: 10)
             }
             .frame(maxWidth: 520)
             .accessibilityElement(children: .combine)
@@ -613,12 +634,12 @@ private struct OnboardingPrepareStep: View {
 
 private struct OnboardingTutorialStep: View {
     @Environment(AppModel.self) private var app
-    @State private var heroID = "H002"
+    @State private var heroID = TutorialCatalog.heroID
 
     private var candidates: [HeroDef] {
-        let starters = ["H001", "H002", "H003", "H004", "H005", "H006"]
+        let starters = HeroRoster.starterHeroIDs
         let owned = starters.filter { app.owns(heroID: $0) }
-        let ids = owned.isEmpty ? Array(app.profile.ownedHeroIDs.prefix(6)) : owned
+        let ids = owned.isEmpty ? starters : owned
         return ids.compactMap { app.master.hero($0) }
     }
 
@@ -660,7 +681,7 @@ private struct OnboardingTutorialStep: View {
             .frame(maxWidth: 360)
 
             VStack(alignment: .leading, spacing: 8) {
-                FlowSectionTitle(title: L("使用するヒーロー", "Choose a Hero"), symbol: "person.fill")
+                SectionTitle(title: L("使用するヒーロー", "Choose a Hero"), symbol: "person.fill")
                 LazyVGrid(columns: Array(repeating: GridItem(.fixed(78), spacing: 8), count: 3), spacing: 8) {
                     ForEach(candidates) { h in
                         Button {

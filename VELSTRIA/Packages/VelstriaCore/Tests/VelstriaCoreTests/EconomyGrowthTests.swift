@@ -27,6 +27,7 @@ final class EconomyGrowthTests: XCTestCase {
         f.place(a, at: spot)
         f.place(b, at: spot + Vec2(0, 1000))
         f.place(far, at: spot + Vec2(0, 1500))
+        f.s.units[b].hero!.spells = ["BS01", "BS03"]
         let goldB = f.hero(b).gold
         let m = f.addMinion(.siege, team: .red, at: spot)
         f.kill(m, by: f.id(a))
@@ -49,7 +50,7 @@ final class EconomyGrowthTests: XCTestCase {
         let killer = f.addMinion(.melee, team: .blue, at: spot)
         let m = f.addMinion(.ranged, team: .red, at: spot + Vec2(100, 0))
         f.kill(m, by: f.id(killer))
-        XCTAssertEqual(f.hero(a).xp, 32, accuracy: 1e-9)
+        XCTAssertEqual(f.hero(a).xp, Balance.Economy.minionXP(.ranged), accuracy: 1e-9)
         XCTAssertEqual(f.hero(a).gold, gold0)
         XCTAssertEqual(f.hero(a).score.minionKills, 0)
     }
@@ -111,8 +112,18 @@ final class EconomyGrowthTests: XCTestCase {
         h.level = 8
         XCTAssertTrue(SkillLeveling.canLevel(h, slot: .ultimate))
         h.level = 15
+        // MLBB と同じ 6 / 6 / 3（以前の 4 / 4 / 3 は Wild Rift 由来で、Lv15 で 4 ポイントが余った）
         h.skillRanks = [1, 4, 4, 3]
+        XCTAssertTrue(SkillLeveling.canLevel(h, slot: .skill1))
+        XCTAssertTrue(SkillLeveling.canLevel(h, slot: .skill2))
+        h.skillRanks = [1, 6, 6, 3]
         for slot in SkillSlot.actives { XCTAssertFalse(SkillLeveling.canLevel(h, slot: slot)) }
+        // 6 段目は Lv11 から（ceil(Lv/2)）
+        h.skillRanks = [1, 5, 0, 0]
+        h.level = 10
+        XCTAssertFalse(SkillLeveling.canLevel(h, slot: .skill1))
+        h.level = 11
+        XCTAssertTrue(SkillLeveling.canLevel(h, slot: .skill1))
         h.skillPoints = 0
         h.skillRanks = [1, 0, 0, 0]
         XCTAssertFalse(SkillLeveling.canLevel(h, slot: .skill1))
@@ -135,6 +146,13 @@ final class EconomyGrowthTests: XCTestCase {
         HeroGrowth.applyMatchStart(&f.s, f.ctx)
         XCTAssertEqual(f.hero(a).skillPoints, 0)
         XCTAssertEqual(HeroGrowth.spentSkillPoints(f.hero(a)), 5)
+        // Lv15 では 15 ポイントをすべて使い切る（6 / 6 / 3）。どの Lv でも余りが出ない
+        for level in 6...Balance.maxLevel {
+            HeroGrowth.grantXP(&f.s, f.ctx, heroIndex: a, amount: HeroGrowth.xpToNext(level: level - 1))
+            XCTAssertEqual(f.hero(a).level, level)
+            XCTAssertEqual(f.hero(a).skillPoints, 0, "Lv\(level)")
+        }
+        XCTAssertEqual(f.hero(a).skillRanks, [1, 6, 6, 3])
     }
 
     func testPracticeStartLevelAppliedOnFirstTick() {
@@ -152,7 +170,10 @@ final class EconomyGrowthTests: XCTestCase {
         XCTAssertEqual(u.hp, u.stats.maxHP, accuracy: 1e-6)
         XCTAssertEqual(h.gold, Balance.Economy.practiceGold)
         let def = MasterData.shared.hero("H001")!
-        XCTAssertEqual(u.stats.maxHP, HeroGrowth.baseStats(def: def, level: 6).maxHP, accuracy: 1e-6)
+        // 練習場の人間にもエンブレム（H001 はプランが無いのでロール別: タンク = HP +500、活力 +225）が付く。
+        // Lv6 の成長にエンブレムの HP を足した値になる
+        XCTAssertEqual(h.emblem, EmblemCatalog.roleDefault(.vanguard))
+        XCTAssertEqual(u.stats.maxHP, HeroGrowth.baseStats(def: def, level: 6).maxHP + 500 + 225, accuracy: 1e-6)
     }
 
     func testStandardMatchLearnsFirstSkillOnFirstTick() {

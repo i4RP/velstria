@@ -1,1 +1,1 @@
-hero,lane,tower,jungle,ranked,draft,teamfight,rune,strategy,replay,spectate,tutorial,beginner,build
+hero,lane,tower,jungle,ranked,draft,teamfight,item,strategy,replay,spectate,tutorial,beginner,online

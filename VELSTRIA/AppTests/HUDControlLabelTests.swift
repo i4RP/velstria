@@ -4,13 +4,15 @@ import UIKit
 @testable import VELSTRIA
 import VelstriaCore
 
-// 担当: battle-hud。操作ボタンのラベル（スキルの種別タグ・ボタン内のスペル名）と死亡中の見た目:
-// 全ヒーローの全スキルで短いタグになること、優先順位、スペル名の短縮とボタン内への収まり、
-// 3 端末 × 左右配置 × 2 言語でタグが攻撃ボタン 3 つ・スキル・スペル・帰還・習得バッジ・下部パネル・ミニマップ・画面端と重ならないこと、
+// 担当: battle-hud。操作ボタンのラベル（スキルの種別タグ・ボタン下のスペル名）と死亡中の見た目:
+// 全ヒーローの全スキルで短いタグになること、優先順位、スペル名の短縮とボタン下での収まり、
+// 16:9 と約20:9 の端末 × 左右配置 × 2 言語でタグが攻撃ボタン 3 つ・スキル・スペル・帰還・習得バッジ・ショップ・ミニマップ・画面端と重ならないこと、
 // 死亡中も絵柄が見えたまま暗くなること（全体を薄くしない）。
 
 final class HUDControlLabelTests: XCTestCase {
     private let devices: [(name: String, size: CGSize, side: CGFloat, bottom: CGFloat)] = [
+        ("iPhone SE", CGSize(width: 667, height: 375), 0, 0),
+        ("iPhone 13 mini", CGSize(width: 812, height: 375), 44, 21),
         ("iPhone 16e", CGSize(width: 844, height: 390), 47, 21),
         ("iPhone 17 Pro", CGSize(width: 874, height: 402), 62, 20),
         ("iPhone 17 Pro Max", CGSize(width: 956, height: 440), 62, 20),
@@ -40,12 +42,12 @@ final class HUDControlLabelTests: XCTestCase {
 
     func testEveryHeroSkillHasShortTag() {
         let master = MasterData.shared
-        XCTAssertFalse(master.heroes.isEmpty)
+        XCTAssertFalse(master.allHeroes.isEmpty)
         var used = Set<HUDSkillTag>()
         for lang in [AppLanguage.ja, .en] {
             Loc.current = lang
             let limit = lang == .ja ? HUDSkillTag.maxLengthJa : HUDSkillTag.maxLengthEn
-            for hero in master.heroes {
+            for hero in master.allHeroes {
                 for slot in SkillSlot.actives {
                     guard let skill = master.skill(hero: hero.heroID, slot: slot) else {
                         XCTFail("\(hero.heroID) \(slot) のスキルが無い")
@@ -81,7 +83,7 @@ final class HUDControlLabelTests: XCTestCase {
         Loc.current = .ja
         let master = MasterData.shared
         func skill(where match: (SkillDef, SkillArchetype) -> Bool) -> SkillDef? {
-            for hero in master.heroes {
+            for hero in master.allHeroes {
                 for slot in SkillSlot.actives {
                     if let s = master.skill(hero: hero.heroID, slot: slot), match(s, targeting(s).archetype) { return s }
                 }
@@ -120,14 +122,9 @@ final class HUDControlLabelTests: XCTestCase {
         XCTAssertEqual(HUDSkillTag.tag(for: nil, archetype: .piercingLine), .pierce)
     }
 
-    // MARK: スペル名（ボタン内）
+    // MARK: スペル名（ボタン下）
 
-    private func roundedFont(_ size: CGFloat, weight: UIFont.Weight) -> UIFont {
-        let base = UIFont.systemFont(ofSize: size, weight: weight)
-        return base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: size) } ?? base
-    }
-
-    func testSpellLabelsAreShortAndFitInsideButton() {
+    func testSpellLabelsAreShortAndFitBelowButton() {
         let master = MasterData.shared
         XCTAssertFalse(master.spells.isEmpty)
         for lang in [AppLanguage.ja, .en] {
@@ -140,25 +137,34 @@ final class HUDControlLabelTests: XCTestCase {
                 let full = MasterText.spell(spell)
                 if full.count <= limit { XCTAssertEqual(label, full, "短い名前はそのまま") }
             }
-            // ボタン内で縮小せずに収まる（名前の段の下端での円の幅 - 縁取り）
+            // 文字は円の真下、クールダウンは円の中央。全言語で隣のラベルと Safe Area に収まる。
             for d in devices {
-                let l = layout(d, left: false)
-                let dia = l.spellDiameter
-                let font = roundedFont(HUDSpellLabel.fontSize(dia), weight: .black)
-                let stackBottom = HUDSpellLabel.stackOffset(dia) + HUDSpellLabel.stackHeight(dia) / 2
-                XCTAssertLessThan(stackBottom, dia / 2 - 3, "\(d.name) 名前の段がボタンの下端からはみ出す")
-                let halfChord = ((dia / 2) * (dia / 2) - stackBottom * stackBottom).squareRoot()
-                let maxWidth = min(dia * HUDSpellLabel.maxWidthRatio, (halfChord - 2) * 2)
-                for spell in master.spells {
-                    let text = HUDSkillTag.spellLabel(spell.spellID)
-                    let w = (text as NSString).size(withAttributes: [.font: font]).width
-                    XCTAssertLessThanOrEqual(w, maxWidth, "\(d.name) \(lang) スペル名「\(text)」がボタンに収まらない")
+                for left in [false, true] {
+                    let l = layout(d, left: left)
+                    let dia = l.spellDiameter
+                    let font = UIFont.systemFont(ofSize: HUDSpellLabel.fontSize(dia), weight: .medium)
+                    let halfHeight = HUDSpellLabel.fontSize(dia) * 0.6
+                    let offset = HUDSpellLabel.labelCenterOffset(dia)
+                    XCTAssertGreaterThan(offset - halfHeight, dia / 2, "名前は円の下に置く")
+                    let maxWidth = dia * HUDSpellLabel.maxWidthRatio
+                    let centers = [l.recallCenter, l.spellCenter(0), l.spellCenter(1)]
+                    for center in centers {
+                        XCTAssertGreaterThanOrEqual(center.x - maxWidth / 2, l.leadingEdge)
+                        XCTAssertLessThanOrEqual(center.x + maxWidth / 2, l.trailingEdge)
+                        XCTAssertLessThanOrEqual(center.y + offset + halfHeight, l.bottomEdge,
+                                                 "\(d.name) 補助ラベルがホームインジケータに重なる")
+                    }
+                    for pair in zip(centers, centers.dropFirst()) {
+                        XCTAssertGreaterThan(abs(pair.0.x - pair.1.x), maxWidth, "補助ラベル同士が重なる")
+                    }
+                    for spell in master.spells {
+                        let text = HUDSkillTag.spellLabel(spell.spellID)
+                        let w = (text as NSString).size(withAttributes: [.font: font]).width
+                        XCTAssertLessThanOrEqual(w, maxWidth, "\(d.name) \(lang) スペル名「\(text)」が収まらない")
+                    }
+                    XCTAssertLessThan(dia * 0.3 * 0.6, offset - halfHeight,
+                                      "\(d.name) クールダウン秒数が名前に重なる")
                 }
-                // クールダウンの秒数は絵柄の位置（名前より上）に重ねる
-                XCTAssertLessThan(HUDSpellLabel.iconCenterOffset(dia), 0)
-                let numberBottom = HUDSpellLabel.iconCenterOffset(dia) + dia * 0.3 * 0.6
-                let nameTop = stackBottom - HUDSpellLabel.fontSize(dia) * 1.2
-                XCTAssertLessThanOrEqual(numberBottom, nameTop + 1, "\(d.name) 秒数が名前に重なる")
             }
         }
         XCTAssertEqual(HUDSkillTag.shortened("Healing Wave", maxLength: 8), "Healing")
@@ -169,11 +175,11 @@ final class HUDControlLabelTests: XCTestCase {
 
     // MARK: 種別タグの配置
 
-    /// 見積もりが実際の描画幅以上であること（重なりテストの前提。カプセルはこの大きさで描く）。
+    /// 見積もりが実際の描画幅以上であること（重なりテストの前提。ラベルはこの大きさで描く）。
     func testLabelSizeEstimateCoversRenderedText() {
-        let sizes: [CGFloat] = [9 * 0.84, 9, 9 * 1.18]
+        let sizes: [CGFloat] = [8, 8 * 1.03, 8 * 1.18]
         for fs in sizes {
-            let font = roundedFont(fs, weight: .heavy)
+            let font = UIFont.systemFont(ofSize: fs, weight: .medium)
             for text in allTagTexts() {
                 let real = (text as NSString).size(withAttributes: [.font: font])
                 let est = HUDControlLabel.estimatedSize(text, fontSize: fs)
@@ -221,7 +227,7 @@ final class HUDControlLabelTests: XCTestCase {
         return out
     }
 
-    /// 習得バッジ（上下 2pt の揺れを含む）。
+    /// 習得バッジの見た目の範囲。
     private func badges(_ l: HUDLayout) -> [Circle2] {
         SkillSlot.actives.map { Circle2(name: "level\($0.rawValue)", center: l.levelBadgeCenter($0), radius: l.levelBadgeReach) }
     }
@@ -258,13 +264,11 @@ final class HUDControlLabelTests: XCTestCase {
                 let tag = "\(d.name) \(left ? "左利き" : "右手")"
                 let cs = buttons(l)
                 let bs = badges(l)
-                // 下部パネル・おすすめ購入（パネル右上から上へ 46pt、脈動の分を含む）・詠唱バー
-                let panelH = HUDRootMetrics.heroPanelHeight(l)
-                let s = min(l.scale, 1.08)
-                let panel = CGRect(x: l.heroPanelCenterX - l.heroPanelWidth / 2, y: l.bottomEdge - panelH,
-                                   width: l.heroPanelWidth, height: panelH)
-                let quickBuy = CGRect(x: panel.maxX - 44 + 2 * s, y: panel.minY - 46 * s, width: 44, height: 44).insetBy(dx: -2, dy: -2)
-                let channel = CGRect(x: l.heroPanelCenterX - 105, y: panel.minY - 60 * s - 14, width: 210, height: 28)
+                let shop = l.shopFrame
+                let quickBuy = l.quickBuyFrame
+                let channel = CGRect(x: l.heroPanelCenterX - l.channelBarWidth / 2,
+                                     y: l.bottomEdge - HUDRootMetrics.heroPanelHeight(l) - 60 * min(l.scale, 1.08) - 14,
+                                     width: l.channelBarWidth, height: 28)
                 for lang in [AppLanguage.ja, .en] {
                     let ls = labels(l, language: lang)
                     for lb in ls {
@@ -277,7 +281,7 @@ final class HUDControlLabelTests: XCTestCase {
                         XCTAssertLessThanOrEqual(r.maxX, l.trailingEdge, "\(tag) \(lb.name) が右の Safe Area にかかる")
                         XCTAssertGreaterThan(r.minY, l.topEdge + l.topButtonSize, "\(tag) \(lb.name) が上部の情報にかかる")
                         XCTAssertLessThanOrEqual(r.maxY, l.bottomEdge, "\(tag) \(lb.name) がホームインジケータにかかる")
-                        XCTAssertFalse(r.intersects(panel), "\(tag) \(lb.name) が下部パネルに重なる")
+                        XCTAssertFalse(r.intersects(shop), "\(tag) \(lb.name) がショップに重なる")
                         XCTAssertFalse(r.intersects(quickBuy), "\(tag) \(lb.name) がおすすめ購入に重なる")
                         XCTAssertFalse(r.intersects(channel), "\(tag) \(lb.name) が詠唱バーに重なる")
                         XCTAssertFalse(r.intersects(l.minimapDockFrame), "\(tag) \(lb.name) がミニマップに重なる")
@@ -312,16 +316,12 @@ final class HUDControlLabelTests: XCTestCase {
                 XCTAssertEqual(rc.x, d.size.width - lc.x, accuracy: 1e-6, "\(d.name) \(slot)")
                 XCTAssertEqual(rc.y, lc.y, accuracy: 1e-6, "\(d.name) \(slot)")
             }
-            // スキル1・2 はボタンの真下
-            for slot in [SkillSlot.skill1, .skill2] {
+            // スキル1・2・必殺技ともに、それぞれの円の真下へ置く。
+            for slot in SkillSlot.actives {
                 let c = r.skillCenter(slot)
+                let radius = (slot == .ultimate ? r.ultDiameter : r.skillDiameter) / 2
                 XCTAssertEqual(r.skillLabelCenter(slot, size: s).x, c.x, accuracy: 1e-6)
-                XCTAssertGreaterThan(r.skillLabelCenter(slot, size: s).y - s.height / 2, c.y + r.skillDiameter / 2)
-            }
-            // 必殺技は画面中央側（右手配置は左、左利きは右）
-            for slot in [SkillSlot.ultimate] {
-                XCTAssertLessThan(r.skillLabelCenter(slot, size: s).x, r.skillCenter(slot).x, "\(d.name) \(slot)")
-                XCTAssertGreaterThan(l.skillLabelCenter(slot, size: s).x, l.skillCenter(slot).x, "\(d.name) \(slot)")
+                XCTAssertGreaterThan(r.skillLabelCenter(slot, size: s).y - s.height / 2, c.y + radius)
             }
         }
     }
@@ -349,6 +349,50 @@ final class HUDControlLabelTests: XCTestCase {
     private func fixtureModel() -> HUDModel {
         let config = MatchFactory.practiceMatch(humanHeroID: "H001", humanName: "Tester", options: PracticeOptions(), seed: 17)
         return HUDModel(controller: BattleController(launch: BattleLaunch(config: config)))
+    }
+
+    @MainActor
+    func testSkillRankUpgradeCapture() {
+        var config = MatchFactory.practiceMatch(humanHeroID: "H003", humanName: "Tester",
+                                                options: PracticeOptions(startLevel: 6), seed: 17)
+        for i in config.players.indices { config.players[i].autoLevelSkills = false }
+        let controller = BattleController(launch: BattleLaunch(config: config))
+        let model = HUDModel(controller: controller)
+        let app = AppModel(persistence: ServicesFixtures.tempPersistence())
+        app.profile.settings.autoLevelSkills = false
+        model.start(app: app, onFinish: { _ in })
+        defer { model.stop() }
+        func advance() {
+            for _ in 0..<4 { controller.frame(dt: Balance.dt) }
+            model.refresh()
+        }
+        func capture(_ name: String) -> HUDSkillSnapshot {
+            model.refresh()
+            let sn = model.skills.first { $0.slot == .skill1 }!
+            let view = HUDSkillButton(model: model, snapshot: sn, role: .arcanist, diameter: 128,
+                                      center: .zero, name: "", highlighted: false)
+                .padding(20).background(HUDStyle.surface)
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 3
+            if let image = renderer.uiImage {
+                let attachment = XCTAttachment(image: image)
+                attachment.name = name
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            } else { XCTFail("HUD rendering failed") }
+            return sn
+        }
+        advance()
+        model.levelSkill(.skill1)
+        advance()
+        let before = capture("skill1_before")
+        model.levelSkill(.skill1)
+        advance()
+        let after = capture("skill1_after")
+        XCTAssertEqual(before.slot.rawValue, 1)
+        XCTAssertEqual(after.slot.rawValue, 1)
+        XCTAssertEqual(after.rank, before.rank + 1)
+        XCTAssertEqual(after.slot.maxRank, before.slot.maxRank)
     }
 
     /// 描画したボタンの平均の明るさ（0〜1、透明部分は除く）。

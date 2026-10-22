@@ -31,10 +31,11 @@ enum OnlineRelayConfig {
     static let maxGuests = 32
     /// テキストの ping の間隔（秒）。
     static let keepaliveInterval: TimeInterval = 15
-    /// プライバシーの説明（オンボーディング・設定 > プライバシー）。docs/legal/privacy_policy_* の「オンライン対戦」と合わせる。
+    /// プライバシーの説明（オンラインのルールの同意・オンボーディング・設定 > プライバシー）。
+    /// docs/legal/privacy_policy_* の「オンライン機能」と合わせる（受信箱の保存は relay/src/inbox.ts、ランクは relay/src/rank.ts）。
     static var privacyNote: String {
-        L("オンライン対戦を部屋コードで遊ぶ時だけ、対戦に必要なデータ（操作・表示名・選んだヒーローなど）を中継サーバー（Cloudflare）経由で相手の端末へ送ります。中継サーバーは内容を解釈・保存せず、通信の処理のために接続元の IP アドレスを受け取ります。",
-          "Only when you play an online match with a room code, the data the match needs (inputs, display name, chosen hero, etc.) is passed to the other players' devices through a relay server (Cloudflare). The relay neither reads nor stores it; it receives your IP address only to carry the connection.")
+        L("オンライン機能（フレンド・部屋コード・同じ Wi-Fi の対戦）は、ルールに同意して使い始めた時だけ通信します。対戦に必要なデータ（操作・表示名・アイコン・フレンドコード・選んだヒーローなど）を同じ部屋の参加者の端末へ送ります。オンライン画面で部屋を開いている間は、同じ Wi-Fi で遊ぶ場合も、部屋コードで参加できる部屋を中継サーバー（Cloudflare）に用意します。部屋コードの対戦とフレンド機能は中継サーバーを経由し、中継サーバーは通信の処理のために接続元の IP アドレスを受け取ります。対戦の中身は保存しません。フレンド機能のため、フレンドコードの受信箱（鍵のハッシュと最後に接続した日時。1 年接続しなければ自動で削除）と、相手が不在の時のフレンド申請（あなたのフレンドコードと表示名。受け付けから 14 日）を中継サーバーに保存します。同意した後は、ランクも中継サーバーに保存します（起動時に段位・星・勝敗数を、ランク戦の後に勝敗と試合の評価を、フレンドコードと鍵とともに送ります）。設定 > プライバシー で削除できます。同じ Wi-Fi の対戦は端末どうしで直接つながり、暗号化されません。",
+          "Online features (friends, room codes and same-Wi-Fi matches) connect only after you accept the online rules. The data a match needs (inputs, display name, icon, friend code, chosen hero, etc.) is sent to the devices of players in the same room. While a room is open on the Online screen, a room that others can join by room code is set up on a relay server (Cloudflare), even if you only play on the same Wi-Fi. Room-code matches and friend features go through the relay server, which receives your IP address to carry the connection. Match contents are not stored. For friend features, the relay stores your friend code's inbox (a hashed key and your last connection time; deleted automatically after a year without connecting) and friend requests held for absent players (your friend code and name, up to 14 days). After you accept, your rank is also stored on the relay (the app sends your tier, stars, wins and losses at launch, and each ranked result and match rating after ranked matches, with your friend code and key). You can delete this in Settings > Privacy. Same-Wi-Fi matches connect devices directly and are not encrypted.")
     }
     /// 中継へ繋ぐ時間切れ（秒）。DNS + TCP + TLS + WebSocket の昇格を、混んだモバイル回線でも待てるよう LAN（OnlineProtocol.connectTimeout）より長く。
     static let connectTimeout: TimeInterval = 25

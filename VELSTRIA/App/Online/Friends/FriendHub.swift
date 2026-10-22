@@ -5,10 +5,17 @@ import Observation
 //
 // - 受信箱（FriendInboxClient）で、フレンドからの申請・招待・返事を受ける。差出人のコードは中継が付けるのでなりすませない。
 // - フレンド申請: コードかリンクで相手へ申請 → 相手が承認すると相互にフレンドになる。お互いに申請した場合はすぐ成立する。
-//   相手が不在でも申請は中継が預かり、繋いだ時に渡る。フレンドでない相手からの招待は無視する（迷惑対策）。
+//   相手が不在でも申請は中継が預かり（受け付けから 14 日）、繋いだ時に渡る。承認待ちの申請は繋ぐたびに送り直すが、
+//   申請から 14 日（outgoingRequestLifetime）を過ぎたら取り下げる。フレンドでない相手からの招待は無視する（迷惑対策）。
+// - 中継の受信箱の消去（ガイドライン 5.1.1(v)）: eraseServerData で中継に保存した受信箱（鍵のハッシュ・預かり）と
+//   クラウドのランク（同じコードと鍵の RankAccount。RankCloud）を消し、新しいフレンドコードを作る。
+//   別の端末で消された・1 年繋がず消えた受信箱（4014）も、新しいコードを作り直す。
 // - パーティ: ホストの部屋（部屋コード）へフレンドを招待する。招待された側は 拒否 / 待って（30 秒後に参加）/ 同意 を選ぶ。
 //   同意すると部屋へ入り、ホストと同じチームの空席に自動で座る（OnlineSession.seatsWithHostTeam）。残りの席は AI。
 // - 在席: 繋がっている間 20 秒ごとにフレンドの在席を問い合わせる。
+// - 受信箱へ繋ぐのは、オンライン機能のルールに同意した後だけ（OnlineAccess。13 歳未満は繋がない）。
+// - ブロック（ガイドライン 1.2）: ブロックした相手（フレンドコード）からの申請・承認・招待・返事はすべて捨てる。
+//   ブロックするとフレンド・届いた申請・送った申請からも外す。申請し直すにはブロックを解除する。
 
 /// フレンドの保存先（AppModel の profile）。テストは差し替える。
 @MainActor
@@ -16,8 +23,8 @@ protocol FriendProfileAccess: AnyObject {
     var profile: Profile { get set }
 }
 
-/// 承認待ちの申請（相手から届いた）。
-struct FriendRequest: Equatable, Identifiable {
+/// 承認待ちの申請（相手から届いた）。Profile.incomingFriendRequests に保存する（アプリを閉じても消えない）。
+struct FriendRequest: Codable, Equatable, Identifiable {
     var code: String
     var name: String
     var id: String { code }
@@ -35,6 +42,13 @@ struct PartyInvite: Equatable, Identifiable {
     var receivedAt: Date
 }
 
+/// 送った招待の状態（フレンド一覧の表示用）。
+struct SentInvite: Equatable {
+    enum State: Equatable { case pending, accepted, waiting, declined, busy }
+    var state: State
+    var at: Date
+}
+
 @Observable
 @MainActor
 final class FriendHub {
@@ -42,10 +56,22 @@ final class FriendHub {
     private(set) var status: FriendInboxClient.Status = .offline
     /// いま繋がっているフレンドのコード。
     private(set) var onlineCodes: Set<String> = []
+    /// フレンドの今の状態（在席の問い合わせの応答。知らせていない相手は入らない = オンライン）。
+    private(set) var activities: [String: FriendActivity] = [:]
+    /// 自分の今の状態（繋ぐたび・変わるたびに知らせる。AppModel が試合・ルーム・マッチングで変える）。
+    @ObservationIgnored private var myActivity = FriendActivity(.online)
     /// 承認待ちの申請。
-    private(set) var incomingRequests: [FriendRequest] = []
+    private(set) var incomingRequests: [FriendRequest] = [] {
+        didSet {
+            // 保存する（前は記憶にしか無く、アプリを閉じると消えていた）
+            guard incomingRequests != oldValue, host?.profile.incomingFriendRequests != incomingRequests else { return }
+            mutate { $0.incomingFriendRequests = incomingRequests }
+        }
+    }
     /// 画面に出している招待（返事を待っている）。
     private(set) var pendingInvite: PartyInvite?
+    /// 送った招待（フレンドコード → 状態）。返事が来ると更新する。
+    private(set) var sentInvites: [String: SentInvite] = [:]
 
     @ObservationIgnored weak var host: FriendProfileAccess?
     /// 試合中など、招待を受けられない。
@@ -57,6 +83,9 @@ final class FriendHub {
     /// 機能が有効か（公開版では隠す）。
     @ObservationIgnored var isEnabled: () -> Bool = { FeatureFlags.lanMatch }
     @ObservationIgnored var now: () -> Date = { Date() }
+
+    /// 受信箱の消去の送り手（テストは差し替える）。
+    @ObservationIgnored var eraseTransport: FriendInboxEraser.Transport = FriendInboxEraser.urlSession
 
     @ObservationIgnored private let baseURL: () -> URL
     @ObservationIgnored private let makeSocket: RelaySocketFactory
@@ -78,6 +107,9 @@ final class FriendHub {
     static let maxQueuedInvites = 5
     static let maxFriends = 100
     static let maxOutgoingRequests = 50
+    static let maxBlocked = 500
+    /// 承認待ちの申請を送り直す期間（中継の預かりの期限と同じ 14 日。過ぎたら取り下げる）。
+    static let outgoingRequestLifetime: TimeInterval = 14 * 24 * 60 * 60
 
     init(baseURL: @escaping () -> URL = { OnlineRelayConfig.baseURL },
          makeSocket: @escaping RelaySocketFactory = RelayDefaults.socketFactory,
@@ -91,20 +123,45 @@ final class FriendHub {
 
     var friends: [Friend] { host?.profile.friends ?? [] }
     var myCode: String { host?.profile.friendCode ?? "" }
+    /// 人に見せてよい自分のコード（中継に登録を済ませた後だけ。登録の前に見せると、知った他人に先に使われるおそれがある）。
+    var shareableCode: String? {
+        guard let p = host?.profile, p.inboxRegistered, FriendCode.isValid(p.friendCode) else { return nil }
+        return p.friendCode
+    }
     var myName: String {
         let name = PlayerNameRules.normalized(host?.profile.displayName ?? "")
-        return name.isEmpty ? L("プレイヤー", "Player") : name
+        return name.isEmpty ? L("プレイヤー", "Player") : PlayerNameRules.outgoing(name)
     }
     var isOnline: Bool { status == .online }
 
     func friend(code: String) -> Friend? { friends.first { $0.code == code } }
+    /// 送った招待の状態（古いものは無視する）。
+    func sentInvite(to code: String) -> SentInvite? {
+        guard let s = sentInvites[code], now().timeIntervalSince(s.at) <= Self.inviteLifetime else { return nil }
+        return s
+    }
+    /// 返事待ちの申請を送った相手か。
+    func hasOutgoingRequest(to code: String) -> Bool { host?.profile.outgoingFriendRequests.contains(code) == true }
     func isFriendOnline(_ code: String) -> Bool { onlineCodes.contains(code) }
+    /// ブロックしたプレイヤー。
+    var blockedPlayers: [BlockedPlayer] { host?.profile.blockedPlayers ?? [] }
+    func isBlocked(_ code: String) -> Bool { blockedPlayers.contains { $0.code == code } }
+    /// 中継サーバーにこの端末の情報（フレンドの受信箱・クラウドのランク）があるかもしれない
+    /// （繋いだ・ランクを預けたことがある、フレンドや申請がある。Profile.inboxRegistered）。
+    var hasServerData: Bool {
+        guard let p = host?.profile else { return false }
+        return p.inboxRegistered || !p.friends.isEmpty || !p.outgoingFriendRequests.isEmpty
+    }
 
     // MARK: - 接続
 
-    /// 受信箱へ繋ぐ（アプリが前面に来た時・オンボーディングを終えた時）。機能が無効・未設定なら何もしない。
+    /// 受信箱へ繋ぐ（アプリが前面に来た時・オンボーディングを終えた時・オンラインのルールに同意した時）。
+    /// 機能が無効・未設定・ルールに未同意（13 歳未満を含む）なら何もしない。
     func start() {
+        // 保存した申請を戻す（届いた申請の一覧はアプリを閉じても残る）
+        if incomingRequests.isEmpty, let saved = host?.profile.incomingFriendRequests, !saved.isEmpty { incomingRequests = saved }
         guard isEnabled(), let host, host.profile.onboardingCompleted,
+              OnlineAccess.status(for: host.profile, enabled: true) == .available,
               FriendCode.isValid(host.profile.friendCode), FriendInboxKey.isValid(host.profile.inboxKey) else { return }
         if let client, client.code != host.profile.friendCode {
             client.stop()
@@ -115,11 +172,25 @@ final class FriendHub {
         active.start()
     }
 
-    /// 切る（アプリが裏へ回った時）。
+    /// 切る（アプリが裏へ回った時・オンラインの同意を取り消した時）。
     func stop() {
         presenceToken += 1
         client?.stop()
         onlineCodes = []
+        activities = [:]
+    }
+
+    /// 切って、画面の状態（届いた申請・招待）も捨てる（全データの削除・オンラインの同意の取り消し）。
+    func reset() {
+        stop()
+        client = nil
+        status = .offline
+        waitToken += 1
+        incomingRequests = []
+        pendingInvite = nil
+        inviteQueue = []
+        sentInvites = [:]
+        suppressedUntil = [:]
     }
 
     private func makeClient(code: String, key: String) -> FriendInboxClient {
@@ -127,18 +198,29 @@ final class FriendHub {
         c.onStatus = { [weak self] status in self?.statusChanged(status) }
         c.onMessage = { [weak self] from, payload in self?.handle(from: from, payload: payload) }
         c.onPresence = { [weak self] online in self?.onlineCodes = Set(online) }
+        c.onActivity = { [weak self] activity in self?.activities = activity }
+        c.onErased = { [weak self] in self?.inboxWasErased() }
         return c
     }
 
     private func statusChanged(_ new: FriendInboxClient.Status) {
         status = new
         if new == .online {
+            if host?.profile.inboxRegistered == false { mutate { $0.inboxRegistered = true } }
+            if myActivity.kind != .online { client?.sendStatus(myActivity) }
             resendOutgoingRequests()
             refreshPresence()
             presenceLoop()
         } else {
             onlineCodes = []
         }
+    }
+
+    /// 自分の今の状態を変える（同じなら送らない）。繋いでいなければ、次に繋いだ時に送る。
+    func setMyActivity(_ a: FriendActivity) {
+        guard a != myActivity else { return }
+        myActivity = a
+        client?.sendStatus(a)
     }
 
     /// フレンドの在席を今すぐ問い合わせる。
@@ -156,6 +238,68 @@ final class FriendHub {
         }
     }
 
+    // MARK: - 中継の受信箱の消去
+
+    /// 中継サーバーの受信箱（鍵のハッシュ・最後に繋いだ日時・預かっている申請）とクラウドのランクを消し、新しいフレンドコードを作る。
+    /// フレンド・送った申請も消える（古いコードに結び付いているため）。ブロックと端末のランクは残す。
+    /// completion(false) は通信の失敗（端末の状態は変えない。受信箱は切ったまま）。
+    func eraseServerData(completion: @escaping @MainActor (Bool) -> Void) {
+        guard let host else {
+            completion(true)
+            return
+        }
+        let code = host.profile.friendCode, key = host.profile.inboxKey
+        reset()
+        let base = baseURL(), transport = eraseTransport
+        Task { @MainActor [weak self] in
+            // クラウドのランク（同じコードと鍵の RankAccount）を先に消す。消せなければ受信箱も残す
+            // （受信箱を消すとコードが作り直され、古いコードのランクを消せなくなるため。同じコードでもう一度試せる）
+            let rankErased = await RankCloud.erase(code: code, key: key, base: base, transport: transport)
+            guard rankErased else {
+                completion(false)
+                return
+            }
+            // アカウント（クラウドに預けたデータ・パスワード・Game Center の連携）も同じコードと鍵で消す
+            guard await CloudAccountAPI.erase(code: code, key: key, base: base, transport: transport) else {
+                completion(false)
+                return
+            }
+            let result = await FriendInboxEraser.erase(base: base, code: code, key: key, transport: transport)
+            guard result == .erased else {
+                completion(false)
+                return
+            }
+            // 消している間に別のコードへ変わっていなければ、新しいコードにする
+            if let self, self.host?.profile.friendCode == code { self.replaceIdentity() }
+            completion(true)
+        }
+    }
+
+    /// 新しいフレンドコードと受信箱の鍵を作る（フレンド・送った申請は消す。ブロックは残す）。
+    func replaceIdentity() {
+        reset()
+        mutate { p in
+            p.friendCode = FriendCode.generate()
+            p.inboxKey = FriendInboxKey.generate()
+            p.friends = []
+            p.outgoingFriendRequests = []
+            p.outgoingFriendRequestDates = [:]
+            p.inboxRegistered = false
+            // アカウントは古いコードのもの（新しいコードにはまだ無い）
+            p.account = AccountLinkState()
+            let mine = p.friendCode
+            p.blockedPlayers.removeAll { $0.code == mine }
+        }
+    }
+
+    /// 受信箱が消されていた（別の端末で消した・1 年繋がなかった）: 新しいコードで繋ぎ直す。
+    private func inboxWasErased() {
+        replaceIdentity()
+        onNotice?(L("フレンドコードが削除されていたため、新しいフレンドコードを作りました。フレンドは申請し直してください",
+                    "Your friend code had been deleted, so a new one was created. Please send friend requests again"))
+        start()
+    }
+
     // MARK: - フレンド申請
 
     enum AddResult: Equatable {
@@ -165,6 +309,8 @@ final class FriendHub {
         case accepted
         case alreadyFriend
         case isSelf
+        /// ブロック中の相手（申請するにはブロックを解除する）。
+        case blocked
         case invalid(String)
     }
 
@@ -181,17 +327,24 @@ final class FriendHub {
     func requestFriend(code: String) -> AddResult {
         guard FriendCode.isValid(code) else { return .invalid(FriendCode.InputError.invalid(code).message) }
         guard code != myCode else { return .isSelf }
+        guard !isBlocked(code) else { return .blocked }
         guard friend(code: code) == nil else { return .alreadyFriend }
         // 相手からの申請が届いている: 承認として扱う
         if let request = incomingRequests.first(where: { $0.code == code }) {
             approve(request)
             return .accepted
         }
+        let at = now()
         mutate { p in
             if !p.outgoingFriendRequests.contains(code) {
                 p.outgoingFriendRequests.append(code)
-                if p.outgoingFriendRequests.count > Self.maxOutgoingRequests { p.outgoingFriendRequests.removeFirst() }
+                if p.outgoingFriendRequests.count > Self.maxOutgoingRequests {
+                    let dropped = p.outgoingFriendRequests.removeFirst()
+                    p.outgoingFriendRequestDates[dropped] = nil
+                }
             }
+            // 申請し直した: 期限はここから数える
+            p.outgoingFriendRequestDates[code] = at
         }
         sendRequest(to: code, notify: true)
         return .sent
@@ -212,9 +365,28 @@ final class FriendHub {
     }
 
     /// 返事待ちの申請を送り直す（繋がった時。相手が不在でも中継が預かり、同じ申請は 1 通にまとまる）。
+    /// 申請から outgoingRequestLifetime を過ぎたものは送り直さずに取り下げる（相手の受信箱に預かりを残し続けないように）。
     private func resendOutgoingRequests() {
+        expireOutgoingRequests()
         for code in host?.profile.outgoingFriendRequests ?? [] where friend(code: code) == nil {
             sendRequest(to: code, notify: false)
+        }
+    }
+
+    /// 期限を過ぎた承認待ちの申請を取り下げる。日時の無い申請（旧版）は今から数える。
+    func expireOutgoingRequests() {
+        guard let p = host?.profile, !p.outgoingFriendRequests.isEmpty else { return }
+        let t = now()
+        let expired = p.outgoingFriendRequests.filter { code in
+            guard let at = p.outgoingFriendRequestDates[code] else { return false }
+            return t.timeIntervalSince(at) > Self.outgoingRequestLifetime
+        }
+        let undated = p.outgoingFriendRequests.filter { p.outgoingFriendRequestDates[$0] == nil }
+        guard !expired.isEmpty || !undated.isEmpty else { return }
+        mutate { p in
+            p.outgoingFriendRequests.removeAll { expired.contains($0) }
+            for code in expired { p.outgoingFriendRequestDates[code] = nil }
+            for code in undated { p.outgoingFriendRequestDates[code] = t }
         }
     }
 
@@ -236,11 +408,43 @@ final class FriendHub {
         onlineCodes.remove(code)
     }
 
+    // MARK: - ブロック
+
+    /// ブロックする: 以後この相手からの申請・承認・招待・返事を捨てる。フレンド・届いた申請・送った申請からも外し、
+    /// 画面の招待は断る（相手にはブロックしたことを知らせない）。
+    func block(code: String, name: String) {
+        guard FriendCode.isValid(code), code != myCode else { return }
+        incomingRequests.removeAll { $0.code == code }
+        sentInvites[code] = nil
+        onlineCodes.remove(code)
+        inviteQueue.removeAll { $0.from == code }
+        if let invite = pendingInvite, invite.from == code {
+            reply(to: invite, .decline)
+            pendingInvite = nil
+            showNextInvite()
+        }
+        mutate { p in
+            p.friends.removeAll { $0.code == code }
+            p.outgoingFriendRequests.removeAll { $0 == code }
+            p.outgoingFriendRequestDates[code] = nil
+            if !p.blockedPlayers.contains(where: { $0.code == code }) {
+                p.blockedPlayers.append(BlockedPlayer(code: code, name: FriendNames.clean(name), blockedAt: now()))
+                if p.blockedPlayers.count > Self.maxBlocked { p.blockedPlayers.removeFirst(p.blockedPlayers.count - Self.maxBlocked) }
+            }
+        }
+    }
+
+    /// ブロックを解除する（フレンドには戻らない。申請し直す）。
+    func unblock(code: String) {
+        mutate { p in p.blockedPlayers.removeAll { $0.code == code } }
+    }
+
     private func makeFriends(code: String, name: String) {
         let clean = FriendNames.clean(name)
         var isNew = false
         mutate { p in
             p.outgoingFriendRequests.removeAll { $0 == code }
+            p.outgoingFriendRequestDates[code] = nil
             if let i = p.friends.firstIndex(where: { $0.code == code }) {
                 if !clean.isEmpty { p.friends[i].name = clean }
             } else if p.friends.count < Self.maxFriends {
@@ -267,6 +471,7 @@ final class FriendHub {
             guard let self else { return }
             switch result {
             case .delivered:
+                self.sentInvites[friend.code] = SentInvite(state: .pending, at: self.now())
                 self.onNotice?(L("\(name) を招待しました", "Invited \(name)"))
             case .queued, .offline:
                 self.onNotice?(L("\(name) はオフラインです", "\(name) is offline"))
@@ -341,7 +546,8 @@ final class FriendHub {
     // MARK: - 受信
 
     func handle(from code: String, payload: InboxPayload) {
-        guard let kind = payload.kind, code != myCode else { return }
+        // ブロックした相手からは何も受け取らない
+        guard let kind = payload.kind, code != myCode, !isBlocked(code) else { return }
         switch kind {
         case .friendRequest:
             handleFriendRequest(from: code, name: payload.name ?? "")
@@ -384,7 +590,7 @@ final class FriendHub {
         // フレンドでない相手の招待は無視する
         guard let known = friend(code: code), let room = payload.room, RelayRoomCode.isValid(room) else { return }
         let invite = PartyInvite(from: code, name: FriendNames.display(known.name), room: room,
-                                 roomName: String((payload.roomName ?? "").prefix(40)), receivedAt: now())
+                                 roomName: PlayerNameRules.sanitizedRoomName(payload.roomName ?? ""), receivedAt: now())
         if let until = suppressedUntil[code], until > now() {
             reply(to: invite, .decline)
             return
@@ -407,6 +613,14 @@ final class FriendHub {
     private func handleReply(from code: String, payload: InboxPayload) {
         guard let known = friend(code: code), let answer = payload.answer.flatMap(InboxPayload.Answer.init(rawValue:)) else { return }
         let name = FriendNames.display(known.name)
+        let state: SentInvite.State
+        switch answer {
+        case .accept: state = .accepted
+        case .decline: state = .declined
+        case .wait: state = .waiting
+        case .busy: state = .busy
+        }
+        sentInvites[code] = SentInvite(state: state, at: now())
         switch answer {
         case .accept:
             onNotice?(L("\(name) が参加します", "\(name) is joining"))

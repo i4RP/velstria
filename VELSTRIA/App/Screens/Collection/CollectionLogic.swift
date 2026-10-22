@@ -6,19 +6,13 @@ import VelstriaCore
 // MARK: - スキル（DESIGN §5・§6）
 
 enum SkillMath {
-    /// ランク 1...最大ランク。
+    /// ランク 1...最大ランク（MLBB と同じ: スキル1・2 は 1〜6、アルティメットは 1〜3）。
     static func ranks(for slot: SkillSlot) -> [Int] {
         slot == .passive ? [] : Array(1...slot.maxRank)
     }
 
-    /// 基礎ダメージ（ランク補正込み）= base × (1 + 0.30 × (rank − 1))。
-    static func damage(base: Double, rank: Int) -> Double {
-        base * (1 + Balance.skillDamagePerRank * Double(max(0, rank - 1)))
-    }
-
     /// 実戦の数値（シミュレーションと同じ `SkillCatalog.numbers`）。能力値ボーナス（攻撃力・魔力）を含めない値
-    /// ＝ 表示上の「基礎値」。スロット別の調整倍率（Balance.Skills.damageScaleBySlot）と
-    /// アーキタイプ補正（強化攻撃 50%・連続斬り 45%×3・回復倍率・味方全体回復のダメージなし など）は込み。
+    /// ＝ 表示上の「基礎値」。キットのヒーローは公式の段の表、汎用のヒーローは MLBB のロール × 枠の型（全体の倍率は無い）。
     static func numbers(_ skill: SkillDef, hero: HeroDef, rank: Int) -> SkillNumbers {
         SkillCatalog.numbers(for: skill, hero: hero, rank: rank, stats: Stats())
     }
@@ -34,8 +28,10 @@ enum SkillMath {
     static func scaling(_ skill: SkillDef, hero: HeroDef) -> (damage: Scaling, heal: Scaling) {
         let probe = 100.0
         let base = numbers(skill, hero: hero, rank: 1)
+        // 装備で物理攻撃が増えた場合（総物理攻撃と追加物理攻撃の両方が増える。「+N% 追加物理攻撃」のスキルも拾う）
         var atk = Stats()
         atk.attack = probe
+        atk.extraAttack = probe
         var pow = Stats()
         pow.abilityPower = probe
         let a = SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: atk)
@@ -87,7 +83,7 @@ enum SkillMath {
         }
     }
 
-    /// CD（CD 短縮なし）= cooldown × (1 − 0.06 × (rank − 1)) × 調整倍率。
+    /// 汎用の CD（CD 短縮なし）= cooldown × 段の倍率（スキル1・2 は 1 段 −4%、アルティメットは 1 段 −9%）。
     static func cooldown(_ skill: SkillDef, rank: Int) -> Double {
         SkillSystem.cooldown(for: skill, rank: rank, cdr: 0)
     }
@@ -124,7 +120,7 @@ enum SkillMath {
         }
     }
 
-    /// 実効コスト（Energy は ×0.6）。
+    /// 実効コスト（Energy は Balance.energyCostMultiplier 倍）。
     static func cost(_ skill: SkillDef, resource: ResourceKind) -> Double {
         SkillSystem.cost(for: skill, resource: resource)
     }
@@ -348,9 +344,7 @@ enum HeroStatKind: CaseIterable, Identifiable {
         case .attack: return def.attackGrowth
         case .defense: return def.defenseGrowth
         case .magicDefense: return def.magicDefenseGrowth
-        case .attackSpeed:
-            let base = def.isRanged ? Balance.rangedAttackSpeed : Balance.meleeAttackSpeed
-            return base * Balance.attackSpeedPerLevel
+        case .attackSpeed: return def.attackSpeedGrowth
         case .moveSpeed, .range: return nil
         }
     }
@@ -604,10 +598,18 @@ enum BuildRules {
         build.compactMap { master.item($0)?.priceGold }.reduce(0, +)
     }
 
-    /// 推奨ビルド（ヒーロー別、無ければロール別。未提供なら空）。
+    /// 推奨ビルド（ヒーロー別、無ければロール別。未提供なら空）。ヒーロー別はバトルプランの「有効」のもの。
     static func recommended(for heroID: String, master: MasterData) -> [String] {
         guard let role = master.hero(heroID)?.role else { return [] }
         return sanitized(ItemSystem.recommendedBuild(heroID: heroID, role: role, master: master), master: master)
+    }
+
+    /// プレイヤーの推奨ビルド: バトルプランを選んでいればそのプラン、無ければ「有効」のプラン（プランの無いヒーローはロール別）。
+    static func recommended(for heroID: String, profile: Profile, master: MasterData) -> [String] {
+        guard let role = master.hero(heroID)?.role else { return [] }
+        let build = ItemSystem.recommendedBuild(heroID: heroID, role: role, master: master,
+                                                plan: chosenPlanIndex(for: heroID, profile: profile))
+        return sanitized(build, master: master)
     }
 
     /// 保存済みのカスタムビルド（今のマスターで有効な装備だけ）。装備の入れ替えで 1 つも残らなければ nil。
@@ -617,9 +619,64 @@ enum BuildRules {
         return clean.isEmpty ? nil : clean
     }
 
-    /// 表示・編集の初期値: カスタムビルド優先、無ければ推奨。
+    /// 表示・編集の初期値: カスタムビルド優先、無ければ推奨（選んだバトルプラン）。
     static func current(for heroID: String, profile: Profile, master: MasterData) -> [String] {
-        custom(for: heroID, profile: profile, master: master) ?? recommended(for: heroID, master: master)
+        custom(for: heroID, profile: profile, master: master) ?? recommended(for: heroID, profile: profile, master: master)
+    }
+
+    // MARK: バトルプラン（ItemSystem.heroPlans。1 ヒーロー 3 つ、MLBB の日本語クライアントの画面どおり）
+
+    /// ヒーローのバトルプラン（無いヒーローは空）。
+    static func plans(for heroID: String) -> [BuildPlan] {
+        ItemSystem.plans(forHero: heroID)
+    }
+
+    /// プレイヤーが「使う」にしたプランの添字（範囲外・未設定は nil）。
+    static func chosenPlanIndex(for heroID: String, profile: Profile) -> Int? {
+        guard let k = profile.heroBuildPlans[heroID], plans(for: heroID).indices.contains(k) else { return nil }
+        return k
+    }
+
+    /// 「有効」と表示するプランの添字（選んだもの、無ければ既定）。プランの無いヒーローは nil。
+    static func activePlanIndex(for heroID: String, profile: Profile) -> Int? {
+        ItemSystem.planIndex(heroID: heroID, chosen: profile.heroBuildPlans[heroID])
+    }
+
+    /// プランを「使う」にする。既定のプランを選んだ時は保存値を消す（既定が変わっても追従する）。
+    static func choosePlan(_ index: Int, for heroID: String, profile: inout Profile) {
+        guard plans(for: heroID).indices.contains(index) else { return }
+        if index == ItemSystem.planIndex(heroID: heroID, chosen: nil) {
+            profile.heroBuildPlans[heroID] = nil
+        } else {
+            profile.heroBuildPlans[heroID] = index
+        }
+    }
+
+    /// プラン名の表示（英語は nameEN）。
+    static func planName(_ plan: BuildPlan) -> String {
+        L(plan.name, plan.nameEN)
+    }
+
+    /// タグのチップの英語表記（日本語は画面の文字のまま）。
+    private static let planTagEN: [String: String] = [
+        "クリティカル": "Crit", "攻撃速度": "Attack Speed", "ジャングル": "Jungle", "攻防一体": "Balanced",
+        "バースト": "Burst", "ポーク": "Poke", "ローム": "Roam", "生存": "Survival", "持続力": "Sustain",
+        "ファーム": "Farm", "HP吸収": "Lifesteal",
+    ]
+
+    static func planTag(_ tag: String) -> String {
+        L(tag, planTagEN[tag] ?? tag)
+    }
+
+    /// バトルスキル（MLBB の名前。Velstria のスペルとは別の表示用）の英語表記。
+    private static let planSpellEN: [String: String] = [
+        "フリッカー": "Flicker", "天罰": "Retribution", "浄化": "Purify", "疾走": "Sprint", "激励": "Inspire",
+        "治療": "Revitalize", "復讐": "Vengeance", "イージス": "Aegis", "石化": "Petrify", "炎の弾": "Flameshot",
+        "処刑": "Execute",
+    ]
+
+    static func planSpell(_ spell: String) -> String {
+        L(spell, planSpellEN[spell] ?? spell)
     }
 
     static func move(_ build: [String], from: Int, by offset: Int) -> [String] {
@@ -628,126 +685,6 @@ enum BuildRules {
         var b = build
         b.swapAt(from, to)
         return b
-    }
-}
-
-// MARK: - ルーン（DESIGN §8: メインパス 1 + 各 Tier 1 個）
-
-struct RuneBonus: Equatable {
-    var attackPct: Double = 0
-    var abilityPowerPct: Double = 0
-    var skillDamagePct: Double = 0
-    var maxHPPct: Double = 0
-    var defensesPct: Double = 0
-    var moveSpeedPct: Double = 0
-    var cooldownReductionPct: Double = 0
-    var regenPct: Double = 0
-    var healingPct: Double = 0
-
-    /// 表示用の行（0 は除外）。
-    var lines: [ItemStatLine] {
-        var out: [ItemStatLine] = []
-        let p = { (v: Double) in "+" + CollectionStyle.percent(v) }
-        if attackPct > 0 { out.append(.init(label: L("攻撃力", "Attack"), value: p(attackPct), symbol: "bolt.fill")) }
-        if abilityPowerPct > 0 { out.append(.init(label: L("魔力", "Power"), value: p(abilityPowerPct), symbol: "sparkles")) }
-        if skillDamagePct > 0 { out.append(.init(label: L("スキルダメージ", "Skill Damage"), value: p(skillDamagePct), symbol: "wand.and.stars")) }
-        if maxHPPct > 0 { out.append(.init(label: L("最大HP", "Max HP"), value: p(maxHPPct), symbol: "heart.fill")) }
-        if defensesPct > 0 { out.append(.init(label: L("防御・魔防", "Armor & MR"), value: p(defensesPct), symbol: "shield.fill")) }
-        if moveSpeedPct > 0 { out.append(.init(label: L("移動速度", "Move Speed"), value: p(moveSpeedPct), symbol: "hare.fill")) }
-        if cooldownReductionPct > 0 { out.append(.init(label: L("CD短縮", "Cooldown Red."), value: p(cooldownReductionPct), symbol: "timer")) }
-        if regenPct > 0 { out.append(.init(label: L("HP/Mana 回復", "HP/Mana Regen"), value: p(regenPct), symbol: "arrow.clockwise")) }
-        if healingPct > 0 { out.append(.init(label: L("回復量", "Healing"), value: p(healingPct), symbol: "cross.circle.fill")) }
-        return out
-    }
-}
-
-enum RuneMath {
-    static let maxPages = 5
-    static let tiers = [1, 2, 3]
-    static let maxNameLength = 16
-
-    /// パス・Tier のルーン（ID 昇順）。
-    static func runes(path: RunePath, tier: Int, master: MasterData) -> [RuneDef] {
-        master.runes.filter { $0.path == path && $0.tier == tier }
-    }
-
-    static func defaultPageName(index: Int) -> String {
-        L("ページ\(index + 1)", "Page \(index + 1)")
-    }
-
-    /// 各 Tier の先頭ルーンを選んだ既定ページ。
-    static func defaultPage(name: String, path: RunePath = .valor, master: MasterData) -> RunePage {
-        RunePage(name: name, primaryPath: path,
-                 runeIDs: tiers.map { runes(path: path, tier: $0, master: master).first?.runeID ?? "" })
-    }
-
-    /// パスと Tier が一致しないルーンを既定値に置き換え、3 枠に揃える。
-    static func normalized(_ page: RunePage, master: MasterData) -> RunePage {
-        var p = page
-        p.runeIDs = tiers.enumerated().map { i, tier in
-            let options = runes(path: page.primaryPath, tier: tier, master: master)
-            let current = i < page.runeIDs.count ? page.runeIDs[i] : ""
-            if options.contains(where: { $0.runeID == current }) { return current }
-            return options.first?.runeID ?? ""
-        }
-        let trimmed = p.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        p.name = String(trimmed.prefix(maxNameLength))
-        return p
-    }
-
-    /// パス変更（ルーンは新パスの既定に置換）。
-    static func changingPath(_ page: RunePage, to path: RunePath, master: MasterData) -> RunePage {
-        var p = page
-        p.primaryPath = path
-        p.runeIDs = []
-        return normalized(p, master: master)
-    }
-
-    /// 1 個分の効果（X = effect の %）。
-    static func bonus(path: RunePath, percent x: Double) -> RuneBonus {
-        var b = RuneBonus()
-        switch path {
-        case .valor:
-            b.attackPct = x
-        case .arcana:
-            b.abilityPowerPct = x
-            b.skillDamagePct = x / 2
-        case .resolve:
-            b.maxHPPct = x
-            b.defensesPct = x
-        case .cunning:
-            b.moveSpeedPct = x / 2
-            b.cooldownReductionPct = x / 2
-        case .harmony:
-            b.regenPct = 3 * x
-            b.healingPct = x
-        }
-        return b
-    }
-
-    /// ページ全体の合計。
-    static func bonus(for page: RunePage, master: MasterData) -> RuneBonus {
-        var total = RuneBonus()
-        for id in page.runeIDs {
-            guard let r = master.rune(id) else { continue }
-            let b = bonus(path: r.path, percent: r.percent)
-            total.attackPct += b.attackPct
-            total.abilityPowerPct += b.abilityPowerPct
-            total.skillDamagePct += b.skillDamagePct
-            total.maxHPPct += b.maxHPPct
-            total.defensesPct += b.defensesPct
-            total.moveSpeedPct += b.moveSpeedPct
-            total.cooldownReductionPct += b.cooldownReductionPct
-            total.regenPct += b.regenPct
-            total.healingPct += b.healingPct
-        }
-        return total
-    }
-
-    /// ルーン 1 個の効果文。
-    static func effectText(_ rune: RuneDef) -> String {
-        bonus(path: rune.path, percent: rune.percent).lines.map { "\($0.label) \($0.value)" }
-            .joined(separator: L("・", ", "))
     }
 }
 
@@ -763,7 +700,25 @@ enum SpellLoadoutRules {
     static let fixedSpellID = "BS03"
 
     /// 選べる枠に入れられるスペルか（固定スペル以外）。
-    static func isSelectable(_ spellID: String) -> Bool { spellID != fixedSpellID }
+    static func isSelectable(_ spellID: String) -> Bool {
+        BattleSpell.selectable.contains { $0.rawValue == spellID }
+    }
+    static func isUnlocked(_ spellID: String, level: Int) -> Bool {
+        BattleSpell(rawValue: spellID)?.isUnlocked(accountLevel: level) == true
+    }
+
+    /// 狩猟（BS05）はジャングル担当だけ（MLBB のドラフトでは、ほかのレーンの人の狩猟に鍵が付く）。
+    static let jungleOnlySpellID = "BS05"
+    static func isAllowed(_ spellID: String, lane: LanePosition) -> Bool {
+        spellID != jungleOnlySpellID || lane == .jungle
+    }
+
+    /// 担当レーンで使えない選べる枠のスキル（ジャングル以外の狩猟）を瞬歩に戻す。
+    static func forLane(_ spells: [String], lane: LanePosition) -> [String] {
+        var s = normalized(spells)
+        if !isAllowed(s[selectableSlot], lane: lane) { s[selectableSlot] = "BS01" }
+        return s
+    }
 
     /// 選べる枠に spellID を入れる。固定枠・固定スペルは変更しない。
     static func assigning(_ spellID: String, slot: Int, in current: [String]) -> [String] {
@@ -781,8 +736,8 @@ enum SpellLoadoutRules {
 
     /// ヒーローの実効スペル（上書きが無ければ既定）。
     static func effective(heroID: String?, profile: Profile) -> [String] {
-        if let heroID, let override = profile.heroSpells[heroID] { return normalized(override) }
-        return normalized(profile.defaultSpells)
+        let selected = normalized(heroID.flatMap { profile.heroSpells[$0] } ?? profile.defaultSpells)
+        return isUnlocked(selected[0], level: profile.accountLevel) ? selected : ["BS01", fixedSpellID]
     }
 }
 
