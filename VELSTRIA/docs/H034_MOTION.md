@@ -24,8 +24,16 @@
   打撃の時刻は sim と一致し、戻りは次の攻撃までに収まる。移動中は上半身だけ（下半身は歩容）。
 - `HeroMotionSet.dedicatedAttack` で `Motion_H034.attacks`（手続きの全身の通常攻撃）より専用クリップを優先し、
   `dedicatedIdle` は `HeroIdle` の個別の待機（chainCaptain）に消されない（`HeroMotionSets.set`）。
-- スキル（S1 鎖鉤・S2 鉄鎖旋・奥義）は従来どおり `Motion_H034` の詠唱（KitTimes に合わせた打撃）。prime の hook / slam / ult は
-  生成・抽出済み（`tools/motion/h034-prime-source-clips.json`）で、次の段で詠唱へ組み込む。
+- スキルもクリップ（`castsFromStart`: 発動の瞬間から再生し、打撃のフレームを KitTimes に置く。判定・数値は変えていない）。
+
+| クリップ | 素材 | 時刻 |
+|---|---|---|
+| `hook_throw_h034`（S1） | Meshy prime hook | 背へ振りかぶり → 頭上から投げ放つ（10 = hookDelay 0.33 秒）→ 腕を伸ばして待つ → 外れたら手繰って戻る |
+| `hook_pull_h034`（S1 命中） | 同上の後半 | `playCastHit` で始め直す: 鎖を張って踏ん張る（hookHold 0.45 秒）→ 引き寄せ（hookPull 0.25 秒、21）→ 構え |
+| `chain_smash_h034`（S2） | Meshy prime slam | 沈んで両手で頭上へ → 叩きつけ（8 = shockDelay 0.27 秒）→ 起き上がる |
+| `chain_frenzy_h034`（奥義） | Meshy prime ult | 掴みかかり（7.5 = ultDelay）→ 0.32 秒おきに 2 種の振りを交互（取り戻しを挟む）→ 6 撃目は頭上から最大の叩きつけ（55.5）→ 2.3 秒で構え |
+
+  元の `Motion_H034` の詠唱はクリップが無い時の代わりとして残す。鉤の発射位置（スキル弾の出どころ）は未調整。
 
 ## 再現
 

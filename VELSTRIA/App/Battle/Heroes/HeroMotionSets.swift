@@ -14,6 +14,11 @@ struct HeroMotionSet {
     var attackMask: HeroClipMask = .full
     /// スキル詠唱（Skill1, Skill2, Ultimate の順。nil = 手続き）。
     var casts: [String?] = [nil, nil, nil]
+    /// スキルが最初に当たった時（playCastHit）に始め直す詠唱のクリップ（Skill1, Skill2, Ultimate。H034 の鎖鉤の引き寄せ）。
+    var castHits: [String?] = [nil, nil, nil]
+    /// 詠唱のクリップを発動の瞬間（先頭）から再生する。クリップの impact は KitTimes の判定の時刻に置いてある（H034）。
+    /// false = 既定（打撃が呼び出しの castLead 秒後に来るよう、打撃の手前から始める）。
+    var castsFromStart = false
     var idle: String?
     /// 待機のクリップが専用の収録（H025・H034）。HeroIdle の個別の待機より優先する。
     var dedicatedIdle = false
@@ -50,6 +55,8 @@ struct HeroMotionBinding {
     let attackMask: HeroClipMask
     /// Skill1, Skill2, Ultimate。
     let casts: [Int?]
+    let castHits: [Int?]
+    let castsFromStart: Bool
     let idle: Int?
     let dedicatedIdle: Bool
     let walk: Int?
@@ -68,6 +75,8 @@ struct HeroMotionBinding {
         func find(_ name: String?) -> Int? { name.flatMap { library.index(of: $0) } }
         attacks = set.attacks.compactMap { library.index(of: $0) }
         casts = (0..<3).map { $0 < set.casts.count ? find(set.casts[$0]) : nil }
+        castHits = (0..<3).map { $0 < set.castHits.count ? find(set.castHits[$0]) : nil }
+        castsFromStart = set.castsFromStart
         idle = find(set.idle)
         dedicatedIdle = set.dedicatedIdle && idle != nil
         walk = find(set.walk)
@@ -89,6 +98,7 @@ struct HeroMotionBinding {
 
     /// スキル枠 → casts の添字（パッシブは Skill1 と同じ。HeroAnimator.castIndex と同じ対応）。
     func cast(_ index: Int) -> Int? { index >= 0 && index < casts.count ? casts[index] : nil }
+    func castHit(_ index: Int) -> Int? { index >= 0 && index < castHits.count ? castHits[index] : nil }
 }
 
 enum HeroMotionSets {
@@ -141,9 +151,13 @@ enum HeroMotionSets {
     }()
 
     /// H034 ゴルム: Meshy prime の叩きつけと Tripo の歩容を仕上げた専用の収録（H034MotionClips.json、docs/H034_MOTION.md）。
-    /// 待機・歩行・走行・通常攻撃はクリップ。スキルの詠唱は Motion_H034 のまま。
+    /// 待機・歩行・走行・通常攻撃・スキルの詠唱（発動から再生し、打撃は KitTimes: hookDelay・shockDelay・ultDelay + ultInterval）。
+    /// 鎖鉤が当たると引き寄せ（hookHold → hookPull）のクリップへ。クリップが無ければ Motion_H034 の詠唱のまま。
     private static let gorm: HeroMotionSet = {
         var s = make(["chain_slam_h034"], idle: "idle_h034")
+        s.casts = ["hook_throw_h034", "chain_smash_h034", "chain_frenzy_h034"]
+        s.castHits = ["hook_pull_h034", nil, nil]
+        s.castsFromStart = true
         s.dedicatedIdle = true
         s.dedicatedAttack = true
         s.walk = "walk_h034"

@@ -244,6 +244,16 @@ def slam_weapon(f, armline):
     return (armline + V((0, -.8, .9))*trail + V((0, -1, -.5))*dig).normalized()
 
 
+def keyed_weapon(trail_keys, dig_keys):
+    """slam_weapon with per-clip keys: trail = hook hanging back-down behind the shoulder (wind-up),
+    dig = hook driven down-forward into the ground (impact)."""
+    def weapon(f, armline):
+        trail = curve(f, trail_keys)
+        dig = curve(f, dig_keys)
+        return (armline + V((0, -.8, .9))*trail + V((0, -1, -.5))*dig).normalized()
+    return weapon
+
+
 def analyse_slam(rig, src):
     """Wind-up peak (right hand highest) and impact (lowest right hand after the peak) of a prime take."""
     n = src['frames']
@@ -344,6 +354,46 @@ def main():
                                    f, face, 3, 9, n, weapon=slam_weapon),
              events=dict(impact=13, end=36)))
 
+    # Skills: frame 0 = the cast (castFromStart), the impact event sits on the KitTimes delay at 30 fps.
+    # S1 鎖鉤: wind-up behind → overhead throw, the hook leaves the hand at hookDelay 0.33 s (frame 10) →
+    # arm held out along the chain → hand-over-hand haul back (miss). A hit restarts on hook_pull_h034.
+    src = prime['prime_hook_h034']
+    face = analyse_slam(rig, src)[2]
+    add(bake(rig, 'hook_throw_h034', f'meshy:prime:{pid["hook"]}+local:H034-contact-finish', 46, False,
+             lambda f: action_pose(rig, src, [18, 30, 39, 42, 50, 62, 81, 87], [0, 5, 8, 10, 16, 27, 40, 45], f, face, 2, 8, 46,
+                                   weapon=keyed_weapon([(0, 0), (5, 1), (8, .6), (10, 0), (45, 0)], [(0, 0), (45, 0)])),
+             events=dict(impact=10, end=45)))
+    # Hit: chain held taut for hookHold 0.45 s (13.5 frames), yanked during hookPull 0.25 s (to frame 21), back to guard.
+    add(bake(rig, 'hook_pull_h034', f'meshy:prime:{pid["hook"]}+local:H034-contact-finish', 34, False,
+             lambda f: action_pose(rig, src, [54, 63, 66, 81, 87], [0, 12, 14, 21, 33], f, face, 1, 8, 34,
+                                   weapon=keyed_weapon([(0, 0), (33, 0)], [(0, 0), (33, 0)])),
+             events=dict(impact=21, end=33)))
+    # S2 鉄鎖旋: crouch, both hands up over the head, slam on shockDelay 0.27 s (frame 8).
+    src = prime['prime_slam_h034']
+    face = analyse_slam(rig, src)[2]
+    add(bake(rig, 'chain_smash_h034', f'meshy:prime:{pid["slam"]}+local:H034-contact-finish', 31, False,
+             lambda f: action_pose(rig, src, [3, 18, 27, 32, 50, 72], [0, 4, 6, 8, 18, 30], f, face, 2, 9, 31,
+                                   weapon=keyed_weapon([(0, 0), (4, .8), (6, 1.1), (7, .3), (8, 0), (30, 0)],
+                                                       [(0, 0), (7, 0), (8, 1), (16, .7), (30, 0)])),
+             events=dict(impact=8, end=30)))
+    # 奥義 狩猟鎖獄: grab on ultDelay 0.25 s, then a blow every ultInterval 0.32 s (6 hits: frames 7.5 … 55.5);
+    # two source blows alternate (retract between), the last one is the big overhead smash; quick recovery.
+    src = prime['prime_ult_h034']
+    face = analyse_slam(rig, src)[2]
+    beats = [7.5 + 9.6*k for k in range(6)]
+    out_keys = [0, beats[0]]
+    src_keys = [3, 18]
+    for k, b in enumerate(beats[1:5]):
+        out_keys += [b - 4.6, b]
+        src_keys += [(38, 45), (55, 60)][k % 2]
+    out_keys += [beats[5] - 5, beats[5], 63, 69]
+    src_keys += [72, 84, 92, 102]
+    dips = sorted(set([(0, 0)] + [(b - 2.5, 0) for b in beats] + [(b, .8 if i < 5 else 1.2) for i, b in enumerate(beats)] + [(69, 0)]))
+    add(bake(rig, 'chain_frenzy_h034', f'meshy:prime:{pid["ult"]}+local:H034-contact-finish', 70, False,
+             lambda f: action_pose(rig, src, src_keys, out_keys, f, face, 2, 8, 70,
+                                   weapon=keyed_weapon([(0, 0), (69, 0)], dips)),
+             events=dict(impact=7.5, end=69)))
+
     out = Path('App/Resources/Heroes/H034MotionClips.json')
     out.write_text(json.dumps(dict(version=1, fps=FPS, segments=cm.SEGMENTS, clips=clips), separators=(',', ':'))+'\n')
     report['model'] = dict(height=height, bones=len(rig.names), axisErrorDeg=axis_error, warnings=warnings)
@@ -351,4 +401,5 @@ def main():
     print(json.dumps(report), flush=True)
 
 
-main()
+if __name__ == "__main__":
+    main()

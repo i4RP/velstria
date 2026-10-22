@@ -814,6 +814,9 @@ struct HeroAnimator {
         begin(.cast(slot), blend: 0.06)
         beginCastMotion(clip)
         castHitPlayed = true
+        if let b = clips.binding, let c = b.castHit(HeroAnimator.castIndex(slot)) {
+            clips.start(c, role: .cast, from: 0, fullBody: true, speedMask: true, hold: false)
+        }
         return clip.total
     }
 
@@ -1012,7 +1015,7 @@ struct HeroAnimator {
         guard let b = clips.binding else { return }
         guard let c = b.cast(HeroAnimator.castIndex(slot)) else { return clips.stop() }
         let info = b.library.clips[c]
-        clips.start(c, role: .cast, from: max(0, info.impactTime - HeroAnimator.castLead),
+        clips.start(c, role: .cast, from: b.castsFromStart ? 0 : max(0, info.impactTime - HeroAnimator.castLead),
                     fullBody: true, speedMask: true, hold: false)
     }
 

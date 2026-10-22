@@ -605,6 +605,13 @@ final class HeroMotionClipTests: XCTestCase {
         let slam = lib.clips[try XCTUnwrap(lib.index(of: "chain_slam_h034"))]
         XCTAssertEqual(slam.impact ?? -1, 13, accuracy: 0.01)
         XCTAssertTrue(slam.melee)
+        // スキル: 発動から再生し、打撃のフレームが KitTimes（30 fps）
+        XCTAssertTrue(binding.castsFromStart)
+        for (slot, key) in [(SkillSlot.skill1, "hookDelay"), (.skill2, "shockDelay"), (.ultimate, "ultDelay")] {
+            let c = try XCTUnwrap(binding.cast(HeroAnimator.castIndex(slot)), "\(slot)")
+            XCTAssertEqual(lib.clips[c].impactTime, KitTimes("H034", slot).seconds(key), accuracy: 0.02, "\(slot) \(key)")
+        }
+        XCTAssertNotNil(binding.castHit(0), "鎖鉤の命中で引き寄せへ")
         let p = profile("H034")
         XCTAssertTrue(p.attackMotions.isEmpty, "専用の通常攻撃が Motion_H034.attacks より先")
         var a = HeroAnimator(profile: p, defaultRunSpeed: 2.6, motion: binding)
