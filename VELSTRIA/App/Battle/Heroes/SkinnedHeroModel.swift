@@ -646,7 +646,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
     }
 
     /// 攻撃クリップの release をシムの attackReleased（弾の発射）に合わせるヒーロー（専用クリップの release を持つ）。
-    static let releaseSyncHeroIDs: Set<String> = ["H025", "H028", "H031"]
+    static let releaseSyncHeroIDs: Set<String> = ["H025", "H028", "H030", "H031"]
 
     func synchronizeAttackRelease() {
         if Self.releaseSyncHeroIDs.contains(heroID) { animator.synchronizeAttackRelease() }
@@ -740,9 +740,11 @@ final class SkinnedHeroModel: HeroDisplayModel {
             let angR = m.idleWeaponR.map { p.weaponR + ($0 - p.weaponR) * k } ?? p.weaponR
             let angL = m.idleWeaponL.map { p.weaponL + ($0 - p.weaponL) * k } ?? p.weaponL
             let gripHandR = m.gripOnForeArm ? q.foreArmR : q.handR, gripHandL = m.gripOnForeArm ? q.foreArmL : q.handL
-            weapon.position = simd_mix(handPosR + q.foreArmR.act(gripR), handPosR + gripHandR.act(gripR), V3(repeating: wu))
             let heldR = m.gripOnForeArm ? Self.forearmBlade(q.foreArmR, torso: q.torso)
                 : m.weaponGrip.map { gripHandR * $0 } ?? q.torso * ry(p.armR.yaw) * rx(angR)
+            // 握りから武器の芯までのずれ（武器の軸。H030 の星砲は掌を砲身の上に乗せる）
+            let heldPosR = handPosR + gripHandR.act(gripR) + heldR.act(m.weaponOffset)
+            weapon.position = simd_mix(handPosR + q.foreArmR.act(gripR), heldPosR, V3(repeating: wu))
             weapon.orientation = weaponFollowsArm ? q.handR : simd_slerp(qp.weaponR(p, followsArm: false), heldR, wu)
             offhand.position = simd_mix(handPosL + q.foreArmL.act(gripL), handPosL + gripHandL.act(gripL), V3(repeating: wu))
             let heldL = m.gripOnForeArm ? Self.forearmBlade(q.foreArmL, torso: q.torso)

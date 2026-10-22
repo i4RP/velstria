@@ -1077,7 +1077,7 @@ struct HeroAnimator {
         // （負の開始位置 = 先頭で待つ）。段のクリップ（stageCasts）を引いた時だけ段の時刻を使う
         let stage = castStage >= 1 && c != b.cast(k) ? castStage : 0
         let from = profile.clipStrike(slot, stage: stage).map { info.impactTime - $0 }
-            ?? (b.castsFromStart ? 0 : max(0, info.impactTime - HeroAnimator.castLead))
+            ?? (b.castsFromStart ? 0 : max(0, info.impactTime - (info.castWindup ?? HeroAnimator.castLead)))
         clips.start(c, role: .cast, from: from, fullBody: true, speedMask: !b.locksLegs(k), hold: false,
                     blendDuration: info.blend ?? HeroClipLayer.fadeIn)
     }

@@ -47,6 +47,8 @@ struct HeroMotionClip {
     var lockLowerUntil: Float? = nil
     /// 通常攻撃・詠唱のクリップへ移る時のクロスフェードの秒数（JSON の "blend"。nil = 再生側の既定。H029）。
     var blend: Float? = nil
+    /// 詠唱の呼び出しから打撃までの秒（キットの溜め）。あれば castLead の代わりに使い、溜めの頭から再生する。
+    var castWindup: Float? = nil
 
     /// 武器を振っている区間: 打撃の前 swingLead 秒〜後 swingTail 秒（クリップ時刻。再生速度に比例して実時間は縮む）。
     static let swingLead: Float = 0.18
@@ -112,6 +114,7 @@ final class HeroMotionLibrary: @unchecked Sendable {
             v.hit = c.hit
             v.lockLowerUntil = c.lockLowerUntil
             v.blend = c.blend
+            v.castWindup = c.castWindup
             return v
         }
         return HeroMotionLibrary(clips: clips + appended, rot: rot + extra.rot, root: root + extra.root,
@@ -287,6 +290,7 @@ extension HeroMotionLibrary {
             if let lock = (c["lockLowerUntil"] as? NSNumber)?.floatValue, lock.isFinite, lock > 0 {
                 clip.lockLowerUntil = min(lock, Float(frames - 1))
             }
+            if let w = (c["castWindup"] as? NSNumber)?.floatValue, w.isFinite, w >= 0 { clip.castWindup = w }
             if let speed = (c["groundSpeed"] as? NSNumber)?.floatValue, speed.isFinite, speed > 0 {
                 clip.groundSpeed = speed
             }
@@ -358,7 +362,7 @@ enum HeroMotionClips {
     }
 
     /// 専用の収録（<ID>MotionClips.json）を持つヒーロー。参加する時だけ読む。
-    static let dedicatedHeroes: Set<String> = ["H025", "H027", "H028", "H029", "H031", "H032", "H033", "H034"]
+    static let dedicatedHeroes: Set<String> = ["H025", "H027", "H028", "H029", "H030", "H031", "H032", "H033", "H034"]
 
     /// Separate hero clips are loaded only when that hero participates.
     static func library(heroID: String) -> HeroMotionLibrary {

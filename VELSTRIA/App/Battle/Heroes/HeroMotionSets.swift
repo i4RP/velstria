@@ -50,6 +50,8 @@ struct HeroMotionSet {
     /// 槍の構え（rest -1.0 = 前へ寝かせる）は腕を下ろした待機だと穂先が顔の前を横切るので立てて持ち、
     /// 弓（rest 0 = 真っ直ぐ）は上の弓先を少し前へ傾けて手に握っているように見せる（下の弓先が足元に立たない）。
     var idleWeaponR: Float?
+    /// 握り（手の区間 × grip の位置）から武器の原点までのずれ（武器の軸・m）。既定 0。
+    var weaponOffset = V3.zero
     var idleWeaponL: Float?
 
     /// 拳で握る（+Y → -Z）。剣・槍・杖・盾・弓。
@@ -83,6 +85,7 @@ struct HeroMotionBinding {
     let offhandGrip: simd_quatf?
     let gripOnForeArm: Bool
     let idleWeaponR: Float?
+    let weaponOffset: V3
     let idleWeaponL: Float?
 
     /// どのクリップも見つからなければ nil（重ねる層を持たず、手続きと完全に同じ）。
@@ -113,6 +116,7 @@ struct HeroMotionBinding {
         offhandGrip = set.offhandGrip
         gripOnForeArm = set.gripOnForeArm
         idleWeaponR = set.idleWeaponR
+        weaponOffset = set.weaponOffset
         idleWeaponL = set.idleWeaponL
     }
 
@@ -283,6 +287,20 @@ enum HeroMotionSets {
         return s
     }()
 
+    /// 星砲のライナ（H030）の専用収録（H030MotionClips.json、docs/H030_MOTION.md）。右の掌を砲身の上に乗せ、
+    /// 砲の向きは右手の区間で決める（腰だめ・砲口は前）。
+    private static let raina: HeroMotionSet = {
+        var s = make(["gun_cannon_h030"], idle: "idle_h030", death: "death_forward", victory: "victory_cheer",
+                     weaponGrip: HeroMotionSet.fistGrip)
+        s.dedicatedIdle = true
+        s.walk = "walk_h030"
+        s.run = "run_h030"
+        s.weaponOffset = V3(0, 0, -0.12)
+        // 遠星弾・星爆弾・星砕の大砲。発射はクリップの castWindup（= Kit_H030 の s1Windup / s2Windup / ultWindup）
+        s.casts = ["cast_s1_h030", "cast_s2_h030", "cast_ult_h030"]
+        return s
+    }()
+
     /// H001〜H034: 通常攻撃（順に繰り返す）・待機・死亡・勝利。
     static let table: [String: HeroMotionSet] = [
         // 広刃剣 + 城門盾（Vanguard・近接）
@@ -352,7 +370,7 @@ enum HeroMotionSets {
         // 聖槌 + 大盾（Support・近接の片手振り）。専用の収録（borg）が Motion_H029 の全身の手続きの通常攻撃より優先する
         "H029": borg,
         // 星砲（Ranger・遠隔の両手持ち）
-        "H030": make(["gun_fire"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
+        "H030": raina,
         // 氷華の右手（Arcanist・遠隔: 杖は持たず手から放つ・指し示し）
         "H031": aurora,
         // 両手首の刃の輪（Duelist・近接の左右交互の連撃）。専用の収録（H032MotionClips.json、docs/H032_MOTION.md）

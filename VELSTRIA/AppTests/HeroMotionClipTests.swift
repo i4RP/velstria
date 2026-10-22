@@ -872,6 +872,59 @@ final class HeroMotionClipTests: XCTestCase {
         XCTAssertEqual(animator.clips.clip, lib.index(of: "punch_s2_strike_h032"), "段 1 は致命の一撃")
     }
 
+    func testBundledRainaContactAndPreviewAttack() throws {
+        HeroMotionClips.setResolverForTesting(nil)
+        let lib = HeroMotionClips.library(heroID: "H030")
+        let url = try XCTUnwrap(HeroAssetLibrary.bundledURL("Hero_H030"))
+        let rig = try XCTUnwrap(HeroAssetLibrary.heroTemplate(url)?.rig)
+        XCTAssertNotNil(rig.index[.indexR], "H030 は指のあるリグ（握り・指の動き）")
+        let hips = try XCTUnwrap(rig.index[.hips])
+        let feet = try [HeroJointRole.footL, .footR].map { try XCTUnwrap(rig.index[$0]) }
+        let contacts = try [HeroJointRole.footL, .footR, .toeL, .toeR].map { try XCTUnwrap(rig.index[$0]) }
+        let restFoot = feet.map { rig.restPosition[$0].y }.reduce(0, +) / 2
+        let leg = max(0.1, rig.restPosition[hips].y - restFoot)
+        let restLowest = try XCTUnwrap(contacts.map { rig.restPosition[$0].y }.min())
+        var poser = HeroSkeletonPoser(rig: rig)
+        for name in ["idle_h030", "walk_h030", "run_h030", "gun_cannon_h030"] {
+            let c = try XCTUnwrap(lib.index(of: name), name)
+            let clip = lib.clips[c]
+            var lowest = Float.infinity
+            for f in 0..<clip.frames {
+                let (q, root) = lib.sample(c, time: Float(f) / clip.fps)
+                poser.solve(q, hipsDrop: 0, hipsOffset: root * leg)
+                lowest = min(lowest, contacts.map { poser.position[$0].y }.min()!)
+            }
+            XCTAssertEqual(lowest, restLowest, accuracy: 0.02, "\(name): 足が浮く・沈む")
+        }
+        let set = try XCTUnwrap(HeroMotionSets.set(heroID: "H030"))
+        XCTAssertEqual(set.idle, "idle_h030", "専用の待機は HeroIdle で消さない")
+        XCTAssertNotEqual(set.weaponOffset, .zero)
+        let binding = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))
+        var animator = HeroAnimator(profile: profile("H030"), defaultRunSpeed: 3.3, motion: binding)
+        animator.setState(.idle)
+        for _ in 0..<30 { _ = animator.advance(dt: 1.0 / 60, moveSpeed: 0) }
+        XCTAssertGreaterThan(animator.clipUpperWeight, 0.9, "専用の待機のクリップが再生される")
+        animator.setState(.attack)
+        var shots = 0
+        for _ in 0..<240 {
+            let before = animator.clips.clipTime
+            _ = animator.advance(dt: 1.0 / 60, moveSpeed: 0)
+            if before < animator.clips.impactTime && animator.clips.clipTime >= animator.clips.impactTime { shots += 1 }
+        }
+        XCTAssertGreaterThanOrEqual(shots, 3, "ギャラリーの通常攻撃が撃ち続ける")
+        // 詠唱のクリップの発射 = キットの溜め（s1Windup / s2Windup 0.1 秒、ultWindup）
+        let hero = try XCTUnwrap(master.hero("H030"))
+        let skill = try XCTUnwrap(master.skill(hero: "H030", slot: .ultimate))
+        let numbers = SkillCatalog.numbers(for: skill, hero: hero, rank: 1, stats: Stats())
+        let ult = Float(try XCTUnwrap(numbers.extras.first { $0.key == "windup" }).value)
+        XCTAssertEqual(ult, 0.55, accuracy: 0.001)
+        for (name, windup) in [("cast_s1_h030", Float(0.1)), ("cast_s2_h030", 0.1), ("cast_ult_h030", ult)] {
+            let c = try XCTUnwrap(lib.index(of: name), name)
+            XCTAssertEqual(lib.clips[c].castWindup ?? -1, windup, accuracy: 0.002, name)
+            XCTAssertEqual(lib.clips[c].impactTime, windup, accuracy: 0.002, "\(name): 溜めの頭から再生して発射が合う")
+        }
+    }
+
     /// 同梱のクリップ（あれば）を同梱のヒーロー（あるだけ）に実行時と同じ計算で載せる。骨が有限で、ループは頭が腰より上。
     /// 立ったままのループ（待機・移動。腰の平均の沈みが脚の長さの 25% 未満）は脚のどこか（足首・つま先・膝）が地面の近く
     /// （抽出と実行時の約束 = docs/HERO_MOTION.md の区間回転・腰の位置が食い違うと、腰が浮く・沈む）。

@@ -345,7 +345,7 @@
     },
     {
       "kind": "starCannon", "heroes": ["H030"], "grip": 0.37, "optional": false, "side": "gun",
-      "prompt": "a giant magic hand cannon carried like a bazooka, side profile view, standing upright with the muzzle at the top and the stock at the bottom, one long thick straight white cannon barrel of even width from bottom to top (its width about one quarter of its height) wrapped with three broad gold bands, a short navy-blue shoulder stock at the bottom end, two long golden blade-shaped horns attached to the left and right sides of the muzzle and pointing straight up beyond it, a large glowing cyan power orb in a gold ring mounted on the side of the barrel, the side with the orb facing the left side of the image.",
+      "prompt": "a giant magic hand cannon carried like a bazooka, side profile view, standing upright with the muzzle at the top and the stock at the bottom, one long thick straight white cannon barrel of even width from bottom to top (its width about one quarter of its height) wrapped with three broad gold bands, a short navy-blue shoulder stock at the bottom end, two long golden blade-shaped horns attached to the left and right sides of the muzzle and pointing straight up beyond it, a large glowing cyan power orb in a gold ring mounted on the side of the barrel, the side with the orb facing the left side of the image. Polished premium hero weapon design (Layla style star cannon): crisp bevelled panels, engraved gold filigree, small star emblems, glowing cyan energy seams along the barrel, clean sharp silhouette.",
       "notes": "手続き版は砲口 +Y、上面（動力球）+Z。side gun。"
     },
     {

@@ -51,7 +51,7 @@ def run(args):
     first,last=map(float,action.frame_range)
     fps=bpy.context.scene.render.fps/bpy.context.scene.render.fps_base
     offset=first-1.0
-    clip={"name":"meshy_h025_prime_bow", "source":{"file":args.input},"_label":f"meshy:text-to-motion:{args.task_id}",
+    clip={"name":args.name, "source":{"file":args.input},"_label":f"meshy:text-to-motion:{args.task_id}",
           "_path":args.input,"start":1,"end":last-offset,"loop":False,"inPlace":True,"rootXZ":0}
     output,report,passed=ec.extract(clip,rig,arm,fps,(1.0,last-offset),offset)
     if not passed:
@@ -84,7 +84,7 @@ def run(args):
         head=P[rig.index['head']]
         left=P[rig.index['lefthand']]
         right=P[rig.index['righthand']]
-        bow_axis=(left-head).normalized()
+        bow_axis=(left-head).normalized() if (left-head).length>1e-6 else left-head
         finger_curl=sum(math.degrees(relative['righthandindex'+str(n)].angle) for n in (1,2,3))
         features.append({"sourceFrame":time,"drawSpan":round((left-right).dot(bow_axis),6),
                          "rightHandHeadDistance":round((right-head).length,6),"rightIndexRestAngleSum":round(finger_curl,4),
@@ -112,4 +112,5 @@ if __name__=='__main__':
     parser.add_argument('--details',required=True)
     parser.add_argument('--task-id',default='01a1640b-0d5b-7455-b14f-dfc020cdedee')
     parser.add_argument('--release-estimate',type=float)
+    parser.add_argument('--name',default='meshy_h025_prime_bow')
     run(parser.parse_args(ec.nc.script_args()))
