@@ -115,6 +115,7 @@ enum DebugLaunch {
         }
         app.profile = p
         if args.contains("-sampleReplays") { addSampleReplays(to: app) }
+        if args.contains("-sampleRecords") { addSampleRecords(to: app) }
 
         if let r = value(after: "-route"), let route = parseRoute(r) {
             app.router.path = [route]
@@ -250,6 +251,37 @@ enum DebugLaunch {
         old.config.simVersion = MatchConfig.currentSimVersion - 1
         persistence.storeReplay(old, heroID: nil, won: nil, date: now.addingTimeInterval(-86_400), in: &p)
         persistence.reconcileReplays(profile: &p)
+        app.profile = p
+    }
+
+    /// 過去の戦績の見本（ランク戦の勝ち負けと段位の前後・マッチング・乱闘）。スクリーンショット用。
+    @MainActor
+    static func addSampleRecords(to app: AppModel) {
+        guard app.profile.matchHistory.isEmpty else { return }
+        var p = app.profile
+        let now = Date()
+        let items = Array(app.master.items.prefix(6).map(\.itemID))
+        func record(_ minutesAgo: Double, _ mode: MatchMode, _ hero: String, won: Bool, k: Int, d: Int, a: Int, grade: String,
+                    mvp: Bool = false, ranks: (PublicRank, PublicRank)? = nil, itemCount: Int = 6) -> MatchRecord {
+            var r = MatchRecord(date: now.addingTimeInterval(-minutesAgo * 60), mode: mode, difficulty: .normal, won: won,
+                                duration: 11 * 60 + minutesAgo, heroID: hero, kills: k, deaths: d, assists: a, creepScore: 120,
+                                gold: 9800, damageToHeroes: 52_000, grade: grade, isMVP: mvp, items: Array(items.prefix(itemCount)),
+                                replayID: nil, summary: nil)
+            r.rankBefore = ranks?.0
+            r.rankAfter = ranks?.1
+            return r
+        }
+        let epic = RankTier.epic.rawValue
+        p.matchHistory = [
+            record(19, .ranked, "H025", won: true, k: 7, d: 3, a: 4, grade: "S", mvp: true,
+                   ranks: (PublicRank(tier: epic, division: 4, stars: 0), PublicRank(tier: epic, division: 4, stars: 1))),
+            record(43, .ranked, "H025", won: false, k: 1, d: 7, a: 5, grade: "C",
+                   ranks: (PublicRank(tier: epic, division: 4, stars: 1), PublicRank(tier: epic, division: 4, stars: 0)), itemCount: 5),
+            record(95, .ranked, "H030", won: false, k: 4, d: 3, a: 11, grade: "A",
+                   ranks: (PublicRank(tier: epic, division: 4, stars: 2), PublicRank(tier: epic, division: 4, stars: 1))),
+            record(140, .standard, "H027", won: true, k: 4, d: 5, a: 1, grade: "B"),
+            record(300, .brawl, "H031", won: true, k: 12, d: 6, a: 9, grade: "A"),
+        ]
         app.profile = p
     }
 

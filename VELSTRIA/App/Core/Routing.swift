@@ -80,13 +80,14 @@ struct RouteDestination: View {
         switch route {
         case .notices: NoticesView()
         case .mail: MailView()
-        case .profile: ProfileView()
-        case .records: RecordsView()
+        // プロフィール・過去の戦績・アカウントは 1 つの画面の左のメニュー（MLBB と同じ。ProfileHubView）
+        case .profile: ProfileHubView(section: .profile)
+        case .records: ProfileHubView(section: .records)
         case .achievements: AchievementsView()
         case .ranking: RankingView()
         case .rankOverview: RankOverviewView()
         case .rankRewards: RankRewardsView()
-        case .accountLink: AccountLinkView()
+        case .accountLink: ProfileHubView(section: .account)
         case .heroes: HeroListView()
         case .heroDetail(let id): HeroDetailView(heroID: id)
         case .skillDetail(let id): SkillDetailView(skillID: id)

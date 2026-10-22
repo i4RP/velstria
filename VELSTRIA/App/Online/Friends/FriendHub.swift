@@ -259,6 +259,11 @@ final class FriendHub {
                 completion(false)
                 return
             }
+            // アカウント（クラウドに預けたデータ・パスワード・Game Center の連携）も同じコードと鍵で消す
+            guard await CloudAccountAPI.erase(code: code, key: key, base: base, transport: transport) else {
+                completion(false)
+                return
+            }
             let result = await FriendInboxEraser.erase(base: base, code: code, key: key, transport: transport)
             guard result == .erased else {
                 completion(false)
@@ -280,6 +285,8 @@ final class FriendHub {
             p.outgoingFriendRequests = []
             p.outgoingFriendRequestDates = [:]
             p.inboxRegistered = false
+            // アカウントは古いコードのもの（新しいコードにはまだ無い）
+            p.account = AccountLinkState()
             let mine = p.friendCode
             p.blockedPlayers.removeAll { $0.code == mine }
         }

@@ -22,7 +22,8 @@
 | `src/inbox.ts` | Durable Object `FriendInbox`（フレンドの受信箱。下の「フレンドの受信箱」） |
 | `src/rank.ts` | Durable Object `RankAccount`（アカウントごとのランクと規則の計算。`POST /v1/rank/…`。下の「ランク」） |
 | `src/directory.ts` | Durable Object `Directory`（全体で 1 つ。公開の名刺・ランキングの表・運営からのメール。下の「名刺・ランキング・メール」） |
-| `wrangler.jsonc` | Worker 名 `velstria-relay`、DO の束縛 `RELAY_ROOM` / `FRIEND_INBOX` / `RANK_ACCOUNT` / `DIRECTORY`、SQLite バックエンドの移行 `v1`〜`v4` |
+| `src/account.ts` | Durable Object `CloudAccount`（アカウント: クラウド保存・パスワード・Game Center の連携）と `GameCenterIndex`（teamPlayerID → コード）、Game Center の署名の確かめ。下の「アカウント」 |
+| `wrangler.jsonc` | Worker 名 `velstria-relay`、DO の束縛 `RELAY_ROOM` / `FRIEND_INBOX` / `RANK_ACCOUNT` / `DIRECTORY` / `CLOUD_ACCOUNT` / `GAME_CENTER_INDEX`、SQLite バックエンドの移行 `v1`〜`v5` |
 | `test/relay.test.mjs` | 結合テスト（Node の組み込みテストランナー + Node の WebSocket。本物の Worker を相手にする）と、ランクの規則・シーズンの単体テスト |
 | `../.github/workflows/relay.yml` | `relay/**` が変わった時に CI（ubuntu）でテストを流す（配備はしない） |
 
@@ -213,6 +214,33 @@ curl -X POST https://velstria-relay.<sub>.workers.dev/v1/mail/publish -H 'conten
            "attachments": [{"kind": "coin", "amount": 500}]}
 }'
 ```
+
+## アカウント
+
+MLBB のアカウント設定（Moonton アカウント・Game Center の連携・アカウント切替）にあたる。**アカウント ID = フレンドコード**、持ち主は受信箱と同じ鍵
+（Worker が `FriendInbox.claimOrMatch` で確かめる）。端末のプロフィール（zlib で縮めた JSON、先頭に `VSA1`）を預かり、別の端末で
+「ID + パスワード」か「Game Center」で取り出す。プロフィールにはフレンドコードと鍵が入っているので、取り出した端末がそのアカウントになる。
+
+| 要求 | 応答 |
+|---|---|
+| `POST /v1/account/<CODE>/status`（本文 `{"key":…}`） | 200 `{"ok":true,"account":{"password":bool,"savedAt":ms\|null,"size":n,"gameCenter":bool}}` |
+| `POST /v1/account/<CODE>/password`（本文 `{"key":…,"verifier":"<64 桁の 16 進>"}`） | 200 `{"ok":true,"account":…}` / 400 `bad_verifier` |
+| `POST /v1/account/<CODE>/save`（本文 = プロフィールのバイト列、見出し `x-velsia-key`・`x-velsia-saved-at`） | 200 `{"ok":true,"account":…}` / 413 `too_large`（4 MiB 超） |
+| `POST /v1/account/<CODE>/gamecenter`（本文 `{"key":…,"gc":{…署名…}}`） | 200 / 409 `gamecenter_taken`（別のコードに連携済み）/ 403 `gamecenter_invalid` `gamecenter_expired` / 400 `bad_gamecenter` |
+| `POST /v1/account/<CODE>/unlink-gamecenter`（本文 `{"key":…}`） | 200 |
+| `POST /v1/account/<CODE>/erase`（本文 `{"key":…}`） | 200 `{"ok":true,"result":"erased"}`（預かったデータ・パスワード・連携を消す） |
+| `POST /v1/account/login`（本文 `{"code":…,"verifier":…}`） | 200 バイト列（見出し `x-velsia-code`・`x-velsia-saved-at`・`x-velsia-password`・`x-velsia-gamecenter`）/ 403 `wrong_password` / 404 `no_password` `no_data` / 429 `locked`（`retry-after`） |
+| `POST /v1/account/login-gamecenter`（本文 `{"gc":{…署名…}}`） | 200 バイト列（同上）/ 404 `not_linked` |
+
+- 持ち主の操作（status・password・save・gamecenter・unlink・erase）は鍵が違えば 403 `forbidden`、消した受信箱のコードは 403 `erased`、
+  止めたコードは 403 `suspended`（erase だけはできる）。
+- **パスワード**: 端末が PBKDF2-HMAC-SHA256（10 万回、塩 `velsia-account-v1:<CODE>`）で作った照合値だけを受け取り、乱数の塩を付けた
+  SHA-256 を保存する（パスワードそのものは届かない）。5 回続けて違えると 15 分ロック（429）。持ち主の鍵でパスワードを設定し直すと解ける。
+- **Game Center**: 端末の `GKLocalPlayer.fetchItems(forIdentityVerificationSignature:)` の `playerId`（teamPlayerID）・`bundleId`・
+  `publicKeyUrl`・`signature`・`salt`（base64）・`timestamp`（ミリ秒）。公開鍵の URL は https の `*.apple.com` だけ取り寄せ、
+  証明書の SubjectPublicKeyInfo で `playerId + bundleId + timestamp（u64 BE）+ salt` の RSA-SHA256 を確かめる。時刻のずれは 1 時間まで。
+  bundle ID は `com.bitcoinpay.velstria` だけ。テストの Worker だけ `GAME_CENTER_TEST_KEY_ORIGIN` の下の鍵も使う（配備では設定しない）。
+- 保存は 512 KiB ずつの区切り（SQLite の DO の値は鍵と合わせて 2 MB まで）。自動では消さない（本人の erase・受信箱の消去と一緒に）。
 
 ## 実装の要点
 

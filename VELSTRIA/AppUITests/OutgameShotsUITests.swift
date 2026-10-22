@@ -142,9 +142,40 @@ final class OutgameShotsUITests: XCTestCase {
         snap("leaderboard_ai")
     }
 
+    /// プロフィール（MLBB 2.2.16: 左のメニュー・プロフィール・過去の戦績のカード・アカウント設定）。
+    func testProfileHub() {
+        let app = launch(["-sampleRecords"])
+        tap(app, "home_profile", timeout: 20)
+        XCTAssertTrue(element(app, "profile_rank").waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 1.0)
+        snap("profile")
+        tap(app, "profile_career")
+        XCTAssertTrue(element(app, "profile_scope_all").waitForExistence(timeout: 5))
+        snap("profile_career")
+        tap(app, "profile_career_close")
+        tap(app, "profile_records")
+        XCTAssertTrue(element(app, "records_row_0").waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 0.8)
+        snap("records_cards")
+        tap(app, "records_layout")
+        Thread.sleep(forTimeInterval: 0.5)
+        snap("records_list")
+        tap(app, "profile_account")
+        XCTAssertTrue(element(app, "account_score").waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 1.0)
+        snap("account")
+        tap(app, "account_password")
+        XCTAssertTrue(element(app, "account_password_field").waitForExistence(timeout: 5))
+        snap("account_password")
+        tap(app, "account_password_close")
+        tap(app, "account_switch")
+        XCTAssertTrue(element(app, "account_login_id").waitForExistence(timeout: 5))
+        snap("account_switch")
+    }
+
     func testRecordsOpenReplays() {
         let app = launch()
-        // 戦績はプロフィールから開く（採用案のロビーには入口を置かない）
+        // 戦績はプロフィールの左のメニューから開く（採用案のロビーには入口を置かない）
         tap(app, "home_profile", timeout: 20)
         tap(app, "profile_records")
         XCTAssertTrue(element(app, "records_replays").waitForExistence(timeout: 10))

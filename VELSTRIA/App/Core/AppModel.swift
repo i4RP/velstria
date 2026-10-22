@@ -115,6 +115,8 @@ final class AppModel: FriendProfileAccess {
     /// 公開の名刺（relay の Directory）とランキング（第3段）。
     let publicProfiles = PublicProfileService()
     let ranking = RankingService()
+    /// アカウント（パスワード・Game Center・クラウド保存。プロフィール > アカウント）。
+    let account = AccountCenter()
 
     var profile: Profile {
         didSet {
@@ -162,6 +164,7 @@ final class AppModel: FriendProfileAccess {
         storeKit.attach(to: self)
         wireFriends()
         wirePublicServices()
+        account.host = self
     }
 
     /// 公開の名刺・ランキング（第3段）: 送る・読むのはクラウドのランクと同じ条件（オンラインに同意した 13 歳以上）。
@@ -214,6 +217,31 @@ final class AppModel: FriendProfileAccess {
             await pullCloudRank()
             await publicProfiles.publishOwn()
             await refreshOpsMail()
+            await account.refresh()
+        }
+    }
+
+    // MARK: アカウントの切替（AccountCenter.switchTo）
+
+    /// 別のアカウントへ切り替える前に: 部屋を出て、受信箱を切る（新しいフレンドコードで繋ぎ直す）。
+    func prepareForAccountSwitch() {
+        leaveOnlineRoom()
+        friends.reset()
+        pendingOnlineLink = nil
+        publicProfiles.forgetPublished()
+    }
+
+    /// 切り替えた後に: 新しいコードで受信箱へ繋ぎ、クラウドのランク・名刺・運営のメールを取り直し、購入の記録を確かめ直す。
+    func afterAccountSwitch() {
+        friends.start()
+        Task {
+            await pullCloudRank()
+            await publicProfiles.publishOwn()
+            await refreshOpsMail()
+        }
+        Task {
+            await storeKit.refreshEntitlements()
+            await storeKit.syncMonthlySpendFromHistory()
         }
     }
 
@@ -541,6 +569,7 @@ final class AppModel: FriendProfileAccess {
             await pullCloudRank()
             await publicProfiles.publishOwn()
             await refreshOpsMail()
+            await account.refresh()
         }
         if let url = pendingOnlineLink {
             pendingOnlineLink = nil
@@ -649,6 +678,8 @@ final class AppModel: FriendProfileAccess {
         if report.rankAfter != nil { syncRankedMatch(outcome, report: report) }
         // 名刺の通算の成績が変わった（送ってよい時だけ。変わっていなければ送らない）
         Task { await publicProfiles.publishOwn() }
+        // アカウントのクラウド保存（パスワードか Game Center を設定した人だけ。10 分に 1 回まで）
+        account.autoSave()
         // リザルトを見ている間は「集計中」
         friends.setMyActivity(FriendActivity(.tally))
         return report

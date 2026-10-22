@@ -11,7 +11,7 @@ on:
     inputs:
       tests:
         description: 撮影の前に流すテスト（-only-testing の値。空白区切り。空なら撮影だけ）
-        default: "VELSTRIATests/HomeScreenTests VELSTRIATests/FlowNameAndOnboardingTests VELSTRIATests/FlowDraftTests VELSTRIATests/FlowMatchModelTests VELSTRIATests/FlowResultTests VELSTRIATests/FlowReviewFixTests VELSTRIATests/FlowLaneAndModeTests VELSTRIATests/FlowDraftHelpTests VELSTRIATests/PublicProfileServiceTests VELSTRIATests/ServicesRankTests VELSTRIATests/ServicesLiveOpsTests VELSTRIATests/OnlineSafetyTests VELSTRIATests/EmblemEconomyTests VELSTRIATests/CollectionLogicTests VELSTRIATests/ReplayLibraryTests VELSTRIATests/SpectateSetupTests VELSTRIATests/SettingsScreensTests VELSTRIATests/MatchMedalTests VELSTRIATests/ServicesSeasonTests VELSTRIATests/ServicesRewardTests VELSTRIATests/OnlineSessionTests VELSTRIATests/OnlineProtocolTests"
+        default: "VELSTRIATests/HomeScreenTests VELSTRIATests/FlowNameAndOnboardingTests VELSTRIATests/FlowDraftTests VELSTRIATests/FlowMatchModelTests VELSTRIATests/FlowResultTests VELSTRIATests/FlowReviewFixTests VELSTRIATests/FlowLaneAndModeTests VELSTRIATests/FlowDraftHelpTests VELSTRIATests/PublicProfileServiceTests VELSTRIATests/ServicesRankTests VELSTRIATests/ServicesLiveOpsTests VELSTRIATests/OnlineSafetyTests VELSTRIATests/EmblemEconomyTests VELSTRIATests/CollectionLogicTests VELSTRIATests/ReplayLibraryTests VELSTRIATests/SpectateSetupTests VELSTRIATests/SettingsScreensTests VELSTRIATests/MatchMedalTests VELSTRIATests/ServicesSeasonTests VELSTRIATests/ServicesRewardTests VELSTRIATests/OnlineSessionTests VELSTRIATests/OnlineProtocolTests VELSTRIATests/CloudAccountTests"
 
 concurrency:
   group: outgame-shots-${{ github.ref_name }}
@@ -29,7 +29,7 @@ jobs:
       run:
         working-directory: VELSTRIA
     env:
-      TESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.tests || 'VELSTRIATests/HomeScreenTests VELSTRIATests/FlowNameAndOnboardingTests VELSTRIATests/FlowDraftTests VELSTRIATests/FlowMatchModelTests VELSTRIATests/FlowResultTests VELSTRIATests/FlowReviewFixTests VELSTRIATests/FlowLaneAndModeTests VELSTRIATests/FlowDraftHelpTests VELSTRIATests/PublicProfileServiceTests VELSTRIATests/ServicesRankTests VELSTRIATests/ServicesLiveOpsTests VELSTRIATests/OnlineSafetyTests VELSTRIATests/EmblemEconomyTests VELSTRIATests/CollectionLogicTests VELSTRIATests/ReplayLibraryTests VELSTRIATests/SpectateSetupTests VELSTRIATests/SettingsScreensTests VELSTRIATests/MatchMedalTests VELSTRIATests/ServicesSeasonTests VELSTRIATests/ServicesRewardTests VELSTRIATests/OnlineSessionTests VELSTRIATests/OnlineProtocolTests' }}
+      TESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.tests || 'VELSTRIATests/HomeScreenTests VELSTRIATests/FlowNameAndOnboardingTests VELSTRIATests/FlowDraftTests VELSTRIATests/FlowMatchModelTests VELSTRIATests/FlowResultTests VELSTRIATests/FlowReviewFixTests VELSTRIATests/FlowLaneAndModeTests VELSTRIATests/FlowDraftHelpTests VELSTRIATests/PublicProfileServiceTests VELSTRIATests/ServicesRankTests VELSTRIATests/ServicesLiveOpsTests VELSTRIATests/OnlineSafetyTests VELSTRIATests/EmblemEconomyTests VELSTRIATests/CollectionLogicTests VELSTRIATests/ReplayLibraryTests VELSTRIATests/SpectateSetupTests VELSTRIATests/SettingsScreensTests VELSTRIATests/MatchMedalTests VELSTRIATests/ServicesSeasonTests VELSTRIATests/ServicesRewardTests VELSTRIATests/OnlineSessionTests VELSTRIATests/OnlineProtocolTests VELSTRIATests/CloudAccountTests' }}
     steps:
       - uses: actions/checkout@v4
 

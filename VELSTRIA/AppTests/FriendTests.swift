@@ -761,8 +761,9 @@ final class FriendTests: XCTestCase {
         XCTAssertEqual(rig.hub.status, .offline, "消す前に受信箱を切る")
         await fulfillment(of: [done], timeout: 5)
         XCTAssertEqual(ok, true)
-        // クラウドのランク（同じコードと鍵の RankAccount）を先に消し、続けて受信箱を消す。鍵は本文に入れる
-        XCTAssertEqual(recorder.requests.map { $0.url?.path }, ["/v1/rank/\(oldCode)/erase", "/v1/inbox/\(oldCode)/erase"])
+        // クラウドのランク（同じコードと鍵の RankAccount）とアカウントを先に消し、続けて受信箱を消す。鍵は本文に入れる
+        XCTAssertEqual(recorder.requests.map { $0.url?.path },
+                       ["/v1/rank/\(oldCode)/erase", "/v1/account/\(oldCode)/erase", "/v1/inbox/\(oldCode)/erase"])
         for request in recorder.requests {
             XCTAssertEqual(try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: String], ["key": oldKey])
         }

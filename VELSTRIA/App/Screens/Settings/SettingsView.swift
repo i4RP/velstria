@@ -28,7 +28,7 @@ struct SettingsView: View {
                         tile(L("プライバシー", "Privacy"),
                              FeatureFlags.lanMatch ? L("保存・送信するデータ", "What's stored & sent") : L("データは端末内のみに保存", "Data stays on this device"),
                              "hand.raised.fill", id: "settings_privacy", route: .privacySettings)
-                        tile(L("データ引き継ぎ", "Data Transfer"), L("バックアップと復元", "Backup & restore"),
+                        tile(L("アカウント連携", "Account"), L("パスワード・Game Center・引き継ぎ", "Password, Game Center & transfer"),
                              "arrow.triangle.2.circlepath", id: "settings_account_link", route: .accountLink)
                         tile(L("サポート", "Support"), L("FAQ・お問い合わせ", "FAQ & contact"),
                              "questionmark.circle.fill", tint: Theme.gold, id: "settings_support", route: .support)

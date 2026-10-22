@@ -105,6 +105,20 @@ Once you have accepted the online rules, the App sends the following information
 
 **Your name card and leaderboard entry are public.** Your name card is shown to people who know your friend code (friends, players in the same match and similar) and to anyone viewing the leaderboard. The leaderboard lists the best rank this season of players who sent a name card, up to the top 100 in each scope (world, country, friends). The rank on your name card is not sent by you; the relay writes it from your Ranked results (section 4.5). The relay stores your name card and, for the leaderboard, your current rank, your best rank this season and this season's wins and losses until you delete them from the App. They are deleted when you choose Stop Using Online Features, Delete Friend Server Data or Delete All Data (together with your rank). Your status is not stored and disappears when you disconnect from your inbox. Mail from us is registered on the relay by us and only downloaded by the App; no information about you is sent for it.
 
+### 4.7 Account (password, cloud save, Game Center)
+
+After you accept the online rules, the App sends the following to the relay server when you use Profile > Account. Your account ID is your friend code.
+
+| When | What | Why |
+|---|---|---|
+| When you open the Account screen and when the App starts | Friend code, inbox key | Showing your account status (password, cloud save, Game Center link) |
+| When you set a password | Friend code, inbox key, and a value derived from your password on your device (your password itself is not sent) | Logging in on another device |
+| When you set a password or link Game Center, when you tap Cloud Save, and after matches and when you close the App (only if you set a password or linked Game Center; at most every 10 minutes) | Friend code, inbox key, and your whole profile (display name, items, in-game currency, progress, settings, match history, purchase records, friend list, friend code and inbox key, etc.; replay recordings are not included) | Getting the same data back after changing devices or reinstalling (Switch Account) |
+| When you link Game Center or log in with Game Center | Your Game Center player ID (teamPlayerID), the identity verification signature issued by Apple (signature, salt, timestamp, public key URL), and the App's bundle ID | Linking your Game Center player to your account and verifying it's you |
+| When you log in with an ID and password | Account ID and the derived value | Downloading the stored profile |
+
+The relay stores your stored profile, a salted hash of the derived value, the link between your Game Center player ID and your account, and the count of consecutive failed logins until you delete them from the App (they are not deleted automatically). They are deleted with Profile > Account > Delete Account, Delete Friend Server Data or Delete All Data. The stored profile can be downloaded with your account ID and password or with the linked Game Center; the device that downloads it uses the friend code and inbox key in that profile.
+
 ## 5. Relay server operation and service providers
 
 - We operate the relay server on cloud services provided by Cloudflare, Inc. (United States): Cloudflare Workers and Durable Objects.
@@ -168,6 +182,7 @@ We take the following measures to prevent the leakage, loss or damage of the inf
 | Pending friend requests and acceptances | Relay server | Until delivered; at most 14 days after they were received |
 | Rank and the results of your last 50 matches (section 4.5) | Relay server | Until you delete them from the App (not deleted automatically) |
 | Name card and leaderboard information (section 4.6) | Relay server | Until you delete them from the App or choose Stop Using Online Features |
+| Account (stored profile, salted password hash, Game Center link; section 4.7) | Relay server | Until you delete them from the App (not deleted automatically) |
 | Mail from us (the same for everyone) | Relay server | Until its publishing period ends (60 days by default) |
 | Deletion marker | Relay server | Kept without a time limit (shows only that the inbox was deleted) |
 | Suspended friend codes | Relay server (setting) | Until the suspension is lifted |

@@ -9,8 +9,9 @@ import { FRIEND_CODE, FriendInbox, INBOX_CLOSE, INBOX_KEY, isSuspended, sha256He
 
 import { RankAccount, type MatchInput, type RankCallResult } from "./rank";
 import { Directory, MAX_BATCH_CODES, MAX_FRIEND_CODES, parseCard, parseMail, type RankingScope } from "./directory";
+import { CloudAccount, GameCenterIndex, MAX_BLOB_BYTES, VERIFIER, verifyGameCenter, type AccountInfo, type LoginResult } from "./account";
 
-export { Directory, FriendInbox, RankAccount };
+export { CloudAccount, Directory, FriendInbox, GameCenterIndex, RankAccount };
 
 export interface Env {
   RELAY_ROOM: DurableObjectNamespace<RelayRoom>;
@@ -18,6 +19,12 @@ export interface Env {
   RANK_ACCOUNT: DurableObjectNamespace<RankAccount>;
   /** 公開の名刺・ランキング・運営からのメール（全体で 1 つ。getByName("global")） */
   DIRECTORY: DurableObjectNamespace<Directory>;
+  /** アカウント（フレンドコード 1 つ = 1 つ。クラウド保存・パスワード・Game Center の連携） */
+  CLOUD_ACCOUNT: DurableObjectNamespace<CloudAccount>;
+  /** Game Center の teamPlayerID → フレンドコード（getByName("gc:<id>")） */
+  GAME_CENTER_INDEX: DurableObjectNamespace<GameCenterIndex>;
+  /** テストの Worker だけ: Game Center の公開鍵をこの origin の下からも取り寄せる（配備では設定しない） */
+  GAME_CENTER_TEST_KEY_ORIGIN?: string;
   /** 運営のメールの登録・削除の鍵（「wrangler secret put OPS_MAIL_KEY」。公開リポジトリには書かない）。無ければ登録できない */
   OPS_MAIL_KEY?: string;
   /**
@@ -93,6 +100,10 @@ export default {
     }
     const rank = RANK_PATH.exec(url.pathname);
     if (rank) return rankCall(request, env, rank[1], rank[2]);
+    if (url.pathname === "/v1/account/login") return accountLogin(request, env);
+    if (url.pathname === "/v1/account/login-gamecenter") return accountLoginGameCenter(request, env);
+    const account = ACCOUNT_PATH.exec(url.pathname);
+    if (account) return accountCall(request, env, account[1], account[2]);
     const profile = PROFILE_PATH.exec(url.pathname);
     if (profile) return profileCall(request, env, profile[1], profile[2]);
     if (url.pathname === "/v1/profiles") return profilesCall(request, env);
@@ -174,6 +185,112 @@ async function rankCall(request: Request, env: Env, code: string, op: string): P
   if (op === "erase") await directory.erase(code);
   else await directory.updateRank(code, res.state);
   return Response.json(res, { headers: { "cache-control": "no-store" } });
+}
+
+// MARK: アカウント（README.md「アカウント」）
+
+/** 持ち主の操作: 「POST /v1/account/<FRIENDCODE>/<op>」、本文 「{"key":"…",…}」（save だけ本文がプロフィールのバイト列で、鍵は見出し x-velsia-key） */
+const ACCOUNT_PATH = /^\/v1\/account\/([^/]*)\/(status|password|save|gamecenter|unlink-gamecenter|erase)$/;
+const MAX_ACCOUNT_BODY_BYTES = 8 * 1024;
+
+const accountJson = (info: AccountInfo) => json({ ok: true, account: info });
+
+/** 取り出したプロフィール（バイト列）。アカウントの状態は見出しに載せる */
+function accountData(code: string, r: Extract<LoginResult, { ok: true }>): Response {
+  return new Response(r.data, {
+    headers: {
+      "content-type": "application/octet-stream",
+      "cache-control": "no-store",
+      "x-velsia-code": code,
+      "x-velsia-saved-at": String(r.info.savedAt ?? 0),
+      "x-velsia-password": r.info.password ? "1" : "0",
+      "x-velsia-gamecenter": r.info.gameCenter ? "1" : "0",
+    },
+  });
+}
+
+function loginFailure(r: Extract<LoginResult, { ok: false }>): Response {
+  return plain(r.status, r.error, r.retryAfter ? { "retry-after": String(r.retryAfter) } : {});
+}
+
+async function accountCall(request: Request, env: Env, code: string, op: string): Promise<Response> {
+  if (request.method !== "POST") return plain(405, "method_not_allowed", { Allow: "POST" });
+  if (!FRIEND_CODE.test(code)) return plain(400, "bad_friend_code");
+  // 運営が利用を止めたコードでも消去はできる（本人の削除の求めには応じる）
+  if (op !== "erase" && isSuspended(env, code)) return plain(403, "suspended");
+  let key: unknown;
+  let body: Record<string, unknown> | null = null;
+  let data: ArrayBuffer | null = null;
+  if (op === "save") {
+    key = request.headers.get("x-velsia-key");
+    if (Number(request.headers.get("content-length") ?? "0") > MAX_BLOB_BYTES) return plain(413, "too_large");
+    data = await request.arrayBuffer();
+    if (data.byteLength > MAX_BLOB_BYTES) return plain(413, "too_large");
+    if (data.byteLength === 0) return plain(400, "bad_request");
+  } else {
+    body = await readJson(request, MAX_ACCOUNT_BODY_BYTES);
+    if (!body) return plain(400, "bad_request");
+    key = body.key;
+  }
+  if (typeof key !== "string" || !INBOX_KEY.test(key)) return plain(400, "bad_key");
+  const hash = await sha256Hex(key);
+  const claim = await env.FRIEND_INBOX.getByName(code).claimOrMatch(hash);
+  if (op === "erase" ? claim === "forbidden" : claim !== "ok") return plain(403, claim === "erased" ? "erased" : "forbidden");
+  const account = env.CLOUD_ACCOUNT.getByName(code);
+  const release = async (playerId: string | null) => {
+    if (playerId) await env.GAME_CENTER_INDEX.getByName(`gc:${playerId}`).release(code);
+  };
+  switch (op) {
+    case "status":
+      return accountJson(await account.info());
+    case "password":
+      if (typeof body!.verifier !== "string" || !VERIFIER.test(body!.verifier)) return plain(400, "bad_verifier");
+      return accountJson(await account.setPassword(body!.verifier));
+    case "save": {
+      const savedAt = Number(request.headers.get("x-velsia-saved-at"));
+      return accountJson(await account.save(data!, Number.isSafeInteger(savedAt) && savedAt > 0 ? savedAt : Date.now()));
+    }
+    case "gamecenter": {
+      const v = await verifyGameCenter(body!.gc, env);
+      if (!v.ok) return plain(v.status, v.error);
+      if ((await env.GAME_CENTER_INDEX.getByName(`gc:${v.playerId}`).claim(code)) !== "ok") return plain(409, "gamecenter_taken");
+      await release(await account.linkGameCenter(v.playerId));
+      return accountJson(await account.info());
+    }
+    case "unlink-gamecenter":
+      await release(await account.unlinkGameCenter());
+      return accountJson(await account.info());
+    default:
+      await release(await account.erase());
+      return json({ ok: true, result: "erased" });
+  }
+}
+
+/** ID + パスワードで取り出す: 「POST /v1/account/login」、本文 「{"code":"…","verifier":"<64 桁の 16 進>"}」 */
+async function accountLogin(request: Request, env: Env): Promise<Response> {
+  if (request.method !== "POST") return plain(405, "method_not_allowed", { Allow: "POST" });
+  const body = await readJson(request, MAX_ACCOUNT_BODY_BYTES);
+  if (!body) return plain(400, "bad_request");
+  const code = body.code;
+  if (typeof code !== "string" || !FRIEND_CODE.test(code)) return plain(400, "bad_friend_code");
+  if (typeof body.verifier !== "string" || !VERIFIER.test(body.verifier)) return plain(400, "bad_verifier");
+  if (isSuspended(env, code)) return plain(403, "suspended");
+  const r = await env.CLOUD_ACCOUNT.getByName(code).login(body.verifier, Date.now());
+  return r.ok ? accountData(code, r) : loginFailure(r);
+}
+
+/** Game Center で取り出す: 「POST /v1/account/login-gamecenter」、本文 「{"gc":{…本人確認の署名…}}」 */
+async function accountLoginGameCenter(request: Request, env: Env): Promise<Response> {
+  if (request.method !== "POST") return plain(405, "method_not_allowed", { Allow: "POST" });
+  const body = await readJson(request, MAX_ACCOUNT_BODY_BYTES);
+  if (!body) return plain(400, "bad_request");
+  const v = await verifyGameCenter(body.gc, env);
+  if (!v.ok) return plain(v.status, v.error);
+  const code = await env.GAME_CENTER_INDEX.getByName(`gc:${v.playerId}`).code();
+  if (!code) return plain(404, "not_linked");
+  if (isSuspended(env, code)) return plain(403, "suspended");
+  const r = await env.CLOUD_ACCOUNT.getByName(code).loginGameCenter(v.playerId);
+  return r.ok ? accountData(code, r) : loginFailure(r);
 }
 
 // MARK: 名刺・ランキング・運営からのメール（README.md「名刺・ランキング・メール」）

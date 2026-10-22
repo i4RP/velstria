@@ -19,6 +19,7 @@ struct VelstriaApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background {
                         app.persistence.saveNow(app.profile)
+                        app.account.autoSave()
                         app.friends.stop()
                     }
                     // 日付を跨いで復帰した場合のログインボーナス・デイリー更新（同日なら何もしない）

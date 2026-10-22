@@ -8,7 +8,7 @@
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { randomBytes, randomInt } from "node:crypto";
+import { generateKeyPairSync, randomBytes, randomInt, sign } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import http from "node:http";
 import https from "node:https";
@@ -39,11 +39,14 @@ const SUSPENDED_CODE = process.env.RELAY_URL ? null : randomFriendCode();
 const OPS_MAIL_KEY = process.env.RELAY_URL ? (process.env.OPS_MAIL_KEY ?? null) : randomKey();
 let devServer;
 let persistDir;
+/** Game Center の本人確認の代役（手元の Worker だけ）: テスト用の RSA 鍵と、その公開鍵を入れた証明書を配る HTTP サーバー */
+let gameCenter = null;
 
 // ---- 手元の Worker（wrangler dev）の起動と停止 ----
 
 before(async () => {
   if (wsBase) return;
+  gameCenter = await startGameCenterKeyServer();
   const port = await freePort();
   const inspectorPort = await freePort();
   persistDir = mkdtempSync(join(tmpdir(), "velstria-relay-test-"));
@@ -56,6 +59,7 @@ before(async () => {
     "--persist-to", persistDir,
     "--var", `SUSPENDED_FRIEND_CODES:ZZZZZZZZ,${SUSPENDED_CODE}`,
     "--var", `OPS_MAIL_KEY:${OPS_MAIL_KEY}`,
+    "--var", `GAME_CENTER_TEST_KEY_ORIGIN:${gameCenter.origin}`,
     "--show-interactive-dev-session=false",
     "--log-level", "warn",
   ];
@@ -83,6 +87,7 @@ before(async () => {
 });
 
 after(async () => {
+  gameCenter?.server.close();
   if (devServer && devServer.exitCode === null) {
     const exited = new Promise((resolve) => devServer.once("exit", resolve));
     devServer.kill("SIGTERM");
@@ -1741,5 +1746,217 @@ describe("名刺・ランキング・運営からのメール", () => {
     assert.ok(got.expiresAt - got.startsAt === 60 * 24 * 60 * 60 * 1000, "期間は既定で 60 日");
     assert.deepEqual((await httpCall("/v1/mail/delete", { key: OPS_MAIL_KEY, id })).json, { ok: true, result: "deleted" });
     assert.ok(!(await httpCall("/v1/mail", undefined, "GET")).json.mail.some((m) => m.id === id));
+  });
+});
+
+// ---- アカウント（クラウド保存・パスワード・Game Center） ----
+
+/** DER の長さ */
+function derLength(n) {
+  if (n < 0x80) return Buffer.from([n]);
+  const bytes = [];
+  for (let v = n; v > 0; v = Math.floor(v / 256)) bytes.unshift(v % 256);
+  return Buffer.from([0x80 | bytes.length, ...bytes]);
+}
+
+/** DER の 1 要素 */
+function der(tag, ...parts) {
+  const body = Buffer.concat(parts);
+  return Buffer.concat([Buffer.from([tag]), derLength(body.length), body]);
+}
+
+/**
+ * Game Center の公開鍵の代役: RSA の鍵を作り、公開鍵だけを X.509 の形（中継は SubjectPublicKeyInfo だけを読む）に包んで
+ * http://127.0.0.1:<port>/gc.cer で配る。中継には GAME_CENTER_TEST_KEY_ORIGIN でこの origin を許させる。
+ */
+async function startGameCenterKeyServer() {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const spki = publicKey.export({ type: "spki", format: "der" });
+  const tbs = der(0x30, der(0xa0, der(0x02, Buffer.from([2]))), der(0x02, Buffer.from([1])), der(0x30), der(0x30), der(0x30), der(0x30), spki);
+  const certificate = der(0x30, tbs, der(0x30), der(0x03, Buffer.from([0])));
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { "content-type": "application/pkix-cert" });
+    res.end(certificate);
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const origin = `http://127.0.0.1:${server.address().port}/`;
+  const otherKey = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey;
+  return { server, origin, url: `${origin}gc.cer`, privateKey, otherKey };
+}
+
+const BUNDLE_ID = "com.bitcoinpay.velstria";
+
+/** 端末の fetchItems(forIdentityVerificationSignature:) と同じ形の署名 */
+function gameCenterProof(playerId, { timestamp = Date.now(), bundleId = BUNDLE_ID, key = gameCenter.privateKey, url = gameCenter.url } = {}) {
+  const salt = randomBytes(8);
+  const ts = Buffer.alloc(8);
+  ts.writeBigUInt64BE(BigInt(timestamp));
+  const signature = sign("sha256", Buffer.concat([Buffer.from(playerId, "utf8"), Buffer.from(bundleId, "utf8"), ts, salt]), key);
+  return { playerId, bundleId, publicKeyUrl: url, signature: signature.toString("base64"), salt: salt.toString("base64"), timestamp };
+}
+
+function randomVerifier() {
+  return randomBytes(32).toString("hex");
+}
+
+function newAccount() {
+  return { code: randomFriendCode(), key: randomKey() };
+}
+
+function accountCall({ code }, op, body, method = "POST") {
+  return httpCall(`/v1/account/${code}/${op}`, body, method);
+}
+
+/** プロフィールを預ける（本文はバイト列、鍵は見出し） */
+async function accountSave({ code, key }, bytes, savedAt = Date.now()) {
+  const response = await fetch(`${httpBase()}/v1/account/${code}/save`, {
+    method: "POST",
+    headers: { "x-velsia-key": key, "x-velsia-saved-at": String(savedAt), "content-type": "application/octet-stream" },
+    body: bytes,
+  });
+  const text = await response.text();
+  let json = null;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    // 誤りの応答は平文
+  }
+  return { status: response.status, text: text.trim(), json };
+}
+
+/** 取り出す（成功はバイト列、誤りは平文） */
+async function accountTake(path, body) {
+  const response = await fetch(`${httpBase()}${path}`, { method: "POST", body: JSON.stringify(body) });
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  return { status: response.status, headers: response.headers, bytes, text: new TextDecoder().decode(bytes).trim() };
+}
+
+describe("アカウント", () => {
+  test("パスワードを設定して預けたプロフィールを、ID + パスワードで取り出せる（1 MiB を超えても。状態は見出し）", async () => {
+    const a = newAccount();
+    const empty = await accountCall(a, "status", { key: a.key });
+    assert.deepEqual(empty.json, { ok: true, account: { password: false, savedAt: null, size: 0, gameCenter: false } });
+    assert.equal(empty.headers.get("cache-control"), "no-store");
+    const verifier = randomVerifier();
+    assert.deepEqual((await accountCall(a, "password", { key: a.key, verifier })).json.account.password, true);
+    const profile = randomBytes(1300 * KIB);
+    const savedAt = Date.UTC(2026, 9, 22, 1, 2, 3);
+    const saved = await accountSave(a, profile, savedAt);
+    assert.equal(saved.status, 200, saved.text);
+    assert.deepEqual(saved.json.account, { password: true, savedAt, size: profile.length, gameCenter: false });
+    const got = await accountTake("/v1/account/login", { code: a.code, verifier });
+    assert.equal(got.status, 200, got.text);
+    assert.equal(got.headers.get("content-type"), "application/octet-stream");
+    assert.equal(got.headers.get("x-velsia-code"), a.code);
+    assert.equal(got.headers.get("x-velsia-saved-at"), String(savedAt));
+    assert.equal(got.headers.get("x-velsia-password"), "1");
+    assert.equal(got.headers.get("x-velsia-gamecenter"), "0");
+    assert.ok(Buffer.from(got.bytes).equals(profile), "預けたバイト列のまま");
+    // 小さい物で置き換えると、前の区切りは残らない
+    const small = randomBytes(10);
+    assert.equal((await accountSave(a, small)).status, 200);
+    assert.ok(Buffer.from((await accountTake("/v1/account/login", { code: a.code, verifier })).bytes).equals(small));
+  });
+
+  test("パスワードを 5 回続けて違えると 15 分ロック（その間は正しいパスワードでも 429・retry-after）", async () => {
+    const a = newAccount();
+    const verifier = randomVerifier();
+    await accountCall(a, "password", { key: a.key, verifier });
+    await accountSave(a, randomBytes(64));
+    for (let i = 0; i < 5; i++) assertError(await accountTake("/v1/account/login", { code: a.code, verifier: randomVerifier() }), 403, "wrong_password");
+    const locked = await accountTake("/v1/account/login", { code: a.code, verifier });
+    assertError(locked, 429, "locked");
+    assert.ok(Number(locked.headers.get("retry-after")) > 800, "15 分ほど");
+    // 持ち主の鍵でパスワードを設定し直すとロックは解ける
+    const next = randomVerifier();
+    await accountCall(a, "password", { key: a.key, verifier: next });
+    assert.equal((await accountTake("/v1/account/login", { code: a.code, verifier: next })).status, 200);
+  });
+
+  test("パスワードの無いアカウントは 404 no_password、預けていなければ 404 no_data", async () => {
+    const a = newAccount();
+    await accountCall(a, "status", { key: a.key });
+    assertError(await accountTake("/v1/account/login", { code: a.code, verifier: randomVerifier() }), 404, "no_password");
+    const verifier = randomVerifier();
+    await accountCall(a, "password", { key: a.key, verifier });
+    assertError(await accountTake("/v1/account/login", { code: a.code, verifier }), 404, "no_data");
+  });
+
+  test("持ち主でない鍵は 403 forbidden（受信箱・ランクと同じ鍵の持ち主）", async () => {
+    const a = newAccount();
+    await accountCall(a, "status", { key: a.key });
+    const other = { code: a.code, key: randomKey() };
+    for (const op of ["status", "unlink-gamecenter", "erase"]) assertError(await accountCall(other, op, { key: other.key }), 403, "forbidden", op);
+    assertError(await accountCall(other, "password", { key: other.key, verifier: randomVerifier() }), 403, "forbidden");
+    assertError(await accountSave(other, randomBytes(8)), 403, "forbidden");
+  });
+
+  test("誤り: 鍵・照合値・コードの形は 400、POST 以外は 405、4 MiB を超える保存は 413", async () => {
+    const a = newAccount();
+    assertError(await accountCall(a, "status", { key: "short" }), 400, "bad_key");
+    assertError(await accountCall(a, "password", { key: a.key, verifier: "abc" }), 400, "bad_verifier");
+    assertError(await accountCall({ code: "abc" }, "status", { key: a.key }), 400, "bad_friend_code");
+    assertError(await accountCall(a, "status", "not json"), 400, "bad_request");
+    assertError(await accountCall(a, "status", undefined, "GET"), 405, "method_not_allowed");
+    assertError(await accountTake("/v1/account/login", { code: "abc", verifier: randomVerifier() }), 400, "bad_friend_code");
+    assertError(await accountTake("/v1/account/login", { code: a.code, verifier: "x" }), 400, "bad_verifier");
+    assertError(await accountSave(a, randomBytes(4 * 1024 * KIB + 1)), 413, "too_large");
+    assertError(await accountSave(a, new Uint8Array(0)), 400, "bad_request");
+  });
+
+  test("Game Center: 正しい署名で連携し、同じ人の署名で取り出せる。別のアカウントへは 409、署名違い 403、apple.com 以外 400", { skip: !!process.env.RELAY_URL && "配備済みの中継にはテストの鍵を渡せない" }, async () => {
+    const a = newAccount();
+    const playerId = `T:_${randomBytes(8).toString("hex")}`;
+    await accountSave(a, Buffer.from("profile-a"));
+    // 連携していない人は 404 not_linked
+    assertError(await accountTake("/v1/account/login-gamecenter", { gc: gameCenterProof(playerId) }), 404, "not_linked");
+    const linked = await accountCall(a, "gamecenter", { key: a.key, gc: gameCenterProof(playerId) });
+    assert.equal(linked.status, 200, linked.text);
+    assert.equal(linked.json.account.gameCenter, true);
+    const got = await accountTake("/v1/account/login-gamecenter", { gc: gameCenterProof(playerId) });
+    assert.equal(got.status, 200, got.text);
+    assert.equal(got.headers.get("x-velsia-code"), a.code);
+    assert.equal(got.headers.get("x-velsia-gamecenter"), "1");
+    assert.equal(Buffer.from(got.bytes).toString(), "profile-a");
+    // 同じ Game Center を別のアカウントには結べない
+    const b = newAccount();
+    assertError(await accountCall(b, "gamecenter", { key: b.key, gc: gameCenterProof(playerId) }), 409, "gamecenter_taken");
+    // 署名の誤り
+    assertError(await accountTake("/v1/account/login-gamecenter", { gc: gameCenterProof(playerId, { key: gameCenter.otherKey }) }), 403, "gamecenter_invalid");
+    assertError(await accountTake("/v1/account/login-gamecenter", { gc: gameCenterProof(playerId, { timestamp: Date.now() - 2 * 60 * 60 * 1000 }) }), 403, "gamecenter_expired");
+    assertError(await accountTake("/v1/account/login-gamecenter", { gc: gameCenterProof(playerId, { bundleId: "com.example.other" }) }), 400, "bad_gamecenter");
+    assertError(await accountTake("/v1/account/login-gamecenter", { gc: gameCenterProof(playerId, { url: "https://example.com/gc.cer" }) }), 400, "bad_gamecenter");
+    assertError(await accountTake("/v1/account/login-gamecenter", { gc: gameCenterProof(playerId, { url: "http://static.gc.apple.com/gc.cer" }) }), 400, "bad_gamecenter");
+    // 連携を外すと取り出せず、別のアカウントに結べる
+    assert.equal((await accountCall(a, "unlink-gamecenter", { key: a.key })).json.account.gameCenter, false);
+    assertError(await accountTake("/v1/account/login-gamecenter", { gc: gameCenterProof(playerId) }), 404, "not_linked");
+    assert.equal((await accountCall(b, "gamecenter", { key: b.key, gc: gameCenterProof(playerId) })).status, 200);
+  });
+
+  test("erase で預けたプロフィール・パスワード・Game Center の連携が消える（その Game Center は別のアカウントに結べる）", async () => {
+    const a = newAccount();
+    const verifier = randomVerifier();
+    await accountCall(a, "password", { key: a.key, verifier });
+    await accountSave(a, randomBytes(32));
+    const playerId = `T:_${randomBytes(8).toString("hex")}`;
+    if (gameCenter) assert.equal((await accountCall(a, "gamecenter", { key: a.key, gc: gameCenterProof(playerId) })).status, 200);
+    assert.deepEqual((await accountCall(a, "erase", { key: a.key })).json, { ok: true, result: "erased" });
+    assertError(await accountTake("/v1/account/login", { code: a.code, verifier }), 404, "no_password");
+    assert.deepEqual((await accountCall(a, "status", { key: a.key })).json.account, { password: false, savedAt: null, size: 0, gameCenter: false });
+    if (gameCenter) {
+      assertError(await accountTake("/v1/account/login-gamecenter", { gc: gameCenterProof(playerId) }), 404, "not_linked");
+      const b = newAccount();
+      assert.equal((await accountCall(b, "gamecenter", { key: b.key, gc: gameCenterProof(playerId) })).status, 200);
+    }
+    // 使ったことのないコードの erase も 200
+    const fresh = newAccount();
+    assert.equal((await accountCall(fresh, "erase", { key: fresh.key })).status, 200);
+  });
+
+  test("運営が利用を止めたコードは保存・取り出しが 403 suspended（消去はできる）", { skip: SUSPENDED_CODE === null && "配備済みの中継には止めたコードを渡せない" }, async () => {
+    const s = { code: SUSPENDED_CODE, key: randomKey() };
+    assertError(await accountSave(s, randomBytes(8)), 403, "suspended");
+    assertError(await accountTake("/v1/account/login", { code: s.code, verifier: randomVerifier() }), 403, "suspended");
+    assert.equal((await accountCall(s, "erase", { key: s.key })).status, 200);
   });
 });

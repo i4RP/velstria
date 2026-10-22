@@ -300,6 +300,16 @@ struct MatchRecord: Codable, Equatable, Identifiable {
     /// 保存済みリプレイ（ReplayMeta.id）。
     var replayID: UUID?
     var summary: MatchSummary?
+    /// ランク戦の前後のランク（過去の戦績のカードの「IV★0 » IV★1」。ランク戦以外・旧版の記録は nil）。
+    var rankBefore: PublicRank? = nil
+    var rankAfter: PublicRank? = nil
+}
+
+extension PublicRank {
+    /// 端末のランクの位置（ティア・段位・星）。
+    init(_ r: RankState) {
+        self.init(tier: r.tier.rawValue, division: r.division, stars: r.stars)
+    }
 }
 
 /// リプレイの出どころ（一覧の絞り込み・表示用）。
@@ -725,6 +735,8 @@ struct Profile: Codable, Equatable {
     /// 同意したオンライン機能のルール（コミュニティガイドライン・利用規約のオンラインの条項）の版。
     /// FeatureFlags.currentOnlineRulesVersion 未満の間はオンライン機能を使えず、フレンドの受信箱へも繋がない（OnlineAccess）。
     var acceptedOnlineRulesVersion = 0
+    /// アカウント（パスワード・Game Center の連携・クラウド保存。CloudAccountService）。中継の状態の写し。
+    var account = AccountLinkState()
 
     var totalGem: Int { freeGem + paidGem }
 }

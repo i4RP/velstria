@@ -192,13 +192,15 @@ enum RewardService {
         }
 
         // 戦績（新しい順・最新 50 件）
-        let record = MatchRecord(
+        var record = MatchRecord(
             date: now, mode: launch.config.mode, difficulty: enemyDifficulty(launch.config, humanTeam: human.team),
             won: summary.humanWon, duration: summary.duration, heroID: human.heroID,
             kills: human.score.kills, deaths: human.score.deaths, assists: human.score.assists,
             creepScore: human.score.creepScore, gold: human.score.goldEarned,
             damageToHeroes: human.score.damageToHeroes, grade: human.grade, isMVP: human.isMVP,
             items: human.items, replayID: report.replayID, summary: summary)
+        record.rankBefore = report.rankBefore.map { PublicRank($0) }
+        record.rankAfter = report.rankAfter.map { PublicRank($0) }
         profile.matchHistory.insert(record, at: 0)
         if profile.matchHistory.count > maxMatchHistory {
             profile.matchHistory.removeLast(profile.matchHistory.count - maxMatchHistory)

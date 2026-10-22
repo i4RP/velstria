@@ -33,6 +33,16 @@
       {
         "name": "DIRECTORY",
         "class_name": "Directory"
+      },
+      // フレンドコード 1 つ = アカウント 1 つ（idFromName(code)）。クラウド保存・パスワード・Game Center の連携
+      {
+        "name": "CLOUD_ACCOUNT",
+        "class_name": "CloudAccount"
+      },
+      // Game Center の teamPlayerID 1 つ = 1 つ（getByName("gc:<id>")）。連携したフレンドコードを引く索引
+      {
+        "name": "GAME_CENTER_INDEX",
+        "class_name": "GameCenterIndex"
       }
     ]
   },
@@ -54,6 +64,10 @@
     {
       "tag": "v4",
       "new_sqlite_classes": ["Directory"]
+    },
+    {
+      "tag": "v5",
+      "new_sqlite_classes": ["CloudAccount", "GameCenterIndex"]
     }
   ]
 }
