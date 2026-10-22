@@ -1,0 +1,562 @@
+{
+  "version": 1,
+  "hero": "H033",
+  "recorded_at": "2026-10-22T16:27:37.774Z",
+  "credit_cap": {
+    "meshy": 120,
+    "tripo": 0
+  },
+  "credits_consumed": {
+    "meshy": 110,
+    "tripo": 0
+  },
+  "meshy_library": {
+    "count": 678,
+    "candidates": [
+      {
+        "action_id": 0,
+        "name": "Idle",
+        "key": "Idle",
+        "category": "DailyActions",
+        "sub_category": "Idle",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Idle.gif"
+      },
+      {
+        "action_id": 11,
+        "name": "Idle 1",
+        "key": "Idle_02",
+        "category": "DailyActions",
+        "sub_category": "Idle",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Idle_02.gif"
+      },
+      {
+        "action_id": 21,
+        "name": "Walk Fight Forward",
+        "key": "Walk_Fight_Forward",
+        "category": "WalkAndRun",
+        "sub_category": "Walking",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Walk_Fight_Forward.gif"
+      },
+      {
+        "action_id": 86,
+        "name": "Jump Attack",
+        "key": "Basic_Jump",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Basic_Jump.gif"
+      },
+      {
+        "action_id": 89,
+        "name": "Combat Idel",
+        "key": "Combat_Stance",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Combat_Stance.gif"
+      },
+      {
+        "action_id": 91,
+        "name": "Double Blade Spin",
+        "key": "Double_Blade_Spin",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Double_Blade_Spin.gif"
+      },
+      {
+        "action_id": 97,
+        "name": "Left Slash",
+        "key": "Left_Slash",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Left_Slash.gif"
+      },
+      {
+        "action_id": 99,
+        "name": "Reaping Swing",
+        "key": "Reaping_Swing",
+        "category": "Fighting",
+        "sub_category": "Transitioning",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Reaping_Swing.gif"
+      },
+      {
+        "action_id": 102,
+        "name": "Sword Judgment",
+        "key": "Sword_Judgment",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Sword_Judgment.gif"
+      },
+      {
+        "action_id": 128,
+        "name": "Heavy Hammer Swing",
+        "key": "Heavy_Hammer_Swing",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Heavy_Hammer_Swing.gif"
+      },
+      {
+        "action_id": 219,
+        "name": "Right-hand Sword Slash",
+        "key": "Right_Hand_Sword_Slash",
+        "category": "Fighting",
+        "sub_category": "Punching",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Right_Hand_Sword_Slash.gif"
+      },
+      {
+        "action_id": 221,
+        "name": "Charged Upward Slash",
+        "key": "Charged_Upward_Slash",
+        "category": "Fighting",
+        "sub_category": "Punching",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Charged_Upward_Slash.gif"
+      },
+      {
+        "action_id": 237,
+        "name": "Charged Axe Chop",
+        "key": "Charged_Axe_Chop",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Charged_Axe_Chop.gif"
+      },
+      {
+        "action_id": 238,
+        "name": "Axe Spin Attack",
+        "key": "Axe_Spin_Attack",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Axe_Spin_Attack.gif"
+      },
+      {
+        "action_id": 242,
+        "name": "Charged Slash",
+        "key": "Charged_Slash",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Charged_Slash.gif"
+      },
+      {
+        "action_id": 382,
+        "name": "Jump and Slam Back Down",
+        "key": "Jump_and_Slam_Back_Down",
+        "category": "BodyMovements",
+        "sub_category": "Acting",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Jump_and_Slam_Back_Down.gif"
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "name": "idle",
+      "provider": "meshy",
+      "task_id": "01a16465-9c28-74f2-a21c-390cff128955",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:43.020Z",
+      "request": {
+        "mode": "prime",
+        "duration": 4,
+        "prompt": "Seamless looping combat idle. Swordsman holds a huge greatsword one-handed in right hand, blade low and forward by right leg, edge down. Right shoulder and right foot forward, knees soft, weight centered. Slow deep breath, tiny weight shift between feet, head and chest calmly scan left then right. Free left hand relaxed, fingers flex slightly. Feet planted. Ends exactly in start pose."
+      },
+      "file": {
+        "file": "build/h033-motion/idle.fbx",
+        "bytes": 16825904,
+        "sha256": "67b7555c1d6e1215182fd7b29e63a655a5892db27b7926cdae09807421da0ab9"
+      },
+      "error": null
+    },
+    {
+      "name": "walk",
+      "provider": "meshy",
+      "task_id": "01a16465-a07b-7644-bc5a-b730464f04df",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:44.227Z",
+      "request": {
+        "mode": "prime",
+        "duration": 3,
+        "prompt": "Looping heavy confident walk forward. Right hand carries a huge greatsword one-handed at right side, blade angled down and back, arm firm and steady. Long grounded strides, heel then toe, shoulders lag slightly behind hips, calm upright chest, small vertical bob. Left arm swings naturally. Even rhythm, every step same length."
+      },
+      "file": {
+        "file": "build/h033-motion/walk.fbx",
+        "bytes": 16768672,
+        "sha256": "11dfb94f65346298e09a7c7d755194c0f0f62b9b2d535c2ee615653811c20c0d"
+      },
+      "error": null
+    },
+    {
+      "name": "run",
+      "provider": "meshy",
+      "task_id": "01a16465-a57a-77ff-8fd2-db07d842cc20",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:45.719Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Looping fast run forward. Torso leans forward, right hand holds a huge greatsword one-handed low behind right hip, blade trailing back close to body, arm stable. Powerful long strides, knees drive up, feet push off strongly, left arm pumps. Head steady looking ahead. Even rhythm, seamless loop."
+      },
+      "file": {
+        "file": "build/h033-motion/run.fbx",
+        "bytes": 16711424,
+        "sha256": "15893839b845d26db10f880e4c04d6f4943c648c2333686a0473812167f584df"
+      },
+      "error": null
+    },
+    {
+      "name": "attack1",
+      "provider": "meshy",
+      "task_id": "01a16465-a87e-7755-a300-fdfe9ee6da19",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:46.487Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Heavy one-handed greatsword slash, right hand. From ready stance, small crouch, raise sword high over right shoulder, blade back. Short pause, then hips rotate left and chest follows as the arm drives the blade diagonally down across the front to low left in a wide fast arc. Torso absorbs the weight, brief hold, then quickly return to ready stance, sword low at right. Feet stay planted."
+      },
+      "file": {
+        "file": "build/h033-motion/attack1.fbx",
+        "bytes": 16740048,
+        "sha256": "2cd5a31b22bf906d5cc17177c46972d4f6c19a3cc6573e88381e4d8b0f3e51e8"
+      },
+      "error": null
+    },
+    {
+      "name": "attack2",
+      "provider": "meshy",
+      "task_id": "01a16465-abc8-7255-aba6-ef2da8e6e3a8",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:47.332Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Heavy one-handed backhand greatsword sweep, right hand. From ready stance, wind sword across body to low left, shoulders coil left. Brief pause, then hips and chest uncoil right and the blade sweeps horizontally from left to right at waist height in a wide arc. Momentum stopped by core, brief hold, then quickly return to ready stance, sword low at right. Feet planted."
+      },
+      "file": {
+        "file": "build/h033-motion/attack2.fbx",
+        "bytes": 16740048,
+        "sha256": "781f93abc61714851d5d60f2fad3b9e9ae6d51507e856bbd4350b440f34ec3b1"
+      },
+      "error": null
+    },
+    {
+      "name": "attack3",
+      "provider": "meshy",
+      "task_id": "01a16465-ae85-779e-a0a5-3ee891f97421",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:48.035Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Powerful one-handed overhead greatsword chop, right hand. From ready stance, step left foot slightly, lift sword straight up above head, back arches. Tiny pause, then whole body drops and the blade slams straight down in front, hips and chest driving the weight, knees bend on impact. Hold briefly, then rise and return to ready stance, sword low at right side."
+      },
+      "file": {
+        "file": "build/h033-motion/attack3.fbx",
+        "bytes": 16740048,
+        "sha256": "2f82ccdfdb2151817d69da7a3124932bd42a8cb0d48b7118118630e9c77e0761"
+      },
+      "error": null
+    },
+    {
+      "name": "s1_leap",
+      "provider": "meshy",
+      "task_id": "01a16465-b160-7573-8ebb-8f5bf3532ded",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:48.767Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Leaping greatsword slam. Holding huge greatsword in right hand, crouch then jump forward high, raising sword with both hands above head while in the air. On landing, both feet hit ground and the sword slams straight down in front at the exact landing moment, knees deep bent. Hold, then rise to ready stance, sword low in right hand."
+      },
+      "file": {
+        "file": "build/h033-motion/s1_leap.fbx",
+        "bytes": 16740048,
+        "sha256": "cd2af28678870b785537543a59c79ec9f077e4aa5c18ae21e84c61dbff722f10"
+      },
+      "error": null
+    },
+    {
+      "name": "s2_spin",
+      "provider": "meshy",
+      "task_id": "01a16465-b45f-7768-8629-38cc65bca1c2",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:49.532Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Spinning greatsword slash. Holding huge greatsword one-handed in right hand extended outward at waist height, swordsman spins counterclockwise in place one and a half turns fast, blade sweeping a full horizontal circle, feet pivoting on balls. Stops facing forward, core braces, sword low at right side, ready stance."
+      },
+      "file": {
+        "file": "build/h033-motion/s2_spin.fbx",
+        "bytes": 16711424,
+        "sha256": "e85d6e0358fbde8358b74e84ee853db6ca43bfd92882f1b0645359e86dbb4f7b"
+      },
+      "error": null
+    },
+    {
+      "name": "ult_absorb",
+      "provider": "meshy",
+      "task_id": "01a16465-b7aa-762e-a20c-c79e967bf7b3",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:50.371Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Greatsword power absorb. Holding huge greatsword in right hand, swordsman quickly raises the sword vertically above head, point up, left hand open reaching up beside it, chest lifts and head tilts back, drawing energy in. Brief hold, then lowers sword to ready stance at right side. Feet planted."
+      },
+      "file": {
+        "file": "build/h033-motion/ult_absorb.fbx",
+        "bytes": 16711424,
+        "sha256": "de5319f9ed126d6ba91a3e705e9b9305d47b882d24d01b9a9020215939bb04e4"
+      },
+      "error": null
+    },
+    {
+      "name": "ult_wave",
+      "provider": "meshy",
+      "task_id": "01a16465-ba58-7360-a84f-31680e028e0e",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:51.060Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Forward greatsword shockwave swing. Holding huge greatsword in right hand, quick windup lifting blade back over right shoulder, then step forward with left foot and swing the blade powerfully down and forward in front, arm extended, body leaning into it to launch a wave. Brief hold, then return to ready stance, sword low at right side."
+      },
+      "file": {
+        "file": "build/h033-motion/ult_wave.fbx",
+        "bytes": 16711424,
+        "sha256": "e30b2fe28fa1a59ad489b94d79046d9f73663f0f79344fa37a54638003bee9ba"
+      },
+      "error": null
+    },
+    {
+      "name": "run2",
+      "provider": "meshy",
+      "task_id": "01a1646b-3bd3-704f-998c-fefbf66f42dd",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:21:51.523Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Looping steady heavy jog forward, moderate speed, not a sprint. Torso leans slightly forward, right hand holds a huge greatsword one-handed low at right side, blade trailing back along the body, arm firm. Short grounded strides, feet stay close to ground, little bounce, left arm swings. Head steady. Even rhythm, seamless loop."
+      },
+      "file": {
+        "file": "build/h033-motion/run2.fbx",
+        "bytes": 16711424,
+        "sha256": "84dfbf52570d99750875d99cea42233ba19d9b5cc30f38ca55385ca36956d008"
+      },
+      "error": null
+    }
+  ],
+  "retained_existing_model": true,
+  "finish": {
+    "idle_h033": {
+      "frames": 120,
+      "maxIKClampMm": 0,
+      "endToStartDegrees": 0
+    },
+    "walk_h033": {
+      "frames": 48,
+      "maxIKClampMm": 0,
+      "endToStartDegrees": 0,
+      "loopStart": 20,
+      "period": 48,
+      "seamScore": 24.55,
+      "groundSpeed": 1.2200704962015152
+    },
+    "run_h033": {
+      "frames": 22,
+      "maxIKClampMm": 0,
+      "endToStartDegrees": 0,
+      "loopStart": 16,
+      "period": 22,
+      "seamScore": 31.79,
+      "groundSpeed": 3.3390596508979797
+    },
+    "sword_slash_h033": {
+      "frames": 34,
+      "maxIKClampMm": 18.7,
+      "endToStartDegrees": 0,
+      "sourcePeak": 26,
+      "keys": [
+        [
+          0,
+          6
+        ],
+        [
+          8,
+          21
+        ],
+        [
+          12,
+          26
+        ],
+        [
+          17,
+          32
+        ],
+        [
+          33,
+          54
+        ]
+      ]
+    },
+    "sword_chop_h033": {
+      "frames": 36,
+      "maxIKClampMm": 0,
+      "endToStartDegrees": 0,
+      "sourcePeak": 27,
+      "keys": [
+        [
+          0,
+          7
+        ],
+        [
+          9,
+          22
+        ],
+        [
+          13,
+          27
+        ],
+        [
+          18,
+          33
+        ],
+        [
+          35,
+          55
+        ]
+      ]
+    },
+    "leap_slam_h033": {
+      "frames": 27,
+      "maxIKClampMm": 0,
+      "endToStartDegrees": 108.324,
+      "keys": [
+        [
+          0,
+          6
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          6,
+          17
+        ],
+        [
+          11,
+          26
+        ],
+        [
+          15,
+          33
+        ],
+        [
+          26,
+          60
+        ]
+      ]
+    },
+    "spin_slash_h033": {
+      "frames": 24,
+      "maxIKClampMm": 0,
+      "endToStartDegrees": 0,
+      "keys": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          6
+        ],
+        [
+          10,
+          27
+        ],
+        [
+          16,
+          32
+        ],
+        [
+          23,
+          40
+        ]
+      ]
+    },
+    "ult_absorb_h033": {
+      "frames": 27,
+      "maxIKClampMm": 13.08,
+      "endToStartDegrees": 0,
+      "keys": [
+        [
+          0,
+          0
+        ],
+        [
+          6,
+          14
+        ],
+        [
+          14,
+          30
+        ],
+        [
+          20,
+          45
+        ],
+        [
+          26,
+          58
+        ]
+      ]
+    },
+    "ult_wave_h033": {
+      "frames": 27,
+      "maxIKClampMm": 0,
+      "endToStartDegrees": 0,
+      "keys": [
+        [
+          0,
+          4
+        ],
+        [
+          3,
+          11
+        ],
+        [
+          5,
+          15
+        ],
+        [
+          8,
+          19
+        ],
+        [
+          26,
+          58
+        ]
+      ]
+    },
+    "model": {
+      "height": 1.6999996900558472,
+      "bones": 23,
+      "legLength": 0.9641171544790268,
+      "usdAxisDegrees": 0.0006687997223136534,
+      "warnings": []
+    }
+  },
+  "references": [
+    "https://docs.meshy.ai/en/api/text-to-motion",
+    "https://docs.meshy.ai/en/api/animation-library"
+  ]
+}

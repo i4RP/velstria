@@ -17,6 +17,10 @@ struct HeroMotionSet {
     var idle: String?
     /// 待機のクリップが専用の収録（H025）。HeroIdle の個別の待機より優先する。
     var dedicatedIdle = false
+    /// 詠唱のクリップを移動中も全身で再生する（跳び込み等。sim の移動速度で下半身を歩きへ替えない）。
+    var castsFullBody = false
+    /// 再使用の段（stage 1 以降）の詠唱クリップ（Skill1, Skill2, Ultimate。nil = casts と同じ）。
+    var recasts: [String?] = [nil, nil, nil]
     var walk: String?
     var run: String?
     var death: String?
@@ -50,6 +54,8 @@ struct HeroMotionBinding {
     let casts: [Int?]
     let idle: Int?
     let dedicatedIdle: Bool
+    let castsFullBody: Bool
+    let recasts: [Int?]
     let walk: Int?
     let run: Int?
     let death: Int?
@@ -68,6 +74,8 @@ struct HeroMotionBinding {
         casts = (0..<3).map { $0 < set.casts.count ? find(set.casts[$0]) : nil }
         idle = find(set.idle)
         dedicatedIdle = set.dedicatedIdle && idle != nil
+        castsFullBody = set.castsFullBody
+        recasts = (0..<3).map { $0 < set.recasts.count ? find(set.recasts[$0]) : nil }
         walk = find(set.walk)
         run = find(set.run)
         death = find(set.death)
@@ -87,13 +95,20 @@ struct HeroMotionBinding {
 
     /// スキル枠 → casts の添字（パッシブは Skill1 と同じ。HeroAnimator.castIndex と同じ対応）。
     func cast(_ index: Int) -> Int? { index >= 0 && index < casts.count ? casts[index] : nil }
+
+    /// 段の詠唱（段 1 以降に専用のクリップがあればそれ、無ければ cast(index)）。
+    func cast(_ index: Int, stage: Int) -> Int? {
+        if stage >= 1, index >= 0, index < recasts.count, let c = recasts[index] { return c }
+        return cast(index)
+    }
 }
 
 enum HeroMotionSets {
     /// heroID の割り当て（未知の ID は nil = 手続きのみ）。
     static func set(heroID: String) -> HeroMotionSet? {
         guard var set = table[heroID] else { return nil }
-        if HeroIdle.authored(for: heroID) != nil {
+        // 専用の収録の待機（dedicatedIdle）は HeroIdle の個別の待機より優先する
+        if HeroIdle.authored(for: heroID) != nil && !set.dedicatedIdle {
             set.idle = nil
             set.idleWeaponR = nil
             set.idleWeaponL = nil
@@ -135,6 +150,20 @@ enum HeroMotionSets {
         s.dedicatedIdle = true
         s.walk = "h025_walk"
         s.run = "h025_run"
+        return s
+    }()
+
+    /// 紅牙のヴァルド（H033）: Meshy prime の収録を仕上げた専用クリップ（docs/H033_MOTION.md）。大剣は右手の片手持ち。
+    /// 通常攻撃は斜めの斬り下ろし → 頭上からの叩き割りを交互に。スキルは S1 跳び叩き・S2 回転斬りの構え（回転そのものは
+    /// FX_H033.motion の手続きの spin）・奥義の吸収（段 0）と衝撃波の振り抜き（段 1）。
+    private static let vald: HeroMotionSet = {
+        var s = make(["sword_slash_h033", "sword_chop_h033"], idle: "idle_h033", death: "death_forward")
+        s.dedicatedIdle = true
+        s.walk = "walk_h033"
+        s.run = "run_h033"
+        s.casts = ["leap_slam_h033", "spin_slash_h033", "ult_absorb_h033"]
+        s.recasts = [nil, nil, "ult_wave_h033"]
+        s.castsFullBody = true
         return s
     }()
 
@@ -216,7 +245,7 @@ enum HeroMotionSets {
                      offhandGrip: HeroMotionSet.fistGrip),
         // 魔狩りの大剣（Assassin・近接の片手の連斬り。アルーカードは巨大な剣を片手で振る）。左手を柄へ添える両手の振り
         // （overhead_2h・sword_upward）や左手も大きく動く溜め斬り（sword_charged）ではなく、右手で振る剣のクリップ
-        "H033": make(["sword_slash_r", "sword_combo_3", "sword_slash_l2"], idle: "combat_idle", death: "death_forward"),
+        "H033": vald,
         // 鎖鉤（Support・近接の振り回し）。通常攻撃は全身のモーション（Motion_H034.attacks）が先なので、ここの攻撃のクリップは使わない
         "H034": make(["axe_chop", "sword_slash_r", "sword_combo_1"], idle: "combat_idle"),
     ]

@@ -638,6 +638,8 @@ struct HeroAnimator {
     private var activeCast: MotionClip?
     /// この詠唱で命中の後のモーション（profile.hitFollowUps）を始めた。
     private var castHitPlayed = false
+    /// 直近の playCast の段（段ごとの詠唱クリップ HeroMotionBinding.recasts を選ぶ）。
+    private var castStage = 0
     /// 全身のモーション（yieldsLowerWhenMoving の詠唱・全身の通常攻撃）の下半身の重み。立ち止まっていれば 1、移動中は 0 へ
     /// actionLowerFade 秒で寄せる（sim が動かしている突進の間も移動の脚で走る）。
     private var actionLower: Float = 1
@@ -677,6 +679,8 @@ struct HeroAnimator {
     var attackDuration: Float { profile.attack.total }
 
     mutating func setState(_ s: HeroAnimState) {
+        // 段を指定しない詠唱は段 0（段 1 以降は playCast が castStage を入れる）
+        if case .cast = s, s != state { castStage = 0 }
         transition(s, autoAttack: true)
     }
 
@@ -791,12 +795,22 @@ struct HeroAnimator {
     func castDuration(_ slot: SkillSlot, stage: Int) -> Float { profile.cast(slot, stage: stage).total }
 
     /// 段に固有のモーションがあり、同じスロットの詠唱中でも始め直す段か（HeroSkillMotions のヒーローの再使用）。
-    func castRestarts(_ slot: SkillSlot, stage: Int) -> Bool { profile.hasStageCast(slot, stage: stage) }
+    func castRestarts(_ slot: SkillSlot, stage: Int) -> Bool {
+        profile.hasStageCast(slot, stage: stage)
+            || (stage >= 1 && clips.binding?.recasts[HeroAnimator.castIndex(slot)] != nil)
+    }
 
     /// 詠唱を段のモーションで始める。段に固有のモーションがあれば同じスロットの詠唱中でも始め直す。
     /// 無ければ setState(.cast(slot)) と同じ（同じスロットの詠唱中なら続ける = 従来どおり）。
     mutating func playCast(_ slot: SkillSlot, stage: Int) {
-        guard profile.hasStageCast(slot, stage: stage) else { return transition(.cast(slot), autoAttack: true) }
+        castStage = stage
+        guard profile.hasStageCast(slot, stage: stage) else {
+            // 段に専用のクリップがあり、同じスロットの詠唱中なら、クリップだけ始め直す（奥義の吸収 → 振り抜き）
+            if stage >= 1, state == .cast(slot), clips.binding?.recasts[HeroAnimator.castIndex(slot)] != nil {
+                return startCastClip(slot)
+            }
+            return transition(.cast(slot), autoAttack: true)
+        }
         let prev = state
         if state == .attack { attackCount += 1 }
         begin(.cast(slot), blend: 0.08)
@@ -1009,10 +1023,10 @@ struct HeroAnimator {
     /// 立ち止まっていれば全身、移動中は上半身（足の滑りを避ける。攻撃と同じ規則）。
     private mutating func startCastClip(_ slot: SkillSlot) {
         guard let b = clips.binding else { return }
-        guard let c = b.cast(HeroAnimator.castIndex(slot)) else { return clips.stop() }
+        guard let c = b.cast(HeroAnimator.castIndex(slot), stage: castStage) else { return clips.stop() }
         let info = b.library.clips[c]
         clips.start(c, role: .cast, from: max(0, info.impactTime - HeroAnimator.castLead),
-                    fullBody: true, speedMask: true, hold: false)
+                    fullBody: true, speedMask: !b.castsFullBody, hold: false)
     }
 
     /// 非ループのクリップが終わった時。

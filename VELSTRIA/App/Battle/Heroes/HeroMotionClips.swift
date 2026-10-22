@@ -343,10 +343,13 @@ enum HeroMotionClips {
         return cached != nil
     }
 
+    /// ヒーロー専用の収録（<ID>MotionClips.json）を持つヒーロー。参加している時だけ読む。
+    static let dedicatedHeroIDs: Set<String> = ["H025", "H033"]
+
     /// Separate hero clips are loaded only when that hero participates.
     static func library(heroID: String) -> HeroMotionLibrary {
         let base = shared
-        guard heroID == "H025" else { return base }
+        guard dedicatedHeroIDs.contains(heroID) else { return base }
         lock.lock()
         defer { lock.unlock() }
         if let lib = heroLibraries[heroID] { return lib }
