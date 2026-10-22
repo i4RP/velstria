@@ -36,8 +36,30 @@ enum Motion_H029: HeroMotionScript {
         return m
     }
 
+    // MARK: - 専用の収録（H029MotionClips.json）の打撃の時刻
+
+    /// 詠唱のクリップ（maul_wave / shield_charge / maul_upswing / maul_sanctuary）の打撃 = 判定の時刻（KitTimes）。
+    /// S1 = 1 回目の衝撃波、S2 = 突進の終点（距離 / 速さ）、S2 の再使用 = 打ち上げ、ULT = 崩落。
+    static func clipStrike(_ slot: SkillSlot, stage: Int) -> Float? {
+        switch (slot, stage) {
+        case (.skill1, 0):
+            return KitTimes(hero, .skill1).seconds("waveFirstDelay")
+        case (.skill2, 0):
+            let k = KitTimes(hero, .skill2)
+            return Float(k.distance("dashRange") / max(1, k.speed("dashSpeed")))
+        case (.skill2, 1):
+            return KitTimes(hero, .skill2, stage: 1).seconds("smashDelay")
+        case (.ultimate, 0):
+            return KitTimes(hero, .ultimate).seconds("ultTotal")
+        default:
+            return nil
+        }
+    }
+
     // MARK: - 通常攻撃
 
+    /// 専用の収録（maul_smash_h029、HeroMotionSet.dedicatedAttack）があるので、HeroMotionProfile はこれを通常攻撃に使わない
+    /// （HeroFullBodyMotionTests の打撃の時刻の検査と、収録を外した時の戻し先として残す）。
     /// 右上から左下への斜めの振り抜き（MLBB のティグラル: 振りかぶり 約 0.3 秒 → 打撃 → 左下へ流して 約 0.45 秒で戻る）。
     static func attacks(_ base: MotionBuilder) -> [MotionClip] {
         var m = builder(base)

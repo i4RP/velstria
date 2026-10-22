@@ -14,6 +14,9 @@ import VelstriaCore
 final class HeroFullBodyMotionTests: XCTestCase {
     private let master = MasterData.shared
     private static let scripted = ["H029", "H034"]
+    /// 通常攻撃を専用の収録（HeroMotionSet.dedicatedAttack のクリップ。H029MotionClipTests 等）で振るヒーロー。
+    /// 全身の手続きの通常攻撃（Motion_H0xx.attacks）は profile に載らない。
+    private static func clipAttack(_ id: String) -> Bool { HeroMotionSets.table[id]?.dedicatedAttack == true }
 
     private func profile(_ id: String) -> HeroMotionProfile {
         let bp = HeroBlueprints.blueprint(heroID: id, role: master.hero(id)?.role)
@@ -92,7 +95,7 @@ final class HeroFullBodyMotionTests: XCTestCase {
         near(try XCTUnwrap(borg.recasts[1].first).impact, try v("H029", .skill2, "smashDelay", stage: 1),
              "ボルグ S2 の再使用の振り上げ = 打ち上げ")
         near(borg.casts[2].impact, try v("H029", .ultimate, "ultTotal"), "ボルグ 奥義の叩き落とし = 崩落")
-        XCTAssertEqual(borg.attackMotions.count, 1)
+        XCTAssertEqual(borg.attackMotions.count, Self.clipAttack("H029") ? 0 : 1)
 
         let golm = profile("H034")
         near(golm.casts[0].impact, try v("H034", .skill1, "hookDelay"), "ゴルム S1 の投げ放ち = 鉤が飛ぶ")
@@ -108,7 +111,7 @@ final class HeroFullBodyMotionTests: XCTestCase {
             XCTAssertTrue(ult.keys.contains { abs($0.time - t) < 1e-3 }, "ゴルム 奥義の \(k + 1) 撃目（\(t) 秒）にキーが無い")
         }
         near(ult.simLock, try v("H034", .ultimate, "ultDelay") + v("H034", .ultimate, "ultSuppress"), "ゴルム 奥義の拘束")
-        XCTAssertEqual(golm.attackMotions.count, 2, "フランコの通常攻撃は左右交互の 2 拍")
+        XCTAssertEqual(golm.attackMotions.count, Self.clipAttack("H034") ? 0 : 2, "フランコの通常攻撃は左右交互の 2 拍")
         XCTAssertTrue(KitTimes.misses.isEmpty, "モーションが読むキットの値が fxValues に無い: \(KitTimes.misses.sorted())")
     }
 
@@ -257,7 +260,7 @@ final class HeroFullBodyMotionTests: XCTestCase {
 
     /// 全身の通常攻撃: 武器の振り（軌跡）は playAttack の windup 秒後の前後だけ。戻りは攻撃状態の後も続き、待機へつながる。
     func testAttackMotionStrikesAtWindup() {
-        for id in Self.scripted {
+        for id in Self.scripted where !Self.clipAttack(id) {
             for windup: Float in [0.18, 0.25, 0.4] {
                 var a = animator(id)
                 a.setState(.attack)

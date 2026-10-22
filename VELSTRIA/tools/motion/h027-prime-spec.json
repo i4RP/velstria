@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "hero": "H027",
+  "note": "Meshy Text to Motion (prime, 10 credits each). One candidate per motion; a second only if the first fails review.",
+  "motions": {
+    "h027_idle_prime": {
+      "duration": 4,
+      "prompt": "Proud young spear warrior idle guard, seamless loop. Right hand grips a long spear at hip, shaft angled forward and up, tip high in front, butt behind right heel. Left foot half step forward, right foot back, chest up. Slow breathing, small weight shift front to back, head and shoulders calmly scan left then right. Left hand relaxed fist at side, regripping. Feet planted, no steps."
+    },
+    "h027_walk_prime": {
+      "duration": 3,
+      "prompt": "Dignified spear warrior walking forward, steady loop of full strides. Right hand grips a long spear at hip, shaft held still, angled forward and up, tip never dipping. Upright chest, knees drive forward with long confident steps, heel strike to toe off, gentle hip sway. Left arm swings lightly. Spear stays clear of legs and ground. Constant pace, straight line, no turning."
+    },
+    "h027_run_prime": {
+      "duration": 3,
+      "prompt": "Agile spear warrior running forward fast, steady loop. Torso leans forward. Right hand holds a long spear low along the right side of the body, tip pointing forward, butt trailing behind, spear level and steady. Left arm pumps. Strong knee drive, quick light foot strikes, slight bounce. Spear never touches legs or ground. Constant speed, straight line."
+    },
+    "h027_thrust_prime": {
+      "duration": 2.5,
+      "prompt": "Spear master basic attack from guard: both hands on a long spear, right hand at rear near right hip, left hand forward on the shaft, tip aimed ahead at chest height, left foot forward. Draw the spear back, step in with the left foot, rotate hips then shoulders and drive a fast straight thrust, arms extend fully, weight on front leg. Pull back and return to the same guard."
+    },
+    "h027_sweep_prime": {
+      "duration": 2.5,
+      "prompt": "Spear master horizontal sweep from guard: both hands on a long spear, right hand rear, left hand forward, left foot forward. Wind up by twisting the torso right with the spear pulled to the right side. Step in, rotate hips to the left and swing the spear tip in a wide flat arc from right to left at waist height in front. Stop the spear under control and return to the same guard."
+    },
+    "h027_rising_prime": {
+      "duration": 2.5,
+      "prompt": "Spear master rising slash from guard: both hands on a long spear, right hand rear, left hand forward, left foot forward. Lower the spear tip near the ground in front and bend the knees, then drive up with legs and hips, swinging the tip upward in a vertical arc from low front to high above the head. Bring the spear back down and return to the same guard."
+    },
+    "h027_flip_prime": {
+      "duration": 2.5,
+      "prompt": "Spear warrior flip throw: from two-handed guard, crouch and slide the long spear tip low forward under an enemy, scoop it up and lift the spear high overhead, hold the weight a moment, then arch the back and swing the spear over the head to behind, throwing the enemy backward. Feet stay planted. Recover to the two-handed guard facing forward."
+    },
+    "h027_strike_prime": {
+      "duration": 2.5,
+      "prompt": "Spear warrior lunging dash attack: from guard, both hands hold a long spear pointed straight forward. Burst forward with a low leaning dash of two quick steps, then plant the front foot and drive a powerful straight thrust at arrival, arms fully extended, weight forward. Recover into a ready two-handed guard."
+    },
+    "h027_warrior_prime": {
+      "duration": 2.5,
+      "prompt": "Spear warrior power up: from a two-handed guard, swing the long spear once in a circle at the right side, plant a wide stance, pull the spear upright beside the body in the right hand, chest out, left fist clenched in front, gather energy with a short shout, then settle back to the two-handed guard."
+    }
+  }
+}

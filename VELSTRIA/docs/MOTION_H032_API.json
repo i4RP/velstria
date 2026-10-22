@@ -1,0 +1,395 @@
+{
+  "version": 1,
+  "hero": "H032",
+  "recorded_at": "2026-10-22T16:27:11.649Z",
+  "credit_cap": {
+    "meshy": 200
+  },
+  "credits_consumed": 130,
+  "library_candidates": [
+    89,
+    21,
+    510,
+    191,
+    192,
+    210,
+    198
+  ],
+  "prompts": {
+    "idle": {
+      "duration": 4,
+      "prompt": "Young demon brawler in a fighting guard, looped idle. Left foot forward, weight on front leg, knees bent. Both fists clenched tight in bladed gauntlets, left fist at chin height forward, right fist lower near jaw, elbows tucked, blades along outer forearms. Chin up. Slow breathing lifts shoulders slightly, small weight shift front to back. Head, chest, shoulders move together. Feet stay planted."
+    },
+    "walk": {
+      "duration": 3,
+      "prompt": "Aggressive brawler walking forward in a boxing guard, steady looping steps. Torso leans forward, knees lift high on each step, heel to toe contact. Both fists clenched in bladed gauntlets, held tight near the chin, elbows tucked against ribs so the forearm blades never touch the thighs. Small shoulder sway with each step, eyes forward. Constant walking pace, no stopping."
+    },
+    "run": {
+      "duration": 2,
+      "prompt": "Fierce brawler sprinting forward, looping run. Deep forward lean, powerful knee drive, feet strike under the hips. Both fists clenched in bladed gauntlets pumping close to the body, elbows bent 90 degrees, arms swinging front to back and never crossing the thighs. Chest forward, chin up, aggressive. Constant speed, no stopping."
+    },
+    "combo": {
+      "duration": 3,
+      "prompt": "Brawler in fighting guard, left foot forward, fists clenched in bladed gauntlets. Small crouch to load, then explosive step in with a sharp left jab: hips and shoulders rotate, arm snaps fully straight, fist knuckles forward. Snap back. Then a powerful right straight punch, back heel pivots, torso twists, right fist fully extended. Absorb recoil in shoulders and return quickly to guard."
+    },
+    "s1": {
+      "duration": 2.5,
+      "prompt": "Brawler in fighting guard, fists clenched in bladed gauntlets. Rapid three punch flurry forward: right straight, left straight, right straight, each fully extended at chest height with the torso twisting into every blow and short steps forward. Even rhythm, 0.2 seconds between punches. Recoil in shoulders, then return to tight guard."
+    },
+    "s2dash": {
+      "duration": 2,
+      "prompt": "Brawler crouches low and bursts forward in a fast low dash, torso almost horizontal, right fist leading forward at waist height in bladed gauntlet, left fist tucked at the hip. Covers ground explosively, then plants the front foot to stop and rises back to fighting guard."
+    },
+    "s2leap": {
+      "duration": 3,
+      "prompt": "Brawler in fighting guard winds up, both fists clenched in bladed gauntlets raised behind the head, then leaps forward in a high arc and lands with a crushing double overhead fist smash into the ground, knees deep bent. On landing throws a quick left hook and a right uppercut. Then recovers to fighting guard."
+    },
+    "ult": {
+      "duration": 3,
+      "prompt": "Brawler plants wide stance without stepping, twists torso far back, right fist clenched in bladed gauntlet drawn back to the hip, left arm extended forward aiming, charging power and trembling, feet fixed. Then explodes with a massive right straight punch, full body lunges forward, rear heel pivots, arm fully extended, knuckles forward. Holds briefly and returns to guard."
+    }
+  },
+  "tasks": [
+    {
+      "name": "rig",
+      "task_id": "01a16463-2274-70bc-bd4e-599e653ae024",
+      "route": "/openapi/v1/rigging",
+      "status": "SUCCEEDED",
+      "consumed_credits": 5,
+      "request": {
+        "height_meters": 1.75
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/H032_meshy_rigged.glb",
+          "bytes": 12500588,
+          "sha256": "3131194792b40a000113a58f29918e17c8b4002757c3c0a6a5dc9495a28220de"
+        },
+        {
+          "file": "build/h032-motion/basic_walking.glb",
+          "bytes": 12480468,
+          "sha256": "2db7bbad4e44f39e9fafc1a9c2d3678b4f78777b69959e5a52c7d06a501aacdf"
+        },
+        {
+          "file": "build/h032-motion/basic_running.glb",
+          "bytes": 12469844,
+          "sha256": "664748d2e0835df3feae409ef80a1b064489b501fb143d2dc99ef54c92c63274"
+        }
+      ]
+    },
+    {
+      "name": "motion_idle",
+      "task_id": "01a16463-8cc2-7501-8191-9cd8bff0eeb9",
+      "route": "/openapi/v1/text-to-motion",
+      "status": "SUCCEEDED",
+      "consumed_credits": 10,
+      "request": {
+        "mode": "prime",
+        "duration": 4
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/motion_idle.fbx",
+          "bytes": 16825904,
+          "sha256": "e43e15d5121678a35d123eb0aed9971a3d3098332ad020a8abecc041c0052e1f"
+        }
+      ]
+    },
+    {
+      "name": "motion_walk",
+      "task_id": "01a16463-9323-7154-be87-367235bdf528",
+      "route": "/openapi/v1/text-to-motion",
+      "status": "SUCCEEDED",
+      "consumed_credits": 10,
+      "request": {
+        "mode": "prime",
+        "duration": 3
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/motion_walk.fbx",
+          "bytes": 16768672,
+          "sha256": "2ba38f3929d3dc8cd874159ac9f92e46ff880152f83a994c54318f7363094086"
+        }
+      ]
+    },
+    {
+      "name": "motion_run",
+      "task_id": "01a16463-970e-73ae-ae44-9e4c5ff82894",
+      "route": "/openapi/v1/text-to-motion",
+      "status": "SUCCEEDED",
+      "consumed_credits": 10,
+      "request": {
+        "mode": "prime",
+        "duration": 2
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/motion_run.fbx",
+          "bytes": 16711424,
+          "sha256": "016bd6dfe9c4381de0439cb424546de2e4b44fdff2636432e3057c58b6ecf1f9"
+        }
+      ]
+    },
+    {
+      "name": "motion_combo",
+      "task_id": "01a16463-a196-7257-9140-22d2ff40314b",
+      "route": "/openapi/v1/text-to-motion",
+      "status": "SUCCEEDED",
+      "consumed_credits": 10,
+      "request": {
+        "mode": "prime",
+        "duration": 3
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/motion_combo.fbx",
+          "bytes": 16768672,
+          "sha256": "985bac9dd961f5325c9f416d76f74f48f1de1957e7c9afea84bb72cb815d3789"
+        }
+      ]
+    },
+    {
+      "name": "motion_s1",
+      "task_id": "01a16463-a60c-7601-a9a0-f43bf742eb82",
+      "route": "/openapi/v1/text-to-motion",
+      "status": "SUCCEEDED",
+      "consumed_credits": 10,
+      "request": {
+        "mode": "prime",
+        "duration": 2.5
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/motion_s1.fbx",
+          "bytes": 16740048,
+          "sha256": "c3d8d5916f7c8992aeec3cfc124c49ab9cb42501744d53f3bb3139e80eb878a6"
+        }
+      ]
+    },
+    {
+      "name": "motion_s2dash",
+      "task_id": "01a16463-a99c-702d-b405-15b27e15595e",
+      "route": "/openapi/v1/text-to-motion",
+      "status": "SUCCEEDED",
+      "consumed_credits": 10,
+      "request": {
+        "mode": "prime",
+        "duration": 2
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/motion_s2dash.fbx",
+          "bytes": 16711424,
+          "sha256": "d81d86ed6944cf657e31f3869b62be6d226facf1fd1484c8361def13e7192dec"
+        }
+      ]
+    },
+    {
+      "name": "motion_s2leap",
+      "task_id": "01a16463-afcd-7233-9680-07cae41d42f8",
+      "route": "/openapi/v1/text-to-motion",
+      "status": "SUCCEEDED",
+      "consumed_credits": 10,
+      "request": {
+        "mode": "prime",
+        "duration": 3
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/motion_s2leap.fbx",
+          "bytes": 16768672,
+          "sha256": "7f81d1030ecfd36540ca31f3bc847ade76a779085b9565d77831211b8d508cad"
+        }
+      ]
+    },
+    {
+      "name": "motion_ult",
+      "task_id": "01a16463-b38f-7510-877f-d0ee3e9b457d",
+      "route": "/openapi/v1/text-to-motion",
+      "status": "SUCCEEDED",
+      "consumed_credits": 10,
+      "request": {
+        "mode": "prime",
+        "duration": 3
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/motion_ult.fbx",
+          "bytes": 16768672,
+          "sha256": "793bfe7b6d08e710c25e6c38cf45e2b445d9d639ea7395c14a5da01727ad1d76"
+        }
+      ]
+    },
+    {
+      "name": "library",
+      "task_id": "01a16465-2d6a-7795-b45a-ab222efec080",
+      "route": "/openapi/v1/animations",
+      "status": "SUCCEEDED",
+      "consumed_credits": 21,
+      "request": {
+        "rig_task_id": "01a16463-2274-70bc-bd4e-599e653ae024",
+        "action_ids": [
+          89,
+          21,
+          510,
+          191,
+          192,
+          210,
+          198
+        ]
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/library.glb",
+          "bytes": 5176444,
+          "sha256": "2d95e338cd6589148bc4cfc973cb5f9ec2e64384e9adaafc4134fcb9bfc0904a"
+        }
+      ]
+    },
+    {
+      "name": "anim_idle",
+      "task_id": "01a16465-3581-71b1-9c20-4b2ae5ba6554",
+      "route": "/openapi/v1/animations",
+      "status": "SUCCEEDED",
+      "consumed_credits": 3,
+      "request": {
+        "rig_task_id": "01a16463-2274-70bc-bd4e-599e653ae024",
+        "motion_task_id": "01a16463-8cc2-7501-8191-9cd8bff0eeb9"
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/anim_idle.glb",
+          "bytes": 12634976,
+          "sha256": "d7783187a4c6b56c85e27916d147ffb1d3dea6c9c205d69cad8331bff3f13d3f"
+        }
+      ]
+    },
+    {
+      "name": "anim_walk",
+      "task_id": "01a16465-3adc-71e4-bf35-923a97979e46",
+      "route": "/openapi/v1/animations",
+      "status": "SUCCEEDED",
+      "consumed_credits": 3,
+      "request": {
+        "rig_task_id": "01a16463-2274-70bc-bd4e-599e653ae024",
+        "motion_task_id": "01a16463-9323-7154-be87-367235bdf528"
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/anim_walk.glb",
+          "bytes": 12605984,
+          "sha256": "df026f02465b307b13d3684aa440e963cf6cf0797a9eefdd268c0a744bfa49fc"
+        }
+      ]
+    },
+    {
+      "name": "anim_run",
+      "task_id": "01a16465-408a-722a-afe9-061103e8e873",
+      "route": "/openapi/v1/animations",
+      "status": "SUCCEEDED",
+      "consumed_credits": 3,
+      "request": {
+        "rig_task_id": "01a16463-2274-70bc-bd4e-599e653ae024",
+        "motion_task_id": "01a16463-970e-73ae-ae44-9e4c5ff82894"
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/anim_run.glb",
+          "bytes": 12576980,
+          "sha256": "25cc37a31bba2be771e844e78f5906a335dd5610fa3652aca1decf4246c8e4e5"
+        }
+      ]
+    },
+    {
+      "name": "anim_combo",
+      "task_id": "01a16465-451e-77cd-a7cb-3b9d63491792",
+      "route": "/openapi/v1/animations",
+      "status": "SUCCEEDED",
+      "consumed_credits": 3,
+      "request": {
+        "rig_task_id": "01a16463-2274-70bc-bd4e-599e653ae024",
+        "motion_task_id": "01a16463-a196-7257-9140-22d2ff40314b"
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/anim_combo.glb",
+          "bytes": 12605960,
+          "sha256": "cf7a81402bee5d7d6926a01cad87d47999e97ba72afdbaf7d299f2b33fbdb5f1"
+        }
+      ]
+    },
+    {
+      "name": "anim_s1",
+      "task_id": "01a16465-4918-7769-ac86-bfed77117cce",
+      "route": "/openapi/v1/animations",
+      "status": "SUCCEEDED",
+      "consumed_credits": 3,
+      "request": {
+        "rig_task_id": "01a16463-2274-70bc-bd4e-599e653ae024",
+        "motion_task_id": "01a16463-a60c-7601-a9a0-f43bf742eb82"
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/anim_s1.glb",
+          "bytes": 12591476,
+          "sha256": "ae6930c893732fec6f0548094d948747c54c975323b2917b8d7e3fc9083c09b6"
+        }
+      ]
+    },
+    {
+      "name": "anim_s2dash",
+      "task_id": "01a16466-9ded-7626-936e-b10d63569f01",
+      "route": "/openapi/v1/animations",
+      "status": "SUCCEEDED",
+      "consumed_credits": 3,
+      "request": {
+        "rig_task_id": "01a16463-2274-70bc-bd4e-599e653ae024",
+        "motion_task_id": "01a16463-a99c-702d-b405-15b27e15595e"
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/anim_s2dash.glb",
+          "bytes": 12576948,
+          "sha256": "da1beb3d6e1a331c0073daeb28477c08b58b452904d360f05b5347810384b61e"
+        }
+      ]
+    },
+    {
+      "name": "anim_s2leap",
+      "task_id": "01a16466-a3d6-7340-8e18-b1f52bc4252a",
+      "route": "/openapi/v1/animations",
+      "status": "SUCCEEDED",
+      "consumed_credits": 3,
+      "request": {
+        "rig_task_id": "01a16463-2274-70bc-bd4e-599e653ae024",
+        "motion_task_id": "01a16463-afcd-7233-9680-07cae41d42f8"
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/anim_s2leap.glb",
+          "bytes": 12605952,
+          "sha256": "81aae0e542d09bb1f4dfd43f37ecab4b8559650414b0ae539e548c6064b971c6"
+        }
+      ]
+    },
+    {
+      "name": "anim_ult",
+      "task_id": "01a16466-a73d-77ed-bacc-986f2211e757",
+      "route": "/openapi/v1/animations",
+      "status": "SUCCEEDED",
+      "consumed_credits": 3,
+      "request": {
+        "rig_task_id": "01a16463-2274-70bc-bd4e-599e653ae024",
+        "motion_task_id": "01a16463-b38f-7510-877f-d0ee3e9b457d"
+      },
+      "files": [
+        {
+          "file": "build/h032-motion/anim_ult.glb",
+          "bytes": 12605960,
+          "sha256": "ef257b0e6df0ed945134858d8eb7f8ee5ffd7731d3581f3de75fc64d9a96a983"
+        }
+      ]
+    }
+  ]
+}

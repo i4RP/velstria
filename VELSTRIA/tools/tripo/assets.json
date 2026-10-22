@@ -324,13 +324,13 @@
       "notes": "手続き版（crescentBow）は ashBow と同じ YZ 平面・弦 +Z。propMount は ashBow と同じ (1, 0.6, true)。"
     },
     {
-      "kind": "dragonSpear", "heroes": ["H027"], "grip": 0.29, "optional": false, "yaw": -90,
-      "prompt": "a very long dragon spear, front view, the dragon head facing the viewer, long dark shaft with gold rings and a pointed gold butt cap at the bottom, near the top a teal-green dragon head with golden horns, a golden flowing mane on both sides and glowing orange eyes, from the dragon's open jaws a large golden flame-shaped spear blade pointing straight up with a glowing orange core, the flat face of the blade toward the viewer.",
-      "notes": "手続き版は穂先・たてがみの面が XY（面 ±Z）、竜頭の上が +Z。yaw -90 で画像の正面 -> +Z。全長に対し握りは下から 0.29。"
+      "kind": "dragonSpear", "heroes": ["H027"], "grip": 0.29, "optional": false, "yaw": 0,
+      "prompt": "a very long ornate dragon spear, front view, the dragon head facing the viewer: a long straight dark lacquered shaft wrapped with thin gold bands and a pointed gold butt spike at the bottom; near the top an intricately sculpted teal-green dragon head with clearly carved scales, sharp golden horns, a flowing golden mane and fins on both sides and glowing orange eyes; from the dragon's open jaws rises a large ornate golden flame-shaped spear blade pointing straight up, with engraved edges and a glowing orange core, the flat face of the blade toward the viewer. Crisp high-detail sculpting on the head and blade.",
+      "notes": "手続き版は穂先・たてがみの面が XY（面 ±Z）、竜頭の上が +Z。2026-10-23 に 2D 画像から作り直した版（P1 face_limit 20000 → tools/blender/lod_h027_spear.py で穂先・竜頭に配分して 4,200 面）は yaw 0 で竜の顔と刃の面が +Z（-90 だと横、180 だと裏）。全長に対し握りは下から 0.29。"
     },
     {
       "kind": "photonBlade", "heroes": ["H028"], "grip": 0.1, "optional": false, "yaw": -90,
-      "prompt": "a futuristic long sword, front view of the flat of the blade, blade tip pointing straight up and hilt at the bottom, long slim black blade with a glowing crimson-red cutting edge along the right side and a silver spine along the left side, angular silver crossguard with small swept wings and a glowing red gem in the center, black grip with silver bands, small silver pommel.",
+      "prompt": "a sleek high-tech assassin long sword, front view of the flat of the blade, blade tip pointing straight up and hilt at the bottom, long slim straight black blade with clean beveled facets, a sharp angled chisel tip, a thin glowing crimson-red energy cutting edge running the full length of the right side, a polished silver spine along the left side with fine engraved circuit lines, a narrow red glowing groove down the center of the blade, a sharp angular silver crossguard with layered swept-back wing blades and a faceted glowing red gem in the center, black grip wrapped in leather with three silver bands, a pointed faceted silver pommel.",
       "notes": "手続き版は刃が XY 面（面 ±Z）で光る刃縁が +X。yaw -90 で画像の右 -> +X。"
     },
     {
@@ -360,7 +360,7 @@
     },
     {
       "kind": "hookChain", "heroes": ["H034"], "grip": 0.24, "optional": false, "yaw": -90,
-      "prompt": "a heavy iron chain hook weapon, front view, short thick brown wooden handle wrapped with iron rings at the bottom, a thick iron rod above it, at the top a huge massive curved iron hook as wide as half the weapon's height, thick and broad like a meat hook, bending over to the right like a big question mark with a sharp barbed tip, a short iron claw on the left side, a loop of thick rusty iron chain hanging from the left side of the handle, the flat side of the hook toward the viewer.",
+      "prompt": "a massive iron chain hook weapon of a huge viking brute, stylized hand-painted game asset, front view, standing upright, high detail with chunky readable shapes and bevelled edges: at the bottom a thick dark wooden handle as long as a forearm, wrapped with three riveted iron bands and worn leather straps; above it a thick forged iron shaft with a hexagonal collar; at the top a huge heavy curved meat hook as wide as half the weapon's height, thick and broad, bending over to the right like a big question mark, with a sharp barbed inner tip, hammered metal with dents and scratches, and a short spike on the left side; a heavy rusty iron chain of large thick oval links coils once around the handle and hangs down on the left; the flat side of the hook faces the viewer, the whole weapon fully visible on a plain light grey background, no hands, no character.",
       "notes": "手続き版は鉤が XY 面（面 ±Z）で +X へ曲がる、鎖は -X。yaw -90 で画像の右 -> +X。"
     }
   ],
