@@ -826,6 +826,52 @@ final class HeroMotionClipTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(animator.clips.clipTime, hit - 1e-4, "到着の命中で到着の姿勢へ")
     }
 
+    /// H032 ディアス: 専用のクリップ（H032MotionClips.json）が試合の実際のモデルで接地し、スキルの打撃が sim の時刻
+    /// （S1 0.26 秒・奥義 0.76 秒。発動の瞬間から再生）に来て、S2 の再使用（段 1）は致命の一撃のクリップに替わる。
+    func testBundledDyrrothClipsGroundAndSkillTiming() throws {
+        HeroMotionClips.setResolverForTesting(nil)
+        let lib = HeroMotionClips.library(heroID: "H032")
+        let url = try XCTUnwrap(HeroAssetLibrary.bundledURL("Hero_H032"))
+        let rig = try XCTUnwrap(HeroAssetLibrary.heroTemplate(url)?.rig)
+        let hips = try XCTUnwrap(rig.index[.hips])
+        let feet = try [HeroJointRole.footL, .footR].map { try XCTUnwrap(rig.index[$0]) }
+        let contacts = try [HeroJointRole.footL, .footR, .toeL, .toeR].map { try XCTUnwrap(rig.index[$0]) }
+        let leg = max(0.1, rig.restPosition[hips].y - feet.map { rig.restPosition[$0].y }.reduce(0, +) / 2)
+        let restLowest = try XCTUnwrap(contacts.map { rig.restPosition[$0].y }.min())
+        var poser = HeroSkeletonPoser(rig: rig)
+        for name in ["idle_h032", "walk_h032", "run_h032", "punch_jab_l_h032", "punch_cross_r_h032", "punch_ult_h032"] {
+            let c = try XCTUnwrap(lib.index(of: name), name)
+            let clip = lib.clips[c]
+            var lowest = Float.infinity
+            for f in 0..<clip.frames {
+                let (q, root) = lib.sample(c, time: Float(f) / clip.fps)
+                poser.solve(q, hipsDrop: 0, hipsOffset: root * leg)
+                lowest = min(lowest, contacts.map { poser.position[$0].y }.min()!)
+            }
+            XCTAssertEqual(lowest, restLowest, accuracy: 0.06, "\(name): 足が地面から浮く・沈む")
+        }
+        let s1 = lib.clips[try XCTUnwrap(lib.index(of: "punch_s1_h032"))]
+        XCTAssertEqual(s1.impactTime, 0.26, accuracy: 0.01)
+        XCTAssertEqual(lib.clips[try XCTUnwrap(lib.index(of: "punch_ult_h032"))].impactTime, 0.76, accuracy: 0.01)
+
+        let set = try XCTUnwrap(HeroMotionSets.set(heroID: "H032"))
+        let binding = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))
+        XCTAssertTrue(binding.dedicatedIdle, "HeroIdle の手続きの待機で上書きしない")
+        XCTAssertTrue(binding.castsFromStart)
+        XCTAssertTrue(binding.locksLegs(1), "S2 の突進・飛びかかりは脚もクリップ")
+        let bp = HeroBlueprints.blueprint(heroID: "H032", role: nil)
+        var animator = HeroAnimator(profile: HeroMotionProfile(blueprint: bp, metrics: BodyMetrics.make(bp.build), heroID: "H032"),
+                                    defaultRunSpeed: 3.3, motion: binding)
+        _ = animator.advance(dt: 1.0 / 60, moveSpeed: 0)
+        XCTAssertEqual(animator.clips.clip, binding.idle, "待機は専用のクリップ")
+        animator.playCast(.skill2, stage: 0)
+        _ = animator.advance(dt: 1.0 / 60, moveSpeed: 10)
+        XCTAssertEqual(animator.clips.clip, binding.cast(1))
+        animator.playCast(.skill2, stage: 1)
+        _ = animator.advance(dt: 1.0 / 60, moveSpeed: 0)
+        XCTAssertEqual(animator.clips.clip, lib.index(of: "punch_s2_strike_h032"), "段 1 は致命の一撃")
+    }
+
     /// 同梱のクリップ（あれば）を同梱のヒーロー（あるだけ）に実行時と同じ計算で載せる。骨が有限で、ループは頭が腰より上。
     /// 立ったままのループ（待機・移動。腰の平均の沈みが脚の長さの 25% 未満）は脚のどこか（足首・つま先・膝）が地面の近く
     /// （抽出と実行時の約束 = docs/HERO_MOTION.md の区間回転・腰の位置が食い違うと、腰が浮く・沈む）。

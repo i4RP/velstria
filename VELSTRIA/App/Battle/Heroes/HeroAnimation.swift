@@ -653,6 +653,8 @@ struct HeroAnimator {
     /// 状態だけ（setState(.attack)）で回している（プレビュー）。playAttack が来たら false（シムの拍）。
     private var motionAttackAuto = true
     private var motionAttackPending = false
+    /// 再生中の詠唱の段（playCast の stage。setState だけの詠唱は 0）。段の専用クリップ（HeroMotionSet.stageCasts）を選ぶ。
+    private var castStage = 0
     /// motionAttack がこの値の間は強い通常攻撃（profile.empoweredAttack）を再生している。
     private static let empoweredMotion = -2
 
@@ -678,6 +680,7 @@ struct HeroAnimator {
     var attackDuration: Float { profile.attack.total }
 
     mutating func setState(_ s: HeroAnimState) {
+        if case .cast = s, s != state { castStage = 0 }
         transition(s, autoAttack: true)
     }
 
@@ -811,7 +814,17 @@ struct HeroAnimator {
     /// 詠唱を段のモーションで始める。段に固有のモーションがあれば同じスロットの詠唱中でも始め直す。
     /// 無ければ setState(.cast(slot)) と同じ（同じスロットの詠唱中なら続ける = 従来どおり）。
     mutating func playCast(_ slot: SkillSlot, stage: Int) {
-        guard profile.hasStageCast(slot, stage: stage) else { return transition(.cast(slot), autoAttack: true) }
+        castStage = stage
+        guard profile.hasStageCast(slot, stage: stage) else {
+            // 段に専用のクリップがあれば、同じスロットの詠唱中でも始め直す（S2 の突進の直後の致命の一撃）
+            if stage >= 1, state == .cast(slot), clips.binding?.stageCasts[HeroAnimator.castIndex(slot)] != nil {
+                begin(.cast(slot), blend: 0.06)
+                beginCastMotion(profile.casts[HeroAnimator.castIndex(slot)])
+                startCastClip(slot)
+                return
+            }
+            return transition(.cast(slot), autoAttack: true)
+        }
         let prev = state
         if state == .attack { attackCount += 1 }
         begin(.cast(slot), blend: 0.08)
@@ -1048,7 +1061,7 @@ struct HeroAnimator {
     /// 立ち止まっていれば全身、移動中は上半身（足の滑りを避ける。攻撃と同じ規則）。
     private mutating func startCastClip(_ slot: SkillSlot) {
         guard let b = clips.binding else { return }
-        guard let c = b.cast(HeroAnimator.castIndex(slot)) else { return clips.stop() }
+        guard let c = b.cast(HeroAnimator.castIndex(slot), stage: castStage) else { return clips.stop() }
         let info = b.library.clips[c]
         clips.start(c, role: .cast, from: b.castsFromStart ? 0 : max(0, info.impactTime - HeroAnimator.castLead),
                     fullBody: true, speedMask: !b.locksLegs(HeroAnimator.castIndex(slot)), hold: false)

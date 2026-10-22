@@ -21,6 +21,8 @@ struct HeroMotionSet {
     var castsFromStart = false
     /// 詠唱のクリップが移動中も脚を持つ（突進の間に足を回さない。H027 の竜牙突き）。Skill1, Skill2, Ultimate。
     var castLocksLegs: [Bool] = [false, false, false]
+    /// 再使用の段（stage 1）の詠唱（Skill1, Skill2, Ultimate の順。nil = 段 0 と同じ）。
+    var stageCasts: [String?] = [nil, nil, nil]
     var idle: String?
     /// 待機のクリップが専用の収録（H025・H034）。HeroIdle の個別の待機より優先する。
     var dedicatedIdle = false
@@ -41,6 +43,8 @@ struct HeroMotionSet {
     /// nil = 向きは手続きの武器角を胴に対して保ち、位置だけ手に付ける（杖・槍・銃・弓・盾・灯籠。手首の向きで寝かせない）。
     var weaponGrip: simd_quatf? = HeroMotionSet.fistGrip
     var offhandGrip: simd_quatf? = nil
+    /// 武器・副手を前腕に沿う縦の刃として持つ（H032 の刃の輪。grip は使わない。取得素材の手首・前腕のねじれで輪が傾かない）。
+    var gripOnForeArm = false
     /// 状態のクリップ（待機・勝利など。腕を下ろした立ち姿）を重ねている間の武器角（grip が nil の武器だけ。手続きの武器角 θ と同じ:
     /// 胴座標の絶対角、0 = 真上、-π/2 = 前）。nil = 手続きの構え（rest）の角のまま。
     /// 槍の構え（rest -1.0 = 前へ寝かせる）は腕を下ろした待機だと穂先が顔の前を横切るので立てて持ち、
@@ -64,6 +68,7 @@ struct HeroMotionBinding {
     let castHits: [Int?]
     let castsFromStart: Bool
     let castLocksLegs: [Bool]
+    let stageCasts: [Int?]
     let idle: Int?
     let dedicatedIdle: Bool
     let empowered: Int?
@@ -76,6 +81,7 @@ struct HeroMotionBinding {
     let channel: Int?
     let weaponGrip: simd_quatf?
     let offhandGrip: simd_quatf?
+    let gripOnForeArm: Bool
     let idleWeaponR: Float?
     let idleWeaponL: Float?
 
@@ -87,6 +93,7 @@ struct HeroMotionBinding {
         castHits = (0..<3).map { $0 < set.castHits.count ? find(set.castHits[$0]) : nil }
         castsFromStart = set.castsFromStart
         castLocksLegs = (0..<3).map { $0 < set.castLocksLegs.count && set.castLocksLegs[$0] }
+        stageCasts = (0..<3).map { $0 < set.stageCasts.count ? find(set.stageCasts[$0]) : nil }
         idle = find(set.idle)
         dedicatedIdle = set.dedicatedIdle && idle != nil
         empowered = find(set.empowered)
@@ -104,6 +111,7 @@ struct HeroMotionBinding {
         attackMask = set.attackMask
         weaponGrip = set.weaponGrip
         offhandGrip = set.offhandGrip
+        gripOnForeArm = set.gripOnForeArm
         idleWeaponR = set.idleWeaponR
         idleWeaponL = set.idleWeaponL
     }
@@ -112,6 +120,12 @@ struct HeroMotionBinding {
     func cast(_ index: Int) -> Int? { index >= 0 && index < casts.count ? casts[index] : nil }
     func castHit(_ index: Int) -> Int? { index >= 0 && index < castHits.count ? castHits[index] : nil }
     func locksLegs(_ index: Int) -> Bool { index >= 0 && index < castLocksLegs.count && castLocksLegs[index] }
+
+    /// 段（stage ≥ 1）の詠唱。段に専用のクリップが無ければ段 0 と同じ。
+    func cast(_ index: Int, stage: Int) -> Int? {
+        if stage >= 1, index >= 0, index < stageCasts.count, let c = stageCasts[index] { return c }
+        return cast(index)
+    }
 }
 
 enum HeroMotionSets {
@@ -218,6 +232,25 @@ enum HeroMotionSets {
         return s
     }()
 
+    /// H032 ディアス: 拳の構えの待機・構えたままの歩行・前傾の走り・左ジャブ → 右ストレート（3 発目の円撃は
+    /// Motion_H032.empoweredAttack の全身のモーション）・スキル（S1 の 3 連打・S2 の突進 / 致命の一撃・奥義の溜め突き）。
+    private static let dyrroth: HeroMotionSet = {
+        // 刃の輪は前腕に沿う縦の刃（SkinnedHeroModel.forearmBlade）。正面・俯瞰からは縁だけが見え、顎の前の構えでも
+        // 顔・頭を覆わない
+        var s = make(["punch_jab_l_h032", "punch_cross_r_h032"], idle: "idle_h032", death: "death_forward",
+                     offhandGrip: HeroMotionSet.fistGrip)
+        s.gripOnForeArm = true
+        s.castsFromStart = true
+        // 突進・飛びかかりの間は脚もクリップ（走る脚に戻さない）
+        s.castLocksLegs = [false, true, false]
+        s.dedicatedIdle = true
+        s.walk = "walk_h032"
+        s.run = "run_h032"
+        s.casts = ["punch_s1_h032", "dash_s2_h032", "punch_ult_h032"]
+        s.stageCasts = [nil, "punch_s2_strike_h032", nil]
+        return s
+    }()
+
     /// H001〜H034: 通常攻撃（順に繰り返す）・待機・死亡・勝利。
     static let table: [String: HeroMotionSet] = [
         // 広刃剣 + 城門盾（Vanguard・近接）
@@ -291,9 +324,8 @@ enum HeroMotionSets {
         "H030": make(["gun_fire"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
         // 氷華の右手（Arcanist・遠隔: 杖は持たず手から放つ・指し示し）
         "H031": aurora,
-        // 両手首の刃の輪（Duelist・近接の左右交互の連撃）
-        "H032": make(["dual_combo_a", "dual_combo_b", "dual_combo_c"], idle: "ready_idle", death: "death_forward",
-                     offhandGrip: HeroMotionSet.fistGrip),
+        // 両手首の刃の輪（Duelist・近接の左右交互の連撃）。専用の収録（H032MotionClips.json、docs/H032_MOTION.md）
+        "H032": dyrroth,
         // 魔狩りの大剣（Assassin・近接の片手の連斬り。アルーカードは巨大な剣を片手で振る）。左手を柄へ添える両手の振り
         // （overhead_2h・sword_upward）や左手も大きく動く溜め斬り（sword_charged）ではなく、右手で振る剣のクリップ
         "H033": make(["sword_slash_r", "sword_combo_3", "sword_slash_l2"], idle: "combat_idle", death: "death_forward"),
