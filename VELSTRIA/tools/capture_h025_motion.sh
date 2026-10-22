@@ -64,8 +64,8 @@ done
 xcrun simctl launch --terminate-running-process "$udid" "$bundle" \
     -uiTesting -skipOnboarding -grant -language en -graphics medium \
     -hero H025 -battle practice -efkAuto atk
-sleep 15
-record H025-practice-release 15
+sleep 40
+record H025-practice-release 30
 
 git rev-parse HEAD > "$out/commit.txt"
 xcodebuild -version > "$out/environment.txt"
