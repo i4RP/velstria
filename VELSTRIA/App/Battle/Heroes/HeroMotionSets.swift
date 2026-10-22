@@ -165,6 +165,17 @@ enum HeroMotionSets {
         return s
     }()
 
+    /// H031 オーリア: Meshy prime を土台に仕上げた待機・歩行・走行・通常攻撃・スキル詠唱（H031MotionClips.json、
+    /// docs/H031_MOTION.md）。氷華の右手から放つので武器の向きは手続きのまま（held）。詠唱クリップの先頭が呼び出しの瞬間。
+    private static let aurora: HeroMotionSet = {
+        var s = make(["cast_frost_h031"], idle: "idle_h031", death: "death_forward", victory: "victory_cheer", weaponGrip: held)
+        s.dedicatedIdle = true
+        s.walk = "walk_h031"
+        s.run = "run_h031"
+        s.casts = ["cast_s1_h031", "cast_s2_h031", "cast_ult_h031"]
+        return s
+    }()
+
     /// H001〜H034: 通常攻撃（順に繰り返す）・待機・死亡・勝利。
     static let table: [String: HeroMotionSet] = [
         // 広刃剣 + 城門盾（Vanguard・近接）
@@ -237,7 +248,7 @@ enum HeroMotionSets {
         // 星砲（Ranger・遠隔の両手持ち）
         "H030": make(["gun_fire"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
         // 氷華の右手（Arcanist・遠隔: 杖は持たず手から放つ・指し示し）
-        "H031": make(["cast_throw", "cast_point"], idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
+        "H031": aurora,
         // 両手首の刃の輪（Duelist・近接の左右交互の連撃）
         "H032": make(["dual_combo_a", "dual_combo_b", "dual_combo_c"], idle: "ready_idle", death: "death_forward",
                      offhandGrip: HeroMotionSet.fistGrip),

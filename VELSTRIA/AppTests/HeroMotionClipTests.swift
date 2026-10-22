@@ -627,6 +627,52 @@ final class HeroMotionClipTests: XCTestCase {
         }
     }
 
+    /// H031 オーリア: 専用クリップ（待機・移動・通常攻撃・スキル 3 つ）が実際の H031 モデルで接地し、HeroIdle に消されず、
+    /// 通常攻撃は放つ瞬間（release）を持ち、詠唱は呼び出しから 0.12 秒で区切りに着く。
+    func testBundledAuroraClipsGroundAndBind() throws {
+        HeroMotionClips.setResolverForTesting(nil)
+        let lib = HeroMotionClips.library(heroID: "H031")
+        let url = try XCTUnwrap(HeroAssetLibrary.bundledURL("Hero_H031"))
+        let rig = try XCTUnwrap(HeroAssetLibrary.heroTemplate(url)?.rig)
+        let hips = try XCTUnwrap(rig.index[.hips])
+        let feet = try [HeroJointRole.footL, .footR].map { try XCTUnwrap(rig.index[$0]) }
+        let contacts = try [HeroJointRole.footL, .footR, .toeL, .toeR].map { try XCTUnwrap(rig.index[$0]) }
+        let restFoot = feet.map { rig.restPosition[$0].y }.reduce(0, +) / 2
+        let leg = max(0.1, rig.restPosition[hips].y - restFoot)
+        let restLowest = try XCTUnwrap(contacts.map { rig.restPosition[$0].y }.min())
+        var poser = HeroSkeletonPoser(rig: rig)
+        for name in ["idle_h031", "walk_h031", "run_h031", "cast_frost_h031", "cast_s1_h031", "cast_s2_h031", "cast_ult_h031"] {
+            let c = try XCTUnwrap(lib.index(of: name), name)
+            let clip = lib.clips[c]
+            var lowest = Float.infinity
+            for f in 0..<clip.frames {
+                let (q, root) = lib.sample(c, time: Float(f) / clip.fps)
+                poser.solve(q, hipsDrop: 0, hipsOffset: V3(root.x * clip.rootXZ, root.y, root.z * clip.rootXZ) * leg)
+                lowest = min(lowest, contacts.map { poser.position[$0].y }.min()!)
+            }
+            XCTAssertEqual(lowest, restLowest, accuracy: 0.03, "\(name): 足が浮く・沈む")
+        }
+        let set = try XCTUnwrap(HeroMotionSets.set(heroID: "H031"))
+        XCTAssertEqual(set.idle, "idle_h031", "HeroIdle の個別の待機に専用の待機クリップを消されない")
+        let binding = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))
+        XCTAssertTrue(binding.dedicatedIdle)
+        XCTAssertNotNil(binding.walk)
+        XCTAssertNotNil(binding.run)
+        XCTAssertEqual(binding.casts.compactMap { $0 }.count, 3)
+        let attack = lib.clips[binding.attacks[0]]
+        XCTAssertNotNil(attack.release)
+        XCTAssertFalse(attack.melee)
+        for c in binding.casts.compactMap({ $0 }) {
+            XCTAssertEqual(lib.clips[c].impactTime, HeroAnimator.castLead, accuracy: 0.001, "詠唱は呼び出しの瞬間から始まる")
+        }
+        var animator = HeroAnimator(profile: profile("H031"), defaultRunSpeed: 2.5, motion: binding)
+        _ = animator.advance(dt: 0.5, moveSpeed: 0)
+        XCTAssertEqual(animator.clips.clip, binding.idle, "待機は専用クリップ")
+        animator.setState(.run)
+        for _ in 0..<60 { _ = animator.advance(dt: 1.0 / 60, moveSpeed: 2.5) }
+        XCTAssertEqual(animator.clips.clip, binding.run, "通常の移動速度は走行クリップ")
+    }
+
     /// 同梱のクリップ（あれば）を同梱のヒーロー（あるだけ）に実行時と同じ計算で載せる。骨が有限で、ループは頭が腰より上。
     /// 立ったままのループ（待機・移動。腰の平均の沈みが脚の長さの 25% 未満）は脚のどこか（足首・つま先・膝）が地面の近く
     /// （抽出と実行時の約束 = docs/HERO_MOTION.md の区間回転・腰の位置が食い違うと、腰が浮く・沈む）。

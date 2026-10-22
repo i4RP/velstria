@@ -641,18 +641,21 @@ final class SkinnedHeroModel: HeroDisplayModel {
     func playAttack(windup: Double, interval: Double) {
         let wasDead = animator.state == .dead
         animator.playAttack(windup: Float(windup), interval: Float(interval))
-        if heroID == "H025" { animator.awaitAttackRelease() }
+        if Self.releaseSyncHeroIDs.contains(heroID) { animator.awaitAttackRelease() }
         if wasDead { effects.setOpacity(1, body: body) }
     }
 
+    /// 攻撃クリップの release をシムの attackReleased（弾の発射）に合わせるヒーロー（専用クリップの release を持つ）。
+    static let releaseSyncHeroIDs: Set<String> = ["H025", "H031"]
+
     func synchronizeAttackRelease() {
-        if heroID == "H025" { animator.synchronizeAttackRelease() }
+        if Self.releaseSyncHeroIDs.contains(heroID) { animator.synchronizeAttackRelease() }
     }
 
     func playAttack(windup: Double, interval: Double, empowered: Bool) {
         let wasDead = animator.state == .dead
         animator.playAttack(windup: Float(windup), interval: Float(interval), empowered: empowered)
-        if heroID == "H025" { animator.awaitAttackRelease() }
+        if Self.releaseSyncHeroIDs.contains(heroID) { animator.awaitAttackRelease() }
         if wasDead { effects.setOpacity(1, body: body) }
     }
 

@@ -344,7 +344,7 @@ enum HeroMotionClips {
     }
 
     /// 専用の収録（<ID>MotionClips.json）を持つヒーロー。参加する時だけ読む。
-    static let dedicatedHeroes: Set<String> = ["H025", "H034"]
+    static let dedicatedHeroes: Set<String> = ["H025", "H031", "H034"]
 
     /// Separate hero clips are loaded only when that hero participates.
     static func library(heroID: String) -> HeroMotionLibrary {

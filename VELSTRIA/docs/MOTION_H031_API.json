@@ -1,0 +1,204 @@
+{
+  "version": 1,
+  "hero": "H031",
+  "recorded_at": "2026-10-22T16:20:49.906Z",
+  "budget": {
+    "meshy": 120,
+    "tripo": 60
+  },
+  "source": {
+    "file": "build/tripo/heroes/H031/model.glb",
+    "sha256": "a5b30d710b87ab9b03d2bd0ca1c4d1ba9b43fe068ea74e886b65333d5c1f39fd",
+    "bytes": 12481100
+  },
+  "tasks": [
+    {
+      "name": "h031_prime_attack",
+      "provider": "meshy",
+      "task_id": "01a16461-e3d6-75d6-bafd-280a1a7f81c5",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:11:38.739Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Elegant ice sorceress without staff, narrow stance, feet planted. From calm ready pose, right hand draws back to the chest with palm cupped gathering cold, hips and chest coil slightly right. Then thrust the right arm straight forward, fingers snapping open and extended, palm facing the target, releasing a frost bolt. Shoulders and torso absorb a small recoil, then return to the ready pose."
+      },
+      "file": {
+        "file": "build/h031-motion/h031_prime_attack.fbx",
+        "bytes": 16740048,
+        "sha256": "a9a85c162b9083fa1ba77a55d8d89fa93208f5a1c3baaad270448d1b2b43499e"
+      },
+      "error": null
+    },
+    {
+      "name": "h031_prime_idle",
+      "provider": "meshy",
+      "task_id": "01a16461-f1f8-7767-bda1-ca3b3094c7b8",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:11:42.447Z",
+      "request": {
+        "mode": "prime",
+        "duration": 4,
+        "prompt": "Regal ice queen mage standing idle, no staff. Feet close together, back straight, chin raised. Slow calm breathing with a tiny weight shift between feet. Right hand held near the hip, palm up, fingers softly spread and slowly curling as if toying with frost. Left hand rests close to the waist. Head, chest and shoulders follow the breath subtly. Seamless loop, same pose at start and end. No steps."
+      },
+      "file": {
+        "file": "build/h031-motion/h031_prime_idle.fbx",
+        "bytes": 16825904,
+        "sha256": "e9b585f73f84e32ab062db74ab94e4c5d042f3e5a9ccd8b196a85aa01e7f730a"
+      },
+      "error": null
+    },
+    {
+      "name": "h031_prime_walk",
+      "provider": "meshy",
+      "task_id": "01a16461-f6a7-700d-bc9b-65ff797f1ccb",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:11:44.070Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Elegant queen in a long robe walking forward in place, graceful and calm. Narrow steps, feet landing almost on one line, upper body upright and gliding with little bounce, chin raised. Arms relaxed close to the body with a small swing, right hand slightly open, left hand near the waist. Seamless walking loop, two steps, same pose at start and end."
+      },
+      "file": {
+        "file": "build/h031-motion/h031_prime_walk.fbx",
+        "bytes": 16711424,
+        "sha256": "41e2e4aa185b0a3744dc7ba3b45374fb87595fc05c3c436a3d40be8c22b055fa"
+      },
+      "error": null
+    },
+    {
+      "name": "h031_prime_s1",
+      "provider": "meshy",
+      "task_id": "01a16461-facf-71b8-9ebd-6ed202714b36",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:11:45.138Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Ice queen mage without staff, feet planted in a narrow stance. Raises the right arm high and forward with chest lifting, then points the extended index finger down at a spot several meters ahead, commanding ice to fall there. Holds the point briefly, then lowers the arm calmly back to a ready pose with the right hand near the hip. Left hand stays near the waist. No steps."
+      },
+      "file": {
+        "file": "build/h031-motion/h031_prime_s1.fbx",
+        "bytes": 16740048,
+        "sha256": "1e099866c912123b9427beb87c13ba91d8b7e8f3321384dd947767e59ecd66d2"
+      },
+      "error": null
+    },
+    {
+      "name": "h031_prime_s2",
+      "provider": "meshy",
+      "task_id": "01a16461-fecd-7199-be71-a6132143153e",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:11:46.160Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Sorceress without staff, narrow stance, feet planted. Brings the right hand to the right side at shoulder height, palm cupped gathering cold wind, then sweeps the open palm horizontally across the front from right to left and pushes forward, sending a fan of frost ahead. Torso turns with the sweep, then calmly returns to the ready pose. Left hand stays near the waist. No steps."
+      },
+      "file": {
+        "file": "build/h031-motion/h031_prime_s2.fbx",
+        "bytes": 16740048,
+        "sha256": "724cefa1f56a07dc995913140f6fc7604f5263f45f199e455d07ffcbe6f06914"
+      },
+      "error": null
+    },
+    {
+      "name": "h031_prime_ult",
+      "provider": "meshy",
+      "task_id": "01a16462-0256-7331-8040-fbd3e953733a",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:11:47.061Z",
+      "request": {
+        "mode": "prime",
+        "duration": 3,
+        "prompt": "Ice queen mage without staff. Raises the right hand above the head, palm open, gathering power, then swings the right arm down powerfully, the open palm striking toward the ground in front, knees bending slightly and upper body leaning forward. Holds a brief moment, then rises gracefully back to an upright ready pose. Feet planted, no steps. Left hand stays near the waist."
+      },
+      "file": {
+        "file": "build/h031-motion/h031_prime_ult.fbx",
+        "bytes": 16768672,
+        "sha256": "bc1d91b4b42c99fdd9294a86a55c13cdadaa41c6df27146908913dbb4b6cec36"
+      },
+      "error": null
+    },
+    {
+      "name": "h031_prime_run",
+      "provider": "meshy",
+      "task_id": "01a16462-1b48-7517-a8a5-7c4b6c00aa45",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:11:52.865Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Graceful sorceress in a long robe running forward lightly, slight forward lean, narrow stride, upper body steady. Small controlled arm swing kept close to the body, hands relaxed and open, elbows bent. Light quick footsteps, no big bounce. Seamless running loop, same pose at start and end."
+      },
+      "file": {
+        "file": "build/h031-motion/h031_prime_run.fbx",
+        "bytes": 16711424,
+        "sha256": "f9c4736b02d29cfeba4c2cda77d0ef42acca17266560a09b9935f7e180c753f3"
+      },
+      "error": null
+    },
+    {
+      "name": "H031_rigcheck",
+      "provider": "tripo",
+      "task_id": "8d963691-ca1d-4027-9879-e07f587b44aa",
+      "status": "success",
+      "credits_consumed": 0,
+      "submitted_at": "2026-10-22T16:12:36.554Z",
+      "request": {},
+      "file": null,
+      "error": null
+    },
+    {
+      "name": "H031_rig_v3",
+      "provider": "tripo",
+      "task_id": "99dc92c8-b720-43a6-aa48-4d107d83650b",
+      "status": "success",
+      "credits_consumed": 25,
+      "submitted_at": "2026-10-22T16:13:40.642Z",
+      "request": {
+        "model": "v3.0-20260909",
+        "rig_type": "biped",
+        "spec": "mixamo",
+        "out_format": "glb"
+      },
+      "file": {
+        "file": "build/h031-motion/H031_rig_v3.glb",
+        "bytes": 12799836,
+        "sha256": "74c275a44aa64e950dde471ad327c1f0df69969579df15994f8c1c55b1c77c77"
+      },
+      "error": null
+    },
+    {
+      "name": "H031_idle_walk_run",
+      "provider": "tripo",
+      "task_id": "5fd3da44-fe33-473e-9c06-8e86a94909c4",
+      "status": "success",
+      "credits_consumed": 30,
+      "submitted_at": "2026-10-22T16:19:17.355Z",
+      "request": {
+        "animations": [
+          "preset:idle",
+          "preset:walk",
+          "preset:run"
+        ],
+        "animate_in_place": true,
+        "out_format": "glb",
+        "export_with_geometry": true
+      },
+      "file": {
+        "file": "build/h031-motion/H031_idle_walk_run.glb",
+        "bytes": 13364716,
+        "sha256": "a0924d82e03483f16f6f470190b58ba76b166e06815f665ca98c30bdcb2da2ef"
+      },
+      "error": null
+    }
+  ]
+}
