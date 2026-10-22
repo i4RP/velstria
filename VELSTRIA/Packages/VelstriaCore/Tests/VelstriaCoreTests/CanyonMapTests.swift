@@ -43,7 +43,15 @@ final class CanyonMapTests: XCTestCase {
             }
         }
         for tower in map.towers {
-            XCTAssertTrue(nav.isWalkable(tower.pos, radius: tower.isCore ? 150 : 90), "tower \(tower.team) \(String(describing: tower.lane)) \(tower.tier)")
+            XCTAssertFalse(nav.isWalkable(tower.pos, radius: tower.isCore ? 150 : 90), "tower \(tower.team) \(String(describing: tower.lane)) \(tower.tier)")
+        }
+        for tower in map.towers {
+            let start = nav.nearestWalkable(tower.pos + Vec2(-500, 0), radius: Balance.heroRadius)
+            let end = nav.resolveMove(from: start, to: tower.pos, radius: Balance.heroRadius)
+            XCTAssertGreaterThan(end.distance(to: tower.pos), Balance.heroRadius)
+            XCTAssertTrue(nav.isWalkable(end, radius: Balance.heroRadius))
+            let goal = nav.nearestWalkable(tower.pos + Vec2(500, 0), radius: Balance.heroRadius)
+            XCTAssertFalse(nav.findPath(from: start, to: goal, radius: Balance.heroRadius).isEmpty)
         }
         for lane in map.lanes {
             let points = map.lanePath(lane, for: .blue)

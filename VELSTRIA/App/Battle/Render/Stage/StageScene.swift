@@ -15,6 +15,7 @@ final class StageScene {
     /// index = MapDefinition.brushes の添字。
     private(set) var brushEntities: [ModelEntity] = []
     private(set) var triangleCount = 0
+    private(set) var authoredStructures: [(point: Vec2, entity: ModelEntity)] = []
     /// 素材のセット（StageArtSet）。
     let artSet: StageArtSet
     /// 泉の台座の柱の頂部（world、Team.players の順）。台座の無いセットでは空（MapScene が旧来の泉を作る）。
@@ -119,6 +120,14 @@ final class StageScene {
                 material.baseColor = .init(texture: .init(texture))
                 material.faceCulling = .none
                 materials.append(material)
+            }
+            for chunk in plan.structures {
+                guard let point = chunk.structurePoint, let mesh = chunk.mesh.makeMesh() else { return false }
+                AssetLedger.record(.mesh, "canyon structure")
+                AssetLedger.record(.entity, "canyon structure")
+                let e = ModelEntity(mesh: mesh, materials: [materials[chunk.atlas]])
+                authoredStructures.append((point, e))
+                triangleCount += chunk.mesh.triangleCount
             }
             for (i, chunk) in plan.chunks.enumerated() {
                 AssetLedger.record(.mesh, "canyon chunk")

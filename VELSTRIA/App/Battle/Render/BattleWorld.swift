@@ -117,6 +117,7 @@ final class BattleWorld {
         root.addChild(map.root)
         units = UnitLayer(materials: materials, meshes: meshes, text: text, master: controller.ctx.master,
                           quality: settings.quality)
+        units.authoredStructures = map.stage?.authoredStructures ?? []
         root.addChild(units.root)
         projectiles = ProjectileLayer(materials: materials, meshes: meshes, master: controller.ctx.master, quality: settings.quality)
         root.addChild(projectiles.root)

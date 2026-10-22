@@ -299,6 +299,7 @@ final class StructureVisual {
     /// 攻撃の発射点（world 高さ）。結晶の静止時の中心（従来の手続きメッシュは 4.5 m）。
     let muzzleHeight: Float
     private let seed: UInt64
+    private let authored: ModelEntity?
 
     private var plinthGlow = GlowSlot()
     private var bodyGlow = GlowSlot()
@@ -337,7 +338,8 @@ final class StructureVisual {
     static let hitMergeWindow: Float = 0.15
     static let hitLife: Float = 0.35
 
-    init(unit u: VelstriaCore.Unit, meshes: StructureMeshes, unitMeshes: UnitMeshLibrary, materials: RenderMaterials, text: TextMeshCache) {
+    init(authored: ModelEntity? = nil, unit u: VelstriaCore.Unit, meshes: StructureMeshes, unitMeshes: UnitMeshLibrary, materials: RenderMaterials, text: TextMeshCache) {
+        self.authored = authored
         id = u.id
         isCore = u.kind == .core
         team = u.team
@@ -347,13 +349,21 @@ final class StructureVisual {
         root.position = worldPosition(u.pos)
         let s = meshes.set(u.team)
         let kind: StructureAssets.RigKind = isCore ? .starCore : .tower(u.tower?.tier ?? .outer)
-        let rigModel = StructureAssets.rig(kind)
+        let rigModel = authored == nil ? StructureAssets.rig(kind) : nil
         let rigGeometry = rigModel?.geometry
         // 寸法（部品の外接箱）と結晶・HP バーの高さ
         let geo: TowerGeometry
         let barY: Float
         var orbBox: PartBox?, starBox: PartBox?
-        if let g = rigGeometry {
+        if let authored {
+            authored.scale = SIMD3(repeating: 1)
+            let bounds = authored.visualBounds(relativeTo: authored)
+            let box = PartBox(min: bounds.min, max: bounds.max)
+            floatBaseY = bounds.max.y * 0.85
+            muzzleHeight = floatBaseY
+            barY = bounds.max.y + 0.8
+            geo = .legacyTower(body: box, crystal: PartBox(min: [0, floatBaseY, 0], max: [0, floatBaseY, 0]))
+        } else if let g = rigGeometry {
             geo = g
             floatBaseY = g.crystal.center.y
             muzzleHeight = floatBaseY
@@ -402,12 +412,15 @@ final class StructureVisual {
         root.addChild(plinthNode)
         root.addChild(body)
         // Match the reference footprint while leaving gameplay ranges and hit radii intact.
-        let footprintScale: Float = isCore ? 0.68 : 0.78
-        plinthNode.scale = SIMD3(footprintScale, 0.9, footprintScale)
-        body.scale = SIMD3(footprintScale, 0.9, footprintScale)
+        let footprintScale: Float = authored != nil ? 1 : (isCore ? 0.68 : 0.78)
+        plinthNode.scale = SIMD3(footprintScale, authored != nil ? 1 : 0.9, footprintScale)
+        body.scale = SIMD3(footprintScale, authored != nil ? 1 : 0.9, footprintScale)
         for n in [lowerNode, upperNode, crownNode, crystalNode] { body.addChild(n) }
         var generated = 0
-        if let r = rigModel, rigGeometry != nil {
+        if let authored {
+            body.addChild(authored)
+            generated = 1
+        } else if let r = rigModel, rigGeometry != nil {
             // 複数部品の生成モデル（部品は塔の原点を共有するので、そのまま各部品の枠へ入れる）
             let set = r.materials(u.team)
             let nodes: [TowerPart: Entity] = [.plinth: plinthNode, .lower: lowerNode, .upper: upperNode, .crown: crownNode,
@@ -693,6 +706,12 @@ final class StructureVisual {
 
     private func apply(_ p: TowerPose, alive: Bool) {
         lastPhase = p.phase
+        if let authored {
+            // Preserve source placement while alive; the low ruined base remains solid.
+            // Evaluated from state so seeking back restores the complete source mesh.
+            authored.scale = SIMD3(1, alive ? 1 : 0.08, 1)
+            return
+        }
         setNode(plinthNode, p.plinth, 0)
         setNode(lowerNode, p.lower, 1)
         setNode(upperNode, p.upper, 2)

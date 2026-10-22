@@ -14,6 +14,7 @@ final class UnitLayer {
     private let structureMeshes = StructureMeshes()
     private let text: TextMeshCache
     private let master: MasterData
+    var authoredStructures: [(point: Vec2, entity: ModelEntity)] = []
 
     private(set) var heroes: [EntityID: HeroVisual] = [:]
     private var heroList: [HeroVisual] = []
@@ -243,7 +244,7 @@ final class UnitLayer {
                 if let s = structures[id] {
                     v = s
                 } else {
-                    v = StructureVisual(unit: state.units[i], meshes: structureMeshes, unitMeshes: meshes, materials: materials,
+                    v = StructureVisual(authored: authoredStructures.first { $0.point.distance(to: state.units[i].pos) < 0.01 }?.entity, unit: state.units[i], meshes: structureMeshes, unitMeshes: meshes, materials: materials,
                                         text: text)
                     structures[id] = v
                     structureList.append(v)

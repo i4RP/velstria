@@ -37,6 +37,24 @@ extension MapDefinition {
                 map.camps[i].pos = point(available.remove(at: index).point)
             }
         }
+        guard let structuresURL = Bundle.module.url(forResource: "CanyonStructures", withExtension: "json"),
+              let structuresData = try? Data(contentsOf: structuresURL),
+              let structures = try? JSONDecoder().decode([CanyonStructure].self, from: structuresData),
+              structures.count == map.towers.count else {
+            preconditionFailure("Missing authored Canyon structure footprints")
+        }
+        map.obstacles += structures.map { .polygon($0.footprint.map(point)) }
+        // Lane markers in the FBX sit inside towers. Route the wave around their bases
+        // once during map preparation, instead of repeatedly aiming into a collider.
+        let nav = NavGrid(map: map)
+        map.lanePaths = map.lanePaths.map { points in
+            let goals = points.map { nav.nearestWalkable($0, radius: 125) }
+            var route = [goals[0]]
+            for goal in goals.dropFirst() {
+                route += nav.findPath(from: route.last!, to: goal, radius: 125)
+            }
+            return route
+        }
         return map
     }()
 }
@@ -54,3 +72,5 @@ private struct CanyonLayout: Decodable {
     let towers: [Tower]
     let camps: [Camp]
 }
+
+private struct CanyonStructure: Decodable { let footprint: [[Double]] }

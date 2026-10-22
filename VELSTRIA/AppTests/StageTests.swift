@@ -17,7 +17,7 @@ final class StageTests: XCTestCase {
     func testCanyonStageFitsExistingBudgets() throws {
         for quality in GraphicsQuality.allCases {
             let plan = try XCTUnwrap(CanyonStagePlan.load(map: .canyon, quality: .preset(quality)))
-            let triangles = (plan.chunks + plan.brushes).reduce(0) { $0 + $1.mesh.triangleCount }
+            let triangles = (plan.chunks + plan.brushes + plan.structures).reduce(0) { $0 + $1.mesh.triangleCount }
             XCTAssertGreaterThan(triangles, 50_000)
             XCTAssertLessThanOrEqual(triangles, BattleWorkBudget.stagePropTriangles(quality))
             XCTAssertLessThan(plan.brushes.reduce(0) { $0 + $1.mesh.triangleCount }, 90_000)
@@ -29,6 +29,12 @@ final class StageTests: XCTestCase {
                 XCTAssertLessThanOrEqual(bounds.maxX / 100, Double(brush.mesh.boundsMax.x) + 0.162)
                 XCTAssertGreaterThanOrEqual(bounds.minY / 100, Double(-brush.mesh.boundsMax.z) - 0.162)
                 XCTAssertLessThanOrEqual(bounds.maxY / 100, Double(-brush.mesh.boundsMin.z) + 0.162)
+            }
+            XCTAssertEqual(plan.structures.count, 20)
+            for tower in MapDefinition.canyon.towers {
+                let chunk = try XCTUnwrap(plan.structures.first { $0.structurePoint!.distance(to: tower.pos) < 0.01 })
+                XCTAssertLessThanOrEqual(chunk.mesh.triangleCount, tower.isCore ? 8500 : 6000)
+                XCTAssertGreaterThan(chunk.mesh.boundsMax.y, 2)
             }
             XCTAssertEqual(plan.atlases.count, 3)
             XCTAssertTrue(plan.atlases.allSatisfy { $0.width <= 2048 && $0.height <= 1024 })

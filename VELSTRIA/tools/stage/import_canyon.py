@@ -84,14 +84,17 @@ def main():
     name='map.fbx' if f.filename.lower().endswith('.fbx') else 'textures/'+Path(f.filename).name
     target=WORK/'source'/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(z.read(f))
   subprocess.run(['/Applications/Blender.app/Contents/MacOS/Blender','-b','--factory-startup','-t','4','--python-exit-code','1','--python',str(ROOT/'tools/stage/canyon_extract.py'),'--',str(WORK)],check=True)
- meta=json.loads((WORK/'meshes.json').read_text());objects=[];seen=set();markers=[];walls=[];bushes=[];rivers=[];ground=[]
+ meta=json.loads((WORK/'meshes.json').read_text());objects=[];seen=set();markers=[];structures=[];walls=[];bushes=[];rivers=[];ground=[]
  for row in meta:
   a=np.load(WORK/'meshes'/f"{row['id']}.npz");p=a['p'];uv=a['uv'];n=a['n'];name=row['name'];tex=row['texture']
   key=hashlib.sha256(np.round(np.column_stack([p,uv]),3).tobytes()+tex.encode()).hexdigest()
   if key in seen:continue
   seen.add(key)
-  if 'Tower' in tex or 'Station' in tex or tex.startswith(('PVPMonster','Mst_')):
-   markers.append(dict(name=name,texture=tex,point=structure_anchor(row)));continue
+  if 'Tower' in tex or 'Station' in tex:
+   markers.append(dict(name=name,texture=tex,point=structure_anchor(row)))
+   row=dict(row,structureIndex=len(structures))
+   structures.append((row,p,n,uv));continue
+  if tex.startswith(('PVPMonster','Mst_')):continue
   if is_wall_mesh(name):
    walls.extend(polygons(footprint(p,z=.6)))
   if 'JungleGrassGroup' in name:
@@ -124,7 +127,7 @@ def main():
   poly=poly.simplify(.35,preserve_topology=True)
   if poly.area<1.3:continue
   finalWalls.extend(simple_parts(poly))
- # Source cores/towers are omitted from the baked scene; VELSTRIA supplies living/destructible entities.
+ # Source cores/towers are exported separately for the living/destructible entities.
  def marker(team,token):return [m for m in markers if team in m['texture'] and token in m['texture']]
  core=[marker(team,'Station')[0]['point'] for team in ['Blue','Red']]
  towers=[]
@@ -186,11 +189,19 @@ def main():
   rt=sorted([t for t in towers if t['lane']==name and t['team']=='red'],key=lambda t:t['tier'])
   corners=sim([[146,-100],[115,-130]] if name=='top' else [[-93,140],[-123,110]]).tolist()
   return [core[0]]+[t['point'] for t in bt]+([] if name=='mid' else corners)+[t['point'] for t in rt]+[core[1]]
- layout=dict(sourceSHA256=hashlib.sha256(source.read_bytes()).hexdigest(),size=9720,cores=core,fountains=[sim(p).tolist() for p in fountains],towers=towers,camps=camps,lanes=[lane('top'),lane('mid'),lane('bot')],walls=[ring(p) for p in finalWalls],river=ring(river),bushRLE=base64.b64encode(encoded).decode())
+ layout=dict(sourceSHA256=hashlib.sha256(source.read_bytes()).hexdigest() if source.exists() else json.loads((WORK/'layout.json').read_text())['sourceSHA256'],size=9720,cores=core,fountains=[sim(p).tolist() for p in fountains],towers=towers,camps=camps,lanes=[lane('top'),lane('mid'),lane('bot')],walls=[ring(p) for p in finalWalls],river=ring(river),bushRLE=base64.b64encode(encoded).decode())
  (ROOT/'Packages/VelstriaCore/Sources/VelstriaCore/Resources/CanyonLayout.json').write_text(json.dumps(layout,separators=(',',':')))
  (WORK/'layout.json').write_text(json.dumps(layout,indent=2))
  if '--layout-only' in sys.argv:
   print('Updated layout',len(finalWalls),'walls',flush=True);return
+ # Structures retain authored world transforms, but get independent destructible meshes.
+ structureInfo=[]
+ for row,p,n,uv in structures:
+  base=p[(p[:,2]>=-.5)&(p[:,2]<=4)]
+  hull=Polygon(base[:,:2]).convex_hull
+  structureInfo.append(dict(point=structure_anchor(row),footprint=ring(hull)))
+ (ROOT/'Packages/VelstriaCore/Sources/VelstriaCore/Resources/CanyonStructures.json').write_text(json.dumps(structureInfo,separators=(',',':')))
+ objects+=structures
  # Sixteen extruded texels keep neighbouring atlas tiles apart through the useful mip levels.
  pad=16;content=512-pad*2
  # Three 2048x1024 atlases: eight 512px tiles per atlas.
@@ -206,6 +217,10 @@ def main():
   tid=textures.index(row['texture']);mapped=sim(p)/100
   pos=np.column_stack([mapped[:,0],p[:,2]*SCALE,-mapped[:,1]])
   normal=np.column_stack([-n[:,0],n[:,2],n[:,1]])
+  structure=row.get('structureIndex',-1)
+  if structure>=0:
+   anchor=np.array(structureInfo[structure]['point'])/100
+   pos-=np.array([anchor[0],0,-anchor[1]])
   v=np.column_stack([pos,normal,uv])
   for tri in v.reshape(-1,3,8):
    for t in tiled_triangles(tri):
@@ -213,12 +228,13 @@ def main():
     t[:,7]=1-(((tid%8)//4)*512+pad+(1-t[:,7])*content)/1024
     center=t[:,:3].mean(0);cx=int(math.floor((center[0]+20)/12));cy=int(math.floor((-center[2]+20)/12))
     brush=row.get('brushIndex',-1)
-    chunks[(brush,tid//8,0 if brush>=0 else cx,0 if brush>=0 else cy)].append(t)
+    chunks[(brush,structure,tid//8,0 if brush>=0 or structure>=0 else cx,0 if brush>=0 or structure>=0 else cy)].append(t)
  headers=[];payload=[];offset=0;total=0
- for (brush,atlas,x,y),tris in sorted(chunks.items()):
+ for (brush,structure,atlas,x,y),tris in sorted(chunks.items()):
   vert=np.concatenate(tris).astype('<f4');vert,idx=np.unique(vert,axis=0,return_inverse=True);idx=idx.astype('<u4')
   vb=vert.tobytes();ib=idx.tobytes();total+=len(idx)//3
-  headers.append(dict(atlas=atlas,brushIndex=brush if brush>=0 else None,vertexCount=len(vert),indexCount=len(idx),vertexOffset=offset,indexOffset=offset+len(vb)))
+  if structure>=0:assert len(idx)//3 <= (8500 if 'Station' in structures[structure][0]['texture'] else 6000)
+  headers.append(dict(structurePoint=structureInfo[structure]['point'] if structure>=0 else None,atlas=atlas,brushIndex=brush if brush>=0 else None,vertexCount=len(vert),indexCount=len(idx),vertexOffset=offset,indexOffset=offset+len(vb)))
   payload.extend([vb,ib]);offset+=len(vb)+len(ib)
  assert total<=600000,total
  header=json.dumps(dict(atlasCount=len(atlases),chunks=headers),separators=(',',':')).encode();prefix=b'VCM1'+struct.pack('<II',1,len(header))+header;prefix+=b'\0'*(-len(prefix)%16)
