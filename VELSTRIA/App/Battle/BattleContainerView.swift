@@ -76,8 +76,10 @@ struct BattleContainerView: View {
         let settings = app.profile.settings
         c.cameraZoom = settings.cameraZoom
         if !c.isSpectating {
-            // チュートリアルはスキル習得（＋）の操作を教えるため自動習得を切る
-            let auto = launch.config.mode == .tutorial ? false : settings.autoLevelSkills
+            // スキルは Lv1 の最初の 1 ポイントから毎回、プレイヤーが 3 枠のどれを上げるか選ぶ（自動習得はしない）。
+            // 構成が明示的に ON の時（FXCheck などの確認用）だけ自動のまま
+            let auto = launch.config.mode != .tutorial
+                && launch.config.players.contains { $0.controller == .human && $0.autoLevelSkills }
             c.send(.setAutoLevel(enabled: auto))
         }
         controller = c

@@ -757,7 +757,7 @@ struct OnlineRoomView: View {
         l.spells = SpellLoadoutRules.effective(heroID: heroID, profile: p)
         l.emblem = PracticeSetup.emblem(heroID: heroID, profile: p, master: app.master)
         l.skinID = p.equippedSkins[heroID].flatMap { p.ownedCosmeticIDs.contains($0) ? $0 : nil }
-        l.autoLevelSkills = p.settings.autoLevelSkills
+        l.autoLevelSkills = false  // スキルは毎回プレイヤーが 3 枠から選ぶ
         l.buildPlan = p.heroBuildPlans[heroID]
         return l
     }

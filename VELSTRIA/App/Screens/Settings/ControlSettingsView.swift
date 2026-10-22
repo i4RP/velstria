@@ -65,12 +65,6 @@ struct ControlSettingsView: View {
                                               format: SettingsText.percent, identifier: "controls_hud_opacity")
                         }
                         SettingsSection(title: L("アシスト", "Assists"), symbol: "wand.and.stars") {
-                            SettingsToggleRow(title: L("スキル自動習得", "Auto-level Skills"),
-                                              detail: L("レベルアップ時に Ult → スキル1 → 2 → 3 の順で自動で習得します。",
-                                                        "On level up, learns Ultimate, then Skill 1, 2, 3 automatically."),
-                                              symbol: "arrow.up.circle.fill", isOn: settingsBinding(app, \.autoLevelSkills),
-                                              identifier: "controls_auto_level")
-                            SettingsDivider()
                             SettingsToggleRow(title: L("おすすめ装備", "Recommended Items"),
                                               detail: L("ショップでおすすめ装備を表示し、ワンタップで購入できます。",
                                                         "Shows recommended items in the shop for one-tap buying."),

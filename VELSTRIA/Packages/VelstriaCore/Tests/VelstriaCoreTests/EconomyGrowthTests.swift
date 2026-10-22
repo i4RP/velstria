@@ -97,33 +97,20 @@ final class EconomyGrowthTests: XCTestCase {
     func testSkillLevelingRules() {
         let f = EconomyFixture.standard()
         var h = f.hero(f.heroes(.blue)[0])
-        h.level = 3
-        h.skillPoints = 5
-        h.skillRanks = [1, 2, 0, 0]
-        // 基本スキルは (Lv+1)/2 = 2 まで、Ult は Lv4 から
+        h.level = 1
+        h.skillPoints = 1
+        h.skillRanks = [1, 0, 0, 0]
+        // Lv の制限なし: Lv1 の最初の 1 ポイントから 3 枠のどれでも選べる（Ult 含む）
+        for slot in SkillSlot.actives { XCTAssertTrue(SkillLeveling.canLevel(h, slot: slot)) }
+        XCTAssertFalse(SkillLeveling.canLevel(h, slot: .passive))
+        // 最大段（6 / 6 / 3）に達した枠だけ上げられない
+        h.level = 15
+        h.skillRanks = [1, 6, 4, 3]
         XCTAssertFalse(SkillLeveling.canLevel(h, slot: .skill1))
         XCTAssertTrue(SkillLeveling.canLevel(h, slot: .skill2))
         XCTAssertFalse(SkillLeveling.canLevel(h, slot: .ultimate))
-        XCTAssertFalse(SkillLeveling.canLevel(h, slot: .passive))
-        h.level = 4
-        XCTAssertTrue(SkillLeveling.canLevel(h, slot: .ultimate))
-        h.skillRanks[3] = 1
-        XCTAssertFalse(SkillLeveling.canLevel(h, slot: .ultimate))
-        h.level = 8
-        XCTAssertTrue(SkillLeveling.canLevel(h, slot: .ultimate))
-        h.level = 15
-        // MLBB と同じ 6 / 6 / 3（以前の 4 / 4 / 3 は Wild Rift 由来で、Lv15 で 4 ポイントが余った）
-        h.skillRanks = [1, 4, 4, 3]
-        XCTAssertTrue(SkillLeveling.canLevel(h, slot: .skill1))
-        XCTAssertTrue(SkillLeveling.canLevel(h, slot: .skill2))
         h.skillRanks = [1, 6, 6, 3]
         for slot in SkillSlot.actives { XCTAssertFalse(SkillLeveling.canLevel(h, slot: slot)) }
-        // 6 段目は Lv11 から（ceil(Lv/2)）
-        h.skillRanks = [1, 5, 0, 0]
-        h.level = 10
-        XCTAssertFalse(SkillLeveling.canLevel(h, slot: .skill1))
-        h.level = 11
-        XCTAssertTrue(SkillLeveling.canLevel(h, slot: .skill1))
         h.skillPoints = 0
         h.skillRanks = [1, 0, 0, 0]
         XCTAssertFalse(SkillLeveling.canLevel(h, slot: .skill1))
@@ -164,9 +151,9 @@ final class EconomyGrowthTests: XCTestCase {
         let h = u.hero!
         XCTAssertEqual(h.level, 6)
         XCTAssertEqual(HeroGrowth.spentSkillPoints(h) + h.skillPoints, 6)
-        // 自動習得（既定 ON）で全ポイント消費、Ult 習得済み
-        XCTAssertEqual(h.skillPoints, 0)
-        XCTAssertEqual(h.rank(.ultimate), 1)
+        // 人間は自動習得しない: 6 ポイントすべてを自分で 3 枠に割り振る
+        XCTAssertEqual(h.skillPoints, 6)
+        XCTAssertEqual(HeroGrowth.spentSkillPoints(h), 0)
         XCTAssertEqual(u.hp, u.stats.maxHP, accuracy: 1e-6)
         XCTAssertEqual(h.gold, Balance.Economy.practiceGold)
         let def = MasterData.shared.hero("H001")!

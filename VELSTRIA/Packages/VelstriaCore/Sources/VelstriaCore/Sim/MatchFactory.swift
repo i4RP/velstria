@@ -71,7 +71,7 @@ public enum MatchFactory {
                     players.append(PlayerSlot(team: team, heroID: humanHeroID, controller: .human, position: pos,
                                               spells: allowedSpells(humanSpells ?? defaultSpells(for: pos), position: pos),
                                               emblem: humanEmblem ?? humanDefaultEmblem(humanHeroID, plan: humanBuildPlan, master: master),
-                                              skinID: humanSkin, displayName: humanName, buildPlan: humanBuildPlan))
+                                              skinID: humanSkin, displayName: humanName, autoLevelSkills: false, buildPlan: humanBuildPlan))
                     continue
                 }
                 let heroID = picks[team.rawValue][pos.rawValue] ?? pickHero(for: pos, used: &used, rng: &rng, master: master)
@@ -122,7 +122,7 @@ public enum MatchFactory {
         let slot = PlayerSlot(team: .blue, heroID: humanHeroID, controller: .human, position: pos,
                               spells: defaultSpells(for: pos),
                               emblem: humanEmblem ?? humanDefaultEmblem(humanHeroID, plan: humanBuildPlan, master: master),
-                              displayName: humanName, buildPlan: humanBuildPlan)
+                              displayName: humanName, autoLevelSkills: false, buildPlan: humanBuildPlan)
         return MatchConfig(mode: tutorial ? .tutorial : .practice, seed: seed, players: [slot], practice: options,
                            maxDuration: 60 * 60)
     }
@@ -154,7 +154,7 @@ public enum MatchFactory {
                     players.append(PlayerSlot(team: team, heroID: humanHero, controller: .human, position: pos,
                                               spells: humanSpells ?? ["BS01", "BS03"],
                                               emblem: humanEmblem ?? humanDefaultEmblem(humanHero, plan: humanBuildPlan, master: master),
-                                              skinID: humanSkin, displayName: humanName, buildPlan: humanBuildPlan))
+                                              skinID: humanSkin, displayName: humanName, autoLevelSkills: false, buildPlan: humanBuildPlan))
                     continue
                 }
                 let heroID = picks[team.rawValue][pos.rawValue] ?? pickHero(for: pos, used: &used, rng: &rng, master: master)

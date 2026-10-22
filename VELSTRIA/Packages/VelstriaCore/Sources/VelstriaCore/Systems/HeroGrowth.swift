@@ -147,14 +147,19 @@ public enum HeroGrowth {
 
 /// スキルポイントの割り振り（DESIGN §6）。
 public enum SkillLeveling {
-    /// その枠を今上げられるか（MLBB の規則。Balance.basicSkillMaxRank の注記）。
-    /// - アルティメット: Lv4 / 8 / 12 で 1 段ずつ（最大 3 段）。
-    /// - スキル1・2: 段 ≤ ceil(Lv / 2)（Lv1・3・5・7・9・11 で 1〜6 段目。最大 6 段）。
-    /// 6 + 6 + 3 = 15 = Lv15 までのスキルポイントの数なので、どの Lv でも割り振れないポイントは残らない。
+    /// その枠を今上げられるか。2026-10-23 から Lv の制限なし: ポイントがあれば、最大段でない 3 枠のどれでも毎回選べる
+    /// （Lv1 の最初の 1 ポイントからアルティメットも可）。6 + 6 + 3 = 15 = Lv15 までのポイントの数なので余りは出ない。
     public static func canLevel(_ hero: HeroData, slot: SkillSlot) -> Bool {
         guard slot != .passive, hero.skillPoints > 0 else { return false }
+        return hero.rank(slot) < slot.maxRank
+    }
+
+    /// 自動習得（ボット・切断時の引き継ぎ）が従う MLBB の規則（Balance.basicSkillMaxRank の注記）。
+    /// - アルティメット: Lv4 / 8 / 12 で 1 段ずつ（最大 3 段）。
+    /// - スキル1・2: 段 ≤ ceil(Lv / 2)（Lv1・3・5・7・9・11 で 1〜6 段目。最大 6 段）。
+    static func followsLevelGate(_ hero: HeroData, slot: SkillSlot) -> Bool {
+        guard canLevel(hero, slot: slot) else { return false }
         let rank = hero.rank(slot)
-        guard rank < slot.maxRank else { return false }
         if slot == .ultimate {
             return rank < Balance.ultimateUnlockLevels.filter { hero.level >= $0 }.count
         }
@@ -174,8 +179,10 @@ public enum SkillLeveling {
     public static func autoLevel(_ s: inout SimState, _ ctx: SimContext, heroIndex i: Int) {
         while let h = s.units[i].hero, h.skillPoints > 0 {
             let order: [SkillSlot] = [.ultimate, .skill1, .skill2]
-            let unlearned = order.filter { h.rank($0) == 0 && canLevel(h, slot: $0) }
-            guard let slot = unlearned.first ?? order.first(where: { canLevel(h, slot: $0) }) else { return }
+            let gated = order.filter { followsLevelGate(h, slot: $0) }
+            let unlearned = gated.filter { h.rank($0) == 0 }
+            // 手動で先取りして規則の枠が空いていない時は、上げられる枠へ（ポイントを余らせない）
+            guard let slot = unlearned.first ?? gated.first ?? order.first(where: { canLevel(h, slot: $0) }) else { return }
             levelUp(&s, ctx, heroIndex: i, slot: slot)
         }
     }

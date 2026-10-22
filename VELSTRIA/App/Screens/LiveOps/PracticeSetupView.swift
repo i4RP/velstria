@@ -29,7 +29,7 @@ enum PracticeSetup {
         if let skin = profile.equippedSkins[heroID], profile.ownedCosmeticIDs.contains(skin) {
             config.players[i].skinID = skin
         }
-        config.players[i].autoLevelSkills = profile.settings.autoLevelSkills
+        config.players[i].autoLevelSkills = false  // スキルは毎回プレイヤーが 3 枠から選ぶ
         config.players[i].buildPlan = profile.heroBuildPlans[heroID]
         return config
     }

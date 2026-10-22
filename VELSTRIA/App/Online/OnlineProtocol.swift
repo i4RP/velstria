@@ -80,7 +80,7 @@ struct OnlineLoadout: Codable, Hashable {
     /// 版数の違うクライアントは OnlineHello の simVersion で弾かれる）。
     var emblem: EmblemLoadout?
     var skinID: String?
-    var autoLevelSkills = true
+    var autoLevelSkills = false
     /// 選んだバトルプランの添字（nil = 「有効」のプラン）。旧版のロビーには無いので任意。
     var buildPlan: Int?
 }

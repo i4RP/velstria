@@ -89,7 +89,7 @@ struct GameSettings: Codable, Equatable {
     var hudOpacity: Double = 1.0
     var subtitlesEnabled = true
     var notificationsEnabled = false
-    var autoLevelSkills = true
+    var autoLevelSkills = false
     var showRecommendedItems = true
 
     /// 中央ボタンで選べる優先対象（MLBB の「優先して狙う対象」）。
