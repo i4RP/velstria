@@ -268,6 +268,7 @@ enum FXRangeAudit {
         case .wall: return offsetY <= 0.6
         case .billboard: return false
         case .ringLip, .crescent, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing: return offsetY <= 0.35
+        case .sk025s1, .sk025s2, .sk025ult, .sk026s1, .sk026s2, .sk026ult, .sk027s1, .sk027s2, .sk027ult, .sk028s1, .sk028s2, .sk028ult, .sk029s1, .sk029s2, .sk029ult, .sk030s1, .sk030s2, .sk030ult, .sk031s1, .sk031s2, .sk031ult, .sk032s1, .sk032s2, .sk032ult, .sk033s1, .sk033s2, .sk033ult, .sk034s1, .sk034s2, .sk034ult: return false
         }
     }
 

@@ -1,0 +1,221 @@
+{
+ "version": 1,
+ "faces": 2000,
+ "style": {
+  "prefix": "Single isolated stylized 3D game visual effect sculpture:",
+  "suffix": "One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background.",
+  "negative": "text, watermark, character, person, hands, multiple objects, scene, ground plane, frame"
+ },
+ "assets": [
+  {
+   "id": "h025_s1",
+   "hero": "H025",
+   "skill": "月弦分矢",
+   "object": "a floating crescent moon emblem ring with three moonlight arrowheads radiating outward",
+   "orient": "ground"
+  },
+  {
+   "id": "h025_s2",
+   "hero": "H025",
+   "skill": "月蝕の矢",
+   "object": "a single long crystal moonlight arrow pointing straight down, slender faceted arrowhead and feather fins",
+   "orient": "upright"
+  },
+  {
+   "id": "h025_ult",
+   "hero": "H025",
+   "skill": "隠れ月光",
+   "object": "a large thin crescent moon sculpture standing upright, sharp tips, smooth faceted surface",
+   "orient": "upright"
+  },
+  {
+   "id": "h026_s1",
+   "hero": "H026",
+   "skill": "分岐雷",
+   "object": "a jagged forked lightning bolt sculpture splitting into three branches, flat zigzag segments",
+   "orient": "forward"
+  },
+  {
+   "id": "h026_s2",
+   "hero": "H026",
+   "skill": "雷球",
+   "object": "a spherical cage of crackling lightning arcs wrapped around a round orb core",
+   "orient": "asis"
+  },
+  {
+   "id": "h026_ult",
+   "hero": "H026",
+   "skill": "九天雷鳴",
+   "object": "a massive vertical lightning bolt pillar striking down, thick jagged zigzag column",
+   "orient": "upright"
+  },
+  {
+   "id": "h027_s1",
+   "hero": "H027",
+   "skill": "跳槍撃",
+   "object": "a curved crescent spear slash arc with a dragon-fang edge, flat sweeping blade shape",
+   "orient": "ground"
+  },
+  {
+   "id": "h027_s2",
+   "hero": "H027",
+   "skill": "竜牙突き",
+   "object": "a long piercing dragon fang spearhead thrust, pointed cone with swept-back fins",
+   "orient": "forward"
+  },
+  {
+   "id": "h027_ult",
+   "hero": "H027",
+   "skill": "至高の武人",
+   "object": "a coiled eastern dragon spirit wrapped in a spiral loop, serpentine body with horned head",
+   "orient": "asis"
+  },
+  {
+   "id": "h028_s1",
+   "hero": "H028",
+   "skill": "環剣",
+   "object": "a four-bladed spinning shuriken made of curved swords, flat star shape with sharp blade tips",
+   "orient": "ground"
+  },
+  {
+   "id": "h028_s2",
+   "hero": "H028",
+   "skill": "断空突進",
+   "object": "a long dash slash streak, a narrow tapered blade-shaped wedge with jagged trailing edges",
+   "orient": "forward"
+  },
+  {
+   "id": "h028_ult",
+   "hero": "H028",
+   "skill": "三連断空",
+   "object": "three crossed straight slash blades forming a sharp asterisk X mark, flat blades",
+   "orient": "ground"
+  },
+  {
+   "id": "h029_s1",
+   "hero": "H029",
+   "skill": "聖槌波",
+   "object": "a wedge of broken stone ground slabs erupting upward in a line, jagged rock plates",
+   "orient": "forward"
+  },
+  {
+   "id": "h029_s2",
+   "hero": "H029",
+   "skill": "聖槌突撃",
+   "object": "a large round tower shield crest with a radiant cross emblem, convex disk",
+   "orient": "facing"
+  },
+  {
+   "id": "h029_ult",
+   "hero": "H029",
+   "skill": "崩落聖域",
+   "object": "a circular sanctuary ring of standing holy obelisks and runic stones around an open center",
+   "orient": "ground"
+  },
+  {
+   "id": "h030_s1",
+   "hero": "H030",
+   "skill": "遠星弾",
+   "object": "a sleek star cannon shell projectile, pointed bullet with four star fins",
+   "orient": "forward"
+  },
+  {
+   "id": "h030_s2",
+   "hero": "H030",
+   "skill": "星爆弾",
+   "object": "a star-shaped energy bomb, chunky five-pointed star with rounded beveled edges",
+   "orient": "ground"
+  },
+  {
+   "id": "h030_ult",
+   "hero": "H030",
+   "skill": "星砕の大砲",
+   "object": "a huge cone-shaped cannon blast shockwave, hollow flared horn with ribbed rings",
+   "orient": "forward"
+  },
+  {
+   "id": "h031_s1",
+   "hero": "H031",
+   "skill": "雪華の烈風",
+   "object": "a huge jagged falling ice shard, long faceted crystal spike pointing down",
+   "orient": "upright"
+  },
+  {
+   "id": "h031_s2",
+   "hero": "H031",
+   "skill": "氷花のそよ風",
+   "object": "a flat fan of frost flower ice crystals spreading forward, petals of ice in a wedge",
+   "orient": "forward"
+  },
+  {
+   "id": "h031_ult",
+   "hero": "H031",
+   "skill": "凍てつく氷結",
+   "object": "a cluster of tall jagged glacier ice crystals erupting from the ground in a line",
+   "orient": "forward"
+  },
+  {
+   "id": "h032_s1",
+   "hero": "H032",
+   "skill": "赤拳連斬",
+   "object": "three parallel curved claw slash crescents, flat sharp hooked blades side by side",
+   "orient": "ground"
+  },
+  {
+   "id": "h032_s2",
+   "hero": "H032",
+   "skill": "紅蓮の踏込",
+   "object": "an explosive burst of sharp spikes radiating outward from a center, spiky starburst",
+   "orient": "asis"
+  },
+  {
+   "id": "h032_ult",
+   "hero": "H032",
+   "skill": "奈落の一撃",
+   "object": "a long abyssal ground fissure with jagged spikes thrusting up along a straight crack",
+   "orient": "forward"
+  },
+  {
+   "id": "h033_s1",
+   "hero": "H033",
+   "skill": "裂地撃",
+   "object": "a ground impact crater with a ring of broken jagged rock shards pointing outward",
+   "orient": "ground"
+  },
+  {
+   "id": "h033_s2",
+   "hero": "H033",
+   "skill": "旋回斬",
+   "object": "a thick spinning greatsword crescent ring, circular blade sweep with sharp outer edge",
+   "orient": "ground"
+  },
+  {
+   "id": "h033_ult",
+   "hero": "H033",
+   "skill": "血牙の覚醒",
+   "object": "a pair of huge curved wolf fangs crossing, sharp crescent fang shapes",
+   "orient": "asis"
+  },
+  {
+   "id": "h034_s1",
+   "hero": "H034",
+   "skill": "鎖鉤",
+   "object": "a heavy iron grappling hook head with three curved barbs and a chain ring",
+   "orient": "upright"
+  },
+  {
+   "id": "h034_s2",
+   "hero": "H034",
+   "skill": "鉄鎖旋",
+   "object": "a ring of heavy iron chain links lying in a circle with spikes",
+   "orient": "ground"
+  },
+  {
+   "id": "h034_ult",
+   "hero": "H034",
+   "skill": "狩猟鎖獄",
+   "object": "a cage of heavy iron chains and shackles forming a dome-shaped prison",
+   "orient": "asis"
+  }
+ ]
+}

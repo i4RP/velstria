@@ -119,7 +119,7 @@ enum FXEdge {
         case .ringLip:
             // Blender の衝撃の輪（外径 1 の外縁が見える縁。画像なしの単色）
             return ellipse(rx: size.x, ry: size.z, from: -180, to: 180, n)
-        case .crescent, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing:
+        case .crescent, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing, .sk025s1, .sk025s2, .sk025ult, .sk026s1, .sk026s2, .sk026ult, .sk027s1, .sk027s2, .sk027ult, .sk028s1, .sk028s2, .sk028ult, .sk029s1, .sk029s2, .sk029ult, .sk030s1, .sk030s2, .sk030ult, .sk031s1, .sk031s2, .sk031ult, .sk032s1, .sk032s2, .sk032ult, .sk033s1, .sk033s2, .sk033ult, .sk034s1, .sk034s2, .sk034ult:
             // Blender の模型の飾り（斬撃の三日月・竜巻・光の柱・渦の刃・炎の球・四芒星の盤・岩板）。範囲を示さない
             return nil
         }

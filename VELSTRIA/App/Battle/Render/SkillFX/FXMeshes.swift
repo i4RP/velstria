@@ -271,7 +271,7 @@ final class FXMeshLibrary {
                 let a = UInt32(i * 2)
                 quad(a, a + 2, a + 3, a + 1)
             }
-        case .crescent, .ringLip, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing:
+        case .crescent, .ringLip, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing, .sk025s1, .sk025s2, .sk025ult, .sk026s1, .sk026s2, .sk026ult, .sk027s1, .sk027s2, .sk027ult, .sk028s1, .sk028s2, .sk028ult, .sk029s1, .sk029s2, .sk029ult, .sk030s1, .sk030s2, .sk030ult, .sk031s1, .sk031s2, .sk031ult, .sk032s1, .sk032s2, .sk032ult, .sk033s1, .sk033s2, .sk033ult, .sk034s1, .sk034s2, .sk034ult:
             // 模型（FXModelFile が読む）
             return nil
         }

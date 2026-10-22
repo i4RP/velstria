@@ -261,11 +261,74 @@ enum FXShape: String, CaseIterable, Hashable, Sendable {
     case starCross
     /// 割れて浮く岩板の輪（10 枚の角張った板、半径 0.35〜1、厚み 0.06）。上面の UV = 平面の投影。
     case shardRing
+    // スキルの攻撃の模型（Tripo の text-to-image の参照画像 → image-to-model → skill_mesh_to_fxm.py。単位の大きさ・前 = -Z。
+    // UV はスマート投影なので模様は流す程度にする）
+    /// H025 月弦分矢（tools/vfx_assets/skill_meshes.json の h025_s1: 参照画像 → Tripo のメッシュ）。
+    case sk025s1
+    /// H025 月蝕の矢（tools/vfx_assets/skill_meshes.json の h025_s2: 参照画像 → Tripo のメッシュ）。
+    case sk025s2
+    /// H025 隠れ月光（tools/vfx_assets/skill_meshes.json の h025_ult: 参照画像 → Tripo のメッシュ）。
+    case sk025ult
+    /// H026 分岐雷（tools/vfx_assets/skill_meshes.json の h026_s1: 参照画像 → Tripo のメッシュ）。
+    case sk026s1
+    /// H026 雷球（tools/vfx_assets/skill_meshes.json の h026_s2: 参照画像 → Tripo のメッシュ）。
+    case sk026s2
+    /// H026 九天雷鳴（tools/vfx_assets/skill_meshes.json の h026_ult: 参照画像 → Tripo のメッシュ）。
+    case sk026ult
+    /// H027 跳槍撃（tools/vfx_assets/skill_meshes.json の h027_s1: 参照画像 → Tripo のメッシュ）。
+    case sk027s1
+    /// H027 竜牙突き（tools/vfx_assets/skill_meshes.json の h027_s2: 参照画像 → Tripo のメッシュ）。
+    case sk027s2
+    /// H027 至高の武人（tools/vfx_assets/skill_meshes.json の h027_ult: 参照画像 → Tripo のメッシュ）。
+    case sk027ult
+    /// H028 環剣（tools/vfx_assets/skill_meshes.json の h028_s1: 参照画像 → Tripo のメッシュ）。
+    case sk028s1
+    /// H028 断空突進（tools/vfx_assets/skill_meshes.json の h028_s2: 参照画像 → Tripo のメッシュ）。
+    case sk028s2
+    /// H028 三連断空（tools/vfx_assets/skill_meshes.json の h028_ult: 参照画像 → Tripo のメッシュ）。
+    case sk028ult
+    /// H029 聖槌波（tools/vfx_assets/skill_meshes.json の h029_s1: 参照画像 → Tripo のメッシュ）。
+    case sk029s1
+    /// H029 聖槌突撃（tools/vfx_assets/skill_meshes.json の h029_s2: 参照画像 → Tripo のメッシュ）。
+    case sk029s2
+    /// H029 崩落聖域（tools/vfx_assets/skill_meshes.json の h029_ult: 参照画像 → Tripo のメッシュ）。
+    case sk029ult
+    /// H030 遠星弾（tools/vfx_assets/skill_meshes.json の h030_s1: 参照画像 → Tripo のメッシュ）。
+    case sk030s1
+    /// H030 星爆弾（tools/vfx_assets/skill_meshes.json の h030_s2: 参照画像 → Tripo のメッシュ）。
+    case sk030s2
+    /// H030 星砕の大砲（tools/vfx_assets/skill_meshes.json の h030_ult: 参照画像 → Tripo のメッシュ）。
+    case sk030ult
+    /// H031 雪華の烈風（tools/vfx_assets/skill_meshes.json の h031_s1: 参照画像 → Tripo のメッシュ）。
+    case sk031s1
+    /// H031 氷花のそよ風（tools/vfx_assets/skill_meshes.json の h031_s2: 参照画像 → Tripo のメッシュ）。
+    case sk031s2
+    /// H031 凍てつく氷結（tools/vfx_assets/skill_meshes.json の h031_ult: 参照画像 → Tripo のメッシュ）。
+    case sk031ult
+    /// H032 赤拳連斬（tools/vfx_assets/skill_meshes.json の h032_s1: 参照画像 → Tripo のメッシュ）。
+    case sk032s1
+    /// H032 紅蓮の踏込（tools/vfx_assets/skill_meshes.json の h032_s2: 参照画像 → Tripo のメッシュ）。
+    case sk032s2
+    /// H032 奈落の一撃（tools/vfx_assets/skill_meshes.json の h032_ult: 参照画像 → Tripo のメッシュ）。
+    case sk032ult
+    /// H033 裂地撃（tools/vfx_assets/skill_meshes.json の h033_s1: 参照画像 → Tripo のメッシュ）。
+    case sk033s1
+    /// H033 旋回斬（tools/vfx_assets/skill_meshes.json の h033_s2: 参照画像 → Tripo のメッシュ）。
+    case sk033s2
+    /// H033 血牙の覚醒（tools/vfx_assets/skill_meshes.json の h033_ult: 参照画像 → Tripo のメッシュ）。
+    case sk033ult
+    /// H034 鎖鉤（tools/vfx_assets/skill_meshes.json の h034_s1: 参照画像 → Tripo のメッシュ）。
+    case sk034s1
+    /// H034 鉄鎖旋（tools/vfx_assets/skill_meshes.json の h034_s2: 参照画像 → Tripo のメッシュ）。
+    case sk034s2
+    /// H034 狩猟鎖獄（tools/vfx_assets/skill_meshes.json の h034_ult: 参照画像 → Tripo のメッシュ）。
+    case sk034ult
 
     /// Blender の模型（バンドルの fxm_<名前>.bin を読む）か。
     var isModel: Bool {
         switch self {
         case .crescent, .ringLip, .twister, .pillar2, .bladeRing, .burstDome, .starCross, .shardRing: return true
+        case .sk025s1, .sk025s2, .sk025ult, .sk026s1, .sk026s2, .sk026ult, .sk027s1, .sk027s2, .sk027ult, .sk028s1, .sk028s2, .sk028ult, .sk029s1, .sk029s2, .sk029ult, .sk030s1, .sk030s2, .sk030ult, .sk031s1, .sk031s2, .sk031ult, .sk032s1, .sk032s2, .sk032ult, .sk033s1, .sk033s2, .sk033ult, .sk034s1, .sk034s2, .sk034ult: return true
         default: return false
         }
     }
