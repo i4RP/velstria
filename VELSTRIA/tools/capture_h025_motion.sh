@@ -44,11 +44,14 @@ xcrun simctl launch --terminate-running-process "$udid" "$bundle" \
     -uiTesting -skipOnboarding -language en -heroGallery -galleryDetail H025 -galleryState idle
 sleep 30
 
-for state in idle run attack; do
+for state in idle walk run attack; do
+    animation="$state"
+    speed=330
+    if [[ "$state" == walk ]]; then animation=run; speed=100; fi
     for yaw in 0 90; do
         xcrun simctl launch --terminate-running-process "$udid" "$bundle" \
             -uiTesting -skipOnboarding -language en -heroGallery \
-            -galleryDetail H025 -galleryState "$state" -galleryYaw "$yaw"
+            -galleryDetail H025 -galleryState "$animation" -gallerySpeed "$speed" -galleryYaw "$yaw"
         sleep 4
         record "H025-$state-$yaw" 10
     done

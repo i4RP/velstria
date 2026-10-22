@@ -12,6 +12,7 @@ import VelstriaCore
 //   -galleryFreeze <秒>        指定秒だけ進めて静止
 //   -galleryDetail <heroID>    単体プレビュー（state/camera/freeze/yaw も反映）を表示
 //   -galleryYaw <度>           台の回転（側面・背面の確認）
+//   -gallerySpeed <sim units/s> 歩行／走行の速度（既定330）
 //
 // 開発用の目視確認画面のため DEBUG / SCREENSHOTS ビルドのみ（App Store 用アーカイブには含めない）。
 
@@ -27,6 +28,7 @@ struct HeroGalleryView: View {
     @State private var detailSkin: String?
     @State private var didApplyArgs = false
     @State private var yaw: Float = 0
+    @State private var runSpeed: Double = 330
 
     private var master: MasterData { app.master }
 
@@ -76,7 +78,7 @@ struct HeroGalleryView: View {
                 header
                 ZStack(alignment: .bottom) {
                     HeroStageView(config: HeroStageConfig(slots: slots, team: team, state: animState, camera: camera,
-                                                          freezeAt: freeze, showOverheadMarker: camera == .battle, yaw: yaw))
+                                                          runSpeed: runSpeed, freezeAt: freeze, showOverheadMarker: camera == .battle, yaw: yaw))
                     labels
                 }
                 stateBar
@@ -194,7 +196,7 @@ struct HeroGalleryView: View {
                 HeroStageView(config: HeroStageConfig(
                     slots: [HeroStageSlot(heroID: heroID, skinID: detailSkin)],
                     team: team, state: animState, camera: camera, pedestal: true,
-                    freezeAt: freeze, yaw: yaw))
+                    runSpeed: runSpeed, freezeAt: freeze, yaw: yaw))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 VStack(alignment: .leading, spacing: 10) {
                     if let def = master.hero(heroID) {
@@ -241,6 +243,9 @@ struct HeroGalleryView: View {
         }
         if let f = DebugLaunch.value(after: "-galleryFreeze"), let t = Double(f) { freeze = t }
         if let y = DebugLaunch.value(after: "-galleryYaw"), let d = Float(y) { yaw = d * .pi / 180 }
+        if let s = DebugLaunch.value(after: "-gallerySpeed"), let speed = Double(s), speed.isFinite {
+            runSpeed = min(1000, max(0, speed))
+        }
         if let d = DebugLaunch.value(after: "-galleryDetail") {
             detailHeroID = d
             detailSkin = DebugLaunch.value(after: "-gallerySkin")
