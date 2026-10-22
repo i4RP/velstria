@@ -7338,8 +7338,20 @@
         "verifyLog": "build/tripo/props/hookChain/import_verify.log",
         "provider": "tripo"
       }
+    },
+    "props/ballLightning": {
+      "stages": {},
+      "import": {
+        "at": "2026-10-22T19:56:09.700Z",
+        "out": "App\\Resources\\Heroes\\Prop_ballLightning.usdz",
+        "status": "failed",
+        "stage": "verify",
+        "report": "build\\tripo\\props\\ballLightning\\import_report.json",
+        "verifyLog": "build\\tripo\\props\\ballLightning\\import_verify.log",
+        "rejected": "build\\tripo\\props\\ballLightning\\rejected_Prop_ballLightning.usdz"
+      }
     }
   },
   "note": "tools/tripo.mjs が自動生成。task_id・状態・消費クレジット・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-22T17:18:34.134Z"
+  "updated_at": "2026-10-22T19:56:09.701Z"
 }

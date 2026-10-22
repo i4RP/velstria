@@ -2604,8 +2604,42 @@
           "at": "2026-10-22T16:39:54.490Z"
         }
       }
+    },
+    "props/ballLightning": {
+      "stages": {
+        "concept": {
+          "status": "SUCCEEDED",
+          "task_id": "01a1652d-6086-7397-b6b6-fedf4275c5d4",
+          "input": null,
+          "input_sha256": null,
+          "request": {
+            "ai_model": "nano-banana-2",
+            "prompt": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical: a magical ball lightning weapon held above the palm, front view, upright: at the bottom a small elegant silver gauntlet crest with three short sharp glowing cyan claws pointing up, and floating just above it a large perfect sphere of crackling lightning, a bright white-cyan glowing core inside a translucent sapphire-blue energy shell, violet and cyan jagged lightning bolts wrapping around the sphere, a thin tilted silver ring orbiting the sphere, crisp stylized shapes, glowing look. Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo. Avoid: hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo.",
+            "aspect_ratio": "3:4"
+          },
+          "estimate": 6,
+          "balance_before": 29,
+          "submitted_at": "2026-10-22T19:53:55.296Z",
+          "completed_at": "2026-10-22T19:54:04.758Z",
+          "progress": 100,
+          "credits_consumed": 6,
+          "outputs": [
+            "image_urls[0]"
+          ],
+          "files": {
+            "concept.png": {
+              "path": "build\\meshy\\props\\ballLightning\\concept.png",
+              "bytes": 852823,
+              "sha256": "107bea4824f4edaa319cb3eb7523d774f29d922ac49a5162c9e2994020d3ce80"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-22T19:54:06.769Z",
+          "expires_at": "2026-10-25T19:54:04.758Z"
+        }
+      }
     }
   },
   "note": "tools/meshy.mjs が自動生成。task_id・状態・消費クレジット・ハッシュ・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-22T16:40:15.935Z"
+  "updated_at": "2026-10-22T19:54:06.769Z"
 }

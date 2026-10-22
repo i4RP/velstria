@@ -197,6 +197,18 @@ enum HeroMotionSets {
         return s
     }()
 
+    /// H026 エウリア: Meshy prime の収録を仕上げた専用クリップ（H026MotionClips.json、docs/H026_MOTION.md）。杖は持たず
+    /// 右の掌の上に球電（Prop_ballLightning）。通常攻撃は前へ撃つ雷・払う火花を交互に。スキルは両手で扇へ放つ・雷球の投擲・
+    /// 天へ掲げて振り下ろす落雷（0.45 秒）。球電の向きは手続きのまま（held）。
+    private static let euria: HeroMotionSet = {
+        var s = make(["cast_bolt_h026", "cast_flick_h026"], idle: "idle_h026", victory: "victory_cheer", weaponGrip: held)
+        s.dedicatedIdle = true
+        s.walk = "walk_h026"
+        s.run = "run_h026"
+        s.casts = ["cast_fan_h026", "cast_ball_h026", "cast_thunder_h026"]
+        return s
+    }()
+
     /// H033 ヴァルド: Meshy prime の収録を仕上げた専用クリップ（H033MotionClips.json、docs/H033_MOTION.md）。大剣は右手の片手持ち。
     /// 通常攻撃は斜めの斬り下ろし → 頭上からの叩き割りを交互に。スキルは S1 跳び叩き（跳び込みの間も脚はクリップ）・
     /// S2 回転斬りの構え（回転そのものは FX_H033.motion の手続きの spin）・奥義の吸収（段 0）と衝撃波の振り抜き（段 1）。
@@ -362,7 +374,7 @@ enum HeroMotionSets {
         // 三日月の長弓（Ranger・遠隔。弓は左手の副手）
         "H025": lumina,
         // 右手の上の球電（Arcanist・遠隔: 杖は持たず、指し示し・払い）
-        "H026": make(["cast_a", "cast_point", "cast_throw"], idle: "ready_idle", victory: "victory_cheer", weaponGrip: held),
+        "H026": euria,
         // 竜牙の長槍（Duelist・近接の突き）
         "H027": jarld,
         // 光刃の長剣（Assassin・近接の連斬り）

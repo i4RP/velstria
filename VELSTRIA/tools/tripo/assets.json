@@ -354,6 +354,11 @@
       "notes": "H032 の両手で共用（weapon / offhand とも abyssRing）。手続き版は輪が XY 面（面 ±Z）、握りの棒は輪の下寄りを X 方向に渡る。輪は PCA の長軸が揺れるので axis vertical。"
     },
     {
+      "kind": "ballLightning", "heroes": ["H026"], "grip": 0.1, "optional": false,
+      "prompt": "a magical ball lightning weapon held above the palm, front view, upright: at the bottom a small elegant silver gauntlet crest with three short sharp glowing cyan claws pointing up, and floating just above it a large perfect sphere of crackling lightning, a bright white-cyan glowing core inside a translucent sapphire-blue energy shell, violet and cyan jagged lightning bolts wrapping around the sphere, a thin tilted silver ring orbiting the sphere, crisp stylized shapes, glowing look.",
+      "notes": "手続き版は手の甲の爪 3 本と掌の上の球（中心 y 0.2）。propFit が手続きの外形へ合わせる。"
+    },
+    {
       "kind": "bloodGreatsword", "heroes": ["H033"], "grip": 0.2, "optional": false, "yaw": -90,
       "prompt": "an enormous silver greatsword, front view of the flat of the blade, blade tip pointing straight up and hilt at the bottom, very wide silver blade with a jagged serrated saw-tooth spine along the left side and a straight sharp edge along the right side, a glowing icy-blue fuller down the center, a crossguard shaped like a silver horned skull with glowing blue eyes facing the viewer, black leather-wrapped grip, spiked silver pommel.",
       "notes": "手続き版は刃が XY 面（面 ±Z）、ギザギザの峰が -X。yaw -90 で画像の右 -> +X（峰は画像の左 -> -X）。"

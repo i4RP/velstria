@@ -1,0 +1,476 @@
+{
+  "version": 1,
+  "hero": "H026",
+  "recorded_at": "2026-10-22T19:57:44.893Z",
+  "credit_cap": {
+    "meshy": 120,
+    "tripo": 0
+  },
+  "credits_consumed": {
+    "meshy": 80,
+    "tripo": 0
+  },
+  "meshy_library": {
+    "count": 678,
+    "candidates": [
+      {
+        "action_id": 0,
+        "name": "Idle",
+        "key": "Idle",
+        "category": "DailyActions",
+        "sub_category": "Idle",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Idle.gif"
+      },
+      {
+        "action_id": 11,
+        "name": "Idle 1",
+        "key": "Idle_02",
+        "category": "DailyActions",
+        "sub_category": "Idle",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Idle_02.gif"
+      },
+      {
+        "action_id": 21,
+        "name": "Walk Fight Forward",
+        "key": "Walk_Fight_Forward",
+        "category": "WalkAndRun",
+        "sub_category": "Walking",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Walk_Fight_Forward.gif"
+      },
+      {
+        "action_id": 86,
+        "name": "Jump Attack",
+        "key": "Basic_Jump",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Basic_Jump.gif"
+      },
+      {
+        "action_id": 89,
+        "name": "Combat Idel",
+        "key": "Combat_Stance",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Combat_Stance.gif"
+      },
+      {
+        "action_id": 91,
+        "name": "Double Blade Spin",
+        "key": "Double_Blade_Spin",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Double_Blade_Spin.gif"
+      },
+      {
+        "action_id": 97,
+        "name": "Left Slash",
+        "key": "Left_Slash",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Left_Slash.gif"
+      },
+      {
+        "action_id": 99,
+        "name": "Reaping Swing",
+        "key": "Reaping_Swing",
+        "category": "Fighting",
+        "sub_category": "Transitioning",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Reaping_Swing.gif"
+      },
+      {
+        "action_id": 102,
+        "name": "Sword Judgment",
+        "key": "Sword_Judgment",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Sword_Judgment.gif"
+      },
+      {
+        "action_id": 128,
+        "name": "Heavy Hammer Swing",
+        "key": "Heavy_Hammer_Swing",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Heavy_Hammer_Swing.gif"
+      },
+      {
+        "action_id": 219,
+        "name": "Right-hand Sword Slash",
+        "key": "Right_Hand_Sword_Slash",
+        "category": "Fighting",
+        "sub_category": "Punching",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Right_Hand_Sword_Slash.gif"
+      },
+      {
+        "action_id": 221,
+        "name": "Charged Upward Slash",
+        "key": "Charged_Upward_Slash",
+        "category": "Fighting",
+        "sub_category": "Punching",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Charged_Upward_Slash.gif"
+      },
+      {
+        "action_id": 237,
+        "name": "Charged Axe Chop",
+        "key": "Charged_Axe_Chop",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Charged_Axe_Chop.gif"
+      },
+      {
+        "action_id": 238,
+        "name": "Axe Spin Attack",
+        "key": "Axe_Spin_Attack",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Axe_Spin_Attack.gif"
+      },
+      {
+        "action_id": 242,
+        "name": "Charged Slash",
+        "key": "Charged_Slash",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Charged_Slash.gif"
+      },
+      {
+        "action_id": 382,
+        "name": "Jump and Slam Back Down",
+        "key": "Jump_and_Slam_Back_Down",
+        "category": "BodyMovements",
+        "sub_category": "Acting",
+        "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Jump_and_Slam_Back_Down.gif"
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "name": "idle",
+      "provider": "meshy",
+      "task_id": "01a1652d-4a9e-7260-9c76-2bf538fed6e3",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T19:53:49.387Z",
+      "request": {
+        "mode": "prime",
+        "duration": 4,
+        "prompt": "Seamless looping idle of an elegant lightning sorceress. Feet planted shoulder width, weight on back leg, hips slightly turned. Right hand held at chest height palm up, cradling a small floating orb of lightning, fingers gently curling. Left hand relaxed near hip. Slow breathing, small sway, head turns slightly left and right. Ends exactly in start pose."
+      },
+      "file": {
+        "file": "build/h026-motion/idle.fbx",
+        "bytes": 16825904,
+        "sha256": "66399bd14121ba1bc169d55a149ebc81684cf881b65082c17240e28d542e21c4"
+      },
+      "error": null
+    },
+    {
+      "name": "walk",
+      "provider": "meshy",
+      "task_id": "01a1652d-4f25-73a3-8bcd-0455d5a4df58",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T19:53:50.634Z",
+      "request": {
+        "mode": "prime",
+        "duration": 3,
+        "prompt": "Looping graceful confident walk forward of a sorceress. Right forearm stays raised at chest height, palm up holding a small floating lightning orb steady. Left arm swings softly. Light even steps heel to toe, upright posture, hips sway slightly, head level. Every step same length."
+      },
+      "file": {
+        "file": "build/h026-motion/walk.fbx",
+        "bytes": 16768672,
+        "sha256": "d6fa3297410d4ccce5f5bbd792aaae07a5764990786fbd03e8434c1db85e9ff4"
+      },
+      "error": null
+    },
+    {
+      "name": "run",
+      "provider": "meshy",
+      "task_id": "01a1652d-51d8-73c2-9330-e3314c5414f4",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T19:53:51.539Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Looping light quick run forward of a sorceress, moderate speed, not a sprint. Slight forward lean, right hand stays bent in front of chest palm up holding a small lightning orb, left arm swings. Light springy strides, feet close to ground, head steady. Even rhythm, seamless loop."
+      },
+      "file": {
+        "file": "build/h026-motion/run.fbx",
+        "bytes": 16711424,
+        "sha256": "046796e242fd302d624a5d287f61ad0a9896e66166200002f5da79ded06f5ff1"
+      },
+      "error": null
+    },
+    {
+      "name": "attack1",
+      "provider": "meshy",
+      "task_id": "01a1652d-5469-773d-b8b8-1c6a9f0ff7bf",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T19:53:52.201Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Sorceress casts a quick lightning bolt. From relaxed stance, draw right hand back beside shoulder gathering energy, short pause, then thrust right arm and open palm straight forward to fire, torso turns into it, left hand balances back. Brief hold, then return to relaxed stance, right hand palm up at chest. Feet planted."
+      },
+      "file": {
+        "file": "build/h026-motion/attack1.fbx",
+        "bytes": 16711424,
+        "sha256": "d846bdbe7dd74edb010d296c3d730707917cd28c706cc9ae4b3482bf5c611499"
+      },
+      "error": null
+    },
+    {
+      "name": "attack2",
+      "provider": "meshy",
+      "task_id": "01a1652d-57db-77ad-a19c-85eba9a240c1",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T19:53:53.078Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Sorceress flicks a lightning spark. From relaxed stance, sweep right hand across body to the left, then snap the arm outward to the front right with fingers spread to release, hips rotate with the throw. Brief hold, then return to relaxed stance, right hand palm up at chest. Feet planted."
+      },
+      "file": {
+        "file": "build/h026-motion/attack2.fbx",
+        "bytes": 16711424,
+        "sha256": "685d79073e01e2b494fffacfedc27a19021ed86e331b93d20637408c88cb23c6"
+      },
+      "error": null
+    },
+    {
+      "name": "s1_fan",
+      "provider": "meshy",
+      "task_id": "01a1652d-5c2e-73ef-8aa0-0736932506e3",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T19:53:54.189Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Sorceress releases a forked lightning blast. Pull both hands to chest gathering power, small crouch, then push both arms forward with palms open and fingers spread wide, chest forward, shoulders driving, a strong blast. Hold the pose briefly, then return to relaxed stance. Feet planted."
+      },
+      "file": {
+        "file": "build/h026-motion/s1_fan.fbx",
+        "bytes": 16711424,
+        "sha256": "51eb170dbb4734aab437fec5e444051fd1bfd2bfca274dd6bf0f54c8fc532b6a"
+      },
+      "error": null
+    },
+    {
+      "name": "s2_throw",
+      "provider": "meshy",
+      "task_id": "01a1652d-5ee7-7656-894d-67c80573db75",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T19:53:54.887Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Sorceress throws a ball of lightning. Cup right hand at hip gathering a sphere, wind the arm back, then throw it forward overhand like pitching a ball, stepping lightly with left foot, torso rotating. Follow through, then return to relaxed stance with right hand palm up at chest."
+      },
+      "file": {
+        "file": "build/h026-motion/s2_throw.fbx",
+        "bytes": 16711424,
+        "sha256": "84e29179de73d45966ca4367c82d8465e270a363753d81b23542e438f04f2cf1"
+      },
+      "error": null
+    },
+    {
+      "name": "ult",
+      "provider": "meshy",
+      "task_id": "01a1652d-6197-755b-9e40-0c0a828eac24",
+      "status": "SUCCEEDED",
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T19:53:55.570Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Sorceress calls down thunder. Quickly raise right arm high to the sky with open palm, chest lifts, head tilts up, left hand at side, hold briefly charging, then swing the arm down hard to point at the ground in front, body leaning forward with power. Hold, then return to relaxed stance. Feet planted."
+      },
+      "file": {
+        "file": "build/h026-motion/ult.fbx",
+        "bytes": 16740048,
+        "sha256": "07750f2f3408a6d3f5ad39401f273e65df8f540ce5f38b6409a09640938eca46"
+      },
+      "error": null
+    }
+  ],
+  "retained_existing_model": true,
+  "finish": {
+    "idle_h026": {
+      "frames": 120,
+      "maxIKClampMm": 0,
+      "endToStartDegrees": 0
+    },
+    "walk_h026": {
+      "frames": 38,
+      "maxIKClampMm": 0,
+      "endToStartDegrees": 0,
+      "loopStart": 24,
+      "period": 38,
+      "seamScore": 25.99,
+      "groundSpeed": 1.1840888857841492
+    },
+    "run_h026": {
+      "frames": 17,
+      "maxIKClampMm": 0,
+      "endToStartDegrees": 0,
+      "loopStart": 9,
+      "period": 17,
+      "seamScore": 43.99,
+      "groundSpeed": 2.9282203316688538
+    },
+    "cast_bolt_h026": {
+      "frames": 30,
+      "maxIKClampMm": 23.68,
+      "endToStartDegrees": 0,
+      "sourcePeak": 24,
+      "keys": [
+        [
+          0,
+          4
+        ],
+        [
+          7,
+          19
+        ],
+        [
+          11,
+          24
+        ],
+        [
+          16,
+          30
+        ],
+        [
+          29,
+          52
+        ]
+      ]
+    },
+    "cast_flick_h026": {
+      "frames": 30,
+      "maxIKClampMm": 26.42,
+      "endToStartDegrees": 0,
+      "sourcePeak": 21,
+      "keys": [
+        [
+          0,
+          1
+        ],
+        [
+          7,
+          16
+        ],
+        [
+          11,
+          21
+        ],
+        [
+          16,
+          27
+        ],
+        [
+          29,
+          49
+        ]
+      ]
+    },
+    "castPeaks": {
+      "s1_fan_push": 16,
+      "s2_throw_push": 22,
+      "ult_push": 31,
+      "ult_raise": 17
+    },
+    "cast_fan_h026": {
+      "frames": 24,
+      "maxIKClampMm": 8.94,
+      "endToStartDegrees": 0,
+      "keys": [
+        [
+          0,
+          10
+        ],
+        [
+          4,
+          16
+        ],
+        [
+          10,
+          24
+        ],
+        [
+          23,
+          55
+        ]
+      ]
+    },
+    "cast_ball_h026": {
+      "frames": 24,
+      "maxIKClampMm": 44.9,
+      "endToStartDegrees": 0,
+      "keys": [
+        [
+          0,
+          17
+        ],
+        [
+          4,
+          22
+        ],
+        [
+          10,
+          30
+        ],
+        [
+          23,
+          55
+        ]
+      ]
+    },
+    "cast_thunder_h026": {
+      "frames": 30,
+      "maxIKClampMm": 0,
+      "endToStartDegrees": 0,
+      "keys": [
+        [
+          0,
+          4
+        ],
+        [
+          5,
+          17
+        ],
+        [
+          11,
+          27
+        ],
+        [
+          14,
+          31
+        ],
+        [
+          20,
+          39
+        ],
+        [
+          29,
+          72
+        ]
+      ]
+    },
+    "model": {
+      "height": 1.7000001668930054,
+      "bones": 23,
+      "legLength": 0.9305912107229233,
+      "usdAxisDegrees": 0.00023337071748899494,
+      "warnings": []
+    }
+  },
+  "references": [
+    "https://docs.meshy.ai/en/api/text-to-motion",
+    "https://docs.meshy.ai/en/api/animation-library"
+  ]
+}
