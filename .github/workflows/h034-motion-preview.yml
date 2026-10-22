@@ -1,0 +1,80 @@
+name: H034 Motion Preview
+
+# Simulator footage of the real RealityKit player (before = main at the branch point, after = this commit).
+# This does not measure device FPS.
+on:
+  push:
+    branches: [h034-motion]
+    paths:
+      - "VELSTRIA/App/Battle/Heroes/**"
+      - "VELSTRIA/App/Resources/Heroes/**"
+      - "VELSTRIA/AppTests/HeroMotionClipTests.swift"
+      - "VELSTRIA/tools/capture_h034_motion.sh"
+      - ".github/workflows/h034-motion-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: h034-preview-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: macos-26
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [before, after]
+    defaults:
+      run:
+        shell: bash
+        working-directory: VELSTRIA
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore the pre-change hero player (before)
+        if: matrix.variant == 'before'
+        run: git checkout 24a9dbc -- App AppTests
+
+      - name: Prepare Xcode and simulator build
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
+          brew install xcodegen
+          xcodegen generate --quiet
+          mkdir -p build/h034-preview
+          xcodebuild build-for-testing \
+            -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -derivedDataPath build/H034Derived \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tail -n 200 > build/h034-preview/build-${{ matrix.variant }}.log
+
+      - name: Record H034 idle, locomotion, attack, skills and practice
+        run: bash tools/capture_h034_motion.sh build/H034Derived/Build/Products/Debug-iphonesimulator/VELSTRIA.app build/h034-preview ${{ matrix.variant }}
+
+      - name: Motion and model contract tests
+        if: matrix.variant == 'after'
+        run: |
+          xcodebuild test-without-building \
+            -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -derivedDataPath build/H034Derived \
+            -only-testing:VELSTRIATests/HeroMotionClipTests \
+            -only-testing:VELSTRIATests/SkinnedHeroModelTests \
+            -only-testing:VELSTRIATests/HeroModelTests/testAllHeroesBuildWithinBudget \
+            -only-testing:VELSTRIATests/HeroIdleTests \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tail -n 300 | tee build/h034-preview/tests.log
+
+      - name: Save footage and test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: h034-${{ matrix.variant }}-${{ github.sha }}
+          path: VELSTRIA/build/h034-preview/
+          if-no-files-found: warn
+          retention-days: 30

@@ -590,6 +590,36 @@ final class HeroMotionClipTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(releases, 3, "The bundled gallery attack must keep drawing and releasing")
     }
 
+    /// H034 ゴルム: 専用の収録の待機・移動・叩きつけが Motion_H034 の全身の通常攻撃に上書きされず、打撃が sim の windup に来る。
+    func testBundledGormClipsOwnIdleGaitAndAttack() throws {
+        HeroMotionClips.setResolverForTesting(nil)
+        let lib = HeroMotionClips.library(heroID: "H034")
+        let set = try XCTUnwrap(HeroMotionSets.set(heroID: "H034"))
+        XCTAssertEqual(set.idle, "idle_h034", "HeroIdle の個別の待機に専用の待機を消されない")
+        let binding = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))
+        XCTAssertTrue(binding.dedicatedIdle)
+        for name in ["idle_h034", "walk_h034", "run_h034", "chain_slam_h034"] {
+            let c = try XCTUnwrap(lib.index(of: name), name)
+            XCTAssertNotNil(lib.clips[c].detailBase, "\(name): 肩・つま先・指の詳細の回転")
+        }
+        let slam = lib.clips[try XCTUnwrap(lib.index(of: "chain_slam_h034"))]
+        XCTAssertEqual(slam.impact ?? -1, 13, accuracy: 0.01)
+        XCTAssertTrue(slam.melee)
+        let p = profile("H034")
+        XCTAssertTrue(p.attackMotions.isEmpty, "専用の通常攻撃が Motion_H034.attacks より先")
+        var a = HeroAnimator(profile: p, defaultRunSpeed: 2.6, motion: binding)
+        let dt: Float = 1.0 / 60
+        _ = a.advance(dt: dt, moveSpeed: 0)
+        // 攻撃速度 1.03 / 2.0 回/秒（windup = 間隔の 25%）
+        for interval in [Float(1 / 1.03), 0.5] {
+            a.playAttack(windup: interval * 0.25, interval: interval)
+            XCTAssertEqual(a.clips.role, .attack)
+            for _ in 0..<Int((interval * 0.25 / dt).rounded()) { _ = a.advance(dt: dt, moveSpeed: 0) }
+            XCTAssertEqual(a.clips.frame, 13, accuracy: 1, "打撃が sim の命中の時刻に来ない")
+            for _ in 0..<Int((interval * 0.75 / dt).rounded()) { _ = a.advance(dt: dt, moveSpeed: 0) }
+        }
+    }
+
     /// 同梱のクリップ（あれば）を同梱のヒーロー（あるだけ）に実行時と同じ計算で載せる。骨が有限で、ループは頭が腰より上。
     /// 立ったままのループ（待機・移動。腰の平均の沈みが脚の長さの 25% 未満）は脚のどこか（足首・つま先・膝）が地面の近く
     /// （抽出と実行時の約束 = docs/HERO_MOTION.md の区間回転・腰の位置が食い違うと、腰が浮く・沈む）。

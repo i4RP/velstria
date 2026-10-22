@@ -318,7 +318,8 @@ struct HeroMotionProfile {
                 return list
             }
             hitFollowUps = slots.map { script.onHit($0, builder) }
-            attackMotions = script.attacks(builder)
+            // 専用の収録の通常攻撃（HeroMotionSet.dedicatedAttack）があれば、そのクリップで振る
+            attackMotions = HeroMotionSets.table[heroID]?.dedicatedAttack == true ? [] : script.attacks(builder)
             empoweredAttack = script.empoweredAttack(builder)
         }
     }

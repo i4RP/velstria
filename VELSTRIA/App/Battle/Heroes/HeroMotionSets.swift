@@ -15,8 +15,10 @@ struct HeroMotionSet {
     /// スキル詠唱（Skill1, Skill2, Ultimate の順。nil = 手続き）。
     var casts: [String?] = [nil, nil, nil]
     var idle: String?
-    /// 待機のクリップが専用の収録（H025）。HeroIdle の個別の待機より優先する。
+    /// 待機のクリップが専用の収録（H025・H034）。HeroIdle の個別の待機より優先する。
     var dedicatedIdle = false
+    /// 通常攻撃のクリップが専用の収録（H034）。HeroSkillMotions の全身の通常攻撃（Motion_H0xx.attacks）より優先する。
+    var dedicatedAttack = false
     var walk: String?
     var run: String?
     var death: String?
@@ -93,7 +95,7 @@ enum HeroMotionSets {
     /// heroID の割り当て（未知の ID は nil = 手続きのみ）。
     static func set(heroID: String) -> HeroMotionSet? {
         guard var set = table[heroID] else { return nil }
-        if HeroIdle.authored(for: heroID) != nil {
+        if HeroIdle.authored(for: heroID) != nil && !set.dedicatedIdle {
             set.idle = nil
             set.idleWeaponR = nil
             set.idleWeaponL = nil
@@ -135,6 +137,17 @@ enum HeroMotionSets {
         s.dedicatedIdle = true
         s.walk = "h025_walk"
         s.run = "h025_run"
+        return s
+    }()
+
+    /// H034 ゴルム: Meshy prime の叩きつけと Tripo の歩容を仕上げた専用の収録（H034MotionClips.json、docs/H034_MOTION.md）。
+    /// 待機・歩行・走行・通常攻撃はクリップ。スキルの詠唱は Motion_H034 のまま。
+    private static let gorm: HeroMotionSet = {
+        var s = make(["chain_slam_h034"], idle: "idle_h034")
+        s.dedicatedIdle = true
+        s.dedicatedAttack = true
+        s.walk = "walk_h034"
+        s.run = "run_h034"
         return s
     }()
 
@@ -217,7 +230,7 @@ enum HeroMotionSets {
         // 魔狩りの大剣（Assassin・近接の片手の連斬り。アルーカードは巨大な剣を片手で振る）。左手を柄へ添える両手の振り
         // （overhead_2h・sword_upward）や左手も大きく動く溜め斬り（sword_charged）ではなく、右手で振る剣のクリップ
         "H033": make(["sword_slash_r", "sword_combo_3", "sword_slash_l2"], idle: "combat_idle", death: "death_forward"),
-        // 鎖鉤（Support・近接の振り回し）。通常攻撃は全身のモーション（Motion_H034.attacks）が先なので、ここの攻撃のクリップは使わない
-        "H034": make(["axe_chop", "sword_slash_r", "sword_combo_1"], idle: "combat_idle"),
+        // 鎖鉤（Support・近接の叩きつけ）。専用の収録（dedicatedAttack）が Motion_H034.attacks より先
+        "H034": gorm,
     ]
 }
