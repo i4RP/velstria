@@ -379,7 +379,7 @@ struct HeroGearBuilder {
 
     // MARK: 左手
 
-    func offhand() -> HeroMeshBuilder {
+    func offhand(includeBowString: Bool = true) -> HeroMeshBuilder {
         var b = HeroMeshBuilder()
         switch bp.offhand {
         case .none:
@@ -478,7 +478,7 @@ struct HeroGearBuilder {
             // 三日月の長弓（H025 ルミナ）: 大きな月光の弓身・弓先の光玉・握りの月珠
             var bw = HeroMeshBuilder()
             let R: Float = 0.78
-            bow(&bw, radius: R, limbMat: .metal, glowEdge: true, spikes: false)
+            bow(&bw, radius: R, limbMat: .metal, glowEdge: true, spikes: false, includeString: includeBowString)
             let tipY = sin(Float(0.94)) * R
             let tipZ = R - 0.02 - cos(Float(0.94)) * R
             for s: Float in [-1, 1] { bw.sphere(V3(0, s * tipY, tipZ), 0.04, .glow, .low) }
@@ -596,7 +596,8 @@ struct HeroGearBuilder {
     }
 
     /// 弓（YZ 平面、握りが原点、弦は背側 +Z）。
-    private func bow(_ b: inout HeroMeshBuilder, radius R: Float, limbMat: HeroMat, glowEdge: Bool, spikes: Bool) {
+    private func bow(_ b: inout HeroMeshBuilder, radius R: Float, limbMat: HeroMat, glowEdge: Bool, spikes: Bool,
+                     includeString: Bool = true) {
         let span: Float = 1.9
         let c = V3(0, 0, R - 0.02)
         b.blade(crescentPolygon(radius: R, thickness: 0.06, span: span, offset: 0.0), depth: 0.055, c, limbMat)
@@ -615,8 +616,12 @@ struct HeroGearBuilder {
         b.rbox(V3(0, 0, 0.01), V3(0.055, 0.15, 0.065), 0.02, .dark)
         let tipY = sin(span / 2 * 0.99) * R
         let tipZ = R - 0.02 - cos(span / 2 * 0.99) * R
-        b.rod(V3(0, tipY, tipZ), V3(0, -tipY, tipZ), 0.005, .glow, segments: 5)
+        if includeString { b.rod(V3(0, tipY, tipZ), V3(0, -tipY, tipZ), 0.005, .glow, segments: 5) }
     }
+
+    /// Same endpoints as the crescent bow's baked yaw. Used by the two reusable string segments.
+    static let crescentStringTop = ry(0.6).act(V3(0, sin(0.9405) * 0.78, 0.76 - cos(0.9405) * 0.78))
+    static let crescentStringBottom = ry(0.6).act(V3(0, -sin(0.9405) * 0.78, 0.76 - cos(0.9405) * 0.78))
 
     // MARK: 旗
 

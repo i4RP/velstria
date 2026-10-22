@@ -1,0 +1,349 @@
+{
+  "version": 1,
+  "hero": "H025",
+  "recorded_at": "2026-10-22T14:11:13.120Z",
+  "credit_cap": {
+    "meshy": 10,
+    "tripo": 55
+  },
+  "credits_consumed": {
+    "meshy": 0,
+    "tripo": 55
+  },
+  "meshy_library": {
+    "count": 678,
+    "matches": [
+      {
+        "action_id": 0,
+        "name": "Idle",
+        "key": "Idle",
+        "category": "DailyActions",
+        "sub_category": "Idle"
+      },
+      {
+        "action_id": 1,
+        "name": "Walking Woman",
+        "key": "Walking_Woman",
+        "category": "WalkAndRun",
+        "sub_category": "Walking"
+      },
+      {
+        "action_id": 11,
+        "name": "Idle 1",
+        "key": "Idle_02",
+        "category": "DailyActions",
+        "sub_category": "Idle"
+      },
+      {
+        "action_id": 225,
+        "name": "Archery Shot 1",
+        "key": "Archery_Shot_1",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 227,
+        "name": "Archery Shot 3",
+        "key": "Archery_Shot_3",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 228,
+        "name": "Walk Forward with Bow Aimed",
+        "key": "Walk_Forward_with_Bow_Aimed",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 231,
+        "name": "Archery Aim with Lateral Scan",
+        "key": "Archery_Aim_with_Lateral_Scan",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 234,
+        "name": "Walk Forward While Shooting",
+        "key": "Walk_Forward_While_Shooting",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 657,
+        "name": "Run Fast 10",
+        "key": "run_fast_10_inplace",
+        "category": "WalkAndRun",
+        "sub_category": "Running"
+      },
+      {
+        "action_id": 691,
+        "name": "Walk Forward with Bow Aimed",
+        "key": "Walk_Forward_with_Bow_Aimed_inplace",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      }
+    ],
+    "checked_at": "2026-10-22T14:01:45.017Z"
+  },
+  "tasks": [
+    {
+      "name": "moon_archer_attack_prime",
+      "provider": "meshy",
+      "task_id": null,
+      "status": "REJECTED",
+      "http_status": 402,
+      "credits_consumed": 0,
+      "submitted_at": "2026-10-22T14:02:08.779Z",
+      "completed_at": "2026-10-22T14:02:36.372Z",
+      "request": {
+        "mode": "prime",
+        "duration": 3,
+        "prompt": "Graceful expert female elf archer, left foot forward, feet planted. Left hand holds bow steady. Raise bow; right hand nocks then draws string to right cheek, right elbow back. Brief precise aim, release fingers, right hand follows back, smoothly return to ready stance. Subtle breath, coordinated shoulders, wrists and torso. No steps or root travel. One complete shot."
+      },
+      "file": null,
+      "error": "Meshy requires a paid plan for new tasks; 133 credits exist but current account plan is free. No task created."
+    },
+    {
+      "name": "H025_rigcheck",
+      "provider": "tripo",
+      "task_id": "8a4cf3c7-103c-4ec2-b53e-897a694f2901",
+      "status": "success",
+      "http_status": null,
+      "credits_consumed": 0,
+      "submitted_at": "2026-10-22T14:03:56.265Z",
+      "completed_at": "2026-10-22T14:04:01.561131Z",
+      "request": {},
+      "output": {
+        "riggable": false,
+        "rig_type": "biped"
+      },
+      "file": null,
+      "error": null
+    },
+    {
+      "name": "H025_rigcheck_fe6453ff",
+      "provider": "tripo",
+      "task_id": "4e1ff1c8-bc33-4239-a113-be8bf3347f2a",
+      "status": "success",
+      "http_status": null,
+      "credits_consumed": 0,
+      "submitted_at": "2026-10-22T14:05:47.235Z",
+      "completed_at": "2026-10-22T14:05:50.825824Z",
+      "request": {},
+      "output": {
+        "riggable": true,
+        "rig_type": "biped"
+      },
+      "file": null,
+      "error": null
+    },
+    {
+      "name": "H025_rig_v3",
+      "provider": "tripo",
+      "task_id": "5b1c5044-c748-4773-a57b-578cf354a3f6",
+      "status": "success",
+      "http_status": null,
+      "credits_consumed": 25,
+      "submitted_at": "2026-10-22T14:06:05.912Z",
+      "completed_at": "2026-10-22T14:07:02.571983Z",
+      "request": {
+        "model": "v3.0-20260909",
+        "rig_type": "biped",
+        "spec": "mixamo",
+        "out_format": "glb"
+      },
+      "output": {},
+      "file": {
+        "file": "build/h025-motion/H025_rig_v3.glb",
+        "bytes": 1185308,
+        "sha256": "608d62271afbeebc4a6d438873ddf543b561beb9f5ce17b46c331c0786049045"
+      },
+      "error": null
+    },
+    {
+      "name": "H025_idle_walk_run",
+      "provider": "tripo",
+      "task_id": "40f57d2f-640f-4c4a-899e-f4d15d50c52a",
+      "status": "success",
+      "http_status": null,
+      "credits_consumed": 30,
+      "submitted_at": "2026-10-22T14:07:19.440Z",
+      "completed_at": "2026-10-22T14:07:30.288150Z",
+      "request": {
+        "animations": [
+          "preset:idle",
+          "preset:walk",
+          "preset:run"
+        ],
+        "animate_in_place": true,
+        "out_format": "glb",
+        "export_with_geometry": true
+      },
+      "output": {},
+      "file": {
+        "file": "build/h025-motion/H025_idle_walk_run.glb",
+        "bytes": 1749124,
+        "sha256": "dff32a627aa781f34e5693728b025060e2bdb38ab6b50eb1a1db3e8117ef7d53"
+      },
+      "error": null
+    }
+  ],
+  "retained_existing_model": true,
+  "rig_repair_reason": "Original H025 rig has 23 joints and no finger chains; v3 donor contains65joints including fingers. Original geometry and textures were reused, not regenerated.",
+  "source": {
+    "file": "build/h025-motion/H025_rig_donor.glb",
+    "sha256": "fe6453ff72155debf70ec572287795faf848e3b71b309c3fab560dc58d9fc8b6",
+    "bytes": 903460,
+    "reason": "Existing H025 skeleton has shoulders/toes but no finger joints. Inspect repair donor only; preserve original production model."
+  },
+  "extraction": {
+    "environment": "Windows / Blender4.5.10 LTS /30fps; offline source conversion, not iOS runtime validation",
+    "clips": [
+      {
+        "name": "tripo_h025_idle",
+        "frames": 460,
+        "sourceFps": 30,
+        "start": 1,
+        "end": 461,
+        "loopSeamDegrees": 0.086,
+        "verify": {
+          "passed": true,
+          "limbMaxDegrees": 0.0098,
+          "limbDegrees": {
+            "armR": 0.0081,
+            "foreArmR": 0.0092,
+            "handR": 0.008,
+            "armL": 0.0079,
+            "foreArmL": 0.0087,
+            "handL": 0.0087,
+            "thighR": 0.0082,
+            "shinR": 0.0085,
+            "footR": 0.0098,
+            "thighL": 0.0081,
+            "shinL": 0.0081,
+            "footL": 0.0094
+          },
+          "segmentRotationDegrees": {
+            "hips": 0.0088,
+            "torso": 0.0089,
+            "head": 0.0095,
+            "armR": 0.0088,
+            "foreArmR": 0.0095,
+            "handR": 0.0091,
+            "armL": 0.0096,
+            "foreArmL": 0.0096,
+            "handL": 0.0093,
+            "thighR": 0.0093,
+            "shinR": 0.0102,
+            "footR": 0.0102,
+            "thighL": 0.009,
+            "shinL": 0.0094,
+            "footL": 0.0093
+          },
+          "hipsPositionError": 0.00005
+        }
+      },
+      {
+        "name": "tripo_h025_run",
+        "frames": 37,
+        "sourceFps": 30,
+        "start": 1,
+        "end": 38,
+        "loopSeamDegrees": 50.079,
+        "verify": {
+          "passed": true,
+          "limbMaxDegrees": 0.0085,
+          "limbDegrees": {
+            "armR": 0.0069,
+            "foreArmR": 0.0068,
+            "handR": 0.0083,
+            "armL": 0.0074,
+            "foreArmL": 0.0085,
+            "handL": 0.007,
+            "thighR": 0.0071,
+            "shinR": 0.0079,
+            "footR": 0.0077,
+            "thighL": 0.0076,
+            "shinL": 0.0077,
+            "footL": 0.0083
+          },
+          "segmentRotationDegrees": {
+            "hips": 0.0079,
+            "torso": 0.0093,
+            "head": 0.0087,
+            "armR": 0.0092,
+            "foreArmR": 0.0084,
+            "handR": 0.0089,
+            "armL": 0.0083,
+            "foreArmL": 0.0094,
+            "handL": 0.0088,
+            "thighR": 0.0081,
+            "shinR": 0.01,
+            "footR": 0.0087,
+            "thighL": 0.0092,
+            "shinL": 0.0084,
+            "footL": 0.0087
+          },
+          "hipsPositionError": 0.000064
+        }
+      },
+      {
+        "name": "tripo_h025_walk",
+        "frames": 70,
+        "sourceFps": 30,
+        "start": 1,
+        "end": 71,
+        "loopSeamDegrees": 0.086,
+        "verify": {
+          "passed": true,
+          "limbMaxDegrees": 0.0092,
+          "limbDegrees": {
+            "armR": 0.0088,
+            "foreArmR": 0.0072,
+            "handR": 0.0085,
+            "armL": 0.0081,
+            "foreArmL": 0.0075,
+            "handL": 0.0073,
+            "thighR": 0.0075,
+            "shinR": 0.0084,
+            "footR": 0.0084,
+            "thighL": 0.0073,
+            "shinL": 0.0076,
+            "footL": 0.0092
+          },
+          "segmentRotationDegrees": {
+            "hips": 0.0086,
+            "torso": 0.0094,
+            "head": 0.0086,
+            "armR": 0.0091,
+            "foreArmR": 0.0083,
+            "handR": 0.0087,
+            "armL": 0.0097,
+            "foreArmL": 0.0089,
+            "handL": 0.0081,
+            "thighR": 0.0084,
+            "shinR": 0.0089,
+            "footR": 0.0086,
+            "thighL": 0.0085,
+            "shinL": 0.0087,
+            "footL": 0.0098
+          },
+          "hipsPositionError": 0.000062
+        }
+      }
+    ],
+    "warnings": [
+      "tripo_h025_run: loop seam 50.1° (pose at end=38.0 differs from start=1.0); adjust start/end"
+    ]
+  },
+  "references": {
+    "meshy_motion": "https://docs.meshy.ai/en/api/text-to-motion",
+    "meshy_animation": "https://docs.meshy.ai/en/api/animation",
+    "meshy_rates": "https://docs.meshy.ai/en/api/rate-limits",
+    "tripo_rig": "https://developers.tripo3d.com/en/docs/animations-rig",
+    "tripo_check": "https://developers.tripo3d.com/en/docs/animations-rig-check",
+    "tripo_retarget": "https://developers.tripo3d.com/en/docs/animations-retarget"
+  },
+  "meshy_plan_url": "https://www.meshy.ai/settings/subscription"
+}

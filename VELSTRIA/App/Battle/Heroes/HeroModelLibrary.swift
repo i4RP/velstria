@@ -120,6 +120,7 @@ enum HeroModelLibrary {
     /// 1 人分（スキン込み）のメッシュ・マテリアル・同梱アセットを読み込み、試合中に USDZ を同期で読まないようにする。
     /// 何も捨てない（同じヒーローを何度呼んでもキャッシュ参照だけ）。
     static func preload(heroID id: String, skinID: String?, master: MasterData) {
+        if id == "H025" { _ = HeroMotionClips.library(heroID: id) }
         let bp = HeroBlueprints.blueprint(heroID: id, role: master.hero(id)?.role)
         _ = meshSet(heroID: id, blueprint: bp)
         let skin = HeroSkins.resolve(heroID: id, skinID: skinID, master: master)
@@ -137,6 +138,7 @@ enum HeroModelLibrary {
     /// 非同期版の 1 人分。同梱 USDZ（スキン専用 → 本体、武器・副手）の読み込み・パースをメインスレッドの外で待ち、
     /// 残り（手続きメッシュ・マテリアル・着色）は同期版で行う（USDZ はキャッシュ参照だけになる）。
     static func preloadAsync(heroID id: String, skinID: String?, master: MasterData) async {
+        if id == "H025" { await HeroMotionClips.preloadAsync(heroID: id) }
         let bp = HeroBlueprints.blueprint(heroID: id, role: master.hero(id)?.role)
         let skin = HeroSkins.resolve(heroID: id, skinID: skinID, master: master)
         var found = false
@@ -155,6 +157,7 @@ enum HeroModelLibrary {
     /// 試合に使わない読み込み済みテンプレートを捨てる（メモリ上限）。読み込みはしない（URL の解決だけ）ので、
     /// ロード画面の最初に呼んでから preload(heroID:skinID:) を進める。試合で使うものは残すので読み直さない。
     static func purge(keepingPlayers players: [(heroID: String, skinID: String?)], master: MasterData) {
+        HeroMotionClips.purge(keepingHeroIDs: Set(players.map { $0.heroID }))
         var keepHeroes = Set<URL>(), keepProps = Set<String>()
         for (id, skinID) in players {
             // 使う候補（スキン専用・本体）をどちらも残す。読み込み前なので、壊れたスキン専用の代わりに本体を使う場合も含める

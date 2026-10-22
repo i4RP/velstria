@@ -85,6 +85,9 @@ struct HeroMeshSet {
     var backAnchor: V3
     var wingAnchor: V3
     var triangleCount: Int
+    /// H025 only: cached, stringless version and one unit rod reused twice.
+    var offhandUnstrung: MeshResource? = nil
+    var bowstringSegment: MeshResource? = nil
 }
 
 /// 浮遊物の動き方。
@@ -142,6 +145,16 @@ struct HeroAssembler {
         let wingR = finishOptional(gear.wing(side: 1), "\(name).wingR")
         let flag = finishOptional(gear.flag(), "\(name).flag")
         let float = finishOptional(gear.floating(), "\(name).float")
+        var unstrung: MeshResource?
+        var stringSegment: MeshResource?
+        if bp.offhand == .crescentBow {
+            AssetLedger.record(.mesh, "\(name).unstrung")
+            unstrung = gear.offhand(includeBowString: false).makeAtlasMesh(name: "\(name).unstrung", glowingEyes: bp.glowingEyes)
+            var string = HeroMeshBuilder()
+            string.rod(V3(0, -0.5, 0), V3(0, 0.5, 0), 0.005, .glow, segments: 5)
+            AssetLedger.record(.mesh, "\(name).bowstring")
+            stringSegment = string.makeAtlasMesh(name: "\(name).bowstring", glowingEyes: bp.glowingEyes)
+        }
         return HeroMeshSet(
             hips: hips, torso: torso, head: head, upperArmL: uaL, upperArmR: uaR, foreArmL: faL, foreArmR: faR,
             thighL: thL, thighR: thR, shinL: shL, shinR: shR, weapon: weapon, offhand: offhand, back: back,
@@ -149,7 +162,7 @@ struct HeroAssembler {
             offhandTip: HeroGearBuilder.offhandTip(bp.offhand),
             flagAnchor: gear.flagAnchor, floatMotion: gear.floatMotion, floatAnchor: gear.floatAnchor,
             backAnchor: V3(0, m.torsoLen * 0.84, m.torsoD * 0.42), wingAnchor: V3(0, m.torsoLen * 0.8, m.torsoD * 0.5),
-            triangleCount: tris)
+            triangleCount: tris, offhandUnstrung: unstrung, bowstringSegment: stringSegment)
     }
 
     // MARK: 素材の割り当て

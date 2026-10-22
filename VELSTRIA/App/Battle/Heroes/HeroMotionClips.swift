@@ -34,6 +34,13 @@ struct HeroMotionClip {
     var melee = false
     /// 打撃で振る手。ライブラリの読み込み時に前腕の角速度から決める（HeroMotionLibrary.measureStrikeHand）。
     var strikeHand: HeroStrikeHand = .right
+    /// Optional local joint deltas. Legacy 15-segment clips keep these empty.
+    var detailBase: Int? = nil
+    var detailMask: UInt64 = 0
+    /// Reference ground speed in m/s for in-place locomotion.
+    var groundSpeed: Float? = nil
+    /// First frame at which the drawing hand is fully attached to the bowstring.
+    var drawStart: Float? = nil
 
     /// 武器を振っている区間: 打撃の前 swingLead 秒〜後 swingTail 秒（クリップ時刻。再生速度に比例して実時間は縮む）。
     static let swingLead: Float = 0.18
@@ -49,8 +56,8 @@ struct HeroMotionClip {
 
     /// 1 周の長さ（秒）。ループは最終フレーム → 先頭の 1 フレーム分を含む。
     var duration: Float { loop ? Float(frames) / fps : Float(max(0, frames - 1)) / fps }
-    /// 打撃の時刻（秒）。impact が無ければ release、どちらも無ければ 40% の位置（通常攻撃の同期に使う）。
-    var impactTime: Float { (impact ?? release ?? 0.4 * Float(max(0, frames - 1))) / fps }
+    /// 発射の release を優先し、無ければ impact、どちらも無ければ全長の 40%。
+    var impactTime: Float { (release ?? impact ?? 0.4 * Float(max(0, frames - 1))) / fps }
     /// 再生の終わり（秒）。ループは 1 周。
     var endTime: Float { loop ? duration : min(end, Float(max(0, frames - 1))) / fps }
 }
@@ -64,14 +71,16 @@ final class HeroMotionLibrary: @unchecked Sendable {
     private let rot: [simd_quatf]
     /// フレームごとの腰の位置（脚の長さ単位、rootXZ は掛けていない）。
     private let root: [V3]
+    private let detail: [simd_quatf]
     private let byName: [String: Int]
 
-    init(clips: [HeroMotionClip], rot: [simd_quatf], root: [V3]) {
+    init(clips: [HeroMotionClip], rot: [simd_quatf], root: [V3], detail: [simd_quatf] = []) {
         var list = clips
         for i in list.indices { list[i].strikeHand = Self.measureStrikeHand(list[i], rot: rot) }
         self.clips = list
         self.rot = rot
         self.root = root
+        self.detail = detail
         var byName: [String: Int] = [:]
         for (i, c) in clips.enumerated() where byName[c.name] == nil { byName[c.name] = i }
         self.byName = byName
@@ -81,6 +90,24 @@ final class HeroMotionLibrary: @unchecked Sendable {
 
     /// 名前 → クリップの添字（無ければ nil = 手続きへ戻す）。
     func index(of name: String) -> Int? { byName[name] }
+
+    /// Only requested hero extensions are merged, during preload.
+    func adding(_ extra: HeroMotionLibrary) -> HeroMotionLibrary {
+        guard !extra.isEmpty else { return self }
+        let appended = extra.clips.map { c -> HeroMotionClip in
+            var v = HeroMotionClip(name: c.name, frames: c.frames, fps: c.fps, loop: c.loop,
+                                   rootXZ: c.rootXZ, impact: c.impact, release: c.release, end: c.end,
+                                   rotBase: c.rotBase + rot.count, rootBase: c.rootBase + root.count,
+                                   melee: c.melee, strikeHand: c.strikeHand)
+            v.detailBase = c.detailBase.map { $0 + detail.count }
+            v.detailMask = c.detailMask
+            v.groundSpeed = c.groundSpeed
+            v.drawStart = c.drawStart
+            return v
+        }
+        return HeroMotionLibrary(clips: clips + appended, rot: rot + extra.rot, root: root + extra.root,
+                                 detail: detail + extra.detail)
+    }
 
     /// 時刻 t（秒、クリップ先頭から）の区間回転と腰の位置（脚の長さ単位、rootXZ 適用前）。
     /// フレーム間は slerp / 線形補間。ループは末尾 → 先頭へ折り返し、非ループは両端で止める（負の時刻は先頭）。
@@ -102,6 +129,14 @@ final class HeroMotionLibrary: @unchecked Sendable {
             i1 = min(n - 1, i0 + 1)
         }
         let a = f - Float(i0)
+        q.details = HeroDetailRotations()
+        if let base = c.detailBase {
+            q.details.mask = c.detailMask
+            let d0 = base + i0 * HeroDetailRotations.count, d1 = base + i1 * HeroDetailRotations.count
+            for j in 0..<HeroDetailRotations.count where q.details.contains(j) {
+                q.details[j] = a <= 0 ? detail[d0 + j] : simd_slerp(detail[d0 + j], detail[d1 + j], a)
+            }
+        }
         let b0 = c.rotBase + i0 * HeroSegmentRotations.count
         let b1 = c.rotBase + i1 * HeroSegmentRotations.count
         for s in 0..<HeroSegmentRotations.count {
@@ -196,6 +231,7 @@ extension HeroMotionLibrary {
         var clips: [HeroMotionClip] = []
         var rot: [simd_quatf] = []
         var root: [V3] = []
+        var detail: [simd_quatf] = []
         var seen = Set<String>()
         func floats(_ v: Any?) -> [Float]? {
             guard let a = v as? [Any] else { return nil }
@@ -230,12 +266,37 @@ extension HeroMotionLibrary {
                 return min(max(v, 0), Float(frames - 1))
             }
             let impact = event("impact")
-            let clip = HeroMotionClip(name: name, frames: frames, fps: clipFPS, loop: (c["loop"] as? Bool) ?? false,
+            var clip = HeroMotionClip(name: name, frames: frames, fps: clipFPS, loop: (c["loop"] as? Bool) ?? false,
                                       rootXZ: min(1, max(0, (c["rootXZ"] as? NSNumber)?.floatValue ?? 0)),
                                       impact: impact, release: event("release"),
                                       end: event("end") ?? Float(frames - 1),
                                       rotBase: rot.count, rootBase: root.count,
                                       melee: (c["melee"] as? Bool) ?? (impact != nil && HeroMotionClip.isMeleeName(name)))
+            clip.drawStart = event("drawStart")
+            if let speed = (c["groundSpeed"] as? NSNumber)?.floatValue, speed.isFinite, speed > 0 {
+                clip.groundSpeed = speed
+            }
+            if c["detailJoints"] != nil || c["detailRot"] != nil {
+                guard let joints = c["detailJoints"] as? [String], !joints.isEmpty,
+                      joints.count <= HeroDetailRotations.count, Set(joints).count == joints.count,
+                      let values = floats(c["detailRot"]), values.count == frames * joints.count * 4,
+                      values.allSatisfy(\.isFinite),
+                      joints.allSatisfy({ HeroDetailRotations.names.contains($0) }) else {
+                    skipped.append(name)
+                    continue
+                }
+                let indices = joints.map { HeroDetailRotations.names.firstIndex(of: $0)! }
+                clip.detailBase = detail.count
+                for i in indices { clip.detailMask |= UInt64(1) << i }
+                detail.append(contentsOf: repeatElement(qIdentity, count: frames * HeroDetailRotations.count))
+                for f in 0..<frames {
+                    for (k, j) in indices.enumerated() {
+                        let o = (f * joints.count + k) * 4
+                        let q = simd_quatf(ix: values[o], iy: values[o + 1], iz: values[o + 2], r: values[o + 3])
+                        detail[clip.detailBase! + f * HeroDetailRotations.count + j] = q.length > 1e-6 ? q.normalized : qIdentity
+                    }
+                }
+            }
             rot.reserveCapacity(rot.count + frames * names.count)
             for f in 0..<frames {
                 for k in 0..<names.count {
@@ -249,7 +310,7 @@ extension HeroMotionLibrary {
             seen.insert(name)
             clips.append(clip)
         }
-        return HeroMotionLibrary(clips: clips, rot: rot, root: root)
+        return HeroMotionLibrary(clips: clips, rot: rot, root: root, detail: detail)
     }
 }
 
@@ -262,6 +323,7 @@ enum HeroMotionClips {
     static let resourceName = "HeroMotionClips"
     private static let lock = NSLock()
     private static var cached: HeroMotionLibrary?
+    private static var heroLibraries: [String: HeroMotionLibrary] = [:]
     private static var resolverOverride: (() -> URL?)?
 
     /// 読み込み済みのライブラリ（未読み込みなら同期で読む）。
@@ -279,6 +341,29 @@ enum HeroMotionClips {
         lock.lock()
         defer { lock.unlock() }
         return cached != nil
+    }
+
+    /// Separate hero clips are loaded only when that hero participates.
+    static func library(heroID: String) -> HeroMotionLibrary {
+        let base = shared
+        guard heroID == "H025" else { return base }
+        lock.lock()
+        defer { lock.unlock() }
+        if let lib = heroLibraries[heroID] { return lib }
+        let extra = load(url: Bundle.main.url(forResource: "\(heroID)MotionClips", withExtension: "json"))
+        let lib = base.adding(extra)
+        heroLibraries[heroID] = lib
+        return lib
+    }
+
+    static func preloadAsync(heroID: String) async {
+        await Task.detached(priority: .userInitiated) { _ = library(heroID: heroID) }.value
+    }
+
+    static func purge(keepingHeroIDs ids: Set<String>) {
+        lock.lock()
+        defer { lock.unlock() }
+        heroLibraries = heroLibraries.filter { ids.contains($0.key) }
     }
 
     /// 同期で読み込んでおく（読み込み済みなら何もしない）。
@@ -324,6 +409,7 @@ enum HeroMotionClips {
         lock.lock()
         defer { lock.unlock() }
         cached = lib
+        heroLibraries.removeAll()
     }
 
     /// テスト用: 同梱ファイルの代わりに読む URL（nil で既定へ戻す）。キャッシュも捨てる。
@@ -332,5 +418,6 @@ enum HeroMotionClips {
         defer { lock.unlock() }
         resolverOverride = resolver
         cached = nil
+        heroLibraries.removeAll()
     }
 }

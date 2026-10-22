@@ -39,9 +39,146 @@ enum HeroClipMask: Equatable {
     case upper
 }
 
-/// 区間ごとの回転（ヒーロー空間）。HeroModel.apply の骨階層と同じ合成順。
-/// 並びはモーションクリップの区間（docs/HERO_MOTION.md）と同じ 15 個。手・足は手続きでは前腕・脛と同じ回転。
+/// Only the visible missing joints: shoulders, toes, and the three phalanges of each finger.
+/// Values are local post-rest deltas (restLocal.inverse * animatedLocal), never world rotations.
+/// Fixed storage keeps sampling/crossfading allocation-free; legacy clips have mask == 0.
+struct HeroDetailRotations {
+    static let names = ["leftshoulder", "rightshoulder", "lefttoebase", "righttoebase", "lefthandthumb1", "lefthandthumb2", "lefthandthumb3", "lefthandindex1", "lefthandindex2", "lefthandindex3", "lefthandmiddle1", "lefthandmiddle2", "lefthandmiddle3", "lefthandring1", "lefthandring2", "lefthandring3", "lefthandpinky1", "lefthandpinky2", "lefthandpinky3", "righthandthumb1", "righthandthumb2", "righthandthumb3", "righthandindex1", "righthandindex2", "righthandindex3", "righthandmiddle1", "righthandmiddle2", "righthandmiddle3", "righthandring1", "righthandring2", "righthandring3", "righthandpinky1", "righthandpinky2", "righthandpinky3"]
+    static let count = 34
+    var mask: UInt64 = 0
+    private var d0 = qIdentity
+    private var d1 = qIdentity
+    private var d2 = qIdentity
+    private var d3 = qIdentity
+    private var d4 = qIdentity
+    private var d5 = qIdentity
+    private var d6 = qIdentity
+    private var d7 = qIdentity
+    private var d8 = qIdentity
+    private var d9 = qIdentity
+    private var d10 = qIdentity
+    private var d11 = qIdentity
+    private var d12 = qIdentity
+    private var d13 = qIdentity
+    private var d14 = qIdentity
+    private var d15 = qIdentity
+    private var d16 = qIdentity
+    private var d17 = qIdentity
+    private var d18 = qIdentity
+    private var d19 = qIdentity
+    private var d20 = qIdentity
+    private var d21 = qIdentity
+    private var d22 = qIdentity
+    private var d23 = qIdentity
+    private var d24 = qIdentity
+    private var d25 = qIdentity
+    private var d26 = qIdentity
+    private var d27 = qIdentity
+    private var d28 = qIdentity
+    private var d29 = qIdentity
+    private var d30 = qIdentity
+    private var d31 = qIdentity
+    private var d32 = qIdentity
+    private var d33 = qIdentity
+    subscript(i: Int) -> simd_quatf {
+        get {
+            switch i {
+            case 0: return d0
+            case 1: return d1
+            case 2: return d2
+            case 3: return d3
+            case 4: return d4
+            case 5: return d5
+            case 6: return d6
+            case 7: return d7
+            case 8: return d8
+            case 9: return d9
+            case 10: return d10
+            case 11: return d11
+            case 12: return d12
+            case 13: return d13
+            case 14: return d14
+            case 15: return d15
+            case 16: return d16
+            case 17: return d17
+            case 18: return d18
+            case 19: return d19
+            case 20: return d20
+            case 21: return d21
+            case 22: return d22
+            case 23: return d23
+            case 24: return d24
+            case 25: return d25
+            case 26: return d26
+            case 27: return d27
+            case 28: return d28
+            case 29: return d29
+            case 30: return d30
+            case 31: return d31
+            case 32: return d32
+            case 33: return d33
+            default: return qIdentity
+            }
+        }
+        set {
+            switch i {
+            case 0: d0 = newValue
+            case 1: d1 = newValue
+            case 2: d2 = newValue
+            case 3: d3 = newValue
+            case 4: d4 = newValue
+            case 5: d5 = newValue
+            case 6: d6 = newValue
+            case 7: d7 = newValue
+            case 8: d8 = newValue
+            case 9: d9 = newValue
+            case 10: d10 = newValue
+            case 11: d11 = newValue
+            case 12: d12 = newValue
+            case 13: d13 = newValue
+            case 14: d14 = newValue
+            case 15: d15 = newValue
+            case 16: d16 = newValue
+            case 17: d17 = newValue
+            case 18: d18 = newValue
+            case 19: d19 = newValue
+            case 20: d20 = newValue
+            case 21: d21 = newValue
+            case 22: d22 = newValue
+            case 23: d23 = newValue
+            case 24: d24 = newValue
+            case 25: d25 = newValue
+            case 26: d26 = newValue
+            case 27: d27 = newValue
+            case 28: d28 = newValue
+            case 29: d29 = newValue
+            case 30: d30 = newValue
+            case 31: d31 = newValue
+            case 32: d32 = newValue
+            case 33: d33 = newValue
+            default: break
+            }
+        }
+    }
+    static func isUpper(_ i: Int) -> Bool { i != 2 && i != 3 }
+    func contains(_ i: Int) -> Bool { mask & (UInt64(1) << i) != 0 }
+    mutating func blend(toward other: HeroDetailRotations, upper: Float, lower: Float) {
+        let union = mask | other.mask
+        guard union != 0 else { return }
+        for i in 0..<Self.count where union & (UInt64(1) << i) != 0 {
+            let w = Self.isUpper(i) ? upper : lower
+            guard w > 0 else { continue }
+            let a = contains(i) ? self[i] : qIdentity
+            let b = other.contains(i) ? other[i] : qIdentity
+            self[i] = w >= 1 ? b : simd_slerp(a, b, w)
+            mask |= UInt64(1) << i
+        }
+    }
+}
+
+/// 既存の 15 区間（ヒーロー空間）と、必要なクリップだけの局所関節差分。
 struct HeroSegmentRotations {
+    var details = HeroDetailRotations()
     var hips = qIdentity
     var torso = qIdentity
     var head = qIdentity
@@ -131,6 +268,7 @@ struct HeroSegmentRotations {
 
     /// 区間ごとに c へ寄せる（上半身は upper、下半身は lower の重みで slerp。0 の側は触らない）。
     mutating func blend(toward c: HeroSegmentRotations, upper: Float, lower: Float) {
+        details.blend(toward: c.details, upper: upper, lower: lower)
         for i in 0..<Self.count {
             let w = Self.isUpper(i) ? upper : lower
             if w <= 0 { continue }
@@ -180,6 +318,7 @@ struct HeroSkeletonRig {
     enum Drive: Equatable {
         /// レストのローカル変換のまま（親に追従）。
         case rest
+        case detail(Int)
         case hips
         /// 背骨: 腰 → 胴の回転を t の割合で補間。
         case spine(Float)
@@ -323,6 +462,11 @@ struct HeroSkeletonRig {
         setEnd(.handL, .foreArmL, .handL)
         setEnd(.footR, .legR, .footR)
         setEnd(.footL, .legL, .footL)
+        for (j, name) in jointNames.enumerated() where drive[j] == .rest {
+            if let detail = HeroDetailRotations.names.firstIndex(of: HeroJointRole.normalize(name)) {
+                drive[j] = .detail(detail)
+            }
+        }
         self.drive = drive
         self.correction = correction
 
@@ -374,6 +518,9 @@ struct HeroSkeletonPoser {
             let rot: simd_quatf
             switch rig.drive[j] {
             case .rest: rot = p < 0 ? rig.entityRotation * rest.rotation : rotation[p] * rest.rotation
+            case .detail(let d):
+                let base = p < 0 ? rig.entityRotation * rest.rotation : rotation[p] * rest.rotation
+                rot = q.details.contains(d) ? base * q.details[d] : base
             case .hips: rot = q.hips * rig.restRotation[j]
             case .spine(let t): rot = simd_slerp(q.hips, q.torso, t) * rig.restRotation[j]
             case .neck: rot = simd_slerp(q.torso, q.head, 0.5) * rig.restRotation[j]

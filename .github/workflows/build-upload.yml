@@ -74,6 +74,7 @@ jobs:
             -only-testing:VELSTRIATests/SkillFXTests \
             -only-testing:VELSTRIATests/HeroModelTests/testAllHeroesBuildWithinBudget \
             -only-testing:VELSTRIATests/SkinnedHeroModelTests/testBundledHeroAssetsMeetContract \
+            -only-testing:VELSTRIATests/HeroMotionClipTests \
             -only-testing:VELSTRIATests/StageTests/testTriangleBudget \
             -only-testing:VELSTRIATests/OnlineProtocolTests \
             -only-testing:VELSTRIATests/OnlineSessionTests \

@@ -290,6 +290,10 @@ final class UnitLayer {
         heroes[sourceID]?.beginAttack(windup: windup, interval: interval, time: time)
     }
 
+    func noteAttackRelease(sourceID: EntityID) {
+        heroes[sourceID]?.handle.synchronizeAttackRelease()
+    }
+
     func noteHit(targetID: EntityID) {
         creatures[targetID]?.hit()
     }

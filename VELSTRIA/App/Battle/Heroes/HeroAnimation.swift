@@ -677,7 +677,8 @@ struct HeroAnimator {
         }
         autoAttackPending = false
         if clips.isActive {
-            clips.advance(dt: dt, speed: speed)
+            if state == .run && clips.role == .state { startStateClip(.run) }
+            clips.advance(dt: dt, speed: speed, maskSpeed: target)
             if clips.finished && !clips.fadingOut && !clips.holdAtEnd { clipFinished() }
         }
         return current
@@ -722,6 +723,8 @@ struct HeroAnimator {
         case .idle, .run:
             // 復活は手続きと同じく即座に切り替える
             if prev == .dead { clips.cut() }
+            // A cancelled windup has no release event. Return to movement instead of firing visually.
+            if clips.awaitingRelease { startStateClip(s); return }
             // 攻撃・詠唱のクリップは戻りまで再生してから（シムの攻撃状態は戻りの途中で終わる）
             if clips.isActive && !clips.fadingOut && !clips.finished && (clips.role == .attack || clips.role == .cast) { return }
             startStateClip(s)
@@ -734,7 +737,15 @@ struct HeroAnimator {
         let c: Int?
         switch s {
         case .idle: c = b.idle
-        case .run: c = b.run
+        case .run:
+            if let walk = b.walk, let run = b.run {
+                let walkSpeed = b.library.clips[walk].groundSpeed ?? 1.4
+                let runSpeed = b.library.clips[run].groundSpeed ?? 3.3
+                let split = (walkSpeed + runSpeed) * 0.5
+                // Hysteresis prevents repeated crossfades around the gait threshold.
+                let threshold = clips.clip == run ? split - 0.15 : split + 0.15
+                c = speed < threshold ? walk : run
+            } else { c = b.run ?? b.walk }
         case .victory: c = b.victory
         case .stunned: c = b.stunned
         case .channel: c = b.channel
@@ -742,12 +753,14 @@ struct HeroAnimator {
         }
         guard let c else { return clips.stop() }
         if clips.isActive && clips.clip == c && clips.role == .state && !clips.fadingOut { return }
-        clips.start(c, role: .state, from: 0, fullBody: true, speedMask: false, hold: true, runRate: s == .run)
+        let phase: Float = s == .run && clips.isLocomotion && clips.endTime > 0 ? clips.clipTime / clips.endTime : 0
+        clips.start(c, role: .state, from: phase * b.library.clips[c].duration,
+                    fullBody: true, speedMask: false, hold: true, runRate: s == .run)
     }
 
     /// 通常攻撃のクリップ（割り当てを順に繰り返す）。打撃の瞬間を windup 秒後に合わせる:
     /// 打撃までの速度 = 打撃の時刻 / windup（0.5〜4 倍）。範囲外なら開始位置をずらして（負なら先頭で待って）時刻を守る。
-    /// 打撃の後は戻りが max(0.2, interval - windup) 秒に収まる速度（1 倍以上）。
+    /// 戻りは次の攻撃までに収める。弓の高速連射では最短 0.025 秒まで縮める。
     private mutating func startAttackClip(windup: Float, interval: Float) {
         guard let b = clips.binding, !b.attacks.isEmpty else { return clips.stop() }
         let c = b.attacks[attackCursor % b.attacks.count]
@@ -757,11 +770,16 @@ struct HeroAnimator {
         let impact = info.impactTime
         let pre = min(4, max(0.5, impact / w))
         let recovery = max(0, info.endTime - impact)
-        let available = max(0.2, (interval.isFinite ? interval : HeroAnimator.autoInterval) - w)
+        let available = max(info.release == nil ? 0.2 : 0.025, (interval.isFinite ? interval : HeroAnimator.autoInterval) - w)
         let post = max(1, recovery / available)
         clips.start(c, role: .attack, from: impact - pre * w, preRate: pre, postRate: post,
-                    fullBody: b.attackMask == .full, speedMask: true, hold: false)
+                    fullBody: b.attackMask == .full, speedMask: true, hold: false,
+                    blendDuration: min(HeroClipLayer.fadeIn, w * 0.65))
     }
+
+    /// Authoritative simulation release. It only adjusts the displayed clip, never the attack.
+    mutating func synchronizeAttackRelease() { clips.synchronizeAttackRelease() }
+    mutating func awaitAttackRelease() { clips.awaitReleaseEvent() }
 
     /// setState(.attack) だけで回す時の振り（既定の拍）。
     private mutating func startAutoAttackClip() {
@@ -1072,6 +1090,7 @@ struct HeroClipLayer {
     private var loop = false
     /// 移動のループ: 速度に比例して再生する。
     private var runRate = false
+    private var groundSpeed: Float? = nil
     /// 下半身にも重ねる。
     private var fullBody = true
     /// 移動中（stationarySpeed 以上）は上半身だけにする。
@@ -1082,10 +1101,12 @@ struct HeroClipLayer {
     /// 終わったら最後のフレームで止めておく（死亡・状態のクリップ・拍待ちの攻撃）。
     var holdAtEnd = false
     private(set) var fadingOut = false
+    private(set) var awaitingRelease = false
     private var upperLinear: Float = 0
     private var lowerLinear: Float = 0
     /// クロスフェード（前のクリップの姿勢 → 新しいクリップ）の進み 0〜1。
     private var xfade: Float = 1
+    private var transitionDuration: Float = HeroClipLayer.fadeIn
     private var fromPose = HeroSegmentRotations()
     private var fromRoot = V3.zero
     /// クリップの姿勢（手続きと混ぜる前）と腰のずれ（脚の長さ単位、rootXZ 適用後）。
@@ -1097,6 +1118,7 @@ struct HeroClipLayer {
     }
 
     var isActive: Bool { clip >= 0 }
+    var isLocomotion: Bool { isActive && role == .state && runRate }
     var upperWeight: Float { smooth01(upperLinear) }
     var lowerWeight: Float { smooth01(lowerLinear) }
     /// 再生位置（フレーム、先頭で待っている間は 0）。
@@ -1112,7 +1134,8 @@ struct HeroClipLayer {
 
     /// クリップを始める。重みが残っていれば今の姿勢からつなぐ。
     mutating func start(_ c: Int, role: HeroClipRole, from t0: Float, preRate: Float = 1, postRate: Float = 1,
-                        fullBody: Bool, speedMask: Bool, hold: Bool, runRate: Bool = false) {
+                        fullBody: Bool, speedMask: Bool, hold: Bool, runRate: Bool = false,
+                        blendDuration: Float = HeroClipLayer.fadeIn) {
         guard let lib = binding?.library, c >= 0, c < lib.clips.count else { return }
         let info = lib.clips[c]
         if clip >= 0 && (upperLinear > 0 || lowerLinear > 0) {
@@ -1133,17 +1156,21 @@ struct HeroClipLayer {
         // （ループのままだと finished にならず、待機・移動へ戻っても重なり続ける）
         loop = info.loop && role == .state
         self.runRate = runRate
+        groundSpeed = info.groundSpeed
+        transitionDuration = max(0.001, blendDuration)
         self.fullBody = fullBody
         self.speedMask = speedMask
         rootXZ = info.rootXZ
         finished = false
         holdAtEnd = hold
         fadingOut = false
+        awaitingRelease = false
         resample()
     }
 
     /// フェードアウトして手続きへ戻す。
     mutating func stop() {
+        awaitingRelease = false
         if clip >= 0 { fadingOut = true }
     }
 
@@ -1154,14 +1181,18 @@ struct HeroClipLayer {
         lowerLinear = 0
         fadingOut = false
         finished = false
+        awaitingRelease = false
     }
 
     /// dt 秒進める（speed は m/s。マスクと移動ループの速度に使う）。
-    mutating func advance(dt: Float, speed: Float) {
+    mutating func advance(dt: Float, speed: Float, maskSpeed: Float? = nil) {
         guard clip >= 0 else { return }
         if !finished {
             if loop {
-                let rate = runRate ? min(1.6, max(0.6, speed / 3.3)) : preRate
+                let rate: Float
+                if runRate, let groundSpeed {
+                    rate = max(0, speed) / groundSpeed
+                } else { rate = runRate ? min(1.6, max(0.6, speed / 3.3)) : preRate }
                 clipTime += dt * rate
                 if endTime > 0 {
                     clipTime = clipTime.truncatingRemainder(dividingBy: endTime)
@@ -1187,11 +1218,16 @@ struct HeroClipLayer {
                 }
             }
         }
+        if awaitingRelease, let lib = binding?.library {
+            // Keep the last authored pre-release frame until the actual simulation event.
+            clipTime = min(clipTime, max(0, impactTime - 1 / lib.clips[clip].fps))
+            finished = false
+        }
         let upperTarget: Float = fadingOut ? 0 : 1
-        let lowerTarget: Float = fadingOut || !fullBody || (speedMask && speed >= Self.stationarySpeed) ? 0 : 1
-        upperLinear = Self.approach(upperLinear, upperTarget, dt)
-        lowerLinear = Self.approach(lowerLinear, lowerTarget, dt)
-        xfade = min(1, xfade + dt / Self.fadeIn)
+        let lowerTarget: Float = fadingOut || !fullBody || (speedMask && (maskSpeed ?? speed) >= Self.stationarySpeed) ? 0 : 1
+        upperLinear = Self.approach(upperLinear, upperTarget, dt, fadeIn: transitionDuration)
+        lowerLinear = Self.approach(lowerLinear, lowerTarget, dt, fadeIn: transitionDuration)
+        xfade = min(1, xfade + dt / transitionDuration)
         if fadingOut && upperLinear <= 0 && lowerLinear <= 0 {
             clip = -1
             return
@@ -1199,8 +1235,34 @@ struct HeroClipLayer {
         resample()
     }
 
-    @inline(__always) private static func approach(_ v: Float, _ target: Float, _ dt: Float) -> Float {
+    @inline(__always) private static func approach(_ v: Float, _ target: Float, _ dt: Float, fadeIn: Float) -> Float {
         v < target ? min(target, v + dt / fadeIn) : max(target, v - dt / fadeOut)
+    }
+
+    /// A dropped render frame or a fast attack must not leave the string drawn after launch.
+    mutating func awaitReleaseEvent() {
+        guard isActive, role == .attack, let lib = binding?.library,
+              lib.clips[clip].release != nil else { return }
+        awaitingRelease = true
+    }
+
+    mutating func synchronizeAttackRelease() {
+        guard isActive, role == .attack, !fadingOut, let lib = binding?.library,
+              lib.clips[clip].release != nil else { return }
+        awaitingRelease = false
+        clipTime = max(clipTime, impactTime)
+        xfade = 1
+        upperLinear = 1
+        resample()
+    }
+
+    /// Connection weight for the bowstring before release; the arrow itself remains simulation driven.
+    var bowstringContact: Float {
+        guard isActive, role == .attack, !fadingOut, let lib = binding?.library else { return 0 }
+        let info = lib.clips[clip]
+        guard let release = info.release, clipTime < release / info.fps - 1e-5 else { return 0 }
+        let attached = (info.drawStart ?? min(release * 0.18, 4)) / info.fps
+        return smooth01(max(0, clipTime) / max(0.001, attached)) * upperWeight
     }
 
     private mutating func resample() {

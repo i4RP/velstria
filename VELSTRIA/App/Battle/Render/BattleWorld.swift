@@ -464,6 +464,7 @@ final class BattleWorld {
                                       interval: interval, time: time)
             }
         case .attackReleased(let src, let target, let isRanged):
+            units.noteAttackRelease(sourceID: src)
             units.noteAttack(sourceID: src, time: time)
             let fxDone = effekseer?.onAttackReleased(src: src, target: target, isRanged: isRanged, state: f.state) ?? false
             if isRanged, !fxDone, units.hero(src) != nil { pendingMuzzles.append((src, target)) }

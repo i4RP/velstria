@@ -15,6 +15,7 @@ struct HeroMotionSet {
     /// スキル詠唱（Skill1, Skill2, Ultimate の順。nil = 手続き）。
     var casts: [String?] = [nil, nil, nil]
     var idle: String?
+    var walk: String?
     var run: String?
     var death: String?
     var victory: String?
@@ -40,6 +41,7 @@ struct HeroMotionBinding {
     /// Skill1, Skill2, Ultimate。
     let casts: [Int?]
     let idle: Int?
+    let walk: Int?
     let run: Int?
     let death: Int?
     let victory: Int?
@@ -54,13 +56,14 @@ struct HeroMotionBinding {
         attacks = set.attacks.compactMap { library.index(of: $0) }
         casts = (0..<3).map { $0 < set.casts.count ? find(set.casts[$0]) : nil }
         idle = find(set.idle)
+        walk = find(set.walk)
         run = find(set.run)
         death = find(set.death)
         victory = find(set.victory)
         stunned = find(set.stunned)
         channel = find(set.channel)
         let any = !attacks.isEmpty || casts.contains { $0 != nil }
-            || [idle, run, death, victory, stunned, channel].contains { $0 != nil }
+            || [idle, walk, run, death, victory, stunned, channel].contains { $0 != nil }
         guard any else { return nil }
         self.library = library
         attackMask = set.attackMask
@@ -96,6 +99,14 @@ enum HeroMotionSets {
 
     /// 杖・槍・銃など、向きを胴に対して保つ武器。
     private static let held: simd_quatf? = nil
+
+    private static let lumina: HeroMotionSet = {
+        var s = make(["h025_bow_attack"], idle: "h025_idle", death: "death_forward",
+                     victory: "victory_cheer", offhandGrip: rx(-.pi / 2) * ry(-0.6))
+        s.walk = "h025_walk"
+        s.run = "h025_run"
+        return s
+    }()
 
     /// H001〜H034: 通常攻撃（順に繰り返す）・待機・死亡・勝利。
     static let table: [String: HeroMotionSet] = [
@@ -153,7 +164,7 @@ enum HeroMotionSets {
         // 夢の針 二刀（Assassin）
         "H024": make(["dual_combo_b", "dual_combo_d", "thrust"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", offhandGrip: HeroMotionSet.fistGrip),
         // 三日月の長弓（Ranger・遠隔。弓は左手の副手）
-        "H025": make(["bow_shot_b", "bow_shot"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
+        "H025": lumina,
         // 雷杖（Arcanist・遠隔: 指し示し・払い）
         "H026": make(["cast_a", "cast_point", "cast_throw"], idle: "ready_idle", victory: "victory_cheer", weaponGrip: held),
         // 竜牙の長槍（Duelist・近接の突き）

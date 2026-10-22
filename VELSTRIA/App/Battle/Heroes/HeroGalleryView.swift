@@ -10,7 +10,7 @@ import VelstriaCore
 //   -galleryCamera <showcase|battle>
 //   -galleryTeam <blue|red|none>
 //   -galleryFreeze <秒>        指定秒だけ進めて静止
-//   -galleryDetail <heroID>    単体プレビュー（HeroPreview3DView）を表示
+//   -galleryDetail <heroID>    単体プレビュー（state/camera/freeze/yaw も反映）を表示
 //   -galleryYaw <度>           台の回転（側面・背面の確認）
 //
 // 開発用の目視確認画面のため DEBUG / SCREENSHOTS ビルドのみ（App Store 用アーカイブには含めない）。
@@ -191,7 +191,10 @@ struct HeroGalleryView: View {
             Color.black.opacity(0.55).ignoresSafeArea()
                 .onTapGesture { detailHeroID = nil }
             HStack(spacing: 16) {
-                HeroPreview3DView(heroID: heroID, skinID: detailSkin)
+                HeroStageView(config: HeroStageConfig(
+                    slots: [HeroStageSlot(heroID: heroID, skinID: detailSkin)],
+                    team: team, state: animState, camera: camera, pedestal: true,
+                    freezeAt: freeze, yaw: yaw))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 VStack(alignment: .leading, spacing: 10) {
                     if let def = master.hero(heroID) {

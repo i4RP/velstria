@@ -146,7 +146,7 @@ final class HeroMotionClipTests: XCTestCase {
             let c = rig.correction[j], r0 = rig.restRotation[j]
             let rot: simd_quatf
             switch rig.drive[j] {
-            case .rest, .handR, .handL, .footR, .footL:
+            case .rest, .detail, .handR, .handL, .footR, .footL:
                 rot = p < 0 ? rig.entityRotation * rest.rotation : rotation[p] * rest.rotation
             case .hips: rot = q.hips * r0
             case .spine(let t): rot = simd_slerp(q.hips, q.torso, t) * r0
@@ -187,6 +187,94 @@ final class HeroMotionClipTests: XCTestCase {
     }
 
     // MARK: 骨の駆動
+
+    func testOptionalLocalDetailsSurviveSamplingAndRigSolve() throws {
+        let clip = Synth(name: "detail", frames: 2)
+        var top = try XCTUnwrap(JSONSerialization.jsonObject(with: Self.json([clip])) as? [String: Any])
+        var entries = try XCTUnwrap(top["clips"] as? [[String: Any]])
+        entries[0]["detailJoints"] = ["leftshoulder", "lefttoebase"]
+        let rotations = [qIdentity, qIdentity, rz(0.4), rx(0.6)]
+        entries[0]["detailRot"] = rotations.flatMap { q in
+            [Double(q.vector.x), Double(q.vector.y), Double(q.vector.z), Double(q.vector.w)]
+        }
+        top["clips"] = entries
+        var skipped: [String] = []
+        let lib = try HeroMotionLibrary.decode(JSONSerialization.data(withJSONObject: top), skipped: &skipped)
+        XCTAssertTrue(skipped.isEmpty)
+        let (pose, _) = lib.sample(0, time: 1.0 / 60)
+        XCTAssertLessThan(Self.rotationError(pose.details[0], rz(0.2)), 1e-5)
+        XCTAssertLessThan(Self.rotationError(pose.details[2], rx(0.3)), 1e-5)
+        let rig = try rig()
+        var poser = HeroSkeletonPoser(rig: rig)
+        poser.solve(pose, hipsDrop: 0)
+        let shoulder = try XCTUnwrap(rig.index[.shoulderL])
+        let toe = try XCTUnwrap(rig.index[.toeL])
+        XCTAssertLessThan(Self.rotationError(poser.local[shoulder].rotation,
+                                             rig.restLocal[shoulder].rotation * rz(0.2)), 1e-5)
+        XCTAssertLessThan(Self.rotationError(poser.local[toe].rotation,
+                                             rig.restLocal[toe].rotation * rx(0.3)), 1e-5)
+        var upper = HeroSegmentRotations()
+        upper.blend(toward: pose, weight: 1, mask: .upper)
+        XCTAssertTrue(upper.details.contains(0))
+        XCTAssertFalse(upper.details.contains(2), "Upper-body attacks must leave locomotion toes alone")
+
+        entries[0]["detailRot"] = [0, 0, 0, 1]
+        top["clips"] = entries
+        skipped = []
+        let invalid = try HeroMotionLibrary.decode(JSONSerialization.data(withJSONObject: top), skipped: &skipped)
+        XCTAssertTrue(invalid.isEmpty)
+        XCTAssertEqual(skipped, ["detail"])
+    }
+
+    func testBowReleaseWinsOverImpactAndFastCrossfadeFinishesBeforeLaunch() throws {
+        let bow = Synth(name: "bow_test", frames: 31, events: ["release": 10, "impact": 20, "drawStart": 2])
+        let lib = try Self.library([bow])
+        XCTAssertEqual(lib.clips[0].impactTime, 10.0 / 30, accuracy: 1e-6)
+        var set = HeroMotionSet()
+        set.attacks = ["bow_test"]
+        let binding = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))
+        var animator = HeroAnimator(profile: profile("H025"), defaultRunSpeed: 3.3, motion: binding)
+        // Repeated 12.5 attacks/second stresses restart, release, and recovery without changing simulation.
+        for _ in 0..<8 {
+            animator.playAttack(windup: 0.025, interval: 0.08)
+            for _ in 0..<5 { _ = animator.advance(dt: 0.005, moveSpeed: 0) }
+            XCTAssertEqual(animator.clips.frame, 10, accuracy: 0.01)
+            XCTAssertEqual(animator.clips.upperWeight, 1, accuracy: 1e-6)
+            XCTAssertEqual(animator.clips.bowstringContact, 0)
+            for _ in 0..<12 { _ = animator.advance(dt: 0.005, moveSpeed: 0) }
+            XCTAssertTrue(animator.clips.finished)
+        }
+        animator.playAttack(windup: 0.3, interval: 0.9)
+        animator.awaitAttackRelease()
+        _ = animator.advance(dt: 0.08, moveSpeed: 0)
+        XCTAssertGreaterThan(animator.clips.bowstringContact, 0)
+        for _ in 0..<10 { _ = animator.advance(dt: 0.08, moveSpeed: 0) }
+        XCTAssertLessThan(animator.clips.frame, 10, "The visual must not release before the simulation event")
+        animator.synchronizeAttackRelease()
+        XCTAssertEqual(animator.clips.frame, 10, accuracy: 0.01)
+        XCTAssertEqual(animator.clips.bowstringContact, 0)
+        animator.playAttack(windup: 0.3, interval: 0.9)
+        animator.awaitAttackRelease()
+        animator.setState(.run)
+        XCTAssertFalse(animator.clips.awaitingRelease, "Cancelled shots must not hold the next locomotion state")
+    }
+
+    func testGroundSpeedRemovesTheLegacyMinimumLocomotionRate() throws {
+        var top = try XCTUnwrap(JSONSerialization.jsonObject(with: Self.json([Synth(name: "walk", frames: 30, loop: true)])) as? [String: Any])
+        var entries = try XCTUnwrap(top["clips"] as? [[String: Any]])
+        entries[0]["groundSpeed"] = 1.4
+        top["clips"] = entries
+        var skipped: [String] = []
+        let lib = try HeroMotionLibrary.decode(JSONSerialization.data(withJSONObject: top), skipped: &skipped)
+        var set = HeroMotionSet()
+        set.run = "walk"
+        var layer = HeroClipLayer(binding: try XCTUnwrap(HeroMotionBinding(set: set, library: lib)))
+        layer.start(0, role: .state, from: 0, fullBody: true, speedMask: false, hold: true, runRate: true)
+        layer.advance(dt: 1, speed: 0.7)
+        XCTAssertEqual(layer.clipTime, 0.5, accuracy: 1e-6)
+        layer.advance(dt: 1, speed: 0)
+        XCTAssertEqual(layer.clipTime, 0.5, accuracy: 1e-6, "Zero speed must not slide a minimum-rate walk")
+    }
 
     /// 手・足を区間で駆動しても、手続きの姿勢（手 = 前腕、足 = 脛）では従来の「親に追従」と同じ骨になる。
     func testProceduralPosesMatchLegacySolveWithHandAndFootDrives() throws {
@@ -443,18 +531,20 @@ final class HeroMotionClipTests: XCTestCase {
             return
         }
         XCTAssertFalse(lib.isEmpty, "同梱の HeroMotionClips.json が読めない")
-        // 追加ヒーロー H025〜H034 は同梱ライブラリの既存クリップだけで組む（名前が無いと手続きに落ちる）
+        // H025 loads its separate motion resource; the remaining heroes use the shared library.
         for n in 25...34 {
             let id = String(format: "H%03d", n)
             let set = try XCTUnwrap(HeroMotionSets.set(heroID: id), id)
-            for name in set.attacks + [set.idle, set.death, set.victory].compactMap({ $0 }) {
-                XCTAssertNotNil(lib.index(of: name), "\(id) のクリップ \(name) が同梱ライブラリに無い")
+            let heroLib = HeroMotionClips.library(heroID: id)
+            for name in set.attacks + [set.idle, set.walk, set.run, set.death, set.victory].compactMap({ $0 }) {
+                XCTAssertNotNil(heroLib.index(of: name), "\(id) のクリップ \(name) が同梱ライブラリに無い")
             }
         }
         var missing = Set<String>()
-        for set in HeroMotionSets.table.values {
-            let names = set.attacks + set.casts.compactMap { $0 } + [set.idle, set.run, set.death, set.victory, set.stunned, set.channel].compactMap { $0 }
-            for name in names where lib.index(of: name) == nil { missing.insert(name) }
+        for (id, set) in HeroMotionSets.table {
+            let heroLib = HeroMotionClips.library(heroID: id)
+            let names = set.attacks + set.casts.compactMap { $0 } + [set.idle, set.walk, set.run, set.death, set.victory, set.stunned, set.channel].compactMap { $0 }
+            for name in names where heroLib.index(of: name) == nil { missing.insert(name) }
         }
         print("HeroMotionClipTests: 同梱 \(lib.clips.count) クリップ / 暫定表で未収録 \(missing.sorted())")
     }
@@ -472,6 +562,7 @@ final class HeroMotionClipTests: XCTestCase {
         for n in 1...34 {
             let id = String(format: "H%03d", n)
             guard let url = HeroAssetLibrary.bundledURL("Hero_\(id)"), let rig = HeroAssetLibrary.heroTemplate(url)?.rig else { continue }
+            let lib = HeroMotionClips.library(heroID: id)
             let rp = rig.restPosition
             let hips = try XCTUnwrap(rig.index[.hips]), head = try XCTUnwrap(rig.index[.head])
             let feet = [HeroJointRole.footL, .footR].compactMap { rig.index[$0] }

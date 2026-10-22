@@ -376,6 +376,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
     var skinnedEntity: ModelEntity { skinnedEntities[0] }
     let weapon: ModelEntity
     let offhand: ModelEntity
+    private let bowstring: [ModelEntity]
     private let wingL: ModelEntity?
     private let wingR: ModelEntity?
     private let flag: ModelEntity?
@@ -385,6 +386,8 @@ final class SkinnedHeroModel: HeroDisplayModel {
     private var poser: HeroSkeletonPoser
     private let handR: Int
     private let handL: Int
+    private let stringIndexR: Int?
+    private let stringMiddleR: Int?
     private let headJoint: Int
     private let upperSpine: Int
     private let wingDepth: Float
@@ -422,6 +425,8 @@ final class SkinnedHeroModel: HeroDisplayModel {
         poser = HeroSkeletonPoser(rig: rig)
         handR = rig.index[.handR]!
         handL = rig.index[.handL]!
+        stringIndexR = rig.jointNames.firstIndex { HeroJointRole.normalize($0) == "righthandindex3" }
+        stringMiddleR = rig.jointNames.firstIndex { HeroJointRole.normalize($0) == "righthandmiddle3" }
         headJoint = rig.index[.head]!
         upperSpine = rig.upperSpine
 
@@ -492,7 +497,17 @@ final class SkinnedHeroModel: HeroDisplayModel {
             return e
         }
         weapon = gear("\(bp.weapon)", ms.weapon, "weapon")
-        offhand = gear("\(bp.offhand)", ms.offhand, "offhand")
+        if heroID == "H025", let unstrung = ms.offhandUnstrung, let string = ms.bowstringSegment {
+            offhand = part(unstrung, "offhand")
+            bowstring = [part(string, "bowstring.upper"), part(string, "bowstring.lower")]
+            for segment in bowstring {
+                AssetLedger.record(.entity, segment.name)
+                offhand.addChild(segment)
+            }
+        } else {
+            offhand = gear("\(bp.offhand)", ms.offhand, "offhand")
+            bowstring = []
+        }
         wingL = ms.wingL.map { part($0, "wingL") }
         wingR = ms.wingR.map { part($0, "wingR") }
         flag = ms.flag.map { part($0, "flag") }
@@ -531,7 +546,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
         let motionSet = HeroMotionSets.set(heroID: heroID)
         animator = HeroAnimator(profile: HeroMotionProfile(blueprint: bp, metrics: ms.metrics, heroID: heroID),
                                 defaultRunSpeed: defaultRunSpeed,
-                                motion: motionSet.flatMap { HeroMotionBinding(set: $0, library: HeroMotionClips.shared) })
+                                motion: motionSet.flatMap { HeroMotionBinding(set: $0, library: HeroMotionClips.library(heroID: heroID)) })
         animator.legLength = skinLeg * bp.scale
         if let hip = rig.index[.upLegL], let knee = rig.index[.legL], let foot = rig.index[.footL] {
             let thigh = simd_length(rp[hip] - rp[knee])
@@ -585,7 +600,12 @@ final class SkinnedHeroModel: HeroDisplayModel {
     func playAttack(windup: Double, interval: Double) {
         let wasDead = animator.state == .dead
         animator.playAttack(windup: Float(windup), interval: Float(interval))
+        if heroID == "H025" { animator.awaitAttackRelease() }
         if wasDead { effects.setOpacity(1, body: body) }
+    }
+
+    func synchronizeAttackRelease() {
+        if heroID == "H025" { animator.synchronizeAttackRelease() }
     }
 
     func attackLaunchPoint() -> SIMD3<Float>? {
@@ -653,6 +673,28 @@ final class SkinnedHeroModel: HeroDisplayModel {
             weapon.orientation = q.weaponR(p, followsArm: weaponFollowsArm)
             offhand.position = handPosL + q.foreArmL.act(gripL)
             offhand.orientation = q.weaponL(p, followsArm: offhandFollowsArm)
+        }
+        if !bowstring.isEmpty {
+            let top = HeroGearBuilder.crescentStringTop, bottom = HeroGearBuilder.crescentStringBottom
+            let resting = (top + bottom) * 0.5
+            let pull: V3
+            if let index = stringIndexR, let middle = stringMiddleR {
+                pull = (poser.position[index] + poser.position[middle]) * 0.5
+            } else if let middle = stringMiddleR {
+                pull = poser.position[middle]
+            } else { pull = handPosR + q.handR.act(gripR) }
+            let localPull = offhand.convert(position: pull, from: motion)
+            let contact = clips ? animator.clips.bowstringContact : 0
+            let nock = resting + (localPull - resting) * contact
+            for i in 0..<2 {
+                let end = i == 0 ? top : bottom
+                let delta = end - nock
+                let length = max(0.0001, simd_length(delta))
+                let segment = bowstring[i]
+                segment.position = (end + nock) * 0.5
+                segment.orientation = rotationFromY(to: delta)
+                segment.scale = V3(1, length, 1)
+            }
         }
         if let wingL, let wingR {
             let sp = min(1.3, max(0, p.wings))
