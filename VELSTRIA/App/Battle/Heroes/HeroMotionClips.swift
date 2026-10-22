@@ -41,6 +41,8 @@ struct HeroMotionClip {
     var groundSpeed: Float? = nil
     /// First frame at which the drawing hand is fully attached to the bowstring.
     var drawStart: Float? = nil
+    /// 詠唱の呼び出しから打撃までの秒（キットの溜め）。あれば castLead の代わりに使い、溜めの頭から再生する。
+    var castWindup: Float? = nil
 
     /// 武器を振っている区間: 打撃の前 swingLead 秒〜後 swingTail 秒（クリップ時刻。再生速度に比例して実時間は縮む）。
     static let swingLead: Float = 0.18
@@ -103,6 +105,7 @@ final class HeroMotionLibrary: @unchecked Sendable {
             v.detailMask = c.detailMask
             v.groundSpeed = c.groundSpeed
             v.drawStart = c.drawStart
+            v.castWindup = c.castWindup
             return v
         }
         return HeroMotionLibrary(clips: clips + appended, rot: rot + extra.rot, root: root + extra.root,
@@ -273,6 +276,7 @@ extension HeroMotionLibrary {
                                       rotBase: rot.count, rootBase: root.count,
                                       melee: (c["melee"] as? Bool) ?? (impact != nil && HeroMotionClip.isMeleeName(name)))
             clip.drawStart = event("drawStart")
+            if let w = (c["castWindup"] as? NSNumber)?.floatValue, w.isFinite, w >= 0 { clip.castWindup = w }
             if let speed = (c["groundSpeed"] as? NSNumber)?.floatValue, speed.isFinite, speed > 0 {
                 clip.groundSpeed = speed
             }

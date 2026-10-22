@@ -632,6 +632,14 @@ final class HeroMotionClipTests: XCTestCase {
             if before < animator.clips.impactTime && animator.clips.clipTime >= animator.clips.impactTime { shots += 1 }
         }
         XCTAssertGreaterThanOrEqual(shots, 3, "ギャラリーの通常攻撃が撃ち続ける")
+        // 詠唱のクリップの発射 = キットの溜め（s1Windup / s2Windup 0.1 秒、ultWindup）
+        let ult = KitTimes("H030", .ultimate).seconds("windup")
+        XCTAssertEqual(ult, 0.55, accuracy: 0.001)
+        for (name, windup) in [("cast_s1_h030", Float(0.1)), ("cast_s2_h030", 0.1), ("cast_ult_h030", ult)] {
+            let c = try XCTUnwrap(lib.index(of: name), name)
+            XCTAssertEqual(lib.clips[c].castWindup ?? -1, windup, accuracy: 0.002, name)
+            XCTAssertEqual(lib.clips[c].impactTime, windup, accuracy: 0.002, "\(name): 溜めの頭から再生して発射が合う")
+        }
     }
 
     /// 同梱のクリップ（あれば）を同梱のヒーロー（あるだけ）に実行時と同じ計算で載せる。骨が有限で、ループは頭が腰より上。
