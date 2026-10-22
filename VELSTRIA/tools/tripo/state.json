@@ -7026,13 +7026,13 @@
         }
       },
       "import": {
-        "at": "2026-10-11T18:46:46.789Z",
-        "out": "App/Resources/Heroes/Prop_bloodGreatsword.usdz",
-        "status": "success",
-        "report": "build/tripo/props/bloodGreatsword/import_report.json",
-        "log": "build/tripo/props/bloodGreatsword/import_normalize.log",
-        "verifyLog": "build/tripo/props/bloodGreatsword/import_verify.log",
-        "provider": "tripo"
+        "at": "2026-10-22T16:40:28.600Z",
+        "out": "App\\Resources\\Heroes\\Prop_bloodGreatsword.usdz",
+        "status": "failed",
+        "stage": "verify",
+        "report": "build\\tripo\\props\\bloodGreatsword\\import_report.json",
+        "verifyLog": "build\\tripo\\props\\bloodGreatsword\\import_verify.log",
+        "rejected": "build\\tripo\\props\\bloodGreatsword\\rejected_Prop_bloodGreatsword.usdz"
       }
     },
     "props/hookChain": {
@@ -7142,5 +7142,5 @@
     }
   },
   "note": "tools/tripo.mjs が自動生成。task_id・状態・消費クレジット・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-11T18:46:48.489Z"
+  "updated_at": "2026-10-22T16:40:28.601Z"
 }

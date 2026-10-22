@@ -2404,8 +2404,108 @@
           "at": "2026-10-05T00:36:11.094Z"
         }
       }
+    },
+    "props/bloodGreatsword": {
+      "stages": {
+        "concept": {
+          "status": "SUCCEEDED",
+          "task_id": "01a1647b-670b-7302-965e-a244fe4a71ad",
+          "input": null,
+          "input_sha256": null,
+          "request": {
+            "ai_model": "nano-banana-2",
+            "prompt": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical: an enormous silver greatsword, front view of the flat of the blade, blade tip pointing straight up and hilt at the bottom, very wide silver blade with a jagged serrated saw-tooth spine along the left side and a straight sharp edge along the right side, a glowing icy-blue fuller down the center, a crossguard shaped like a silver horned skull with glowing blue eyes facing the viewer, black leather-wrapped grip, spiked silver pommel. Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo. Avoid: hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo.",
+            "aspect_ratio": "3:4"
+          },
+          "estimate": 6,
+          "balance_before": 453,
+          "submitted_at": "2026-10-22T16:39:31.514Z",
+          "completed_at": "2026-10-22T16:39:41.106Z",
+          "progress": 100,
+          "credits_consumed": 6,
+          "outputs": [
+            "image_urls[0]"
+          ],
+          "files": {
+            "concept.png": {
+              "path": "build\\meshy\\props\\bloodGreatsword\\concept.png",
+              "bytes": 714970,
+              "sha256": "d20b695800480a24629e377daa86c8560d45598254e4582c226f8fc0a8f7fe9d"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-22T16:39:42.950Z",
+          "expires_at": "2026-10-25T16:39:41.106Z"
+        },
+        "model": {
+          "status": "SUCCEEDED",
+          "task_id": "01a1647b-aed8-7735-b2b2-864abb7de4c8",
+          "input": null,
+          "input_sha256": "d20b695800480a24629e377daa86c8560d45598254e4582c226f8fc0a8f7fe9d",
+          "request": {
+            "image_url": "data:image/png;base64,<build\\meshy\\props\\bloodGreatsword\\concept.png 714970 bytes sha256 d20b695800480a24…>",
+            "model_type": "smart-topology",
+            "ai_model": "meshy-t2",
+            "target_polycount": 3500,
+            "should_texture": true,
+            "enable_pbr": true,
+            "texture_resolution": "2k",
+            "target_formats": [
+              "glb"
+            ]
+          },
+          "estimate": 15,
+          "balance_before": 426,
+          "submitted_at": "2026-10-22T16:39:49.879Z",
+          "completed_at": "2026-10-22T16:40:13.613Z",
+          "progress": 100,
+          "credits_consumed": 15,
+          "outputs": [
+            "model_url",
+            "model_urls.glb",
+            "thumbnail_url",
+            "texture_urls[0].base_color",
+            "texture_urls[0].metallic",
+            "texture_urls[0].roughness",
+            "texture_urls[0].normal"
+          ],
+          "files": {
+            "model.glb": {
+              "path": "build\\meshy\\props\\bloodGreatsword\\model.glb",
+              "bytes": 7623820,
+              "sha256": "f6e92a12350dcc87e9164bbb57018b61fd3947c426af085e04d58d189aad5df4",
+              "info": {
+                "tris": 3624,
+                "joints": 0,
+                "textures": [
+                  "2048x2048",
+                  "2048x2048",
+                  "2048x2048"
+                ]
+              }
+            },
+            "preview.png": {
+              "path": "build\\meshy\\props\\bloodGreatsword\\preview.png",
+              "bytes": 50060,
+              "sha256": "11d8061ce098c78c7b314976a38a1ad6dd16ab38b00ebf10125b83e9eb46c9c7"
+            }
+          },
+          "error": null,
+          "updated_at": "2026-10-22T16:40:15.904Z",
+          "expires_at": "2026-10-25T16:40:13.613Z"
+        }
+      },
+      "delivered": {
+        "glb": {
+          "path": "build\\tripo\\props\\bloodGreatsword\\model.glb",
+          "sha256": "f6e92a12350dcc87e9164bbb57018b61fd3947c426af085e04d58d189aad5df4",
+          "from": "build\\meshy\\props\\bloodGreatsword\\model.glb",
+          "front": "+z",
+          "at": "2026-10-22T16:40:15.935Z"
+        }
+      }
     }
   },
   "note": "tools/meshy.mjs が自動生成。task_id・状態・消費クレジット・ハッシュ・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-05T00:05:02.525Z"
+  "updated_at": "2026-10-22T16:40:15.935Z"
 }
