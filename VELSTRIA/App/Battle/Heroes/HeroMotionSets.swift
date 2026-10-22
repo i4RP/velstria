@@ -33,6 +33,8 @@ struct HeroMotionSet {
     /// 槍の構え（rest -1.0 = 前へ寝かせる）は腕を下ろした待機だと穂先が顔の前を横切るので立てて持ち、
     /// 弓（rest 0 = 真っ直ぐ）は上の弓先を少し前へ傾けて手に握っているように見せる（下の弓先が足元に立たない）。
     var idleWeaponR: Float?
+    /// 握り（手の区間 × grip の位置）から武器の原点までのずれ（武器の軸・m）。既定 0。
+    var weaponOffset = V3.zero
     var idleWeaponL: Float?
 
     /// 拳で握る（+Y → -Z）。剣・槍・杖・盾・弓。
@@ -59,6 +61,7 @@ struct HeroMotionBinding {
     let weaponGrip: simd_quatf?
     let offhandGrip: simd_quatf?
     let idleWeaponR: Float?
+    let weaponOffset: V3
     let idleWeaponL: Float?
 
     /// どのクリップも見つからなければ nil（重ねる層を持たず、手続きと完全に同じ）。
@@ -82,6 +85,7 @@ struct HeroMotionBinding {
         weaponGrip = set.weaponGrip
         offhandGrip = set.offhandGrip
         idleWeaponR = set.idleWeaponR
+        weaponOffset = set.weaponOffset
         idleWeaponL = set.idleWeaponL
     }
 
@@ -93,7 +97,7 @@ enum HeroMotionSets {
     /// heroID の割り当て（未知の ID は nil = 手続きのみ）。
     static func set(heroID: String) -> HeroMotionSet? {
         guard var set = table[heroID] else { return nil }
-        if HeroIdle.authored(for: heroID) != nil {
+        if HeroIdle.authored(for: heroID) != nil && !set.dedicatedIdle {
             set.idle = nil
             set.idleWeaponR = nil
             set.idleWeaponL = nil
@@ -135,6 +139,18 @@ enum HeroMotionSets {
         s.dedicatedIdle = true
         s.walk = "h025_walk"
         s.run = "h025_run"
+        return s
+    }()
+
+    /// 星砲のライナ（H030）の専用収録（H030MotionClips.json、docs/H030_MOTION.md）。右の掌を砲身の上に乗せ、
+    /// 砲の向きは右手の区間で決める（腰だめ・砲口は前）。
+    private static let raina: HeroMotionSet = {
+        var s = make(["gun_cannon_h030"], idle: "idle_h030", death: "death_forward", victory: "victory_cheer",
+                     weaponGrip: HeroMotionSet.fistGrip)
+        s.dedicatedIdle = true
+        s.walk = "walk_h030"
+        s.run = "run_h030"
+        s.weaponOffset = V3(0, 0, -0.16)
         return s
     }()
 
@@ -208,7 +224,7 @@ enum HeroMotionSets {
         // Motion_H029.attacks）が先なので、ここの攻撃のクリップは使わない（待機・死亡・勝利だけ使う）
         "H029": make(["sword_combo_1", "axe_chop"], idle: "combat_idle"),
         // 星砲（Ranger・遠隔の両手持ち）
-        "H030": make(["gun_fire"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
+        "H030": raina,
         // 氷華の右手（Arcanist・遠隔: 杖は持たず手から放つ・指し示し）
         "H031": make(["cast_throw", "cast_point"], idle: "idle_b", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
         // 両手首の刃の輪（Duelist・近接の左右交互の連撃）

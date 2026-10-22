@@ -1,0 +1,70 @@
+name: H030 Motion Preview
+
+# Simulator footage of the real RealityKit player. This does not measure device FPS.
+on:
+  push:
+    branches: [feat/h030-rina-motion]
+    paths:
+      - "VELSTRIA/App/Battle/Heroes/**"
+      - "VELSTRIA/App/Resources/Heroes/**"
+      - "VELSTRIA/AppTests/HeroMotionClipTests.swift"
+      - "VELSTRIA/AppTests/SkinnedHeroModelTests.swift"
+      - "VELSTRIA/tools/capture_h030_motion.sh"
+      - ".github/workflows/h030-motion-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: h030-preview-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: VELSTRIA
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare Xcode and simulator build
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
+          xcodebuild -version
+          brew install xcodegen
+          xcodegen generate --quiet
+          mkdir -p build/h030-preview
+          xcodebuild build-for-testing \
+            -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -derivedDataPath build/H030Derived \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee build/h030-preview/build.log
+
+      - name: Record H030 idle, locomotion and cannon attack
+        run: bash tools/capture_h030_motion.sh
+
+      - name: Motion and model contract tests
+        run: |
+          xcodebuild test-without-building \
+            -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -derivedDataPath build/H030Derived \
+            -resultBundlePath build/h030-preview/MotionTests.xcresult \
+            -only-testing:VELSTRIATests/HeroMotionClipTests \
+            -only-testing:VELSTRIATests/SkinnedHeroModelTests \
+            -only-testing:VELSTRIATests/HeroModelTests/testAllHeroesBuildWithinBudget \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build/h030-preview/tests.log
+
+      - name: Save gameplay footage and test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: h030-gameplay-${{ github.sha }}
+          path: VELSTRIA/build/h030-preview/
+          if-no-files-found: warn
+          retention-days: 30

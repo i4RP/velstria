@@ -641,18 +641,18 @@ final class SkinnedHeroModel: HeroDisplayModel {
     func playAttack(windup: Double, interval: Double) {
         let wasDead = animator.state == .dead
         animator.playAttack(windup: Float(windup), interval: Float(interval))
-        if heroID == "H025" { animator.awaitAttackRelease() }
+        if HeroMotionClips.dedicatedHeroes.contains(heroID) { animator.awaitAttackRelease() }
         if wasDead { effects.setOpacity(1, body: body) }
     }
 
     func synchronizeAttackRelease() {
-        if heroID == "H025" { animator.synchronizeAttackRelease() }
+        if HeroMotionClips.dedicatedHeroes.contains(heroID) { animator.synchronizeAttackRelease() }
     }
 
     func playAttack(windup: Double, interval: Double, empowered: Bool) {
         let wasDead = animator.state == .dead
         animator.playAttack(windup: Float(windup), interval: Float(interval), empowered: empowered)
-        if heroID == "H025" { animator.awaitAttackRelease() }
+        if HeroMotionClips.dedicatedHeroes.contains(heroID) { animator.awaitAttackRelease() }
         if wasDead { effects.setOpacity(1, body: body) }
     }
 
@@ -724,8 +724,10 @@ final class SkinnedHeroModel: HeroDisplayModel {
             let k = stateClipHold
             let angR = m.idleWeaponR.map { p.weaponR + ($0 - p.weaponR) * k } ?? p.weaponR
             let angL = m.idleWeaponL.map { p.weaponL + ($0 - p.weaponL) * k } ?? p.weaponL
-            weapon.position = simd_mix(handPosR + q.foreArmR.act(gripR), handPosR + q.handR.act(gripR), V3(repeating: wu))
             let heldR = m.weaponGrip.map { q.handR * $0 } ?? q.torso * ry(p.armR.yaw) * rx(angR)
+            // 握りから武器の芯までのずれ（武器の軸。H030 の星砲は掌を砲身の上に乗せる）
+            let heldPosR = handPosR + q.handR.act(gripR) + heldR.act(m.weaponOffset)
+            weapon.position = simd_mix(handPosR + q.foreArmR.act(gripR), heldPosR, V3(repeating: wu))
             weapon.orientation = weaponFollowsArm ? q.handR : simd_slerp(qp.weaponR(p, followsArm: false), heldR, wu)
             offhand.position = simd_mix(handPosL + q.foreArmL.act(gripL), handPosL + q.handL.act(gripL), V3(repeating: wu))
             let heldL = m.offhandGrip.map { q.handL * $0 } ?? q.torso * ry(-p.armL.yaw) * rx(angL)

@@ -1,0 +1,240 @@
+{
+  "version": 1,
+  "hero": "H030",
+  "recorded_at": "2026-10-22T16:23:35.268Z",
+  "credit_cap": {
+    "meshy": 40,
+    "tripo": 55
+  },
+  "credits_consumed": {
+    "meshy": 30,
+    "tripo": 55
+  },
+  "meshy_library": {
+    "count": 678,
+    "matches": [
+      {
+        "action_id": 89,
+        "name": "Combat Idel",
+        "key": "Combat_Stance",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 95,
+        "name": "Gun Hold Left Turn",
+        "key": "Gun_Hold_Left_Turn",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 98,
+        "name": "Run and Shoot",
+        "key": "Run_and_Shoot",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 104,
+        "name": "Side Shot",
+        "key": "Side_Shot",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 232,
+        "name": "Cowboy Quick Draw Shooting",
+        "key": "Cowboy_Quick_Draw_Shooting",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 334,
+        "name": "Lower Weapon, Look, Raise",
+        "key": "Lower_Weapon_Look_Raise",
+        "category": "DailyActions",
+        "sub_category": "LookingAround"
+      },
+      {
+        "action_id": 511,
+        "name": "Rifle Charge",
+        "key": "Rifle_Charge",
+        "category": "WalkAndRun",
+        "sub_category": "Running"
+      },
+      {
+        "action_id": 550,
+        "name": "Carry Heavy Cannon Forward",
+        "key": "Carry_Heavy_Cannon_Forward",
+        "category": "WalkAndRun",
+        "sub_category": "Walking"
+      },
+      {
+        "action_id": 610,
+        "name": "Carry Heavy Cannon Forward",
+        "key": "Carry_Heavy_Cannon_Forward_inplace",
+        "category": "WalkAndRun",
+        "sub_category": "Walking"
+      },
+      {
+        "action_id": 654,
+        "name": "Rifle Charge",
+        "key": "Rifle_Charge_inplace",
+        "category": "WalkAndRun",
+        "sub_category": "Running"
+      },
+      {
+        "action_id": 690,
+        "name": "Walk Forward While Shooting",
+        "key": "Walk_Forward_While_Shooting_inplace",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      }
+    ],
+    "checked_at": "2026-10-22T16:12:45.324Z"
+  },
+  "tasks": [
+    {
+      "name": "h030_cannon_attack_prime",
+      "provider": "meshy",
+      "task_id": "01a16463-0ad2-77ac-86d6-9b9801592152",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:12:54.831Z",
+      "completed_at": null,
+      "request": {
+        "mode": "prime",
+        "duration": 3,
+        "prompt": "Cheerful petite female gunner holding a huge long cannon at the right hip with both hands: left hand under the barrel, right hand on the rear trigger grip. Feet planted, left foot forward. Swing cannon to aim straight forward, brace knees, fire one shot, recoil kicks shoulders and torso back, absorb with hips, quickly return to the same ready hold. No steps."
+      },
+      "file": {
+        "file": "build/h030-motion/h030_cannon_attack_prime.fbx",
+        "bytes": 16768672,
+        "sha256": "0a07f8c00d4cd8788a309524985cf10d80b10cad5503e0e514b74859f7d7695e"
+      },
+      "error": null
+    },
+    {
+      "name": "h030_ult_beam_prime",
+      "provider": "meshy",
+      "task_id": "01a16463-1113-73ab-844f-3755fdf03e17",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:12:56.433Z",
+      "completed_at": null,
+      "request": {
+        "mode": "prime",
+        "duration": 3.5,
+        "prompt": "Female gunner with a huge long cannon held at the right hip with both hands, left hand under the barrel, right hand on rear grip. Widen stance and plant feet, crouch slightly, lean forward and aim cannon straight ahead, hold aim briefly, fire a massive beam: strong recoil pushes whole body back, absorb with legs without stepping, recover quickly to ready hold."
+      },
+      "file": {
+        "file": "build/h030-motion/h030_ult_beam_prime.fbx",
+        "bytes": 16797296,
+        "sha256": "cba46741a72ba70a3bd921898faacd16fac484004a3256926ee87615eb061115"
+      },
+      "error": null
+    },
+    {
+      "name": "h030_cannon_walk_prime",
+      "provider": "meshy",
+      "task_id": "01a16463-17e0-74a9-afa0-d677db80d5b5",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:12:58.179Z",
+      "completed_at": null,
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Cheerful petite female gunner walking forward in place with light bouncy short steps, hugging a huge long cannon at the right hip with both hands, left hand under the barrel, right hand on rear grip, muzzle steady pointing forward-down. Upper body calm, hips sway slightly. Seamless walk cycle loop."
+      },
+      "file": {
+        "file": "build/h030-motion/h030_cannon_walk_prime.fbx",
+        "bytes": 16711424,
+        "sha256": "368d964009b6ee80e65e7453944cb462cb751adda552cf02cf3bbaf3d656a83d"
+      },
+      "error": null
+    },
+    {
+      "name": "H030_rigcheck_05187cda",
+      "provider": "tripo",
+      "task_id": "76db073c-2a57-4641-98d5-18af5c780e4f",
+      "status": "success",
+      "http_status": null,
+      "credits_consumed": 0,
+      "submitted_at": "2026-10-22T16:13:03.776Z",
+      "completed_at": "2026-10-22T16:13:12.283053Z",
+      "request": {},
+      "output": {
+        "riggable": true,
+        "rig_type": "biped"
+      },
+      "file": null,
+      "error": null
+    },
+    {
+      "name": "H030_rig_v3",
+      "provider": "tripo",
+      "task_id": "edb0d5c5-9153-4611-ae56-7881c049c443",
+      "status": "success",
+      "http_status": null,
+      "credits_consumed": 25,
+      "submitted_at": "2026-10-22T16:14:03.764Z",
+      "completed_at": "2026-10-22T16:16:43.439483Z",
+      "request": {
+        "model": "v3.0-20260909",
+        "rig_type": "biped",
+        "spec": "mixamo",
+        "out_format": "glb"
+      },
+      "output": {},
+      "file": {
+        "file": "build/h030-motion/H030_rig_v3.glb",
+        "bytes": 1225264,
+        "sha256": "af8ededb6afdf619a1ba9ca2f5f05cf349fba08a2193b3a78899f8e8aa7e6ee7"
+      },
+      "error": null
+    },
+    {
+      "name": "H030_idle_walk_run",
+      "provider": "tripo",
+      "task_id": "93c41a2f-c53d-4397-9e87-b22712dd0e9d",
+      "status": "success",
+      "http_status": null,
+      "credits_consumed": 30,
+      "submitted_at": "2026-10-22T16:16:57.381Z",
+      "completed_at": "2026-10-22T16:17:05.959616Z",
+      "request": {
+        "animations": [
+          "preset:idle",
+          "preset:walk",
+          "preset:run"
+        ],
+        "animate_in_place": true,
+        "out_format": "glb",
+        "export_with_geometry": true
+      },
+      "output": {},
+      "file": {
+        "file": "build/h030-motion/H030_idle_walk_run.glb",
+        "bytes": 1788744,
+        "sha256": "c51d0126b502d2d34f17b3c4383206caa9b61123286bebb74cfb5b966df110d8"
+      },
+      "error": null
+    }
+  ],
+  "rejected_attempts": [],
+  "retained_existing_model": true,
+  "rig_repair_reason": "Original H030 rig has 23 joints and no finger chains; v3 donor contains65joints including fingers. Original geometry and textures were reused, not regenerated.",
+  "source": {
+    "file": "build/h030-motion/H030_rig_donor.glb",
+    "sha256": "05187cdada1d0628c31fe4eee05f38c171de966d5757cb57abee18dfbc03aa22",
+    "bytes": 932816,
+    "reason": "Existing H030 skeleton has shoulders/toes but no finger joints. Inspect repair donor only; preserve original production model."
+  },
+  "extraction": null,
+  "prime_extraction": null,
+  "meshy_plan_url": "https://www.meshy.ai/settings/subscription"
+}
