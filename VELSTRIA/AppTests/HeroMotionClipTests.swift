@@ -761,6 +761,71 @@ final class HeroMotionClipTests: XCTestCase {
         }
     }
 
+    /// H028 ザイル: 専用の収録が実際の割り当てで選ばれ（HeroIdle の手続きの待機に消されない）、待機・移動は地面に立ち、
+    /// 攻撃速度が上がっても打撃が sim の命中の時刻に来て次の攻撃までに戻り、奥義は到着（sim の最初の命中）へ合う。
+    func testBundledZailClipsGroundAndSync() throws {
+        HeroMotionClips.setResolverForTesting(nil)
+        let lib = HeroMotionClips.library(heroID: "H028")
+        let set = try XCTUnwrap(HeroMotionSets.set(heroID: "H028"))
+        XCTAssertEqual(set.idle, "idle_h028", "専用の待機は HeroIdle の手続きの待機より優先する")
+        for name in set.attacks + set.casts.compactMap({ $0 }) + [set.idle, set.walk, set.run].compactMap({ $0 }) {
+            XCTAssertNotNil(lib.index(of: name), "H028 のクリップ \(name) が無い")
+            XCTAssertTrue(name.hasSuffix("_h028"), name)
+        }
+        let url = try XCTUnwrap(HeroAssetLibrary.bundledURL("Hero_H028"))
+        let rig = try XCTUnwrap(HeroAssetLibrary.heroTemplate(url)?.rig)
+        XCTAssertNotNil(rig.jointNames.firstIndex { HeroJointRole.normalize($0) == "righthandindex1" }, "指の骨（握り）")
+        let hips = try XCTUnwrap(rig.index[.hips])
+        let feet = try [HeroJointRole.footL, .footR].map { try XCTUnwrap(rig.index[$0]) }
+        let contacts = try [HeroJointRole.footL, .footR, .toeL, .toeR].map { try XCTUnwrap(rig.index[$0]) }
+        let restFoot = feet.map { rig.restPosition[$0].y }.reduce(0, +) / 2
+        let leg = max(0.1, rig.restPosition[hips].y - restFoot)
+        let restLowest = try XCTUnwrap(contacts.map { rig.restPosition[$0].y }.min())
+        var poser = HeroSkeletonPoser(rig: rig)
+        for name in ["idle_h028", "walk_h028", "run_h028"] {
+            let c = try XCTUnwrap(lib.index(of: name))
+            let clip = lib.clips[c]
+            XCTAssertTrue(clip.loop, name)
+            var lowest = Float.infinity
+            for f in 0..<clip.frames {
+                let (q, root) = lib.sample(c, time: Float(f) / clip.fps)
+                poser.solve(q, hipsDrop: 0, hipsOffset: root * leg)
+                lowest = min(lowest, contacts.map { poser.position[$0].y }.min()!)
+            }
+            XCTAssertEqual(lowest, restLowest, accuracy: 0.03, "\(name): 足が地面に着く")
+        }
+        let binding = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))
+        XCTAssertTrue(binding.dedicatedIdle)
+        // 攻撃速度の上昇（間隔 0.4 秒・予備動作 0.1 秒）でも打撃は命中の時刻、戻りは次の攻撃まで
+        for (windup, interval) in [(Float(0.23), Float(0.93)), (0.1, 0.4)] {
+            var animator = HeroAnimator(profile: profile("H028"), defaultRunSpeed: 3.0, motion: binding)
+            animator.setState(.attack)
+            animator.playAttack(windup: windup, interval: interval)
+            let dt: Float = 1.0 / 120
+            var t: Float = 0
+            var impactAt: Float?
+            while t < interval - dt {
+                let before = animator.clips.clipTime
+                _ = animator.advance(dt: dt, moveSpeed: 0)
+                t += dt
+                if impactAt == nil && before < animator.clips.impactTime && animator.clips.clipTime >= animator.clips.impactTime { impactAt = t }
+            }
+            XCTAssertEqual(try XCTUnwrap(impactAt), windup, accuracy: 0.02, "打撃 = 命中の時刻（間隔 \(interval)）")
+            XCTAssertTrue(animator.clips.finished || animator.clips.clipTime >= animator.clips.endTime - 0.02, "次の攻撃までに戻る（間隔 \(interval)）")
+        }
+        // 奥義: 突進の間（sim が 17m/s で動かす）も下半身はクリップ、到着の命中で到着の姿勢へ進む
+        var animator = HeroAnimator(profile: profile("H028"), defaultRunSpeed: 3.0, motion: binding)
+        animator.setState(.cast(.ultimate))
+        XCTAssertEqual(animator.clips.clipName, "sword_triple_h028")
+        for _ in 0..<12 { _ = animator.advance(dt: 1.0 / 60, moveSpeed: 17) }
+        XCTAssertGreaterThan(animator.clipLowerWeight, 0.99, "突進中も脚はクリップ")
+        let ult = lib.clips[try XCTUnwrap(lib.index(of: "sword_triple_h028"))]
+        let hit = try XCTUnwrap(ult.hit) / ult.fps
+        XCTAssertLessThan(animator.clips.clipTime, hit)
+        _ = animator.playCastHit(.ultimate)
+        XCTAssertGreaterThanOrEqual(animator.clips.clipTime, hit - 1e-4, "到着の命中で到着の姿勢へ")
+    }
+
     /// 同梱のクリップ（あれば）を同梱のヒーロー（あるだけ）に実行時と同じ計算で載せる。骨が有限で、ループは頭が腰より上。
     /// 立ったままのループ（待機・移動。腰の平均の沈みが脚の長さの 25% 未満）は脚のどこか（足首・つま先・膝）が地面の近く
     /// （抽出と実行時の約束 = docs/HERO_MOTION.md の区間回転・腰の位置が食い違うと、腰が浮く・沈む）。

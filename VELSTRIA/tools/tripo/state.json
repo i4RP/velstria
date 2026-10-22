@@ -6602,6 +6602,80 @@
       "stages": {
         "concept": {
           "status": "success",
+          "task_id": "50ac6934-54fd-4eca-bcc4-8afebb06a015",
+          "input": null,
+          "request": {
+            "prompt": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical: a sleek high-tech assassin long sword, front view of the flat of the blade, blade tip pointing straight up and hilt at the bottom, long slim straight black blade with clean beveled facets, a sharp angled chisel tip, a thin glowing crimson-red energy cutting edge running the full length of the right side, a polished silver spine along the left side with fine engraved circuit lines, a narrow red glowing groove down the center of the blade, a sharp angular silver crossguard with layered swept-back wing blades and a faceted glowing red gem in the center, black grip wrapped in leather with three silver bands, a pointed faceted silver pommel. Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo. --no hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false
+          },
+          "estimate": 5,
+          "submitted_at": "2026-10-22T17:03:49.503Z",
+          "completed_at": "2026-10-22T17:04:16.233236Z",
+          "progress": 100,
+          "credits_consumed": 5,
+          "output": {
+            "url_keys": [
+              "generated_image_url"
+            ]
+          },
+          "files": {
+            "image": "build/tripo/props/photonBlade/concept.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-22T17:04:21.479Z"
+        },
+        "model": {
+          "status": "success",
+          "task_id": "cec556ac-f1f7-4ee6-bf25-b2d6f8629b8f",
+          "input": "50ac6934-54fd-4eca-bcc4-8afebb06a015",
+          "request": {
+            "input": "50ac6934-54fd-4eca-bcc4-8afebb06a015",
+            "model": "P1-20260311",
+            "face_limit": 5400,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image",
+            "orientation": "align_image"
+          },
+          "estimate": 60,
+          "submitted_at": "2026-10-22T17:17:14.611Z",
+          "completed_at": "2026-10-22T17:17:52.824753Z",
+          "progress": 100,
+          "credits_consumed": 60,
+          "output": {
+            "url_keys": [
+              "model_url",
+              "rendered_image_url"
+            ]
+          },
+          "files": {
+            "model": "build/tripo/props/photonBlade/model.glb",
+            "preview": "build/tripo/props/photonBlade/preview.png"
+          },
+          "error": null,
+          "updated_at": "2026-10-22T17:17:59.405Z"
+        }
+      },
+      "import": {
+        "at": "2026-10-22T17:18:34.130Z",
+        "out": "App/Resources/Heroes/Prop_photonBlade.usdz",
+        "status": "success",
+        "report": "build/tripo/props/photonBlade/import_report.json",
+        "log": "build/tripo/props/photonBlade/import_normalize.log",
+        "verifyLog": "build/tripo/props/photonBlade/import_verify.log",
+        "provider": "tripo"
+      },
+      "history": [
+        {
+          "stage": "concept",
+          "archived_at": "2026-10-22T17:03:48.906Z",
+          "status": "success",
           "task_id": "3b8d14d6-320c-4283-a0d2-278835b3c7eb",
           "input": null,
           "request": {
@@ -6627,7 +6701,9 @@
           "error": null,
           "updated_at": "2026-10-11T18:37:28.056Z"
         },
-        "model": {
+        {
+          "stage": "model",
+          "archived_at": "2026-10-22T17:03:48.915Z",
           "status": "success",
           "task_id": "c221f486-676a-4167-b2c3-3476dfe60e52",
           "input": "3b8d14d6-320c-4283-a0d2-278835b3c7eb",
@@ -6661,16 +6737,7 @@
           "error": null,
           "updated_at": "2026-10-11T18:44:20.507Z"
         }
-      },
-      "import": {
-        "at": "2026-10-11T18:46:38.371Z",
-        "out": "App/Resources/Heroes/Prop_photonBlade.usdz",
-        "status": "success",
-        "report": "build/tripo/props/photonBlade/import_report.json",
-        "log": "build/tripo/props/photonBlade/import_normalize.log",
-        "verifyLog": "build/tripo/props/photonBlade/import_verify.log",
-        "provider": "tripo"
-      }
+      ]
     },
     "props/holyMaul": {
       "stages": {
@@ -7274,5 +7341,5 @@
     }
   },
   "note": "tools/tripo.mjs が自動生成。task_id・状態・消費クレジット・ローカルパスのみ（秘密情報なし）",
-  "updated_at": "2026-10-22T17:12:09.006Z"
+  "updated_at": "2026-10-22T17:18:34.134Z"
 }

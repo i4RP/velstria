@@ -1,0 +1,433 @@
+{
+  "version": 1,
+  "hero": "H028",
+  "recorded_at": "2026-10-22T17:40:06.454Z",
+  "credit_cap": {
+    "meshy": 100,
+    "tripo": 55
+  },
+  "credits_consumed": {
+    "meshy": 90,
+    "tripo": 25
+  },
+  "meshy_library": {
+    "count": 678,
+    "candidates": [
+      {
+        "action_id": 0,
+        "name": "Idle",
+        "category": "DailyActions",
+        "sub_category": "Idle"
+      },
+      {
+        "action_id": 11,
+        "name": "Idle 1",
+        "category": "DailyActions",
+        "sub_category": "Idle"
+      },
+      {
+        "action_id": 21,
+        "name": "Walk Fight Forward",
+        "category": "WalkAndRun",
+        "sub_category": "Walking"
+      },
+      {
+        "action_id": 89,
+        "name": "Combat Idel",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 91,
+        "name": "Double Blade Spin",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 97,
+        "name": "Left Slash",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 102,
+        "name": "Sword Judgment",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 105,
+        "name": "Triple Combo Attack",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 219,
+        "name": "Right-hand Sword Slash",
+        "category": "Fighting",
+        "sub_category": "Punching"
+      },
+      {
+        "action_id": 240,
+        "name": "Thrust Slash",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 241,
+        "name": "Weapon Combo 2",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 242,
+        "name": "Charged Slash",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 509,
+        "name": "Lean Forward Sprint",
+        "category": "WalkAndRun",
+        "sub_category": "Running"
+      },
+      {
+        "action_id": 510,
+        "name": "Standard Forward Charge",
+        "category": "WalkAndRun",
+        "sub_category": "Running"
+      },
+      {
+        "action_id": 546,
+        "name": "Walk Backward with Sword",
+        "category": "WalkAndRun",
+        "sub_category": "Walking"
+      },
+      {
+        "action_id": 689,
+        "name": "Walk Fight Forward",
+        "category": "WalkAndRun",
+        "sub_category": "Walking"
+      }
+    ],
+    "checked_at": "2026-10-22T16:19:08.980Z"
+  },
+  "tripo_source": {
+    "file": "model.glb",
+    "sha256": "50585b752a428b2482a6baafbaafaf2f22e86f77bd5640699b29850a18b4e3df",
+    "bytes": 13285036,
+    "reason": "既存 H028 の骨は 23 本（肩・つま先あり、指なし）。形状・テクスチャを保ったまま指の骨を足す"
+  },
+  "tasks": [
+    {
+      "name": "idle_prime",
+      "provider": "meshy",
+      "task_id": "01a16468-e15e-715a-a96e-71ca566706bb",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:19:17.077Z",
+      "request": {
+        "mode": "prime",
+        "duration": 4,
+        "prompt": "Calm armored male sword assassin, loopable idle in a low half-turned guard. Left foot forward, knees bent, hips low and steady. Right hand grips a long sword low beside the right thigh, blade angled forward and down, wrist firm. Slow breathing, tiny weight shift between feet. Head turns first, left shoulder and open left hand follow; left fingers flex lightly. Feet planted. Ends in start pose."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h028-motion/idle_prime.fbx",
+        "bytes": 16825904,
+        "sha256": "7764397994e58028fba6de924db69d7e1ac0a6daa47b72399bac9689746b5e91"
+      },
+      "error": null
+    },
+    {
+      "name": "walk_prime",
+      "provider": "meshy",
+      "task_id": "01a16468-e727-73b3-8d57-b2f9d4e563e6",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:19:18.852Z",
+      "request": {
+        "mode": "prime",
+        "duration": 3,
+        "prompt": "Armored male sword assassin walking forward in a low crouched stance, steady pace, loopable cycle. Hips stay low, knees bent, quick short steps, feet recovered close to the ground. Upper body calm and quiet, slight forward lean. Right hand holds a long sword low at the right side, blade pointing back and down, away from the legs. Left arm swings a little. Even rhythm, no turning."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h028-motion/walk_prime.fbx",
+        "bytes": 16768672,
+        "sha256": "a144efe4e10a502d40575f7aef7fa15f25f8d21c6b71a256b4a174dace10819e"
+      },
+      "error": null
+    },
+    {
+      "name": "run_prime",
+      "provider": "meshy",
+      "task_id": "01a16468-eaf3-72f9-911b-021a34f2e883",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:19:19.824Z",
+      "request": {
+        "mode": "prime",
+        "duration": 3,
+        "prompt": "Armored male sword assassin sprinting forward fast with a deep forward lean and low hips, loopable cycle. Quick light strides, feet skimming close to the ground. Right hand grips a long sword trailing behind and down, arm extended back, blade swept away from the legs. Left arm pumps compactly near the chest. Head level, eyes forward. Steady rhythm, no turning."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h028-motion/run_prime.fbx",
+        "bytes": 16768672,
+        "sha256": "4cc3511fa26d75764e4d677ee0d3a5636131e3ac3619445aaa574627ec44ea37"
+      },
+      "error": null
+    },
+    {
+      "name": "attack_prime",
+      "provider": "meshy",
+      "task_id": "01a16468-ef04-70a4-8044-11779acde4e8",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:19:20.873Z",
+      "request": {
+        "mode": "prime",
+        "duration": 4.5,
+        "prompt": "Armored male sword assassin, long sword in right hand, three fast basic attacks from a low guard. One: small coil, step in, diagonal slash from right shoulder down to left hip. Two: hips twist, quick horizontal backhand slash left to right. Three: brief crouch, rising diagonal slash with the whole body. After each cut the torso stops the blade and he settles into a low guard. Feet end near start."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h028-motion/attack_prime.fbx",
+        "bytes": 16802544,
+        "sha256": "6dc4898748b28b1a1a9c1308b14187a63ac6064bef67bdd16897a57d5fc55b41"
+      },
+      "error": null
+    },
+    {
+      "name": "skill1_prime",
+      "provider": "meshy",
+      "task_id": "01a16468-f414-7759-ac1c-02090decd73f",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:19:22.147Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Armored male sword assassin, long sword in right hand. From a low stance he whirls the sword in one full horizontal circle around his body at waist height, torso turning with it, then flings both arms wide open outward in a sharp release, as if launching blades in all directions. Short hold, then returns to a low guard. Feet planted, no travel."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h028-motion/skill1_prime.fbx",
+        "bytes": 16740048,
+        "sha256": "e06b0af73df77fab678aee7aad0c620037a4bdff0244d5bec1ee6ab304e4413e"
+      },
+      "error": null
+    },
+    {
+      "name": "skill2_prime",
+      "provider": "meshy",
+      "task_id": "01a16468-f81b-707f-970a-c6d7ee7a4680",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:19:23.193Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2,
+        "prompt": "Armored male sword assassin, long sword in right hand. Explosive forward dash: drops into a deep forward lean, sword pulled back low behind the right hip, covers about three meters in a few long low strides, then plants the front foot and stops in a crouched ready stance with the sword cocked back for the next slash. Holds the ready stance."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h028-motion/skill2_prime.fbx",
+        "bytes": 16711424,
+        "sha256": "3dcea8191e2fe906c44d3a02e805b3b176e50ac50de53ad1eac91c20503a53db"
+      },
+      "error": null
+    },
+    {
+      "name": "ult_prime",
+      "provider": "meshy",
+      "task_id": "01a16468-fc36-74ec-b8a0-bd7b752b4207",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:19:24.229Z",
+      "request": {
+        "mode": "prime",
+        "duration": 3,
+        "prompt": "Armored male sword assassin, long sword in right hand. Rushes forward in a deep low lean, arrives with a rising upward slash, then two quick light slashes, right to left and left to right, then a big full body overhead finishing slash straight down with a deep lunge. Holds the low finish briefly, then rises back to a low guard. Clear rhythm: slash, slash, slash, finisher."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h028-motion/ult_prime.fbx",
+        "bytes": 16768672,
+        "sha256": "bb610711dcccdcde5b932bc47f05186d722c6c7f74a4683a323ceeac988ba8d7"
+      },
+      "error": null
+    },
+    {
+      "name": "H028_rigcheck",
+      "provider": "tripo",
+      "task_id": "f3fb0764-aa9c-44b3-b6e4-6a046b65d5a2",
+      "status": "success",
+      "http_status": null,
+      "credits_consumed": 0,
+      "submitted_at": "2026-10-22T16:19:54.350Z",
+      "request": {},
+      "output": {
+        "riggable": true,
+        "rig_type": "biped"
+      },
+      "file": null,
+      "error": null
+    },
+    {
+      "name": "H028_rig_v3",
+      "provider": "tripo",
+      "task_id": "12fe678a-dc46-4ad0-a9f4-a73d2e333ed6",
+      "status": "success",
+      "http_status": null,
+      "credits_consumed": 25,
+      "submitted_at": "2026-10-22T16:21:31.922Z",
+      "request": {
+        "model": "v3.0-20260909",
+        "rig_type": "biped",
+        "spec": "mixamo",
+        "out_format": "glb"
+      },
+      "output": {},
+      "file": {
+        "file": "build/h028-motion/H028_rig_v3.glb",
+        "bytes": 13582556,
+        "sha256": "585bae00aaa1e8c863456c1e2685bd6830d6a9bb2024cb0b270d0bad4fbe1227"
+      },
+      "error": null
+    },
+    {
+      "name": "idle2_prime",
+      "provider": "meshy",
+      "task_id": "01a1646d-ce65-74e2-bb43-ee289a1eac3f",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:24:39.874Z",
+      "request": {
+        "mode": "prime",
+        "duration": 4,
+        "prompt": "Armored male swordsman in a calm, slightly lowered ready stance, loopable idle. Feet shoulder width, left foot half a step forward, knees softly bent, back straight, not squatting. Right hand holds a long sword low and forward at hip height, arm relaxed. Left hand open near the left hip, fingers flexing slightly. Slow breathing, small weight shift, head glances aside. Ends in start pose."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h028-motion/idle2_prime.fbx",
+        "bytes": 16825904,
+        "sha256": "e6020bc4b5c818f48c7ee2bf08e8d76946bd618d78e8333402cae1244e60fcea"
+      },
+      "error": null
+    },
+    {
+      "name": "walk2_prime",
+      "provider": "meshy",
+      "task_id": "01a1646d-d44d-7253-bc74-762e69599e81",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:24:41.705Z",
+      "request": {
+        "mode": "prime",
+        "duration": 3,
+        "prompt": "Armored male swordsman walking straight forward in a line at a steady pace, never turning. Slightly lowered hips, knees bent, short quick steps with feet low to the ground, heel to toe. Torso calm and upright with a slight forward lean. Right hand holds a long sword low at the right side, blade pointing back. Left arm swings gently. Even steps, loopable cycle."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h028-motion/walk2_prime.fbx",
+        "bytes": 16768672,
+        "sha256": "f723d132e2a93436b280975706a248af4ebc7aac3e0e3036d7e4eba1f74cbafa"
+      },
+      "error": null
+    }
+  ],
+  "adoption": {
+    "retained_existing_model": true,
+    "rig_repair": "既存 23 骨（指なし）→ Tripo v3 rig で 65 骨。形状・テクスチャは既存のまま（モデルの再生成なし）",
+    "library_decision": "Meshy ライブラリの剣の動作は既存 HeroMotionClips.json に抽出済みで、低い片手剣の構え・剣を持った低い歩行/走行・ダッシュ斬りは無い。ライブラリの購入（rig_task_id が要る）はせず Text to Motion prime を使用",
+    "tripo_presets": "未使用（idle/walk/run は Meshy prime の専用の動作で足りた）",
+    "clips": {
+      "idle_h028": {
+        "source": "idle2_prime",
+        "note": "1 案目（idle_prime）は深いしゃがみで両手が膝のため不採用"
+      },
+      "walk_h028": {
+        "source": "walk2_prime",
+        "note": "1 案目（walk_prime）は途中で振り返るため不採用"
+      },
+      "run_h028": {
+        "source": "run_prime",
+        "note": "7.9 m/s の全力疾走を歩幅だけ縮めて 3.0 m/s"
+      },
+      "sword_slash_a_h028": {
+        "source": "attack_prime f2-27 (impact f12)"
+      },
+      "sword_slash_b_h028": {
+        "source": "attack_prime f27-41.5 (impact f35.5)"
+      },
+      "sword_slash_c_h028": {
+        "source": "attack_prime f87-112 (impact f97.5)"
+      },
+      "sword_whirl_h028": {
+        "source": "skill1_prime f2-72"
+      },
+      "dash_charge_h028": {
+        "source": "skill2_prime f0-40"
+      },
+      "sword_triple_h028": {
+        "source": "ult_prime f2-88（4 撃目を補間で除去）"
+      }
+    },
+    "weapon": {
+      "prop": "Prop_photonBlade.usdz",
+      "reason": "旧版は 2,400 面で低ポリゴン（ユーザー指示で 2D 画像から作り直し）",
+      "pipeline": "tools/tripo.mjs run props photonBlade --force all --faces 5400 → import --max-faces 5400（tools/tripo/assets.json のプロンプトを詳細化）",
+      "tasks": [
+        {
+          "stage": "concept",
+          "task_id": "50ac6934-54fd-4eca-bcc4-8afebb06a015",
+          "credits_consumed": 5,
+          "request": {
+            "prompt": "Single stylized fantasy MOBA game item, one object only, upright and perfectly vertical: a sleek high-tech assassin long sword, front view of the flat of the blade, blade tip pointing straight up and hilt at the bottom, long slim straight black blade with clean beveled facets, a sharp angled chisel tip, a thin glowing crimson-red energy cutting edge running the full length of the right side, a polished silver spine along the left side with fine engraved circuit lines, a narrow red glowing groove down the center of the blade, a sharp angular silver crossguard with layered swept-back wing blades and a faceted glowing red gem in the center, black grip wrapped in leather with three silver bands, a pointed faceted silver pommel. Orthographic view, centered with margin, whole object visible, plain light-gray background, even soft lighting, stylized hand-painted texture, chunky readable shapes for a top-down game camera, no hands, no text, no logo. --no hand, person, character, multiple objects, duplicates, tilted, diagonal, cropped, perspective, cast shadow, floor, particles, smoke, sparks, background scenery, text, watermark, logo",
+            "model": "seedream_v5",
+            "size": "2048x2048",
+            "output_format": "png",
+            "watermark": false
+          }
+        },
+        {
+          "stage": "model",
+          "task_id": "cec556ac-f1f7-4ee6-bf25-b2d6f8629b8f",
+          "credits_consumed": 60,
+          "request": {
+            "model": "P1-20260311",
+            "face_limit": 5400,
+            "texture": true,
+            "pbr": true,
+            "texture_quality": "detailed",
+            "texture_version": "v3.5-20260815",
+            "delight": true,
+            "texture_alignment": "original_image",
+            "orientation": "align_image"
+          }
+        }
+      ],
+      "result": {
+        "faces": 5399,
+        "textures": 3,
+        "budget_note": "剣は予算テストの対象外（HeroModelTests の 14,000 は手続きモデル）。スキンモデルの総三角形は約 15,900（本体 9,723 + 剣 5,399 + 他）"
+      }
+    }
+  },
+  "references": [
+    "https://docs.meshy.ai/api/text-to-motion.md",
+    "https://docs.meshy.ai/api/animation-library.md",
+    "https://developers.tripo3d.ai/en/docs/llms.txt"
+  ]
+}

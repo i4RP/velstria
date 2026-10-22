@@ -823,6 +823,8 @@ struct HeroAnimator {
     /// 詠唱中のスロットのスキルが最初に当たった時（sim のダメージ）: 命中の後のモーション（profile.hitFollowUps）があれば
     /// 今の姿勢からつないで始め、その長さ（秒）を返す。1 回の詠唱で 1 度だけ。無ければ nil（何もしない）。
     mutating func playCastHit(_ slot: SkillSlot) -> Float? {
+        // 詠唱のクリップの到着（hit）を sim の最初の命中へ合わせる（突進の距離で到着の時刻が変わる奥義）
+        if state == .cast(slot) { clips.synchronizeCastHit() }
         guard state == .cast(slot), !castHitPlayed else { return nil }
         let k = HeroAnimator.castIndex(slot)
         if profile.hitFollowUps[k] == nil, let b = clips.binding, let c = b.castHit(k) {
@@ -1004,7 +1006,7 @@ struct HeroAnimator {
         if clips.isActive && clips.clip == c && clips.role == .state && !clips.fadingOut { return }
         let phase: Float = s == .run && clips.isLocomotion && clips.endTime > 0 ? clips.clipTime / clips.endTime : 0
         clips.start(c, role: .state, from: phase * b.library.clips[c].duration,
-                    fullBody: true, speedMask: false, hold: true, runRate: s == .run)
+                    fullBody: true, speedMask: false, hold: true, runRate: s == .run, blendDuration: b.stateBlend)
     }
 
     /// 通常攻撃のクリップ（割り当てを順に繰り返す）。打撃の瞬間を windup 秒後に合わせる:
@@ -1435,6 +1437,13 @@ struct HeroClipLayer {
     /// 移動のループ: 速度に比例して再生する。
     private var runRate = false
     private var groundSpeed: Float? = nil
+    /// この時刻（秒）まで移動中でも下半身を重ねる（sim が動かす突進）。負 = 無し。
+    private var lockLowerTime: Float = -1
+    /// 詠唱の到着（秒）。sim の命中（synchronizeCastHit）が来るまで、その直前で待つ（最長 hitWaitLimit 秒）。
+    private var hitTime: Float? = nil
+    private var hitSynced = false
+    private var elapsed: Float = 0
+    static let hitWaitLimit: Float = 0.2
     /// 下半身にも重ねる。
     private var fullBody = true
     /// 移動中（stationarySpeed 以上）は上半身だけにする。
@@ -1501,6 +1510,10 @@ struct HeroClipLayer {
         loop = info.loop && role == .state
         self.runRate = runRate
         groundSpeed = info.groundSpeed
+        lockLowerTime = info.lockLowerUntil.map { $0 / info.fps } ?? -1
+        hitTime = role == .cast ? info.hit.map { $0 / info.fps } : nil
+        hitSynced = false
+        elapsed = 0
         transitionDuration = max(0.001, blendDuration)
         self.fullBody = fullBody
         self.speedMask = speedMask
@@ -1567,8 +1580,15 @@ struct HeroClipLayer {
             clipTime = min(clipTime, max(0, impactTime - 1 / lib.clips[clip].fps))
             finished = false
         }
+        elapsed += dt
+        if let h = hitTime, !hitSynced, elapsed < h + Self.hitWaitLimit, let lib = binding?.library {
+            // 到着の前の姿勢（突進）で sim の到着を待つ。来なければ（対象が消えた等）そのまま進める
+            clipTime = min(clipTime, max(0, h - 1 / lib.clips[clip].fps))
+        }
+        let locked = clipTime < lockLowerTime
+        let lowerTarget: Float = fadingOut || !fullBody
+            || (speedMask && !locked && (maskSpeed ?? speed) >= Self.stationarySpeed) ? 0 : 1
         let upperTarget: Float = fadingOut ? 0 : 1
-        let lowerTarget: Float = fadingOut || !fullBody || (speedMask && (maskSpeed ?? speed) >= Self.stationarySpeed) ? 0 : 1
         upperLinear = Self.approach(upperLinear, upperTarget, dt, fadeIn: transitionDuration)
         lowerLinear = Self.approach(lowerLinear, lowerTarget, dt, fadeIn: transitionDuration)
         xfade = min(1, xfade + dt / transitionDuration)
@@ -1588,6 +1608,14 @@ struct HeroClipLayer {
         guard isActive, role == .attack, let lib = binding?.library,
               lib.clips[clip].release != nil else { return }
         awaitingRelease = true
+    }
+
+    /// 詠唱のクリップの到着（hit）へ進める（sim の最初の命中。1 回の詠唱で 1 度）。
+    mutating func synchronizeCastHit() {
+        guard isActive, role == .cast, !fadingOut, let h = hitTime, !hitSynced else { return }
+        hitSynced = true
+        clipTime = max(clipTime, h)
+        resample()
     }
 
     mutating func synchronizeAttackRelease() {

@@ -28,6 +28,8 @@ struct HeroMotionSet {
     var dedicatedAttack = false
     /// キットの強い通常攻撃（三連突き）の専用クリップ。あれば手続きの全身のモーション（HeroSkillMotions）より優先する（H027）。
     var empowered: String?
+    /// 待機・歩行・走行の切り替えのクロスフェード（秒）。
+    var stateBlend: Float = HeroClipLayer.fadeIn
     var walk: String?
     var run: String?
     var death: String?
@@ -65,6 +67,7 @@ struct HeroMotionBinding {
     let idle: Int?
     let dedicatedIdle: Bool
     let empowered: Int?
+    let stateBlend: Float
     let walk: Int?
     let run: Int?
     let death: Int?
@@ -87,6 +90,7 @@ struct HeroMotionBinding {
         idle = find(set.idle)
         dedicatedIdle = set.dedicatedIdle && idle != nil
         empowered = find(set.empowered)
+        stateBlend = set.stateBlend
         walk = find(set.walk)
         run = find(set.run)
         death = find(set.death)
@@ -201,6 +205,19 @@ enum HeroMotionSets {
         return s
     }()
 
+    /// H028 ザイル: 専用の収録（H028MotionClips.json、docs/H028_MOTION.md）。低い半身の構え・低い歩行と前傾の走行・
+    /// 3 段の通常攻撃（袈裟 → 返し → 低い薙ぎ）。スキルの詠唱も専用のクリップ（環剣の一回し・断空突進・三連断空）。
+    private static let zail: HeroMotionSet = {
+        var s = make(["sword_slash_a_h028", "sword_slash_b_h028", "sword_slash_c_h028"], idle: "idle_h028",
+                     death: "death_forward", victory: "victory_cheer")
+        s.dedicatedIdle = true
+        s.stateBlend = 0.18
+        s.walk = "walk_h028"
+        s.run = "run_h028"
+        s.casts = ["sword_whirl_h028", "dash_charge_h028", "sword_triple_h028"]
+        return s
+    }()
+
     /// H001〜H034: 通常攻撃（順に繰り返す）・待機・死亡・勝利。
     static let table: [String: HeroMotionSet] = [
         // 広刃剣 + 城門盾（Vanguard・近接）
@@ -266,7 +283,7 @@ enum HeroMotionSets {
         // 竜牙の長槍（Duelist・近接の突き）
         "H027": jarld,
         // 光刃の長剣（Assassin・近接の連斬り）
-        "H028": make(["sword_slash_r", "sword_combo_2", "sword_combo2_b"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer"),
+        "H028": zail,
         // 聖槌 + 円盾（Support・近接の片手振り。盾は左手に構えたまま）。通常攻撃は全身のモーション（HeroSkillMotions の
         // Motion_H029.attacks）が先なので、ここの攻撃のクリップは使わない（待機・死亡・勝利だけ使う）
         "H029": make(["sword_combo_1", "axe_chop"], idle: "combat_idle"),

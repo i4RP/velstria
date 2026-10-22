@@ -646,7 +646,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
     }
 
     /// 攻撃クリップの release をシムの attackReleased（弾の発射）に合わせるヒーロー（専用クリップの release を持つ）。
-    static let releaseSyncHeroIDs: Set<String> = ["H025", "H031"]
+    static let releaseSyncHeroIDs: Set<String> = ["H025", "H028", "H031"]
 
     func synchronizeAttackRelease() {
         if Self.releaseSyncHeroIDs.contains(heroID) { animator.synchronizeAttackRelease() }

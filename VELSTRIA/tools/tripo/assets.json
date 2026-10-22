@@ -330,7 +330,7 @@
     },
     {
       "kind": "photonBlade", "heroes": ["H028"], "grip": 0.1, "optional": false, "yaw": -90,
-      "prompt": "a futuristic long sword, front view of the flat of the blade, blade tip pointing straight up and hilt at the bottom, long slim black blade with a glowing crimson-red cutting edge along the right side and a silver spine along the left side, angular silver crossguard with small swept wings and a glowing red gem in the center, black grip with silver bands, small silver pommel.",
+      "prompt": "a sleek high-tech assassin long sword, front view of the flat of the blade, blade tip pointing straight up and hilt at the bottom, long slim straight black blade with clean beveled facets, a sharp angled chisel tip, a thin glowing crimson-red energy cutting edge running the full length of the right side, a polished silver spine along the left side with fine engraved circuit lines, a narrow red glowing groove down the center of the blade, a sharp angular silver crossguard with layered swept-back wing blades and a faceted glowing red gem in the center, black grip wrapped in leather with three silver bands, a pointed faceted silver pommel.",
       "notes": "手続き版は刃が XY 面（面 ±Z）で光る刃縁が +X。yaw -90 で画像の右 -> +X。"
     },
     {
