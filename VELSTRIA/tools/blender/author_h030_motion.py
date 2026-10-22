@@ -401,7 +401,7 @@ def render_video(clips, baseline):
     """Side-by-side Blender pose comparison: shipped library clips (before) vs the H030 finish (after)."""
     fps, tile = 24, (420, 520)
     timeline = [('idle', 3, 3.2), ('walk', 2, WALK['duration']), ('run', 2, RUN['duration']),
-                ('attack', 3.6, 1.2), ('attack_fast', 2.4, .6)]
+                ('attack', 3.6, 1.2), ('attack_fast', 2.4, .6), ('s1', 1.5, .5), ('s2', 1.6, .53), ('ult', 2.8, 1.4)]
     folders = {}
     for side, hero in (('before', OUT/'Hero_H030_original.usdz'), ('after', Path(HERO))):
         rig, meshes, height, _ = preview.load_hero(str(hero.resolve()))
@@ -410,21 +410,25 @@ def render_video(clips, baseline):
         label = preview.setup_scene(rig, 1.95, '34', tile)
         label.data.size *= .65
         parts = cannon_proxy()
+        # The old runtime held the cannon by the procedural weapon angle; the proxy would misstate it.
+        for o in parts:
+            o.hide_render = side == 'before'
         folder = OUT/'video_frames'/side
         shutil.rmtree(folder, ignore_errors=True); folder.mkdir(parents=True)
         n = 0
         for state, seconds, cycle in timeline:
             if side == 'before':
-                name = {'idle': 'ready_idle', 'walk': 'walk_basic', 'run': 'run_basic'}.get(state, 'gun_fire')
-                clip = baseline.get(name)
+                name = {'idle': 'ready_idle', 'walk': 'walk_basic', 'run': 'run_basic'}.get(state, 'gun_fire' if state.startswith('attack') else None)
+                clip = baseline.get(name) if name else None
+                name = name or 'procedural FX_H030 cast (not reproduced)'
             else:
-                name = 'gun_cannon_h030' if state.startswith('attack') else state+'_h030'
+                name = 'gun_cannon_h030' if state.startswith('attack') else CAST_NAMES.get(state, state+'_h030')
                 clip = clips[name]
             for i in range(round(seconds*fps)):
                 x = (i/fps/cycle) % 1
                 if clip is not None:
                     apply_clip(rig, clip, x*(clip['frames'] if clip.get('loop') else clip['frames']-1), parts)
-                label.data.body = (f"BEFORE: shared library clip '{name}'\n(+ procedural gait in game)" if side == 'before'
+                label.data.body = (f"BEFORE: shared library clip '{name}'\n(cannon not drawn; procedural gait in game)" if side == 'before'
                                    else f'AFTER: {name}') + f'\n{state} / Blender pose preview'
                 bpy.context.scene.render.filepath = str((folder/f'{n:04d}.png').resolve())
                 bpy.ops.render.render(write_still=True)
