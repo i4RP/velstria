@@ -22,6 +22,23 @@ final class WorldNavTests: XCTestCase {
     let nav = NavGrid(map: WorldNavTests.testMap)
     let r = Balance.heroRadius
 
+    func testShortWalkCannotCutRoundedCornerButBlinkCanCross() {
+        var map = WorldNavTests.testMap
+        map.obstacles = [.rect(Rect2(minX: 5000, minY: 5000, maxX: 5400, maxY: 5400))]
+        let grid = NavGrid(map: map)
+        // Both endpoints clear the rounded corner; the short chord clips the body radius.
+        let start = Vec2(4944, 5000)
+        let end = Vec2(4956, 4964)
+        XCTAssertTrue(grid.isWalkable(start, radius: r))
+        XCTAssertTrue(grid.isWalkable(end, radius: r))
+        let stop = grid.resolveMove(from: start, to: end, radius: r)
+        XCTAssertLessThan(stop.distance(to: start), end.distance(to: start))
+        XCTAssertTrue(grid.isWalkable(stop, radius: r))
+        let far = Vec2(5500, 5000)
+        XCTAssertEqual(grid.blinkLanding(from: start, to: far, radius: r), far)
+        XCTAssertLessThan(grid.resolveMove(from: start, to: far, radius: r).x, 5000)
+    }
+
     func testStraightPathWhenClear() {
         let path = nav.findPath(from: Vec2(1000, 1000), to: Vec2(3000, 2000), radius: r)
         XCTAssertEqual(path, [Vec2(3000, 2000)])

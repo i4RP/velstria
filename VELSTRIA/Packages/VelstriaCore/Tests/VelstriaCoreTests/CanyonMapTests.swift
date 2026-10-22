@@ -14,6 +14,13 @@ final class CanyonMapTests: XCTestCase {
         XCTAssertEqual(map.towers.filter(\.isCore).map(\.pos), map.cores)
     }
 
+    func testAuthoredMasonryWallsBlockWalking() {
+        let nav = NavGrid(map: .canyon)
+        for p in [Vec2(6630, 682), Vec2(9053, 3744), Vec2(3265, 9051), Vec2(669, 5978)] {
+            XCTAssertFalse(nav.isWalkable(p), "Missing masonry wall at \(p)")
+        }
+    }
+
     func testSpawnAndLaneReachability() {
         let map = MapDefinition.canyon
         let nav = NavGrid(map: map)

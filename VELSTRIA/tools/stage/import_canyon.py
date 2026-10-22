@@ -30,6 +30,10 @@ def footprint(p,z=None):
  shapes=[p for p in shapes if p.area>1e-5]
  return unary_union(shapes).buffer(.12).buffer(-.12).simplify(.18,preserve_topology=True)
 
+def is_wall_mesh(name):
+ # Authored masonry walls are solid too; the rock-only filter omitted four walls.
+ return any(token in name for token in ('RockGroup', 'RockWall', 'PropsWall'))
+
 def structure_anchor(row):
  # The authored placement origin is independent of asymmetric crowns/banners.
  # Do not fall back to a bounds center: old extracts must be regenerated.
@@ -88,7 +92,7 @@ def main():
   seen.add(key)
   if 'Tower' in tex or 'Station' in tex or tex.startswith(('PVPMonster','Mst_')):
    markers.append(dict(name=name,texture=tex,point=structure_anchor(row)));continue
-  if 'RockGroup' in name or 'RockWall' in name:
+  if is_wall_mesh(name):
    walls.extend(polygons(footprint(p,z=.6)))
   if 'JungleGrassGroup' in name:
    row=dict(row,brushIndex=len(bushes))

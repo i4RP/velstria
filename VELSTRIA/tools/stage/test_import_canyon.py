@@ -2,9 +2,15 @@
 import unittest
 import numpy as np
 from shapely.geometry import Point
-from import_canyon import ground_heights, structure_anchor, bush_footprint, sim, SCALE
+from import_canyon import ground_heights, structure_anchor, bush_footprint, sim, SCALE, is_wall_mesh
 
 class CanyonPlacementTests(unittest.TestCase):
+    def test_authored_masonry_and_rocks_are_solid(self):
+        for name in ('PGD_M_20PropsWall_01_0', 'PGD_M_20PropsWall_02_Low_0',
+                     'PGD_M_20RockGroupBlue_01_0', 'PGD_M_20RockWall_01_0'):
+            self.assertTrue(is_wall_mesh(name))
+        self.assertFalse(is_wall_mesh('PGD_M_20JungleGrassGroup_01'))
+
     def test_structure_uses_authored_origin_not_asymmetric_bounds(self):
         row=dict(origin=[46.07438659667969,30.687740325927734,-.089],
                  lo=[41.5,26.1,-1.3],hi=[51.7,36.2,20.6])

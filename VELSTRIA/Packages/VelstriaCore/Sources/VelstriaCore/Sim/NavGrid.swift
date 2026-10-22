@@ -258,7 +258,10 @@ public final class NavGrid: @unchecked Sendable {
         if move.length > NavGrid.longMoveThreshold {
             return raycast(from: from, to: target, radius: r)
         }
-        if isWalkable(target, radius: r) { return target }
+        // 短い歩行でも線分全体を調べる。終点だけでは薄い壁や角を横切れる。
+        if isWalkable(target, radius: r) {
+            return raycast(from: from, to: target, radius: r)
+        }
 
         let fromWalkable = isWalkable(from, radius: r)
         if fromWalkable {
@@ -269,14 +272,14 @@ public final class NavGrid: @unchecked Sendable {
                 if into < 0 {
                     let slide = move - n * into
                     let cand = from + slide
-                    if slide.lengthSquared > 1e-12, isWalkable(cand, radius: r) { return cand }
+                    if slide.lengthSquared > 1e-12, segmentClear(from, cand, radius: r) { return cand }
                 }
             }
             // 2) 軸ごとの射影（進行方向への寄与が大きい方を優先、同値は x を優先）
             let cx = Vec2(target.x, from.y)
             let cy = Vec2(from.x, target.y)
-            let okX = abs(move.x) > 1e-9 && isWalkable(cx, radius: r)
-            let okY = abs(move.y) > 1e-9 && isWalkable(cy, radius: r)
+            let okX = abs(move.x) > 1e-9 && segmentClear(from, cx, radius: r)
+            let okY = abs(move.y) > 1e-9 && segmentClear(from, cy, radius: r)
             if okX && okY { return abs(move.x) >= abs(move.y) ? cx : cy }
             if okX { return cx }
             if okY { return cy }
