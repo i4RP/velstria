@@ -641,18 +641,21 @@ final class SkinnedHeroModel: HeroDisplayModel {
     func playAttack(windup: Double, interval: Double) {
         let wasDead = animator.state == .dead
         animator.playAttack(windup: Float(windup), interval: Float(interval))
-        if heroID == "H025" { animator.awaitAttackRelease() }
+        if Self.releaseSyncHeroIDs.contains(heroID) { animator.awaitAttackRelease() }
         if wasDead { effects.setOpacity(1, body: body) }
     }
 
+    /// 攻撃クリップの release をシムの attackReleased（弾の発射）に合わせるヒーロー（専用クリップの release を持つ）。
+    static let releaseSyncHeroIDs: Set<String> = ["H025", "H028", "H031"]
+
     func synchronizeAttackRelease() {
-        if heroID == "H025" { animator.synchronizeAttackRelease() }
+        if Self.releaseSyncHeroIDs.contains(heroID) { animator.synchronizeAttackRelease() }
     }
 
     func playAttack(windup: Double, interval: Double, empowered: Bool) {
         let wasDead = animator.state == .dead
         animator.playAttack(windup: Float(windup), interval: Float(interval), empowered: empowered)
-        if heroID == "H025" { animator.awaitAttackRelease() }
+        if Self.releaseSyncHeroIDs.contains(heroID) { animator.awaitAttackRelease() }
         if wasDead { effects.setOpacity(1, body: body) }
     }
 
@@ -695,6 +698,18 @@ final class SkinnedHeroModel: HeroDisplayModel {
 
     // MARK: 適用
 
+    /// 前腕に沿う縦の刃（H032 の刃の輪）: Prop の +Y を肘の側へ、輪の面を前腕と胴の正面を含む面にする（正面・俯瞰からは縁だけが
+    /// 見える）。前腕が正面を向く（突き）ときは前腕と胴の上を含む面。前腕の区間のねじれ（素材ごとに違う）に左右されない。
+    private static func forearmBlade(_ foreArm: simd_quatf, torso: simd_quatf) -> simd_quatf {
+        let d = simd_normalize(foreArm.act(V3(0, -1, 0)))
+        var n = simd_cross(d, torso.act(V3(0, 0, -1)))
+        if simd_length(n) < 0.35 { n = simd_cross(d, torso.act(V3(0, 1, 0))) }
+        n = simd_normalize(n)
+        let y = -d
+        let x = simd_normalize(simd_cross(y, n))
+        return simd_quatf(simd_float3x3(columns: (x, y, simd_cross(x, y))))
+    }
+
     private func apply(_ p: HeroPose, time t: Float, clips: Bool = true) {
         // クリップが下半身を動かす分だけ、手続きの全身の傾き・浮き沈み・腰の沈みを止める（倒れ方・跳ね方はクリップの腰が持つ）
         let wl = clips ? animator.clipLowerWeight : 0, wu = clips ? animator.clipUpperWeight : 0
@@ -724,11 +739,14 @@ final class SkinnedHeroModel: HeroDisplayModel {
             let k = stateClipHold
             let angR = m.idleWeaponR.map { p.weaponR + ($0 - p.weaponR) * k } ?? p.weaponR
             let angL = m.idleWeaponL.map { p.weaponL + ($0 - p.weaponL) * k } ?? p.weaponL
-            weapon.position = simd_mix(handPosR + q.foreArmR.act(gripR), handPosR + q.handR.act(gripR), V3(repeating: wu))
-            let heldR = m.weaponGrip.map { q.handR * $0 } ?? q.torso * ry(p.armR.yaw) * rx(angR)
+            let gripHandR = m.gripOnForeArm ? q.foreArmR : q.handR, gripHandL = m.gripOnForeArm ? q.foreArmL : q.handL
+            weapon.position = simd_mix(handPosR + q.foreArmR.act(gripR), handPosR + gripHandR.act(gripR), V3(repeating: wu))
+            let heldR = m.gripOnForeArm ? Self.forearmBlade(q.foreArmR, torso: q.torso)
+                : m.weaponGrip.map { gripHandR * $0 } ?? q.torso * ry(p.armR.yaw) * rx(angR)
             weapon.orientation = weaponFollowsArm ? q.handR : simd_slerp(qp.weaponR(p, followsArm: false), heldR, wu)
-            offhand.position = simd_mix(handPosL + q.foreArmL.act(gripL), handPosL + q.handL.act(gripL), V3(repeating: wu))
-            let heldL = m.offhandGrip.map { q.handL * $0 } ?? q.torso * ry(-p.armL.yaw) * rx(angL)
+            offhand.position = simd_mix(handPosL + q.foreArmL.act(gripL), handPosL + gripHandL.act(gripL), V3(repeating: wu))
+            let heldL = m.gripOnForeArm ? Self.forearmBlade(q.foreArmL, torso: q.torso)
+                : m.offhandGrip.map { gripHandL * $0 } ?? q.torso * ry(-p.armL.yaw) * rx(angL)
             offhand.orientation = offhandFollowsArm ? q.handL : simd_slerp(qp.weaponL(p, followsArm: false), heldL, wu)
         } else {
             weapon.position = handPosR + q.foreArmR.act(gripR)

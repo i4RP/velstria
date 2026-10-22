@@ -89,12 +89,15 @@ enum SkillFXCatalog {
         let generic = FXGeneric.recipe(s)
         guard let set = sets[heroID] else { return generic }
         var r = set.recipe(slot, s)
-        guard r.fillsEmptyPhases else { return r }
-        if r.cast.isEmpty { r.cast = generic.cast }
-        if r.impact.isEmpty { r.impact = generic.impact }
-        if r.travel.isEmpty { r.travel = generic.travel }
-        if r.hit.isEmpty { r.hit = generic.hit }
-        if r.telegraph.isEmpty { r.telegraph = generic.telegraph }
+        if r.fillsEmptyPhases {
+            if r.cast.isEmpty { r.cast = generic.cast }
+            if r.impact.isEmpty { r.impact = generic.impact }
+            if r.travel.isEmpty { r.travel = generic.travel }
+            if r.hit.isEmpty { r.hit = generic.hit }
+            if r.telegraph.isEmpty { r.telegraph = generic.telegraph }
+        }
+        // 攻撃の瞬間の模型（参照画像 → Tripo のメッシュ。FXSkillMeshes）
+        FXSkillMeshes.apply(heroID: heroID, slot: slot, info: s, to: &r)
         return r
     }
 

@@ -19,6 +19,9 @@ protocol HeroMotionScript {
     /// （sim の attackReleased）。次の通常攻撃が強いとき（HeroKits.empoweredAttackReady）に、通常攻撃の代わりに 1 回だけ振る。
     /// nil = 強い通常攻撃も普段の通常攻撃のまま。
     static func empoweredAttack(_ m: MotionBuilder) -> MotionClip?
+    /// 詠唱のモーションクリップ（HeroMotionSet.casts / stageCasts）の打撃を置く時刻（発動からの秒 = KitTimes の判定の時刻）。
+    /// クリップの impact がこの秒に来るよう開始位置を決める。nil = 従来（呼び出しの castLead 秒後に打撃）。
+    static func clipStrike(_ slot: SkillSlot, stage: Int) -> Float?
 }
 
 extension HeroMotionScript {
@@ -26,6 +29,7 @@ extension HeroMotionScript {
     static func onHit(_ slot: SkillSlot, _ m: MotionBuilder) -> MotionClip? { nil }
     static func attacks(_ m: MotionBuilder) -> [MotionClip] { [] }
     static func empoweredAttack(_ m: MotionBuilder) -> MotionClip? { nil }
+    static func clipStrike(_ slot: SkillSlot, stage: Int) -> Float? { nil }
 }
 
 enum HeroSkillMotions {

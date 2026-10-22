@@ -1,0 +1,906 @@
+{
+  "version": 1,
+  "assets": {
+    "h031_s1": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a huge jagged falling ice shard, long faceted crystal spike pointing down. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:05:33.090Z",
+        "task_id": "8f76d31b-89cf-4d51-8c6e-24c55e3177c3",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:05:53.061Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:05:54.721Z",
+        "task_id": "6df7e89f-ac2c-4139-8b22-d013e7739cc3",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:06:07.450Z"
+      }
+    },
+    "h025_s1": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a floating crescent moon emblem ring with three moonlight arrowheads radiating outward. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:06:20.145Z",
+        "task_id": "1e63b503-ab46-45c3-a303-e17a65c122d1",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:06:44.648Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:06:46.390Z",
+        "task_id": "641a2492-9560-4a50-a732-3f44f2959d6e",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:06:59.342Z"
+      }
+    },
+    "h025_s2": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a single long crystal moonlight arrow pointing straight down, slender faceted arrowhead and feather fins. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:07:50.814Z",
+        "task_id": "a7499569-ea05-49c3-9c25-b716a7e249dc",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:08:21.444Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:08:23.100Z",
+        "task_id": "190d9ff1-917d-404d-a413-60e562dfd3f1",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:08:34.928Z"
+      }
+    },
+    "h025_ult": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a large thin crescent moon sculpture standing upright, sharp tips, smooth faceted surface. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:07:08.342Z",
+        "task_id": "dd3f7b56-3716-4950-afde-e7af6a306336",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:07:31.028Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:07:32.367Z",
+        "task_id": "3c61e42d-8ccc-43f8-9571-7f6b083ee4f1",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:07:52.993Z"
+      }
+    },
+    "h026_s1": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a jagged forked lightning bolt sculpture splitting into three branches, flat zigzag segments. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:07:53.713Z",
+        "task_id": "acebf30d-5553-4205-8c86-54e2a81b338b",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:08:49.158Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:08:50.742Z",
+        "task_id": "075bfc84-5fa7-425d-8318-518ecdb0de2e",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:09:05.895Z"
+      }
+    },
+    "h026_s2": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a spherical cage of crackling lightning arcs wrapped around a round orb core. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:08:35.654Z",
+        "task_id": "5d0cb4f8-bda3-436e-94ca-ef2d76c0490d",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:09:25.867Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:09:27.621Z",
+        "task_id": "a02a0709-22e3-44f0-9b2e-26dfefb0c8d4",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:09:40.164Z"
+      }
+    },
+    "h026_ult": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a massive vertical lightning bolt pillar striking down, thick jagged zigzag column. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:09:07.118Z",
+        "task_id": "1e8ada9d-f6cb-4f02-a986-3c0e488e56ed",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:10:04.451Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:10:06.732Z",
+        "task_id": "694edaba-5750-4da1-9010-c7dd52e8fc7d",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:10:15.597Z"
+      }
+    },
+    "h027_s1": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a curved crescent spear slash arc with a dragon-fang edge, flat sweeping blade shape. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:09:41.758Z",
+        "task_id": "48a9d82e-a814-4a9e-9dd4-cfc83cbe209e",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:10:31.604Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:10:34.880Z",
+        "task_id": "b4688f0b-4cb4-4e0c-af68-64a9309fe1d2",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:10:42.427Z"
+      }
+    },
+    "h027_s2": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a long piercing dragon fang spearhead thrust, pointed cone with swept-back fins. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:10:16.328Z",
+        "task_id": "e32ac6ab-ef8d-4393-ba79-626824616beb",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:11:45.614Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:11:47.707Z",
+        "task_id": "c5b40151-0409-4544-8052-45420a4e50b0",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:12:00.894Z"
+      }
+    },
+    "h027_ult": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a coiled eastern dragon spirit wrapped in a spiral loop, serpentine body with horned head. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:10:43.135Z",
+        "task_id": "6785c824-bd68-45d4-9f4a-2a53706e1a8c",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:11:09.840Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:11:11.616Z",
+        "task_id": "d8b60204-7f8f-4928-ac2c-ef4651094ccd",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:11:26.583Z"
+      }
+    },
+    "h028_s1": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a four-bladed spinning shuriken made of curved swords, flat star shape with sharp blade tips. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:11:27.392Z",
+        "task_id": "25a40003-a111-4ec8-9a07-8f699aac71a5",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:12:22.985Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:12:24.451Z",
+        "task_id": "30c16661-978b-4296-9035-e17bb2334ee5",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:12:36.972Z"
+      }
+    },
+    "h028_s2": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a long dash slash streak, a narrow tapered blade-shaped wedge with jagged trailing edges. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:12:01.588Z",
+        "task_id": "ab906e84-f833-4f4d-a3b2-634d56f982d5",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:12:51.122Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:12:52.561Z",
+        "task_id": "14487548-1195-43a8-8626-9a5325e58f43",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:13:05.465Z"
+      }
+    },
+    "h028_ult": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: three crossed straight slash blades forming a sharp asterisk X mark, flat blades. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:12:37.869Z",
+        "task_id": "9c5ac4a2-2dd7-4273-bcba-374494b9c2b6",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:14:03.883Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:14:05.707Z",
+        "task_id": "c91a61aa-be82-46a7-99d6-270d4aa36693",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:14:18.087Z"
+      }
+    },
+    "h029_s1": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a wedge of broken stone ground slabs erupting upward in a line, jagged rock plates. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:13:06.200Z",
+        "task_id": "bce25a19-20fb-4a51-80db-82f8c85cea5f",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:13:30.132Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:13:31.902Z",
+        "task_id": "f65b47ac-1d24-42a2-b3ba-5c1614313d25",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:13:44.416Z"
+      }
+    },
+    "h029_s2": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a large round tower shield crest with a radiant cross emblem, convex disk. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:13:45.191Z",
+        "task_id": "42f6a830-7928-4a28-8ed2-9a301a2cac09",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:14:40.593Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:14:42.367Z",
+        "task_id": "1a132f2d-e335-4635-8ad5-6cb4a6ca1936",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:14:49.980Z"
+      }
+    },
+    "h029_ult": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a circular sanctuary ring of standing holy obelisks and runic stones around an open center. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:14:18.887Z",
+        "task_id": "0a4cd124-e655-4437-9df3-b50439f1eaa0",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:15:15.208Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:15:16.998Z",
+        "task_id": "2be3666d-3e24-4001-9d46-3f05f5dfc771",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:15:29.671Z"
+      }
+    },
+    "h030_s1": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a sleek star cannon shell projectile, pointed bullet with four star fins. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:14:50.662Z",
+        "task_id": "c9e9b7eb-7901-4b2d-ad67-be1bb6cfa5ab",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:15:45.886Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:15:47.495Z",
+        "task_id": "6bcb4fc8-f0dd-4737-aa3d-1c6b71d20a5f",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:16:05.450Z"
+      }
+    },
+    "h030_s2": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a star-shaped energy bomb, chunky five-pointed star with rounded beveled edges. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:15:30.568Z",
+        "task_id": "93f66925-e90d-4277-84d0-68ed00fb9df9",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:16:20.320Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:16:21.747Z",
+        "task_id": "4820b3be-75dd-4423-9f74-ba9520460a98",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:16:35.036Z"
+      }
+    },
+    "h030_ult": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a huge cone-shaped cannon blast shockwave, hollow flared horn with ribbed rings. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:16:06.086Z",
+        "task_id": "e7ec0413-6e06-4fcf-873c-deccbb3e768f",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:17:31.685Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:17:33.103Z",
+        "task_id": "2b0c9b3b-92ba-4800-b59f-f07ec6052eb2",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:17:45.960Z"
+      }
+    },
+    "h031_s2": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a flat fan of frost flower ice crystals spreading forward, petals of ice in a wedge. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:16:35.744Z",
+        "task_id": "966c1957-e6d8-4136-b831-232160f6f169",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:17:00.343Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:17:02.133Z",
+        "task_id": "d67cf698-8c65-418f-a7ff-a4ee7f5a705a",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:17:14.879Z"
+      }
+    },
+    "h031_ult": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a cluster of tall jagged glacier ice crystals erupting from the ground in a line. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:17:15.450Z",
+        "task_id": "698d70c7-11e9-4abd-9153-ffc5b700918c",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:18:36.384Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:18:38.085Z",
+        "task_id": "d0fc963d-c017-4304-b00e-30954e3df8a6",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:18:51.205Z"
+      }
+    },
+    "h032_s1": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: three parallel curved claw slash crescents, flat sharp hooked blades side by side. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:17:46.603Z",
+        "task_id": "fcec1a57-9820-4887-ae1c-8cbf0203285f",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:18:11.124Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:18:12.669Z",
+        "task_id": "a579a1d4-0117-47bd-9ea8-4d5ee02cff4c",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:18:25.798Z"
+      }
+    },
+    "h032_s2": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: an explosive burst of sharp spikes radiating outward from a center, spiky starburst. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:18:26.776Z",
+        "task_id": "f0f3e69d-5357-4fef-8f5d-a70f8028c754",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:19:26.291Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:19:28.549Z",
+        "task_id": "1dae3024-986b-4732-90db-8c0eb1ea6ab4",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:19:40.790Z"
+      }
+    },
+    "h032_ult": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a long abyssal ground fissure with jagged spikes thrusting up along a straight crack. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:07:26.624Z",
+        "task_id": "2e7ce60b-8b03-4277-a62a-d041a67d9547",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:18:52.190Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:18:53.860Z",
+        "task_id": "a82bcca5-ec46-48c7-96d6-5485ed72edb6",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:19:05.706Z"
+      }
+    },
+    "h033_s1": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a ground impact crater with a ring of broken jagged rock shards pointing outward. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:19:06.384Z",
+        "task_id": "76a05825-0d2d-4c18-845b-ed5264077daf",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:20:01.887Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:20:03.562Z",
+        "task_id": "33114b3f-c41b-4e79-b0e0-0855b5f6fd93",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:20:21.174Z"
+      }
+    },
+    "h033_s2": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a thick spinning greatsword crescent ring, circular blade sweep with sharp outer edge. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:19:41.492Z",
+        "task_id": "be364e50-c6a6-4149-b1de-789307de80ca",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:20:35.614Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:20:37.225Z",
+        "task_id": "44621066-4363-4c60-98dd-fc0e4bec0a81",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:20:50.018Z"
+      }
+    },
+    "h033_ult": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a pair of huge curved wolf fangs crossing, sharp crescent fang shapes. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:20:21.843Z",
+        "task_id": "55a5ed7e-8898-4c54-8501-848d31fbe446",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:21:47.906Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:21:49.373Z",
+        "task_id": "b68063f7-fd3a-4bc7-92bf-98a244538f25",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:22:07.700Z"
+      }
+    },
+    "h034_s1": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a heavy iron grappling hook head with three curved barbs and a chain ring. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:20:50.631Z",
+        "task_id": "0e497871-d317-443a-a673-2e07cd90fa56",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:21:15.176Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:21:17.698Z",
+        "task_id": "7c6f85af-d988-4518-b1be-e9d9a5544d59",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:21:30.705Z"
+      }
+    },
+    "h034_s2": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a ring of heavy iron chain links lying in a circle with spikes. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:21:31.488Z",
+        "task_id": "9c43e392-840b-4201-88e3-2eeb4e74f83a",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:22:27.738Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:22:29.599Z",
+        "task_id": "7ab76da5-740a-44de-b9b4-000e07556efd",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:22:42.006Z"
+      }
+    },
+    "h034_ult": {
+      "image": {
+        "status": "success",
+        "request": {
+          "model": "seedream_v5",
+          "prompt": "Single isolated stylized 3D game visual effect sculpture: a cage of heavy iron chains and shackles forming a dome-shaped prison. One solid connected object, bold readable silhouette, smooth translucent glowing energy material, centered, full object visible, 3/4 view, plain light grey background. --no text, watermark, character, person, hands, multiple objects, scene, ground plane, frame",
+          "size": "2048x2048",
+          "output_format": "png"
+        },
+        "submitted_at": "2026-10-22T18:22:08.343Z",
+        "task_id": "a8c78c3f-17ca-4d12-a5a4-0d65adf6c2bb",
+        "credits": 5,
+        "completed_at": "2026-10-22T18:23:14.367Z"
+      },
+      "model": {
+        "status": "success",
+        "request": {
+          "input": "<file_token>",
+          "model": "P1-20260311",
+          "face_limit": 2000,
+          "texture": false,
+          "pbr": false,
+          "export_uv": true
+        },
+        "submitted_at": "2026-10-22T18:23:16.376Z",
+        "task_id": "4f4ef7b5-9e5c-48f2-b813-3e1484bdabfa",
+        "credits": 40,
+        "completed_at": "2026-10-22T18:23:29.372Z"
+      }
+    }
+  },
+  "updated_at": "2026-10-22T18:23:29.372Z"
+}

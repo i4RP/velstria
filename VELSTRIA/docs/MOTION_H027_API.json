@@ -1,0 +1,1240 @@
+{
+  "version": 1,
+  "hero": "H027",
+  "recorded_at": "2026-10-22T17:26:02.302Z",
+  "credit_cap": {
+    "meshy": 110,
+    "tripo": 60
+  },
+  "credits_consumed": {
+    "meshy": 90,
+    "tripo": 55
+  },
+  "meshy_library": {
+    "count": 678,
+    "reviewed": [
+      {
+        "action_id": 0,
+        "name": "Idle",
+        "key": "Idle",
+        "category": "DailyActions",
+        "sub_category": "Idle"
+      },
+      {
+        "action_id": 11,
+        "name": "Idle 1",
+        "key": "Idle_02",
+        "category": "DailyActions",
+        "sub_category": "Idle"
+      },
+      {
+        "action_id": 89,
+        "name": "Combat Idel",
+        "key": "Combat_Stance",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 149,
+        "name": "Two-handed Parry",
+        "key": "Two_Handed_Parry",
+        "category": "Fighting",
+        "sub_category": "Blocking"
+      },
+      {
+        "action_id": 219,
+        "name": "Right-hand Sword Slash",
+        "key": "Right_Hand_Sword_Slash",
+        "category": "Fighting",
+        "sub_category": "Punching"
+      },
+      {
+        "action_id": 221,
+        "name": "Charged Upward Slash",
+        "key": "Charged_Upward_Slash",
+        "category": "Fighting",
+        "sub_category": "Punching"
+      },
+      {
+        "action_id": 240,
+        "name": "Thrust Slash",
+        "key": "Thrust_Slash",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 241,
+        "name": "Weapon Combo 2",
+        "key": "Weapon_Combo_2",
+        "category": "Fighting",
+        "sub_category": "AttackingwithWeapon"
+      },
+      {
+        "action_id": 245,
+        "name": "Idle 5",
+        "key": "Idle_5",
+        "category": "DailyActions",
+        "sub_category": "Idle"
+      },
+      {
+        "action_id": 377,
+        "name": "Relax Arms, Then Strike Battle Pose",
+        "key": "Relax_arms_then_strike_battle_pose",
+        "category": "BodyMovements",
+        "sub_category": "Acting"
+      },
+      {
+        "action_id": 392,
+        "name": "Ground Flip and Sweep Up",
+        "key": "Ground_Flip_and_Sweep_Up",
+        "category": "BodyMovements",
+        "sub_category": "Acting"
+      },
+      {
+        "action_id": 560,
+        "name": "Spear Walk",
+        "key": "Spear_Walk",
+        "category": "WalkAndRun",
+        "sub_category": "Walking"
+      },
+      {
+        "action_id": 672,
+        "name": "Spear Walk",
+        "key": "Spear_Walk_inplace",
+        "category": "WalkAndRun",
+        "sub_category": "Walking"
+      }
+    ],
+    "checked_at": "2026-10-22T16:14:52.032Z"
+  },
+  "tasks": [
+    {
+      "name": "H027_rigcheck_a9e381eb",
+      "provider": "tripo",
+      "task_id": "e039c51f-e031-4f9b-88aa-da0ae72bd9d4",
+      "status": "success",
+      "http_status": null,
+      "credits_consumed": 0,
+      "submitted_at": "2026-10-22T16:14:56.534Z",
+      "request": {},
+      "output": {
+        "riggable": false,
+        "rig_type": "biped"
+      },
+      "file": null,
+      "error": null
+    },
+    {
+      "name": "h027_idle_prime",
+      "provider": "meshy",
+      "task_id": "01a16465-379a-7369-8a59-00d554e1dc86",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:16.956Z",
+      "request": {
+        "mode": "prime",
+        "duration": 4,
+        "prompt": "Proud young spear warrior idle guard, seamless loop. Right hand grips a long spear at hip, shaft angled forward and up, tip high in front, butt behind right heel. Left foot half step forward, right foot back, chest up. Slow breathing, small weight shift front to back, head and shoulders calmly scan left then right. Left hand relaxed fist at side, regripping. Feet planted, no steps."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h027-motion/h027_idle_prime.fbx",
+        "bytes": 16825904,
+        "sha256": "b9ce45ff7d20f8df9541f74ccc107b8d73171a5c519eee368afa7328afe0ce83"
+      },
+      "error": null
+    },
+    {
+      "name": "h027_walk_prime",
+      "provider": "meshy",
+      "task_id": "01a16465-3b58-77e3-aa2f-d768d41cdac4",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:18.268Z",
+      "request": {
+        "mode": "prime",
+        "duration": 3,
+        "prompt": "Dignified spear warrior walking forward, steady loop of full strides. Right hand grips a long spear at hip, shaft held still, angled forward and up, tip never dipping. Upright chest, knees drive forward with long confident steps, heel strike to toe off, gentle hip sway. Left arm swings lightly. Spear stays clear of legs and ground. Constant pace, straight line, no turning."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h027-motion/h027_walk_prime.fbx",
+        "bytes": 16768672,
+        "sha256": "35f54b6a7c69ed2bcd57c84f645d7c8a8ca00c74356cd8a28e785c63a0c52ad9"
+      },
+      "error": null
+    },
+    {
+      "name": "h027_run_prime",
+      "provider": "meshy",
+      "task_id": "01a16465-42be-71e4-8747-06c73c46e662",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:20.161Z",
+      "request": {
+        "mode": "prime",
+        "duration": 3,
+        "prompt": "Agile spear warrior running forward fast, steady loop. Torso leans forward. Right hand holds a long spear low along the right side of the body, tip pointing forward, butt trailing behind, spear level and steady. Left arm pumps. Strong knee drive, quick light foot strikes, slight bounce. Spear never touches legs or ground. Constant speed, straight line."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h027-motion/h027_run_prime.fbx",
+        "bytes": 16768672,
+        "sha256": "629d96575664f0de072fe1e938376982aa6eea04664b725b4e2fcd14ae3a9eda"
+      },
+      "error": null
+    },
+    {
+      "name": "h027_thrust_prime",
+      "provider": "meshy",
+      "task_id": "01a16465-46b5-77a9-9168-a1a69334a6dd",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:21.171Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Spear master basic attack from guard: both hands on a long spear, right hand at rear near right hip, left hand forward on the shaft, tip aimed ahead at chest height, left foot forward. Draw the spear back, step in with the left foot, rotate hips then shoulders and drive a fast straight thrust, arms extend fully, weight on front leg. Pull back and return to the same guard."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h027-motion/h027_thrust_prime.fbx",
+        "bytes": 16740048,
+        "sha256": "673a701e53dc15153e7e9165f67ec87069d22b7a4ea001f6e5e593206b26a7f1"
+      },
+      "error": null
+    },
+    {
+      "name": "h027_sweep_prime",
+      "provider": "meshy",
+      "task_id": "01a16465-4a37-7659-b02a-d5ee999b5be7",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:15:22.054Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Spear master horizontal sweep from guard: both hands on a long spear, right hand rear, left hand forward, left foot forward. Wind up by twisting the torso right with the spear pulled to the right side. Step in, rotate hips to the left and swing the spear tip in a wide flat arc from right to left at waist height in front. Stop the spear under control and return to the same guard."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h027-motion/h027_sweep_prime.fbx",
+        "bytes": 16740048,
+        "sha256": "400e9d0c6f6eb4bed5cc3f6a9c8361773c96687f91e6b0f7bb1e97dae665c6a8"
+      },
+      "error": null
+    },
+    {
+      "name": "H027_rigcheck_2c199604",
+      "provider": "tripo",
+      "task_id": "d28531a0-4082-46b6-88a8-5cde4a3e4f9d",
+      "status": "success",
+      "http_status": null,
+      "credits_consumed": 0,
+      "submitted_at": "2026-10-22T16:16:07.890Z",
+      "request": {},
+      "output": {
+        "riggable": true,
+        "rig_type": "biped"
+      },
+      "file": null,
+      "error": null
+    },
+    {
+      "name": "H027_rig_v3",
+      "provider": "tripo",
+      "task_id": "beb28cc2-8afa-48c8-8959-51d535b6fb11",
+      "status": "success",
+      "http_status": null,
+      "credits_consumed": 25,
+      "submitted_at": "2026-10-22T16:16:43.481Z",
+      "request": {
+        "model": "v3.0-20260909",
+        "rig_type": "biped",
+        "spec": "mixamo",
+        "out_format": "glb"
+      },
+      "output": {},
+      "file": {
+        "file": "build/h027-motion/H027_rig_v3.glb",
+        "bytes": 13578924,
+        "sha256": "a07a5076483961de8f4a017ebb8f4be457172ec044deb024866d7ff7e47db944"
+      },
+      "error": null
+    },
+    {
+      "name": "h027_rising_prime",
+      "provider": "meshy",
+      "task_id": "01a16467-d315-7697-84e2-0da933bc0f27",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:18:07.896Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Spear master rising slash from guard: both hands on a long spear, right hand rear, left hand forward, left foot forward. Lower the spear tip near the ground in front and bend the knees, then drive up with legs and hips, swinging the tip upward in a vertical arc from low front to high above the head. Bring the spear back down and return to the same guard."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h027-motion/h027_rising_prime.fbx",
+        "bytes": 16740048,
+        "sha256": "c0ab74543ebd482bb84062b5833ff4425f3f9d4cc828e33a1e769652ff16a094"
+      },
+      "error": null
+    },
+    {
+      "name": "h027_flip_prime",
+      "provider": "meshy",
+      "task_id": "01a16467-d68d-71e1-a9fe-82c555cd9744",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:18:09.068Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Spear warrior flip throw: from two-handed guard, crouch and slide the long spear tip low forward under an enemy, scoop it up and lift the spear high overhead, hold the weight a moment, then arch the back and swing the spear over the head to behind, throwing the enemy backward. Feet stay planted. Recover to the two-handed guard facing forward."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h027-motion/h027_flip_prime.fbx",
+        "bytes": 16740048,
+        "sha256": "1d55b79a4603b77d1c8211e4632c9341ffa50c5e8e3dabc59fca186367e82468"
+      },
+      "error": null
+    },
+    {
+      "name": "h027_strike_prime",
+      "provider": "meshy",
+      "task_id": "01a16467-dae5-706e-888b-455ad16cec23",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:18:10.177Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Spear warrior lunging dash attack: from guard, both hands hold a long spear pointed straight forward. Burst forward with a low leaning dash of two quick steps, then plant the front foot and drive a powerful straight thrust at arrival, arms fully extended, weight forward. Recover into a ready two-handed guard."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h027-motion/h027_strike_prime.fbx",
+        "bytes": 16740048,
+        "sha256": "8dec3d73902b778cef0b89c5651bfddb35ae25f5d15a5ff8655847aed0a9b2e3"
+      },
+      "error": null
+    },
+    {
+      "name": "h027_warrior_prime",
+      "provider": "meshy",
+      "task_id": "01a16467-de72-713d-b49d-41fffb96a340",
+      "status": "SUCCEEDED",
+      "http_status": null,
+      "credits_consumed": 10,
+      "submitted_at": "2026-10-22T16:18:11.095Z",
+      "request": {
+        "mode": "prime",
+        "duration": 2.5,
+        "prompt": "Spear warrior power up: from a two-handed guard, swing the long spear once in a circle at the right side, plant a wide stance, pull the spear upright beside the body in the right hand, chest out, left fist clenched in front, gather energy with a short shout, then settle back to the two-handed guard."
+      },
+      "output": null,
+      "file": {
+        "file": "build/h027-motion/h027_warrior_prime.fbx",
+        "bytes": 16740048,
+        "sha256": "e8b14fff878a026e8ba22a6ceba5c14ea4c191f5bd9e60c1a782b15615f08cec"
+      },
+      "error": null
+    },
+    {
+      "name": "H027_idle_walk_run",
+      "provider": "tripo",
+      "task_id": "32a1ae5b-0b5c-4de6-aedf-a7103dcdeec6",
+      "status": "success",
+      "http_status": null,
+      "credits_consumed": 30,
+      "submitted_at": "2026-10-22T16:18:12.755Z",
+      "request": {
+        "animations": [
+          "preset:idle",
+          "preset:walk",
+          "preset:run"
+        ],
+        "animate_in_place": true,
+        "out_format": "glb",
+        "export_with_geometry": true
+      },
+      "output": {},
+      "file": {
+        "file": "build/h027-motion/H027_idle_walk_run.glb",
+        "bytes": 14143788,
+        "sha256": "49c8c923d4b5d9ce8b753eabc0f438e0a99639cb55fe4bcb7fb6a2eff6a2a321"
+      },
+      "error": null
+    }
+  ],
+  "retained_existing_model": true,
+  "source": {
+    "file": "build/h027-motion/H027_tripo_model_d2273084.glb",
+    "sha256": "2c1996049c18ed93b154ce76d606186bcd8e8a1eccb8f2efbb96bb06d56df316",
+    "bytes": 13270880,
+    "reason": "Shipped Hero_H027.usdz has 23 joints (shoulders/toes, no fingers). Bind-pose mesh exported without skin; the rig is a donor only."
+  },
+  "spear_regeneration": {
+    "tool": "tools/tripo.mjs run props dragonSpear --force concept,model --faces 20000 (state: tools/tripo/state.json)",
+    "credits": 65,
+    "lod": "tools/blender/lod_h027_spear.py (19,131 -> 4,198 triangles, head 3,898 / shaft 300, seams welded first)"
+  },
+  "reports": {
+    "finish-report": {
+      "h027_idle": {
+        "frames": 180,
+        "maxTargetClampMm": 0,
+        "seamDegrees": 0,
+        "clearanceMin": {
+          "ground": [
+            0.1782,
+            136
+          ],
+          "thighL": [
+            0.1929,
+            76
+          ],
+          "shinL": [
+            0.3871,
+            92
+          ],
+          "thighR": [
+            0.0343,
+            84
+          ],
+          "shinR": [
+            0.159,
+            92
+          ],
+          "cape": [
+            0.0877,
+            54
+          ],
+          "torso": [
+            0.0701,
+            28
+          ],
+          "legs": [
+            0.0343,
+            84
+          ]
+        },
+        "bladeFaceUpMin": 0.508
+      },
+      "h027_walk": {
+        "frames": 30,
+        "maxTargetClampMm": 4.79,
+        "seamDegrees": 0,
+        "clearanceMin": {
+          "ground": [
+            0.1775,
+            9
+          ],
+          "thighL": [
+            0.1887,
+            22
+          ],
+          "shinL": [
+            0.2907,
+            4
+          ],
+          "thighR": [
+            0.0316,
+            0
+          ],
+          "shinR": [
+            0.0976,
+            19
+          ],
+          "cape": [
+            0.0642,
+            10
+          ],
+          "torso": [
+            0.0592,
+            0
+          ],
+          "legs": [
+            0.0316,
+            0
+          ]
+        },
+        "bladeFaceUpMin": 0.558
+      },
+      "h027_run": {
+        "frames": 22,
+        "maxTargetClampMm": 7.31,
+        "seamDegrees": 0,
+        "clearanceMin": {
+          "ground": [
+            0.6544,
+            18
+          ],
+          "thighL": [
+            0.2477,
+            6
+          ],
+          "shinL": [
+            0.335,
+            6
+          ],
+          "thighR": [
+            0.0868,
+            17
+          ],
+          "shinR": [
+            0.1317,
+            17
+          ],
+          "cape": [
+            0.096,
+            8
+          ],
+          "torso": [
+            0.1172,
+            0
+          ],
+          "legs": [
+            0.0868,
+            17
+          ]
+        },
+        "bladeFaceUpMin": 0.971
+      },
+      "h027_thrust": {
+        "frames": 28,
+        "maxTargetClampMm": 0,
+        "seamDegrees": 0,
+        "clearanceMin": {
+          "ground": [
+            0.8113,
+            4
+          ],
+          "thighL": [
+            0.1629,
+            3
+          ],
+          "shinL": [
+            0.4377,
+            6
+          ],
+          "thighR": [
+            0.0576,
+            25
+          ],
+          "shinR": [
+            0.4074,
+            4
+          ],
+          "cape": [
+            0.0474,
+            10
+          ],
+          "torso": [
+            -0.0198,
+            10
+          ],
+          "legs": [
+            0.0576,
+            25
+          ]
+        },
+        "bladeFaceUpMin": 0.793
+      },
+      "h027_sweep": {
+        "frames": 30,
+        "maxTargetClampMm": 0,
+        "seamDegrees": 0,
+        "clearanceMin": {
+          "ground": [
+            0.8415,
+            29
+          ],
+          "thighL": [
+            0.1479,
+            6
+          ],
+          "shinL": [
+            0.4005,
+            16
+          ],
+          "thighR": [
+            0.058,
+            0
+          ],
+          "shinR": [
+            0.4212,
+            0
+          ],
+          "cape": [
+            0.0094,
+            8
+          ],
+          "torso": [
+            -0.0611,
+            7
+          ],
+          "legs": [
+            0.058,
+            0
+          ]
+        },
+        "bladeFaceUpMin": 0.833
+      },
+      "h027_rising": {
+        "frames": 30,
+        "maxTargetClampMm": 18.27,
+        "seamDegrees": 0,
+        "clearanceMin": {
+          "ground": [
+            0.3045,
+            5
+          ],
+          "thighL": [
+            0.1552,
+            3
+          ],
+          "shinL": [
+            0.2966,
+            5
+          ],
+          "thighR": [
+            0.0548,
+            3
+          ],
+          "shinR": [
+            0.1383,
+            15
+          ],
+          "cape": [
+            0.0943,
+            8
+          ],
+          "torso": [
+            0.0136,
+            8
+          ],
+          "legs": [
+            0.0548,
+            3
+          ]
+        },
+        "bladeFaceUpMin": 0.417
+      },
+      "h027_flurry": {
+        "frames": 34,
+        "maxTargetClampMm": 0,
+        "seamDegrees": 0,
+        "clearanceMin": {
+          "ground": [
+            0.8113,
+            5
+          ],
+          "thighL": [
+            0.1626,
+            3
+          ],
+          "shinL": [
+            0.4416,
+            7
+          ],
+          "thighR": [
+            0.058,
+            0
+          ],
+          "shinR": [
+            0.4087,
+            5
+          ],
+          "cape": [
+            0.0153,
+            18
+          ],
+          "torso": [
+            -0.038,
+            14
+          ],
+          "legs": [
+            0.058,
+            0
+          ]
+        },
+        "bladeFaceUpMin": 0.568
+      },
+      "h027_flip": {
+        "frames": 40,
+        "maxTargetClampMm": 61.85,
+        "seamDegrees": 0,
+        "clearanceMin": {
+          "ground": [
+            0.158,
+            3
+          ],
+          "thighL": [
+            0.1342,
+            3
+          ],
+          "shinL": [
+            0.2412,
+            16
+          ],
+          "thighR": [
+            -0.0404,
+            14
+          ],
+          "shinR": [
+            -0.0162,
+            14
+          ],
+          "cape": [
+            0.0702,
+            4
+          ],
+          "torso": [
+            0.001,
+            4
+          ],
+          "legs": [
+            -0.0404,
+            14
+          ]
+        },
+        "bladeFaceUpMin": -0.463
+      },
+      "h027_strike": {
+        "frames": 14,
+        "maxTargetClampMm": 5.96,
+        "seamDegrees": 43.889,
+        "clearanceMin": {
+          "ground": [
+            0.8415,
+            0
+          ],
+          "thighL": [
+            0.1696,
+            0
+          ],
+          "shinL": [
+            0.4082,
+            13
+          ],
+          "thighR": [
+            0.058,
+            0
+          ],
+          "shinR": [
+            0.4203,
+            1
+          ],
+          "cape": [
+            -0.0128,
+            9
+          ],
+          "torso": [
+            -0.0202,
+            6
+          ],
+          "legs": [
+            0.058,
+            0
+          ]
+        },
+        "bladeFaceUpMin": 0.719
+      },
+      "h027_strike_hit": {
+        "frames": 22,
+        "maxTargetClampMm": 0,
+        "seamDegrees": 48.293,
+        "clearanceMin": {
+          "ground": [
+            0.8415,
+            21
+          ],
+          "thighL": [
+            0.1696,
+            21
+          ],
+          "shinL": [
+            0.4168,
+            0
+          ],
+          "thighR": [
+            0.058,
+            21
+          ],
+          "shinR": [
+            0.4212,
+            21
+          ],
+          "cape": [
+            -0.0045,
+            1
+          ],
+          "torso": [
+            -0.0312,
+            2
+          ],
+          "legs": [
+            0.058,
+            21
+          ]
+        },
+        "bladeFaceUpMin": 0.569
+      },
+      "h027_warrior": {
+        "frames": 24,
+        "maxTargetClampMm": 0,
+        "seamDegrees": 0,
+        "clearanceMin": {
+          "ground": [
+            0.0649,
+            9
+          ],
+          "thighL": [
+            0.1696,
+            0
+          ],
+          "shinL": [
+            0.4056,
+            4
+          ],
+          "thighR": [
+            0.003,
+            9
+          ],
+          "shinR": [
+            0.028,
+            9
+          ],
+          "cape": [
+            0.1022,
+            0
+          ],
+          "torso": [
+            0.021,
+            0
+          ],
+          "legs": [
+            0.003,
+            9
+          ]
+        },
+        "bladeFaceUpMin": 0.001
+      },
+      "grip": {
+        "roll": -0.16580627893946165,
+        "quaternion_xyzw": [
+          -0.704678,
+          -0.058554,
+          0.058554,
+          0.704678
+        ]
+      },
+      "model": {
+        "height": 1.7000000476837158,
+        "bones": 65,
+        "armReach": 0.40706218856283743,
+        "axisErrorDegrees": 0.000590407240149456,
+        "warnings": []
+      }
+    },
+    "prime-report": {
+      "meshy_h027_idle": {
+        "task_id": "01a16465-379a-7369-8a59-00d554e1dc86",
+        "frames": 120,
+        "fps": 30,
+        "verify": {
+          "passed": true,
+          "limbMaxDegrees": 0.0096,
+          "limbDegrees": {
+            "armR": 0.0087,
+            "foreArmR": 0.0094,
+            "handR": 0.0092,
+            "armL": 0.008,
+            "foreArmL": 0.0095,
+            "handL": 0.0096,
+            "thighR": 0.008,
+            "shinR": 0.0083,
+            "footR": 0.0084,
+            "thighL": 0.0084,
+            "shinL": 0.0078,
+            "footL": 0.0087
+          },
+          "segmentRotationDegrees": {
+            "hips": 0.0091,
+            "torso": 0.0092,
+            "head": 0.0089,
+            "armR": 0.009,
+            "foreArmR": 0.0094,
+            "handR": 0.01,
+            "armL": 0.0092,
+            "foreArmL": 0.0098,
+            "handL": 0.0096,
+            "thighR": 0.0089,
+            "shinR": 0.0091,
+            "footR": 0.0097,
+            "thighL": 0.0091,
+            "shinL": 0.0091,
+            "footL": 0.0093
+          },
+          "hipsPositionError": 0.000072
+        },
+        "rootRebaseY": 1.2502
+      },
+      "meshy_h027_walk": {
+        "task_id": "01a16465-3b58-77e3-aa2f-d768d41cdac4",
+        "frames": 90,
+        "fps": 30,
+        "verify": {
+          "passed": true,
+          "limbMaxDegrees": 0.0102,
+          "limbDegrees": {
+            "armR": 0.0102,
+            "foreArmR": 0.0089,
+            "handR": 0.0079,
+            "armL": 0.0085,
+            "foreArmL": 0.0075,
+            "handL": 0.0078,
+            "thighR": 0.0081,
+            "shinR": 0.0078,
+            "footR": 0.0079,
+            "thighL": 0.0074,
+            "shinL": 0.009,
+            "footL": 0.0081
+          },
+          "segmentRotationDegrees": {
+            "hips": 0.0088,
+            "torso": 0.0091,
+            "head": 0.0089,
+            "armR": 0.0104,
+            "foreArmR": 0.009,
+            "handR": 0.0102,
+            "armL": 0.0089,
+            "foreArmL": 0.009,
+            "handL": 0.009,
+            "thighR": 0.0087,
+            "shinR": 0.0085,
+            "footR": 0.0089,
+            "thighL": 0.0082,
+            "shinL": 0.009,
+            "footL": 0.0096
+          },
+          "hipsPositionError": 0.000078
+        },
+        "rootRebaseY": 1.2422
+      },
+      "meshy_h027_run": {
+        "task_id": "01a16465-42be-71e4-8747-06c73c46e662",
+        "frames": 90,
+        "fps": 30,
+        "verify": {
+          "passed": true,
+          "limbMaxDegrees": 0.0097,
+          "limbDegrees": {
+            "armR": 0.0079,
+            "foreArmR": 0.0084,
+            "handR": 0.0091,
+            "armL": 0.0081,
+            "foreArmL": 0.0082,
+            "handL": 0.008,
+            "thighR": 0.0087,
+            "shinR": 0.0097,
+            "footR": 0.0087,
+            "thighL": 0.009,
+            "shinL": 0.0082,
+            "footL": 0.0094
+          },
+          "segmentRotationDegrees": {
+            "hips": 0.0085,
+            "torso": 0.0092,
+            "head": 0.0096,
+            "armR": 0.0092,
+            "foreArmR": 0.0086,
+            "handR": 0.0098,
+            "armL": 0.0087,
+            "foreArmL": 0.0088,
+            "handL": 0.0091,
+            "thighR": 0.0089,
+            "shinR": 0.0098,
+            "footR": 0.0098,
+            "thighL": 0.0093,
+            "shinL": 0.0094,
+            "footL": 0.0096
+          },
+          "hipsPositionError": 0.000074
+        },
+        "rootRebaseY": 0.8856
+      },
+      "meshy_h027_thrust": {
+        "task_id": "01a16465-46b5-77a9-9168-a1a69334a6dd",
+        "frames": 75,
+        "fps": 30,
+        "verify": {
+          "passed": true,
+          "limbMaxDegrees": 0.009,
+          "limbDegrees": {
+            "armR": 0.0085,
+            "foreArmR": 0.009,
+            "handR": 0.0081,
+            "armL": 0.0086,
+            "foreArmL": 0.0081,
+            "handL": 0.0089,
+            "thighR": 0.0078,
+            "shinR": 0.0075,
+            "footR": 0.0084,
+            "thighL": 0.0075,
+            "shinL": 0.008,
+            "footL": 0.0083
+          },
+          "segmentRotationDegrees": {
+            "hips": 0.0087,
+            "torso": 0.0083,
+            "head": 0.0088,
+            "armR": 0.009,
+            "foreArmR": 0.0105,
+            "handR": 0.0084,
+            "armL": 0.0098,
+            "foreArmL": 0.0086,
+            "handL": 0.0093,
+            "thighR": 0.0093,
+            "shinR": 0.0089,
+            "footR": 0.0089,
+            "thighL": 0.0089,
+            "shinL": 0.0101,
+            "footL": 0.0096
+          },
+          "hipsPositionError": 0.000075
+        },
+        "rootRebaseY": 1.1069
+      },
+      "meshy_h027_sweep": {
+        "task_id": "01a16465-4a37-7659-b02a-d5ee999b5be7",
+        "frames": 75,
+        "fps": 30,
+        "verify": {
+          "passed": true,
+          "limbMaxDegrees": 0.0089,
+          "limbDegrees": {
+            "armR": 0.0076,
+            "foreArmR": 0.0089,
+            "handR": 0.0083,
+            "armL": 0.0084,
+            "foreArmL": 0.0077,
+            "handL": 0.008,
+            "thighR": 0.0083,
+            "shinR": 0.0078,
+            "footR": 0.0088,
+            "thighL": 0.0089,
+            "shinL": 0.0085,
+            "footL": 0.0085
+          },
+          "segmentRotationDegrees": {
+            "hips": 0.0087,
+            "torso": 0.0089,
+            "head": 0.0086,
+            "armR": 0.0092,
+            "foreArmR": 0.0096,
+            "handR": 0.0095,
+            "armL": 0.0086,
+            "foreArmL": 0.0086,
+            "handL": 0.0083,
+            "thighR": 0.0089,
+            "shinR": 0.0085,
+            "footR": 0.0093,
+            "thighL": 0.0098,
+            "shinL": 0.0086,
+            "footL": 0.009
+          },
+          "hipsPositionError": 0.000075
+        },
+        "rootRebaseY": 1.2513
+      },
+      "meshy_h027_rising": {
+        "task_id": "01a16467-d315-7697-84e2-0da933bc0f27",
+        "frames": 75,
+        "fps": 30,
+        "verify": {
+          "passed": true,
+          "limbMaxDegrees": 0.0095,
+          "limbDegrees": {
+            "armR": 0.0085,
+            "foreArmR": 0.009,
+            "handR": 0.0094,
+            "armL": 0.0095,
+            "foreArmL": 0.0087,
+            "handL": 0.0082,
+            "thighR": 0.008,
+            "shinR": 0.0086,
+            "footR": 0.0084,
+            "thighL": 0.0082,
+            "shinL": 0.0078,
+            "footL": 0.0094
+          },
+          "segmentRotationDegrees": {
+            "hips": 0.0083,
+            "torso": 0.0086,
+            "head": 0.0092,
+            "armR": 0.0095,
+            "foreArmR": 0.0091,
+            "handR": 0.0096,
+            "armL": 0.0099,
+            "foreArmL": 0.0093,
+            "handL": 0.0086,
+            "thighR": 0.0097,
+            "shinR": 0.0088,
+            "footR": 0.0086,
+            "thighL": 0.0086,
+            "shinL": 0.0091,
+            "footL": 0.0095
+          },
+          "hipsPositionError": 0.000078
+        },
+        "rootRebaseY": 1.2963
+      },
+      "meshy_h027_flip": {
+        "task_id": "01a16467-d68d-71e1-a9fe-82c555cd9744",
+        "frames": 75,
+        "fps": 30,
+        "verify": {
+          "passed": true,
+          "limbMaxDegrees": 0.0099,
+          "limbDegrees": {
+            "armR": 0.0087,
+            "foreArmR": 0.0084,
+            "handR": 0.0094,
+            "armL": 0.0071,
+            "foreArmL": 0.0099,
+            "handL": 0.0088,
+            "thighR": 0.0087,
+            "shinR": 0.0074,
+            "footR": 0.0079,
+            "thighL": 0.0082,
+            "shinL": 0.0072,
+            "footL": 0.0081
+          },
+          "segmentRotationDegrees": {
+            "hips": 0.0091,
+            "torso": 0.0082,
+            "head": 0.0095,
+            "armR": 0.0091,
+            "foreArmR": 0.0102,
+            "handR": 0.0096,
+            "armL": 0.008,
+            "foreArmL": 0.0103,
+            "handL": 0.0102,
+            "thighR": 0.0096,
+            "shinR": 0.008,
+            "footR": 0.0089,
+            "thighL": 0.0097,
+            "shinL": 0.0087,
+            "footL": 0.0087
+          },
+          "hipsPositionError": 0.000075
+        },
+        "rootRebaseY": 1.2782
+      },
+      "meshy_h027_strike": {
+        "task_id": "01a16467-dae5-706e-888b-455ad16cec23",
+        "frames": 75,
+        "fps": 30,
+        "verify": {
+          "passed": true,
+          "limbMaxDegrees": 0.0091,
+          "limbDegrees": {
+            "armR": 0.0083,
+            "foreArmR": 0.0078,
+            "handR": 0.0085,
+            "armL": 0.0078,
+            "foreArmL": 0.0081,
+            "handL": 0.0085,
+            "thighR": 0.0081,
+            "shinR": 0.0084,
+            "footR": 0.0072,
+            "thighL": 0.0087,
+            "shinL": 0.0091,
+            "footL": 0.0087
+          },
+          "segmentRotationDegrees": {
+            "hips": 0.0086,
+            "torso": 0.0096,
+            "head": 0.0098,
+            "armR": 0.0086,
+            "foreArmR": 0.0087,
+            "handR": 0.0087,
+            "armL": 0.0081,
+            "foreArmL": 0.009,
+            "handL": 0.0086,
+            "thighR": 0.0096,
+            "shinR": 0.0092,
+            "footR": 0.0091,
+            "thighL": 0.0103,
+            "shinL": 0.0092,
+            "footL": 0.0089
+          },
+          "hipsPositionError": 0.000079
+        },
+        "rootRebaseY": 1.2836
+      },
+      "meshy_h027_warrior": {
+        "task_id": "01a16467-de72-713d-b49d-41fffb96a340",
+        "frames": 75,
+        "fps": 30,
+        "verify": {
+          "passed": true,
+          "limbMaxDegrees": 0.0093,
+          "limbDegrees": {
+            "armR": 0.008,
+            "foreArmR": 0.0088,
+            "handR": 0.0084,
+            "armL": 0.008,
+            "foreArmL": 0.0093,
+            "handL": 0.0084,
+            "thighR": 0.009,
+            "shinR": 0.0074,
+            "footR": 0.0084,
+            "thighL": 0.0087,
+            "shinL": 0.0076,
+            "footL": 0.0084
+          },
+          "segmentRotationDegrees": {
+            "hips": 0.0089,
+            "torso": 0.009,
+            "head": 0.009,
+            "armR": 0.0089,
+            "foreArmR": 0.0089,
+            "handR": 0.0084,
+            "armL": 0.0089,
+            "foreArmL": 0.01,
+            "handL": 0.0089,
+            "thighR": 0.0091,
+            "shinR": 0.008,
+            "footR": 0.0086,
+            "thighL": 0.009,
+            "shinL": 0.0084,
+            "footL": 0.0083
+          },
+          "hipsPositionError": 0.000073
+        },
+        "rootRebaseY": 1.229
+      }
+    }
+  },
+  "references": {
+    "meshy_motion": "<url>",
+    "meshy_library": "<url>",
+    "tripo_rig": "<url>",
+    "tripo_check": "<url>",
+    "tripo_retarget": "<url>"
+  }
+}

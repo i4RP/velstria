@@ -264,6 +264,8 @@ final class SkillFXPlayer {
         case .crescent, .ringLip: base = 6
         case .burstDome, .pillar2: base = 4
         case .twister, .bladeRing, .starCross, .shardRing: base = 3
+        // スキルの攻撃の模型（1 ヒーローのスキル 1 つにつき 1 つ。重なる再使用の分）
+        case .sk025s1, .sk025s2, .sk025ult, .sk026s1, .sk026s2, .sk026ult, .sk027s1, .sk027s2, .sk027ult, .sk028s1, .sk028s2, .sk028ult, .sk029s1, .sk029s2, .sk029ult, .sk030s1, .sk030s2, .sk030ult, .sk031s1, .sk031s2, .sk031ult, .sk032s1, .sk032s2, .sk032ult, .sk033s1, .sk033s2, .sk033ult, .sk034s1, .sk034s2, .sk034ult: base = 2
         }
         return q.level == .low ? max(2, base / 2) : base
     }

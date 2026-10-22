@@ -134,18 +134,29 @@ final class StageScene {
                 AssetLedger.record(.entity, "canyon chunk")
                 guard add(chunk.mesh, name: "canyon_\(i)", material: materials[chunk.atlas], castsShadow: false) != nil else { return false }
             }
-            // The supplied grass already has a small mesh. Preserve its placement and
-            // silhouette, sharing the foliage atlas instead of generating replacement clumps.
-            for (i, brush) in plan.brushes.enumerated() {
-                AssetLedger.record(.mesh, "canyon source brush")
-                guard let mesh = brush.mesh.makeMesh() else { return false }
-                AssetLedger.record(.entity, "canyon brush")
-                let e = ModelEntity(mesh: mesh, materials: [materials[brush.atlas]])
+            AssetLedger.record(.texture, "canyon dense brush atlas 1024x512")
+            let brushTexture = try TextureResource(image: plan.foliageAtlas,
+                options: .init(semantic: .color, mipmapsMode: .allocateAndGenerateAll))
+            AssetLedger.record(.material, "canyon dense brush")
+            var brushMaterial = try CustomMaterial(surfaceShader: .init(named: "stageBrushSurface", in: lib),
+                geometryModifier: .init(named: "stageWindGeometry", in: lib), lightingModel: .lit)
+            brushMaterial.baseColor = .init(texture: .init(brushTexture))
+            brushMaterial.faceCulling = .none
+            brushMaterial.custom.value = SIMD4(plan.quality == .low ? 0.5 : 1, 0, 0, 0)
+            for (i, brush) in plan.foliage.brushes.enumerated() {
+                guard let near = brush.makeMesh(), let far = plan.foliage.brushCards[i].makeMesh() else { return false }
+                AssetLedger.record(.mesh, "canyon brush near")
+                AssetLedger.record(.mesh, "canyon brush far")
+                AssetLedger.record(.entity, "canyon dense brush")
+                let e = ModelEntity(mesh: near, materials: [brushMaterial])
                 e.name = "brush_\(i)"
+                e.position = plan.foliage.brushCenters[i]
                 e.components.set(DynamicLightShadowComponent(castsShadow: false))
+                brushLODs.append((near, far))
+                brushIsFar.append(false)
                 root.addChild(e)
                 brushEntities.append(e)
-                triangleCount += brush.mesh.triangleCount
+                triangleCount += brush.triangleCount
             }
             return true
         } catch { return false }
@@ -153,7 +164,7 @@ final class StageScene {
 
     /// Distance from camera to nearest brush edge, with hysteresis. Only swaps cached meshes.
     func updateBrushLOD(camera: SIMD3<Float>, dt: Float) {
-        guard !brushLODs.isEmpty else { return } // Authored Canyon grass uses its original low-poly mesh.
+        guard !brushLODs.isEmpty else { return }
         lodElapsed += dt
         guard lodElapsed >= 0.2 else { return }
         lodElapsed = 0

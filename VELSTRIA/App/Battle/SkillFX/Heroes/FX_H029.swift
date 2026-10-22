@@ -190,6 +190,12 @@ enum FX_H029: HeroFXSet {
             // MLBB: 1 回目（槌の打点の近く）は小さく、2・3 回目が大きな光の棘と S 字の地割れ
             let big: Float = k == 0 ? 0.65 : (k == 1 ? 1.0 : 1.12)
             let yaw = Float(k) * 41 - 20
+            // 焦げた暗いひび（1 回目の小さな爆ぜは省く: 岩板の模型 FXSkillMeshes の分の枠）
+            if k > 0 {
+                impact.append(.mesh(crack(.crackS, 2.55 * big, char, life: 0.7, yaw: yaw, alpha: 0.85)
+                    .dissolving(from: 0.55, tiling: 2.5, edge: ember, width: 0.06).with { $0.fadeIn = 0.18; $0.fadeOut = 0.95 },
+                      at: t + 0.1, offset: pos, quality: 1))
+            }
             impact += [
                 // 白金の芯から放射状に伸びる黄の光の棘（地面に寝かせたコマ送り）
                 .mesh(.groundFlipbook(.spikes, 4.4 * big, hot, life: 0.36, grow: 1.08).with { $0.yaw = yaw * 1.7 }, at: t,
@@ -201,9 +207,6 @@ enum FX_H029: HeroFXSet {
                     .flowing(.lava, scroll: [0.04, 0.1], tiling: 1.3, strength: 0.75, edge: hot)
                     .dissolving(from: 0.45, edge: hot, width: 0.08).with { $0.fadeIn = 0.22; $0.fadeOut = 0.9 },
                       at: t + 0.05, offset: pos),
-                .mesh(crack(.crackS, 2.55 * big, char, life: 0.7, yaw: yaw, alpha: 0.85)
-                    .dissolving(from: 0.55, tiling: 2.5, edge: ember, width: 0.06).with { $0.fadeIn = 0.18; $0.fadeOut = 0.95 },
-                      at: t + 0.1, offset: pos, quality: 1),
                 // 橙の爆炎（色付きのコマ送り。画像の白 → 黄 → 橙 → 暗い朱）
                 .mesh(.flipbook(.fireball, 2.8 * big, .white, life: 0.4, grow: 1.15), at: t + 0.04, offset: pos + [0, 0.85, 0]),
                 // 火花（上と外へ）・残り火・焦げた煙。2・3 回目は Effekseer の飛び散る光の筋と火花を重ねる（CI の撮影にも写る）

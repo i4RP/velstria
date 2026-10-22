@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "clips": [
+    {"name": "tripo_h027_idle", "source": {"file": "build/h027-motion/H027_idle_walk_run.glb", "clip_index": 0}, "start": 1, "end": 369, "loop": true, "inPlace": true, "rootXZ": 0},
+    {"name": "tripo_h027_run", "source": {"file": "build/h027-motion/H027_idle_walk_run.glb", "clip_index": 1}, "start": 1, "end": 30.6, "loop": true, "inPlace": true, "rootXZ": 0},
+    {"name": "tripo_h027_walk", "source": {"file": "build/h027-motion/H027_idle_walk_run.glb", "clip_index": 2}, "start": 1, "end": 57, "loop": true, "inPlace": true, "rootXZ": 0}
+  ]
+}

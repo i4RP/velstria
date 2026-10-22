@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "hero": "H029",
+  "note": "Meshy Text to Motion (prime, 10 credits each). One candidate per motion; a second only if the first fails review. Right hand = holy maul, left forearm = heater shield.",
+  "motions": {
+    "h029_idle_prime": {
+      "duration": 4,
+      "prompt": "Huge armored paladin idle guard, seamless loop. Wide stance, feet planted apart and slightly staggered, knees soft. Left forearm holds a big shield upright in front of the chest. Right hand grips a heavy war hammer low at the right hip. Slow deep breathing lifts chest and shoulders together. Small regrip of the right hand. Head slowly lifts to look ahead. No steps."
+    },
+    "h029_walk_prime": {
+      "duration": 3,
+      "prompt": "Huge armored paladin walking forward, steady loop of heavy strides. Torso upright and stable, little bounce. Left forearm keeps a big shield steady in front of the chest. Right hand grips a heavy war hammer low at the right side, clear of the legs. Long ground contact, heel strike, weight rolls slowly onto each leg, slight hip sway. Constant pace, straight line, no turning."
+    },
+    "h029_run_prime": {
+      "duration": 3,
+      "prompt": "Huge armored paladin running forward, steady loop. Torso leans forward behind a big shield held by the left forearm in front of the chest. Right hand grips a heavy war hammer at the right side, swinging only slightly, kept clear of the legs. Powerful heavy strides, wide feet, knees drive, firm foot plants absorb the weight. Constant speed, straight line."
+    },
+    "h029_attack_prime": {
+      "duration": 2.5,
+      "prompt": "Huge paladin basic attack with a heavy war hammer in the right hand; left forearm keeps a big shield in front of the chest throughout. From a wide guard, raise the hammer high over the right shoulder, brief pause to gather, then step in with the left foot and slam it down in front with full body weight, hips and chest driving. Absorb the recoil in shoulders and knees, return to the same guard."
+    },
+    "h029_slam_prime": {
+      "duration": 2.5,
+      "prompt": "Huge paladin ground slam: the right hand swings a heavy war hammer back low, up over the head and down in a big vertical arc, slamming it into the ground in front with a deep lunge of the left foot, a quarter second after starting. Left forearm holds a shield at the side. Stay low a moment as the shockwave travels forward, then rise quickly back to a wide guard."
+    },
+    "h029_charge_prime": {
+      "duration": 2,
+      "prompt": "Huge armored paladin shield charge: the left forearm thrusts a big shield forward at chest height, body leans hard forward behind it, right hand pulls a heavy war hammer back at the right hip. Burst into a fast heavy charge for two thirds of a second, then plant both feet and shove the shield forward to stop. Recover to a wide guard with the shield in front."
+    },
+    "h029_upswing_prime": {
+      "duration": 2,
+      "prompt": "Huge paladin rising hammer strike: from guard, drop a heavy war hammer low behind the right hip and bend the knees, step in with the left foot, then swing the hammer from low in front straight upward in a rising arc that launches an enemy, finishing with the hammer raised overhead. Left forearm keeps a shield at the chest. Lower the hammer back to the shoulder guard."
+    },
+    "h029_ult_prime": {
+      "duration": 3,
+      "prompt": "Huge paladin ultimate: plant a wide stance and raise a heavy war hammer high overhead with the right hand, left forearm lifting a shield, lean back and gather power as if pulling enemies in for over half a second. Then step in with the left foot and slam the hammer down into the ground in front with full body weight at one second, crouching low. Hold low briefly, then rise to guard."
+    }
+  }
+}
