@@ -251,6 +251,24 @@ enum HeroMotionSets {
         return s
     }()
 
+    /// H029 ボルグの専用の収録（H029MotionClips.json、docs/H029_MOTION.md）。待機・歩行・走行・通常攻撃・スキルの詠唱
+    /// （打撃は Motion_H029.clipStrike = KitTimes。S2 の再使用は段のクリップ、突進の間は脚もクリップ）。
+    /// 槌は手の区間に持たせ（fistGrip: 柄 = 親指の側、打撃面 = 前腕の向き）、盾は前腕に付けた向き
+    /// （盾の上 +Y → 親指の側 -Z、盾の面 -Z → 手の -X = 前腕を胸の前で横にした時の正面）。
+    static let borgShieldGrip = simd_quatf(simd_float3x3(columns: (SIMD3<Float>(0, -1, 0), SIMD3<Float>(0, 0, -1), SIMD3<Float>(1, 0, 0))))
+    private static let borg: HeroMotionSet = {
+        var s = make(["maul_smash_h029"], idle: "idle_h029", offhandGrip: borgShieldGrip)
+        s.dedicatedIdle = true
+        s.dedicatedAttack = true
+        s.stateBlend = 0.2
+        s.walk = "walk_h029"
+        s.run = "run_h029"
+        s.casts = ["maul_wave_h029", "shield_charge_h029", "maul_sanctuary_h029"]
+        s.stageCasts = [nil, "maul_upswing_h029", nil]
+        s.castLocksLegs = [false, true, false]
+        return s
+    }()
+
     /// H001〜H034: 通常攻撃（順に繰り返す）・待機・死亡・勝利。
     static let table: [String: HeroMotionSet] = [
         // 広刃剣 + 城門盾（Vanguard・近接）
@@ -317,9 +335,8 @@ enum HeroMotionSets {
         "H027": jarld,
         // 光刃の長剣（Assassin・近接の連斬り）
         "H028": zail,
-        // 聖槌 + 円盾（Support・近接の片手振り。盾は左手に構えたまま）。通常攻撃は全身のモーション（HeroSkillMotions の
-        // Motion_H029.attacks）が先なので、ここの攻撃のクリップは使わない（待機・死亡・勝利だけ使う）
-        "H029": make(["sword_combo_1", "axe_chop"], idle: "combat_idle"),
+        // 聖槌 + 大盾（Support・近接の片手振り）。専用の収録（borg）が Motion_H029 の全身の手続きの通常攻撃より優先する
+        "H029": borg,
         // 星砲（Ranger・遠隔の両手持ち）
         "H030": make(["gun_fire"], idle: "ready_idle", death: "death_forward", victory: "victory_cheer", weaponGrip: held),
         // 氷華の右手（Arcanist・遠隔: 杖は持たず手から放つ・指し示し）

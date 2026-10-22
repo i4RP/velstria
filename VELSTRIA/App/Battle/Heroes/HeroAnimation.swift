@@ -185,6 +185,8 @@ struct HeroMotionProfile {
     var attackMotions: [MotionClip] = []
     /// キットの強い通常攻撃（三連突き・円撃）の全身のモーション（HeroMotionScript.empoweredAttack）。nil = 普段の通常攻撃のまま。
     var empoweredAttack: MotionClip?
+    /// 詠唱のモーションクリップの打撃の時刻（発動からの秒 = KitTimes。HeroMotionScript.clipStrike）: clipStrikes[スロット][stage]。
+    var clipStrikes: [[Float?]] = [[], [], []]
     var twoHanded: Bool
     var bowHold: Bool
     /// 盾持ち（詠唱・勝利でも盾を胸の前に保つ）。
@@ -321,7 +323,14 @@ struct HeroMotionProfile {
             // 専用の収録の通常攻撃（HeroMotionSet.dedicatedAttack）があれば、そのクリップで振る
             attackMotions = HeroMotionSets.table[heroID]?.dedicatedAttack == true ? [] : script.attacks(builder)
             empoweredAttack = script.empoweredAttack(builder)
+            clipStrikes = slots.map { slot in (0...SkillFXCatalog.maxStage).map { script.clipStrike(slot, stage: $0) } }
         }
+    }
+
+    /// 詠唱のクリップの打撃の時刻（発動からの秒）。nil = 従来（castsFromStart / castLead）。
+    func clipStrike(_ slot: SkillSlot, stage: Int) -> Float? {
+        let k = HeroAnimator.castIndex(slot)
+        return stage >= 0 && stage < clipStrikes[k].count ? clipStrikes[k][stage] : nil
     }
 
     /// スロットの段の詠唱モーション（stage 0 と、モーションの無い段は casts）。
@@ -1044,7 +1053,7 @@ struct HeroAnimator {
         let post = uniformAfterImpact ? 1 : max(1, recovery / available)
         clips.start(c, role: .attack, from: impact - pre * w, preRate: pre, postRate: post,
                     fullBody: b.attackMask == .full, speedMask: true, hold: false,
-                    blendDuration: min(HeroClipLayer.fadeIn, w * 0.65))
+                    blendDuration: min(info.blend ?? HeroClipLayer.fadeIn, w * 0.65))
     }
 
     /// Authoritative simulation release. It only adjusts the displayed clip, never the attack.
@@ -1061,10 +1070,16 @@ struct HeroAnimator {
     /// 立ち止まっていれば全身、移動中は上半身（足の滑りを避ける。攻撃と同じ規則）。
     private mutating func startCastClip(_ slot: SkillSlot) {
         guard let b = clips.binding else { return }
-        guard let c = b.cast(HeroAnimator.castIndex(slot), stage: castStage) else { return clips.stop() }
+        let k = HeroAnimator.castIndex(slot)
+        guard let c = b.cast(k, stage: castStage) else { return clips.stop() }
         let info = b.library.clips[c]
-        clips.start(c, role: .cast, from: b.castsFromStart ? 0 : max(0, info.impactTime - HeroAnimator.castLead),
-                    fullBody: true, speedMask: !b.locksLegs(HeroAnimator.castIndex(slot)), hold: false)
+        // 打撃の時刻が決まっている（profile.clipStrike = KitTimes。H029）クリップは、発動から その秒 に打撃が来るよう始める
+        // （負の開始位置 = 先頭で待つ）。段のクリップ（stageCasts）を引いた時だけ段の時刻を使う
+        let stage = castStage >= 1 && c != b.cast(k) ? castStage : 0
+        let from = profile.clipStrike(slot, stage: stage).map { info.impactTime - $0 }
+            ?? (b.castsFromStart ? 0 : max(0, info.impactTime - HeroAnimator.castLead))
+        clips.start(c, role: .cast, from: from, fullBody: true, speedMask: !b.locksLegs(k), hold: false,
+                    blendDuration: info.blend ?? HeroClipLayer.fadeIn)
     }
 
     /// 非ループのクリップが終わった時。
