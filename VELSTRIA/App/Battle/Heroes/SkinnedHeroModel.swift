@@ -427,6 +427,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
     private var animator: HeroAnimator
     private var secondary = HeroSecondaryMotion()
     private let hasSecondary: Bool
+    private var footContacts: HeroFootContacts?
     /// 歩幅の基準にする腰から足首までの長さ（m）。テストで手続きモデルと skinned モデルの走りの位相を揃えるのに使う。
     var legLength: Float {
         get { animator.legLength }
@@ -446,6 +447,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
         self.skin = skin
         skinnedEntities = skinned
         poser = HeroSkeletonPoser(rig: rig)
+        footContacts = heroID == "H025" ? HeroFootContacts(rig: rig) : nil
         hasSecondary = heroID == "H025" && rig.secondaryIndex.contains(where: { $0 >= 0 })
         handR = rig.index[.handR]!
         handL = rig.index[.handL]!
@@ -566,8 +568,9 @@ final class SkinnedHeroModel: HeroDisplayModel {
             float.position = floatAnchor
             if case .halo = ms.floatMotion { float.scale = V3(repeating: haloScale) }
         }
-        effects = HeroEffects(body: body, glowParent: weapon, weaponTip: ms.weaponTip, palette: palette, team: team,
-                              options: options)
+        effects = HeroEffects(body: body, glowParent: heroID == "H025" ? offhand : weapon,
+                              weaponTip: heroID == "H025" ? ms.offhandTip ?? .zero : ms.weaponTip, palette: palette, team: team,
+                              options: options, shadowOpacity: heroID == "H025" ? 0.23 : 0.32)
 
         // クリップの割り当て（ライブラリに無い名前は落とし、何も残らなければ手続きのみ）。
         // ライブラリは戦闘ならロード中に読み込み済み（loadHeroTemplate が並行して HeroMotionClips.preloadAsync を待つ）、
@@ -746,6 +749,18 @@ final class SkinnedHeroModel: HeroDisplayModel {
         }
         poser.solve(q, hipsDrop: p.hipsDrop * hipsDropScale * k, hipsOffset: root * clipLegLength,
                     secondary: clips && hasSecondary ? secondary.pose : nil)
+        if clips, footContacts != nil {
+            let gait = animator.baseLocomotion
+            let ownsLegs = animator.clips.role != .state && animator.clips.lowerWeight > 0.1
+            let phase = gait.isLocomotion && gait.lowerWeight > 0.99 && !ownsLegs && gait.endTime > 0
+                ? gait.clipTime / gait.endTime : nil
+            if footContacts!.apply(&q, poser: poser, world: motion.transformMatrix(relativeTo: nil),
+                                   phase: phase, walking: gait.clipName == "h025_walk",
+                                   dt: min(0.1, max(0, t - lastApplyTime))) {
+                poser.solve(q, hipsDrop: p.hipsDrop * hipsDropScale * k, hipsOffset: root * clipLegLength,
+                            secondary: hasSecondary ? secondary.pose : nil)
+            }
+        }
         for e in skinnedEntities { e.jointTransforms = poser.local }
 
         // 武器は手首から握りの分だけ前腕の向きへずらし、向きは手続きモデルと同じ（胴基準の絶対角）。

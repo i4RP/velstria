@@ -859,6 +859,15 @@ final class BattleRenderer {
         case "s1": controller.send(.castSkill(slot: .skill1, target: .unit(foe.id)))
         case "s2": controller.send(.castSkill(slot: .skill2, target: .unit(foe.id)))
         case "ult": controller.send(.castSkill(slot: .ultimate, target: .unit(foe.id)))
+        case "quality":
+            // Reproducible H025 practice/perf sequence using real simulation inputs.
+            switch (autoStep / 4) % 5 {
+            case 1: controller.send(.castSkill(slot: .skill1, target: .unit(foe.id)))
+            case 2: controller.send(.castSkill(slot: .skill2, target: .unit(foe.id)))
+            case 3: controller.send(.castSkill(slot: .ultimate, target: .unit(foe.id)))
+            case 4: controller.send(.move(direction: Vec2(0.5, 0.5)))
+            default: controller.send(.attack(targetID: foe.id))
+            }
         default: controller.send(.attack(targetID: foe.id))
         }
     }

@@ -526,34 +526,49 @@ struct HeroGearBuilder {
         case .dreamNeedle:
             needle(&b)
         case .crescentBow:
-            // 三日月の長弓（H025 = MLBB の Miya）: 背丈ほどの銀の弓身（高さ 1.6R × offhandScale 1.12 ≒ 1.5 m）・
-            // 外側へ反る刃の棘・月光の内縁と弦・弓先の三日月の鉤と光玉・握りの前の月光の三日月。YZ 平面・握りが原点・弦は +Z
+            // Tapered elliptical limbs give a narrow, lit 3D silhouette at battle distance.
+            // One merged mesh; the two reusable runtime strings share these exact tips.
             var bw = HeroMeshBuilder()
-            let R: Float = 0.82, span: Float = 2.0
-            let c = V3(0, 0, R - 0.02)
-            bw.blade(crescentPolygon(radius: R, thickness: 0.075, span: span, offset: 0, n: 16), depth: 0.06, c, .metal)
-            bw.blade(crescentPolygon(radius: R - 0.05, thickness: 0.02, span: span * 0.9, offset: 0, n: 16), depth: 0.07, c, .glow)
-            for a: Float in [-0.78, -0.5, -0.22, 0.22, 0.5, 0.78] {
-                let dir = V2(cos(a), sin(a))
-                let tangent = V2(-dir.y, dir.x)
-                let base = dir * R
-                let k: Float = abs(a) > 0.6 ? 1.3 : 1
-                let lean: Float = a > 0 ? 0.035 : -0.035
-                let spike: V2 = base + dir * (0.1 * k) - tangent * lean
-                let tri: [V2] = [base - tangent * 0.04, base + tangent * 0.04, spike]
-                bw.blade(tri, depth: 0.035, c, .metal)
+            var limb = MeshTemplate()
+            let rings = 40, sides = 8
+            for i in 0...rings {
+                let a = -Self.crescentHalfSpan + 2 * Self.crescentHalfSpan * Float(i) / Float(rings)
+                let centre = Self.crescentPoint(a)
+                let normal = V3(0, sin(a), -cos(a))
+                let taper = 1 - 0.62 * pow(abs(a) / Self.crescentHalfSpan, 1.4)
+                for j in 0..<sides {
+                    let t = Float(j) * 2 * .pi / Float(sides)
+                    let n = simd_normalize(V3(cos(t), 0, 0) + normal * sin(t))
+                    limb.positions.append(centre + V3(cos(t) * 0.017 * taper, 0, 0) + normal * (sin(t) * 0.030 * taper))
+                    limb.normals.append(n)
+                    if i < rings {
+                        let x = UInt32(i * sides + j), y = UInt32(i * sides + (j + 1) % sides)
+                        limb.indices.append(contentsOf: [x, y, y + UInt32(sides), x, y + UInt32(sides), x + UInt32(sides)])
+                    }
+                }
             }
-            let tipY = sin(span / 2 * 0.99) * R
-            let tipZ = R - 0.02 - cos(span / 2 * 0.99) * R
-            for s: Float in [-1, 1] {
-                bw.blade(crescentPolygon(radius: 0.07, thickness: 0.025, span: 3.2, offset: 0.02, n: 8), depth: 0.04,
-                         V3(0, s * tipY, tipZ - 0.03), .metal, extra: s > 0 ? qIdentity : rx(.pi))
-                bw.sphere(V3(0, s * tipY, tipZ), 0.035, .glow, .low)
+            limb.orientToNormals()
+            bw.add(limb, trs(.zero), .metal)
+            // A blue enamel spine and a very thin moonlit seam; no broad emissive plate.
+            for i in 0..<28 {
+                let a = -Self.crescentHalfSpan + 2 * Self.crescentHalfSpan * Float(i) / 28
+                let next = -Self.crescentHalfSpan + 2 * Self.crescentHalfSpan * Float(i + 1) / 28
+                let p = Self.crescentPoint(a) + V3(0, -sin(a), cos(a)) * 0.021
+                let q = Self.crescentPoint(next) + V3(0, -sin(next), cos(next)) * 0.021
+                bw.rod(p, q, 0.008, .accent, segments: 5)
             }
-            bw.rbox(V3(0, 0, 0.01), V3(0.06, 0.17, 0.07), 0.02, .dark)
-            bw.blade(crescentPolygon(radius: 0.085, thickness: 0.03, span: 4.0, offset: 0.03, n: 10), depth: 0.03,
-                     V3(0, 0, -0.07), .glow, extra: rx(.pi / 2))
-            if includeBowString { bw.rod(V3(0, tipY, tipZ), V3(0, -tipY, tipZ), 0.007, .glow, segments: 5) }
+            for sign: Float in [-1, 1] {
+                let tip = Self.crescentPoint(sign * Self.crescentHalfSpan)
+                bw.sphere(tip, 0.018, .glow, .low)
+                let leaf = [V2(0, 0), V2(0.028, sign * 0.055), V2(-0.012, sign * 0.095), V2(-0.016, sign * 0.018)]
+                bw.blade(leaf, depth: 0.018, tip, .metal)
+                bw.rbox(V3(0, sign * 0.13, -0.006), V3(0.038, 0.035, 0.045), 0.008, .metal)
+            }
+            bw.rbox(V3(0, 0, 0.004), V3(0.038, 0.17, 0.046), 0.012, .dark)
+            bw.ellipsoid(V3(0, 0, -0.045), V3(0.023, 0.052, 0.02), .accent, detail: .low)
+            if includeBowString {
+                bw.rod(Self.crescentPoint(Self.crescentHalfSpan), Self.crescentPoint(-Self.crescentHalfSpan), 0.003, .glow, segments: 5)
+            }
             b.merge(bw, trs(.zero, ry(0.6)))
         case .heaterShield:
             // 聖槌の大盾（H029 ボルグ）: 縦長の凧形（盾面 幅 0.54 × 高さ 0.84、縁取り込みで 0.62 × 0.96）。金の盾面・青い縁取り・青い十字と聖印の光。
@@ -720,8 +735,12 @@ struct HeroGearBuilder {
     }
 
     /// Same endpoints as the crescent bow's baked yaw. Used by the two reusable string segments.
-    static let crescentStringTop = ry(0.6).act(V3(0, sin(0.99) * 0.82, 0.80 - cos(0.99) * 0.82))
-    static let crescentStringBottom = ry(0.6).act(V3(0, -sin(0.99) * 0.82, 0.80 - cos(0.99) * 0.82))
+    static let crescentHalfSpan: Float = 1.06
+    static func crescentPoint(_ a: Float) -> V3 {
+        V3(0, sin(a) * 0.72, 0.70 - cos(a) * 0.72)
+    }
+    static let crescentStringTop = ry(0.6).act(crescentPoint(crescentHalfSpan))
+    static let crescentStringBottom = ry(0.6).act(crescentPoint(-crescentHalfSpan))
 
     // MARK: 旗
 

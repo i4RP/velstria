@@ -1,0 +1,40 @@
+{
+  "h025_idle": {
+    "minMeshY": -0.0049,
+    "maxMinimumMeshY": 0.003673
+  },
+  "h025_walk": {
+    "minMeshY": -0.00155,
+    "maxMinimumMeshY": 0.004509,
+    "maxSupportDriftMeters": 2e-06
+  },
+  "h025_run": {
+    "minMeshY": -0.006448,
+    "maxMinimumMeshY": 0.023651,
+    "maxSupportDriftMeters": 2e-06
+  },
+  "h025_bow_attack": {
+    "minMeshY": -0.003644,
+    "maxMinimumMeshY": 0.002998
+  },
+  "h025_skill1": {
+    "minMeshY": -0.002833,
+    "maxMinimumMeshY": 0.002998
+  },
+  "h025_skill2": {
+    "minMeshY": -0.002435,
+    "maxMinimumMeshY": 0.001215
+  },
+  "h025_ultimate": {
+    "minMeshY": -0.006074,
+    "maxMinimumMeshY": 0.17765
+  },
+  "h025_hit": {
+    "minMeshY": 0.002998,
+    "maxMinimumMeshY": 0.002998
+  },
+  "h025_death": {
+    "minMeshY": 0.003999,
+    "maxMinimumMeshY": 0.004001
+  }
+}

@@ -158,7 +158,7 @@ struct HeroAssembler {
             AssetLedger.record(.mesh, "\(name).unstrung")
             unstrung = gear.offhand(includeBowString: false).makeAtlasMesh(name: "\(name).unstrung", glowingEyes: bp.glowingEyes)
             var string = HeroMeshBuilder()
-            string.rod(V3(0, -0.5, 0), V3(0, 0.5, 0), 0.005, .glow, segments: 5)
+            string.rod(V3(0, -0.5, 0), V3(0, 0.5, 0), 0.003, .glow, segments: 5)
             AssetLedger.record(.mesh, "\(name).bowstring")
             stringSegment = string.makeAtlasMesh(name: "\(name).bowstring", glowingEyes: bp.glowingEyes)
         }

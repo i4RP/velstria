@@ -493,7 +493,8 @@ struct HeroEffects {
     private var auraVisible = true
 
     /// castGlow は glowParent（武器）の weaponTip に、輪・チームリング・オーラは body の下に置く。
-    init(body: Entity, glowParent: Entity, weaponTip: V3, palette: HeroPalette, team: Team, options: HeroModelOptions) {
+    init(body: Entity, glowParent: Entity, weaponTip: V3, palette: HeroPalette, team: Team, options: HeroModelOptions,
+         shadowOpacity: Float = 0.32) {
         // 詠唱の光（武器の先端）
         // 粒子は常にカメラを向くので、柔らかな光の玉として使う
         castGlow = Entity()
@@ -522,7 +523,7 @@ struct HeroEffects {
             ring.components.set(ModelComponent(
                 mesh: team == .red ? HeroEffectMeshes.teamRingDashed : HeroEffectMeshes.teamRingSolid,
                 materials: [HeroMaterialLibrary.unlit(color, opacity: 0.82),
-                            HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: 0.32)]))
+                            HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: shadowOpacity)]))
             OverlayOrder.apply(ring, OverlayOrder.unitMarker)
             body.addChild(ring)
             teamRing = ring
@@ -530,8 +531,8 @@ struct HeroEffects {
             let shadow = ModelEntity()
             shadow.name = "shadow"
             shadow.components.set(ModelComponent(mesh: HeroEffectMeshes.shadowOnly, materials: [
-                HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: 0.32),
-                HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: 0.32)]))
+                HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: shadowOpacity),
+                HeroMaterialLibrary.unlit(HSB(0, 0, 0), opacity: shadowOpacity)]))
             OverlayOrder.apply(shadow, OverlayOrder.unitMarker)
             body.addChild(shadow)
             teamRing = shadow

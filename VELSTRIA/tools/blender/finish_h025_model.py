@@ -108,8 +108,10 @@ def main():
             p[1]+=.035*cape*smooth((.87-y)/.25)*(1+math.cos(x*math.pi/.12))*.5
             p[2]+=.035*cape
             hair=votes['hair'][v]*smooth((z-.08)/.22)
-            p[2]+=.045*hair
-            p[0]*=1-.06*hair
+            # Longer tapered ponytail reads behind the head at the battle lens.
+            p[2]+=.17*hair
+            p[1]-=.10*hair*smooth((1.55-y)/.28)
+            p[0]*=1-.12*hair
         mesh.GetPointsAttr().Set(Vt.Vec3fArray([Gf.Vec3f(*p) for p in points]))
         # Recompute normals only where the authored shape moved, respecting UV
         # seams by retaining the original authored vertex/face-varying normals.
@@ -138,7 +140,7 @@ def main():
                 name=f'Cape{side}{k+1}'; chain.append(bone(name,parent,(sign*.12,y,z))); parent=name
             chains['cape'+side]=chain
         parent='Head'; chain=[]
-        for k,pos in enumerate([(0,1.64,.085),(0,1.53,.22),(0,1.36,.32)]):
+        for k,pos in enumerate([(0,1.64,.085),(0,1.53,.25),(0,1.31,.43)]):
             name=f'Hair{k+1}'; chain.append(bone(name,parent,pos)); parent=name
         chains['hair']=chain
         for side,sign in [('L',-1),('R',1)]:

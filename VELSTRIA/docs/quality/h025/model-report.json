@@ -1,0 +1,27 @@
+{
+  "sourceSHA256": "76260a54ab82cc88267381e11445c2f5d42e02dc129be9addde0c08507df5606",
+  "outputSHA256": "da6f884b890b16d2607797708be6c93fcc55a59e001e1a14b4e01471bd458ea6",
+  "triangles": 9353,
+  "vertices": 5226,
+  "bonesBefore": 65,
+  "bonesAfter": 76,
+  "surfaceTriangles": {
+    "cloth": 776,
+    "skin": 560,
+    "hair": 1745,
+    "metal": 2915,
+    "leather": 3357
+  },
+  "secondaryWeightedVertices": {
+    "cape": 284,
+    "hair": 343,
+    "skirt": 129
+  },
+  "weightSumError": 2.220446049250313e-16,
+  "textures": {
+    "NormalGL_6d8abff3-469b-44ca-987a-17a2f5db08e4.jpg": "835fbf4b6fd0354a041690c3b524c0d8d5dd877faa775679eee937b320ee760b",
+    "ORM_6d8abff3-469b-44ca-987a-17a2f5db08e4.jpg": "ade8d25877372f06d270975208089b0ed0e071813cf15b386ee6eef83b72782b",
+    "Color_6d8abff3-469b-44ca-987a-17a2f5db08e4.jpg": "eadacc37ff6dee53e3bb6789d3e17979bc18212ac5a15e455a595ff404ff08cd"
+  },
+  "note": "No new raster assets; UVs and original texture bytes retained. Surface tint is a material parameter."
+}

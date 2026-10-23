@@ -675,6 +675,44 @@ final class HeroMotionClipTests: XCTestCase {
         XCTAssertFalse(a.baseLocomotion.isActive)
     }
 
+    func testLuminaSupportAnchorsFollowCurvedTravelWithoutSliding() throws {
+        let lib = HeroMotionClips.library(heroID: "H025")
+        let clip = try XCTUnwrap(lib.index(of: "h025_run"))
+        let rig = try XCTUnwrap(HeroAssetLibrary.heroTemplate(XCTUnwrap(HeroAssetLibrary.bundledURL("Hero_H025")))?.rig)
+        var poser = HeroSkeletonPoser(rig: rig)
+        var contacts = try XCTUnwrap(HeroFootContacts(rig: rig))
+        let ankle = try XCTUnwrap(rig.index[.footR])
+        let hips = try XCTUnwrap(rig.index[.hips])
+        let leg = rig.restPosition[hips].y - (rig.restPosition[ankle].y + rig.restPosition[rig.index[.footL]!].y) / 2
+        var position = SIMD3<Float>.zero
+        var previous: SIMD3<Float>?
+        var previousKind = -1, age = 0
+        var maxDrift: Float = 0
+        for frame in 0..<180 {
+            let phase = (Float(frame) / 36).truncatingRemainder(dividingBy: 1)
+            let facing = ry(Float(frame) * 0.018)
+            position += facing.act(SIMD3<Float>(0, 0, -3.375 / 60))
+            let world = trs(position, facing)
+            var (q, root) = lib.sample(clip, time: Float(frame) / 60)
+            poser.solve(q, hipsDrop: 0, hipsOffset: root * leg)
+            _ = contacts.apply(&q, poser: poser, world: world, phase: phase, walking: false, dt: 1.0 / 60)
+            poser.solve(q, hipsDrop: 0, hipsOffset: root * leg)
+            let kind = phase < 0.38 ? (phase / 0.38 < 0.5 ? 0 : 1) : -1
+            if kind >= 0 {
+                let pivot = SIMD3<Float>(0, -rig.restPosition[ankle].y, kind == 0 ? 0.045 : -0.105)
+                let contact = poser.position[ankle] + (q.footR * rig.correction[ankle]).act(pivot)
+                let w = world * SIMD4(contact, 1)
+                let current = SIMD3<Float>(w.x, w.y, w.z)
+                age = kind == previousKind ? age + 1 : 0
+                if age >= 3, let previous { maxDrift = max(maxDrift, simd_distance(current, previous)) }
+                previous = current
+                XCTAssertGreaterThan(current.y, -0.01)
+            } else { previous = nil; age = 0 }
+            previousKind = kind
+        }
+        XCTAssertLessThan(maxDrift, 0.03, "Support contact should stay fixed through curved travel")
+    }
+
     /// H034 ゴルム: 専用の収録の待機・移動・叩きつけが Motion_H034 の全身の通常攻撃に上書きされず、打撃が sim の windup に来る。
     func testBundledGormClipsOwnIdleGaitAndAttack() throws {
         HeroMotionClips.setResolverForTesting(nil)
