@@ -115,9 +115,12 @@ def ready_pose(rig, t, breath_amp=1.):
     right = V((hip_r.x+.235, .80+.012*b, -.20))
     left = V((-.07, .93+.016*b, -.36))
     qs[SEG['handR']] = yaw(-.25) @ ax((1, 0, 0), -.75)
-    qs[SEG['handL']] = yaw(.9) @ ax((0, 0, 1), -1.15) @ ax((1, 0, 0), .35)
     errors.append(arm_ik(rig, qs, offset, details, 'right', right, V((1, .2, .7))))
     errors.append(arm_ik(rig, qs, offset, details, 'left', left, V((-1, -.3, .6))))
+    # Keep the wrist neutral in the solved forearm's frame, including the rig's
+    # distinct hand/forearm rest axes. A fixed world hand rotation kinks the wrist.
+    qs[SEG['handL']] = (qs[SEG['foreArmL']] @ rig.seg_C('foreArmL')
+                        @ rig.seg_C('handL').inverted()).normalized()
     return qs, offset, details, max(errors)
 
 
