@@ -96,10 +96,26 @@ def convert(asset):
     # 滑らかな陰影と UV
     for p in me.polygons:
         p.use_smooth = True
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.02)
-    bpy.ops.object.mode_set(mode="OBJECT")
+    # UV: 連続した投影（スマート投影は島が細かく、流れる模様が三角形ごとに途切れて破片に見えた）。
+    # 地面に寝かせる形（ground・forward）は真上から（u = 右、v = 前）、他は縦軸まわりの円筒（u = 角度、v = 高さ）
+    uvl = me.uv_layers[0] if me.uv_layers else me.uv_layers.new(name="UVMap")
+    flat = mode in ("ground", "forward")
+    for poly in me.polygons:
+        us = []
+        for li in poly.loop_indices:
+            co = me.vertices[me.loops[li].vertex_index].co
+            if flat:
+                us.append([co.x * 0.5 + 0.5, co.y * 0.5 + 0.5])
+            else:
+                us.append([math.atan2(co.x, -co.y) / (2 * math.pi) + 0.5, co.z])
+        if not flat:
+            # 継ぎ目（角度が 1 → 0 へ跨ぐ面）は同じ側へ寄せる
+            if max(u[0] for u in us) - min(u[0] for u in us) > 0.5:
+                for u in us:
+                    if u[0] < 0.5:
+                        u[0] += 1.0
+        for li, u in zip(poly.loop_indices, us):
+            uvl.data[li].uv = u
     pos, nor, uv, idx = fc.mesh_arrays(obj)
     info = fc.write_fxm(os.path.join(OUT, "fxm_%s.bin" % shape_name(asset["id"])), pos, nor, uv, idx)
     info["id"] = asset["id"]

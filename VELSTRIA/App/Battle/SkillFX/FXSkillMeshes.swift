@@ -32,11 +32,21 @@ enum FXSkillMeshes {
     /// 模型の層を足す（名簿の 10 体のスキル 1・2・アルティメットだけ）。
     static func apply(heroID: String, slot: SkillSlot, info s: FXSkillInfo, to r: inout SkillFXRecipe) {
         let limit = slot == .ultimate ? 28 : 20
-        if let x = spec(heroID: heroID, slot: slot, s), meshCues(r) < limit || freeSlot(x.stage, in: &r) { add(x, to: &r) }
+        if let x = spec(heroID: heroID, slot: slot, s), meshCues(r) < limit || freeSlot(x.stage, in: &r) { add(x, heroID: heroID, to: &r) }
         // 2 枚目は空のまま残す段（fillsEmptyPhases = false のレシピ）には足さない
         if let x = second(heroID: heroID, slot: slot, s), r.fillsEmptyPhases || !phase(x.stage, of: r).isEmpty,
            meshCues(r) < limit || freeSlot(x.stage, in: &r) {
-            add(x, to: &r)
+            add(x, heroID: heroID, to: &r)
+        }
+    }
+
+    /// ヒーローの主題の模様（月光・水・闇 = 揺らぐ雲、雷・鉄 = 網目、炎・聖火 = 炎の筋、剣 = 筋）。
+    private static func flowPattern(_ heroID: String) -> FXFlowTex {
+        switch heroID {
+        case "H026", "H031", "H034": return .cells
+        case "H029", "H032": return .flame
+        case "H028": return .streaks
+        default: return .noise
         }
     }
 
@@ -75,20 +85,28 @@ enum FXSkillMeshes {
         }
     }
 
-    private static func add(_ x: Spec, to r: inout SkillFXRecipe) {
+    private static func add(_ x: Spec, heroID: String, to r: inout SkillFXRecipe) {
         var m = FXMesh.model(x.shape, nil, x.tint, size: x.size, sizeEnd: x.size * x.grow, life: x.life, alpha: x.alpha)
         m.spin = x.spin
         m.rise = x.rise
         m.advance = x.advance
         m.fadeIn = 0.06
         m.fadeOut = 0.55
+        // 単色のままだと平たい切り絵に見える → 主題の模様を流し（暗い所 = 主の色、明るい所 = 芯の色）、薄い縁から欠けさせ、
+        // 後半は模様の暗い所から溶けて光る縁を残して消える
+        // H031 は別の作業の対象なので従来の単色のまま（模型の .fxm も旧い UV のまま）
         if x.glow { m = m.glowing() }
-        let cue = FXCue.mesh(m, at: x.at, offset: x.offset)
-        switch x.stage {
-        case .cast: r.cast.append(cue)
-        case .impact: r.impact.append(cue)
-        case .hit: r.hit.append(cue)
+        if heroID == "H031" {
+            r.append(x, m)
+            return
         }
+        let pattern = flowPattern(heroID)
+        // 模型の UV はスマート投影（島が細かい）なので、模様は大きく（tiling 小）・欠けは弱く（強いと島ごとに散って破片に見える）
+        m = m.flowing(pattern, scroll: pattern == .streaks || pattern == .flame ? [0.1, -1.2] : [0.25, -0.6], tiling: 0.9,
+                      strength: 0.8, erosion: x.glow ? 0.12 : 0.05, edge: x.tint == .core ? .secondary : .core)
+            .dissolving(from: 0.5, edge: .core, width: 0.1)
+        m.alpha = min(m.alpha, x.glow ? 0.8 : 0.95)
+        r.append(x, m)
     }
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length
@@ -211,8 +229,8 @@ enum FXSkillMeshes {
                                             tint: .core, rise: -6)
         case ("H033", .skill2): return Spec(shape: .sk033s2b, stage: .hit, offset: [0, 1.0, 0], size: [0.8, 0.8, 0.8], grow: 1.5, life: 0.35,
                                             tint: .secondary)
-        case ("H033", .ultimate): return Spec(shape: .sk033ultb, stage: .cast, offset: [0, 2.2, 0.4], size: [1.8, 1.8, 1.8], grow: 1.2,
-                                              life: 0.8, tint: .secondary, alpha: 0.8)
+        case ("H033", .ultimate): return Spec(shape: .sk033ultb, stage: .cast, offset: [0, 2.2, 0.4], size: [1.6, 1.6, 1.6], grow: 1.25,
+                                              life: 0.8, tint: .primary, alpha: 0.7)
         // H034: 伸びる鎖 / 回る鉄球 / 命中の枷
         case ("H034", .skill1): return Spec(shape: .sk034s1b, stage: .cast, offset: [0, 1.0, -L * 0.5], size: [0.3, 0.3, L * 0.5], life: 0.35,
                                             tint: .secondary, glow: false)
@@ -220,6 +238,17 @@ enum FXSkillMeshes {
         case ("H034", .ultimate): return Spec(shape: .sk034ultb, stage: .hit, offset: [0, 0.6, 0], size: [0.8, 0.8, 0.8], life: 1.0,
                                               tint: .secondary, glow: false)
         default: return nil
+        }
+    }
+}
+
+private extension SkillFXRecipe {
+    mutating func append(_ x: FXSkillMeshes.Spec, _ m: FXMesh) {
+        let cue = FXCue.mesh(m, at: x.at, offset: x.offset)
+        switch x.stage {
+        case .cast: cast.append(cue)
+        case .impact: impact.append(cue)
+        case .hit: hit.append(cue)
         }
     }
 }
