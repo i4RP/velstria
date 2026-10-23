@@ -94,6 +94,33 @@ final class RenderWarmupTests: XCTestCase {
 
     // MARK: 試合を通して 0 件
 
+    func testH025ScatterProjectilesCreateNothingWhileLive() throws {
+        var config = MatchFactory.practiceMatch(humanHeroID: "H025", humanName: "Miya",
+            options: PracticeOptions(noCooldowns: true, spawnMinions: false, startLevel: 4), seed: 20261001)
+        config.players[0].autoLevelSkills = true
+        var h = makeHarness(config, quality: .preset(.medium))
+        // Match-start skill allocation happens on the first simulation ticks.
+        play(&h, until: 0.25, frameDt: 1.0 / 60, speed: 1)
+        var state = h.controller.state
+        let me = try XCTUnwrap(h.controller.humanIndex)
+        let foe = try XCTUnwrap(state.units.first(where: { $0.kind == .dummy && $0.team != state.units[me].team }))
+        let p = foe.pos + Vec2(0, -400)
+        state.units[me].pos = p
+        state.units[me].prevPos = p
+        h.controller.restore(state)
+        h.controller.send(.castSkill(slot: .skill2, target: .unit(foe.id)))
+        let visual = try XCTUnwrap(MasterData.shared.skill(hero: "H025", slot: .skill2)).effectID
+        var peakScatter = 0
+        play(&h, until: 2, frameDt: 1.0 / 60, speed: 1) { h in
+            peakScatter = max(peakScatter, h.controller.state.projectiles.filter { $0.visual == visual }.count)
+        }
+        XCTAssertEqual(peakScatter, 6, "実際の S2 判定が発生させる分裂矢を検査する")
+        let style = ProjectileLayer.Style.skill(hue: Int(Theme.heroHue("H025") * 1000), streak: false)
+        XCTAssertEqual(h.world.projectiles.pooledCount(style), peakScatter,
+                       "分裂矢の実数が既に準備され、飛行終了後も再利用できる")
+        assertNothingCreatedWhileLive()
+    }
+
     /// perf_run.sh と同じ観戦試合（seed 20261001）を高画質で 9 分（ジャングル 0:30・ワーム 2:00・巨像 8:00 を含む）。
     func testSpectateMatchCreatesNothingWhileLiveHigh() {
         var h = makeHarness(MatchFactory.botMatch(seed: 20261001), quality: .preset(.high))

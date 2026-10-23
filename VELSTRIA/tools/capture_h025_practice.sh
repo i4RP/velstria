@@ -35,7 +35,7 @@ dimensions=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,hei
 width=${dimensions%x*}
 height=${dimensions#*x}
 filter='scale=1600:-2'
-if (( width < height )); then filter='transpose=2,scale=1600:-2'; fi
+if (( width < height )); then filter="transpose=${H025_CAPTURE_TRANSPOSE:-2},scale=1600:-2"; fi
 ffmpeg -y -hide_banner -loglevel error -i "$out/raw.mp4" -vf "$filter" \
     -c:v libx264 -preset fast -crf 20 -pix_fmt yuv420p -an "$out/review.mp4"
 echo "$out/review.mp4"

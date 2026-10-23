@@ -1,0 +1,1117 @@
+{
+  "build" : "Release",
+  "device" : "Simulator iPhone18,3",
+  "frame" : {
+    "frames" : 2343,
+    "hitchMs" : 24585.572764153338,
+    "hitchRatio" : 378.142631673105,
+    "hitches" : 962,
+    "maxMs" : 768.1820392608643,
+    "overlayAvgMs" : 0.037037309746003964,
+    "p50Ms" : 21.25,
+    "p95Ms" : 54.75,
+    "p99Ms" : 74.25,
+    "seconds" : 65.01666489010677,
+    "simAvgMs" : 0.29579876184525505,
+    "syncAvgMs" : 0.7173398420210877,
+    "targetMs" : 16.666666666666668,
+    "workMaxMs" : 30.625083338236436,
+    "workP50Ms" : 1,
+    "workP95Ms" : 2.25,
+    "workP99Ms" : 3.5
+  },
+  "frameRate" : 60,
+  "ledger" : {
+    "live" : {
+      "entity" : 6,
+      "material" : 2
+    },
+    "liveSamples" : [
+      "entity: projectile skill(hue: 660, streak: false) @ 26.5s",
+      "material: unlit 8589338280 @ 26.5s",
+      "material: unlit 5803591485 @ 26.5s",
+      "entity: projectile skill(hue: 660, streak: false) @ 26.5s",
+      "entity: projectile skill(hue: 660, streak: false) @ 26.5s",
+      "entity: projectile skill(hue: 660, streak: false) @ 26.5s",
+      "entity: projectile skill(hue: 660, streak: false) @ 26.5s",
+      "entity: projectile skill(hue: 660, streak: false) @ 26.5s"
+    ],
+    "loading" : {
+      "emitter" : 91,
+      "entity" : 2212,
+      "material" : 186,
+      "mesh" : 476,
+      "textMesh" : 16,
+      "texture" : 142
+    },
+    "phase" : "live"
+  },
+  "loadMs" : 8636.255041667027,
+  "notes" : [
+    "structure models 7, waited 3645 ms",
+    "ground stage (1024²), waited 3809 ms",
+    "effekseer load 15 effects, 40 ms",
+    "core finale prep 337 ms",
+    "world build 759 ms",
+    "first warm-up frame: initial sync 138 ms (+981 ms after world build start)",
+    "warm-up scheduler starts +1106 ms after world build start",
+    "warm-up frame 2 start +1106 ms (dt 290.1 ms)",
+    "warm-up frame 3 start +1186 ms (dt 100.0 ms)",
+    "warm-up frame 4 start +1269 ms (dt 83.3 ms)",
+    "warm-up frame 5 start +1395 ms (dt 116.7 ms)",
+    "warm-up frame 6 start +1471 ms (dt 83.3 ms)",
+    "warm-up frame 7 start +2059 ms (dt 533.4 ms)",
+    "warm-up frame 8 start +2134 ms (dt 133.3 ms)",
+    "warm-up frame 9 start +2217 ms (dt 83.3 ms)",
+    "warm-up frame 10 start +2317 ms (dt 100.0 ms)",
+    "warm-up frame 11 start +2467 ms (dt 150.0 ms)",
+    "warm-up frame 12 start +2517 ms (dt 50.0 ms)",
+    "warm-up frame 13 start +2734 ms (dt 216.7 ms)",
+    "warm-up frame 14 start +2885 ms (dt 150.9 ms)",
+    "warm-up frame 15 start +3250 ms (dt 365.8 ms)",
+    "warm-up frame 16 start +3734 ms (dt 483.4 ms)",
+    "warm-up frame 17 start +4035 ms (dt 301.8 ms)",
+    "warm-up frame 18 start +4367 ms (dt 331.5 ms)",
+    "warmup step units [heavy] 0.2 ms (frame 1)",
+    "warmup step meshes.common 3.0 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.melee, VelstriaCore.Team.blue) 12\/14 [heavy] 7.3 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.melee, VelstriaCore.Team.blue) 14\/14 [heavy] 0.8 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.ranged, VelstriaCore.Team.blue) 12\/20 [heavy] 5.1 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.ranged, VelstriaCore.Team.blue) 20\/20 [heavy] 3.3 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.siege, VelstriaCore.Team.blue) 12\/18 [heavy] 5.1 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.siege, VelstriaCore.Team.blue) 18\/18 [heavy] 1.9 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.melee, VelstriaCore.Team.red) 12\/14 [heavy] 5.8 ms (frame 1)",
+    "warmup step creatures minion(VelstriaCore.MinionType.melee, VelstriaCore.Team.red) 14\/14 [heavy] 0.8 ms (frame 2)",
+    "warmup step creatures minion(VelstriaCore.MinionType.ranged, VelstriaCore.Team.red) 12\/20 [heavy] 3.5 ms (frame 2)",
+    "warmup step creatures minion(VelstriaCore.MinionType.ranged, VelstriaCore.Team.red) 20\/20 [heavy] 2.4 ms (frame 2)",
+    "warmup step creatures minion(VelstriaCore.MinionType.siege, VelstriaCore.Team.red) 12\/18 [heavy] 3.6 ms (frame 2)",
+    "warmup step creatures minion(VelstriaCore.MinionType.siege, VelstriaCore.Team.red) 18\/18 [heavy] 1.7 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.blueSentinel) 2\/2 [heavy] 3.3 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.redSentinel) 2\/2 [heavy] 1.1 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.astralWyrm) 1\/1 [heavy] 0.6 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.ancientColossus) 1\/1 [heavy] 0.4 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.azureWhelp) 2\/2 [heavy] 1.3 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.hornLizard) 2\/2 [heavy] 1.0 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.emberBeetle) 2\/2 [heavy] 0.7 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.emberGrub) 2\/2 [heavy] 1.5 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.magmaGolem) 2\/2 [heavy] 0.8 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.treasureCrab) 2\/2 [heavy] 1.3 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.crablet) 2\/2 [heavy] 1.1 ms (frame 2)",
+    "warmup step creatures monster(VelstriaCore.MonsterKind.mossWanderer) 1\/1 [heavy] 0.8 ms (frame 3)",
+    "warmup step creatures dummy 4\/4 [heavy] 2.2 ms (frame 3)",
+    "warmup step projectiles [heavy] 28.4 ms (frame 3)",
+    "warmup step zones+aim 55.9 ms (frame 3)",
+    "warmup step text [heavy] 35.5 ms (frame 4)",
+    "warmup step materials 24.5 ms (frame 4)",
+    "warmup step vfx.emitters [heavy] 6.5 ms (frame 5)",
+    "warmup step vfx.meshFX 2.7 ms (frame 5)",
+    "warmup step skillfx [heavy] 453.6 ms (frame 5)",
+    "warmup step gallery.shelf [heavy] 35.1 ms (frame 6)",
+    "warmup step gallery.units [heavy] 36.8 ms (frame 7)",
+    "warmup step gallery.heroes blue [heavy] 2.4 ms (frame 8)",
+    "warmup step gallery.heroes red [heavy] 0.0 ms (frame 8)",
+    "warmup step gallery.effects [heavy] 56.1 ms (frame 8)",
+    "warmup steps: 39 in 8 frames, 1169 ms",
+    "warmup done: hard cap (stable 0\/8) after 17 frames, 3261 ms (settle 9 frames; materialPrograms 1212 ms; shadow variants not needed)",
+    "fx shaded materials not ready at curtain: legacy materials",
+    "quality at live: full (thermal nominal, low power false)",
+    "quality 3.0s full -> fewerParticles (over budget (frame p95 50.0 ms, work p95 1.4 ms))",
+    "quality 7.1s fewerParticles -> noTrails (over budget (frame p95 50.0 ms, work p95 0.7 ms))",
+    "quality 11.1s noTrails -> reducedPost (over budget (frame p95 50.0 ms, work p95 0.8 ms))",
+    "quality 15.2s reducedPost -> scale88 (over budget (frame p95 50.0 ms, work p95 1.3 ms))",
+    "quality 19.3s scale88 -> scale75 (over budget (frame p95 54.1 ms, work p95 1.3 ms))",
+    "quality at end: scale75 (frame p95 50.0 ms, work p95 2.20 ms over the last window)"
+  ],
+  "os" : "26.3.1",
+  "peakEntities" : 97,
+  "peakFootprintMB" : 497.78509521484375,
+  "quality" : "medium",
+  "requestedSeconds" : 65,
+  "skillFXBudget" : {
+    "bySource" : {
+      "H025.skill2.0" : {
+        "cuesOverPending" : 0,
+        "cuesOverPerPlay" : 0,
+        "emitterCut" : 0,
+        "emitterRejected" : 0,
+        "meshCut" : 39,
+        "meshRejected" : 0
+      }
+    },
+    "cues" : {
+      "overPending" : 0,
+      "overPerPlay" : 0,
+      "peakPending" : 19,
+      "pending" : 0,
+      "pendingLimit" : 512,
+      "perPlayLimit" : 64
+    },
+    "emitters" : {
+      "counts" : {
+        "cut" : 0,
+        "grown" : 0,
+        "peakInUse" : 16,
+        "reclaimed" : 0,
+        "rejected" : 0,
+        "requests" : 116
+      },
+      "inUse" : 4,
+      "pooled" : 22
+    },
+    "meshShapes" : {
+      "arc" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 12
+      },
+      "band" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 1,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 4
+        },
+        "inUse" : 0,
+        "pooled" : 8
+      },
+      "billboard" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 5,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 33
+        },
+        "inUse" : 1,
+        "pooled" : 12
+      },
+      "bladeRing" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "burstDome" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "crescent" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "cylinder" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 3,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 18
+        },
+        "inUse" : 1,
+        "pooled" : 10
+      },
+      "disc" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 14,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 78
+        },
+        "inUse" : 1,
+        "pooled" : 28
+      },
+      "dome" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 5
+      },
+      "funnel" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 5
+      },
+      "pillar2" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "ringLip" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "shardRing" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk025s1" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 1,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 5
+        },
+        "inUse" : 1,
+        "pooled" : 2
+      },
+      "sk025s1b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 1,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 5
+        },
+        "inUse" : 1,
+        "pooled" : 2
+      },
+      "sk025s2" : {
+        "counts" : {
+          "cut" : 19,
+          "grown" : 0,
+          "peakInUse" : 2,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 28
+        },
+        "inUse" : 0,
+        "pooled" : 2
+      },
+      "sk025s2b" : {
+        "counts" : {
+          "cut" : 20,
+          "grown" : 0,
+          "peakInUse" : 2,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 28
+        },
+        "inUse" : 0,
+        "pooled" : 2
+      },
+      "sk025ult" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 1,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 4
+        },
+        "inUse" : 0,
+        "pooled" : 2
+      },
+      "sk025ultb" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 1,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 4
+        },
+        "inUse" : 0,
+        "pooled" : 2
+      },
+      "sk026s1" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk026s1b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk026s2" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk026s2b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk026ult" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk026ultb" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk027s1" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk027s1b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk027s2" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk027s2b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk027ult" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk027ultb" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk028s1" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk028s1b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk028s2" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk028s2b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk028ult" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk028ultb" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk029s1" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk029s1b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk029s2" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk029s2b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk029ult" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk029ultb" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk030s1" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk030s1b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk030s2" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk030s2b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk030ult" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk030ultb" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk031s1" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk031s2" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk031ult" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk032s1" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk032s1b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk032s2" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk032s2b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk032ult" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk032ultb" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk033s1" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk033s1b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk033s2" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk033s2b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk033ult" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk033ultb" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk034s1" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk034s1b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk034s2" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk034s2b" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk034ult" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sk034ultb" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "sphere" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 10
+      },
+      "spire" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 5
+      },
+      "starCross" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "twister" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 0
+      },
+      "wall" : {
+        "counts" : {
+          "cut" : 0,
+          "grown" : 0,
+          "peakInUse" : 0,
+          "reclaimed" : 0,
+          "rejected" : 0,
+          "requests" : 0
+        },
+        "inUse" : 0,
+        "pooled" : 8
+      }
+    },
+    "meshes" : {
+      "counts" : {
+        "cut" : 39,
+        "grown" : 0,
+        "peakInUse" : 21,
+        "reclaimed" : 0,
+        "rejected" : 0,
+        "requests" : 207
+      },
+      "inUse" : 5,
+      "pooled" : 115
+    },
+    "plays" : 103,
+    "poolQuality" : "medium",
+    "quality" : "medium"
+  },
+  "speed" : 1,
+  "syncWork" : {
+    "effects" : {
+      "calls" : 2343,
+      "maxMs" : 9.76208332576789,
+      "totalMs" : 179.11429208470508
+    },
+    "effekseer" : {
+      "calls" : 2343,
+      "maxMs" : 47.04329167725518,
+      "totalMs" : 1758.784125384409
+    },
+    "fog" : {
+      "calls" : 2343,
+      "maxMs" : 0.3947500081267208,
+      "totalMs" : 163.09020746848546
+    },
+    "map" : {
+      "calls" : 2343,
+      "maxMs" : 0.21208333782851696,
+      "totalMs" : 12.585000542458147
+    },
+    "projectiles" : {
+      "calls" : 2343,
+      "maxMs" : 15.878541686106473,
+      "totalMs" : 132.56325022666715
+    },
+    "units" : {
+      "calls" : 2343,
+      "maxMs" : 6.244416668778285,
+      "totalMs" : 933.8376251689624
+    }
+  },
+  "thermalStates" : [
+    "nominal"
+  ],
+  "warmupFrames" : 18,
+  "warmupMs" : 4394.550416676793
+}

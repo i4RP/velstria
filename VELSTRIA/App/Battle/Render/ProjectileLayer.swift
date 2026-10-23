@@ -281,6 +281,19 @@ final class ProjectileLayer {
                 let t = SkillCatalog.targeting(for: sk, hero: def)
                 let type = master.effect(sk.effectID)?.effectType
                 let streakByType = type == .projectile || type == .trail
+                // H025 S2 starts as a ground circle, then emits six real scatter projectiles.
+                // Archetype-only planning misses them. Prepare each participating caster's fan
+                // during loading, without changing any projectile or decoration limits.
+                if h.heroID == "H025", slot == .skill2 {
+                    let scatter = Style.skill(hue: hue, streak: streakByType)
+                    if let i = out.firstIndex(where: { $0.style == scatter }) {
+                        out[i].count += 6
+                    } else {
+                        seen.insert(scatter)
+                        out.append((scatter, sk.effectID, 6))
+                    }
+                    continue
+                }
                 let style: Style
                 switch t.archetype {
                 case .lineSkillshot: style = .skill(hue: hue, streak: streakByType)
