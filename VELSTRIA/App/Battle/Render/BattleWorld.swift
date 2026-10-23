@@ -685,6 +685,11 @@ final class BattleWorld {
 
     private func onDamage(_ d: DamageEvent, _ f: RenderFrame) {
         guard d.amount > 0, isShown(d.targetID, f), let p = anchor(d.targetID) else { return }
+        if let i = f.state.index(of: d.targetID), f.needsDetail(i),
+           let hero = units.hero(d.targetID), let target = units.worldPositionOf(d.targetID) {
+            let source = d.sourceID.flatMap { units.worldPositionOf($0) } ?? target - V3(0, 0, 1)
+            hero.handle.reactToHit(direction: target - source, strength: d.isCrit ? 1 : 0.7)
+        }
         switch d.source {
         case .skill:
             if fxHandlesSkill(d.sourceID, f) { return }   // Effekseer のスキルの効果を持つヒーローは、効果側が命中・被弾を出す

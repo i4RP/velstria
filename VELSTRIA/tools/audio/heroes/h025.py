@@ -13,7 +13,7 @@ import build_audio as B  # noqa: E402,F401
 
 # sim の時刻（Kit_H025 の LuminaTuning・FX_H025・docs/vfx/H025.md）:
 #   S1 月弦分矢: 自己強化。0.04 秒に肩の閃光、0.04〜0.34 秒に青い気。発動で飛ぶ矢は無い（矢は通常攻撃のたび）。命中の音は無い（通常攻撃）。
-#   S2 月蝕の矢: 0〜0.27 秒に弓を天へ引き、0.32 秒に天へ放つ。0.65 秒（s2Delay）に着弾（ダメージ・バインド 1.2 秒 = 命中の音）、
+#   S2 月蝕の矢: 0〜8/30 秒に弓を天へ引いて放つ。0.65 秒（s2Delay）に着弾（ダメージ・バインド 1.2 秒 = 命中の音）、
 #               着弾の 0.33 秒後（0.98 秒）に 6 本の小さな矢が散る（当たった敵に命中の音）。
 #   奥義 隠れ月光: 0 秒に姿が薄れ、0.03〜0.45 秒に頭上の三日月、0.05〜0.53 秒に光の柱が降りる。ダメージは無い。
 #   パッシブ 月環の導き: 段が増えた時（3 秒止んでいた時だけ鳴る）。弓の先の小さな水色の閃き。
@@ -35,16 +35,16 @@ def build():
     write(f"skill_{hero}_s1_cast", tail(reverb(s1, 0.5, 0.12, 25), 0.75, 1.0), "cast",
           "矢をつがえる弦と革のきしみ → ガラスの一打と風鈴（月光）+ 布の風 + 低いボウルの響き")
 
-    # S2 月蝕の矢: 0〜0.27 弓を天へ引き絞る（弦の擦れ・木と革のきしみ）→ 0.32 放つ（弦の弾け + 3 本の矢が天へ抜ける風）→
+    # S2: the release transient follows the authored clip/FX (16/60s); impact stays at 0.65s.
     # 0.65 着弾（矢が地に刺さる 3 つの打撃・氷のひびが走る・低い芯・ガラスの響き）→ 0.98 小さな矢が 6 方へ散る（氷の破片の風・矢の風）
     s2 = mix([
         (0.0, rise(sn("crossbow1,composite,string", 0, p=0.9, g=-8, hp=900, length=0.4), 0.2)),
         (0.05, rise(sn("wood_creaking_tree_005", 0, p=1.3, g=-12, hp=700, start=0.4, length=0.3), 0.2)),
         (0.08, sn("Leather_Creak_11", 0, p=1.2, g=-16, hp=800, start=0.5, length=0.25)),
-        (0.32, sn("carbonbolt", p=0.85, g=0, hit=True, pre=0.005)),
-        (0.33, sn("Vaeyanbow", p=1.0, g=0, hp=600, hit="peak", pre=0.12)),
-        (0.36, sn("Vaeyanbow", p=1.2, g=-5, hp=900, hit="peak", pre=0.1)),
-        (0.33, sn("Hawk's Arrow", p=1.3, g=-8, hp=1500, start=0.45, length=0.3)),
+        (8/30, sn("carbonbolt", p=0.85, g=0, hit=True, pre=0.005)),
+        (8/30 + 0.01, sn("Vaeyanbow", p=1.0, g=0, hp=600, hit="peak", pre=0.12)),
+        (8/30 + 0.04, sn("Vaeyanbow", p=1.2, g=-5, hp=900, hit="peak", pre=0.1)),
+        (8/30 + 0.01, sn("Hawk's Arrow", p=1.3, g=-8, hp=1500, start=0.45, length=0.3)),
         (0.65, sn("BOW Arrow Hit 05", p=0.9, g=-2, hit=True, length=0.45)),
         (0.68, sn("BOW Arrow Hit 05", p=1.05, g=-7, hit=True, length=0.35)),
         (0.71, sn("BOW Arrow Hit 05", p=0.8, g=-9, hit=True, length=0.35)),

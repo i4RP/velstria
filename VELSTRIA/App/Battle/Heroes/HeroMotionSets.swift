@@ -37,6 +37,7 @@ struct HeroMotionSet {
     var walk: String?
     var run: String?
     var death: String?
+    var hit: String?
     var victory: String?
     var stunned: String?
     var channel: String?
@@ -81,6 +82,7 @@ struct HeroMotionBinding {
     let walk: Int?
     let run: Int?
     let death: Int?
+    let hit: Int?
     let victory: Int?
     let stunned: Int?
     let channel: Int?
@@ -108,6 +110,7 @@ struct HeroMotionBinding {
         walk = find(set.walk)
         run = find(set.run)
         death = find(set.death)
+        hit = find(set.hit)
         victory = find(set.victory)
         stunned = find(set.stunned)
         channel = find(set.channel)
@@ -193,14 +196,16 @@ enum HeroMotionSets {
     }()
 
     private static let lumina: HeroMotionSet = {
-        var s = make(["h025_bow_attack"], idle: "h025_idle", death: "death_forward",
+        var s = make(["h025_bow_attack"], idle: "h025_idle", death: "h025_death",
                      victory: "victory_cheer", offhandGrip: rx(-.pi / 2) * ry(-0.6))
         s.dedicatedIdle = true
+        s.dedicatedAttack = true
+        s.hit = "h025_hit"
         s.walk = "h025_walk"
         s.run = "h025_run"
         s.stateBlend = 0.16
         s.distanceMatchedLocomotion = true
-        s.casts = [nil, "h025_skill2", "h025_ultimate"]
+        s.casts = ["h025_skill1", "h025_skill2", "h025_ultimate"]
         s.castsFromStart = true
         return s
     }()

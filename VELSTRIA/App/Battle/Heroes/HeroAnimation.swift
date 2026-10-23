@@ -638,6 +638,9 @@ struct HeroAnimator {
     private(set) var clips: HeroClipLayer
     /// H025 keeps a distance-matched base beneath upper-body actions.
     private var locomotionClips: HeroClipLayer
+    private var hitTime: Float = 1
+    private var hitStrength: Float = 0
+    private var hitDirection: Float = 0
     /// 通常攻撃のクリップを状態だけで回す（setState(.attack)）。playAttack が来たら false（シムの拍に合わせる）。
     private var attackAuto = true
     private var attackCursor = 0
@@ -906,6 +909,8 @@ struct HeroAnimator {
         time += dt
         stateTime += dt
         blendTime += dt
+        hitTime += dt
+        if state == .dead { hitStrength = 0 }
         var target = moveSpeed
         if state == .run && target < 0.2 && clips.binding?.distanceMatchedLocomotion != true { target = defaultRunSpeed }
         if state == .dead || state == .channel || state == .stunned || state == .victory { target = 0 }
@@ -974,6 +979,27 @@ struct HeroAnimator {
     }
 
     var baseLocomotion: HeroClipLayer { locomotionClips }
+
+    /// Additive reaction: never restarts an attack, delays release or changes sim state.
+    mutating func reactToHit(direction: V3, strength: Float) {
+        guard state != .dead, clips.binding?.hit != nil, hitTime >= 0.09 else { return }
+        hitTime = 0
+        hitStrength = min(1, max(0, strength))
+        hitDirection = atan2(direction.x, direction.z)
+    }
+
+    func overlayHit(into q: inout HeroSegmentRotations) {
+        guard hitStrength > 0, state != .dead, let b = clips.binding, let hit = b.hit,
+              hitTime < b.library.clips[hit].endTime else { return }
+        let (sample, _) = b.library.sample(hit, time: hitTime)
+        let (rest, _) = b.library.sample(hit, time: 0)
+        let direction = ry(hitDirection)
+        let weight = hitStrength * (clips.role == .attack || clips.role == .cast ? 0.45 : 1)
+        let torso = direction * (sample.torso * rest.torso.inverse) * direction.inverse
+        let head = direction * (sample.head * rest.head.inverse) * direction.inverse
+        q.torso = simd_slerp(qIdentity, torso, weight) * q.torso
+        q.head = simd_slerp(qIdentity, head, weight) * q.head
+    }
 
     // MARK: クリップの層
 

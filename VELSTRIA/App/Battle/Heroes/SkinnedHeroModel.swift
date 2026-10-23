@@ -636,6 +636,11 @@ final class SkinnedHeroModel: HeroDisplayModel {
     func playCast(_ slot: SkillSlot, stage: Int) { animator.playCast(slot, stage: stage) }
     func playCastHit(_ slot: SkillSlot) -> Float? { animator.playCastHit(slot) }
 
+    func reactToHit(direction: V3, strength: Float) {
+        let local = root.orientation(relativeTo: nil).inverse.act(direction)
+        animator.reactToHit(direction: local, strength: strength)
+    }
+
     func update(dt: Double, moveSpeed: Double) {
         let speed = HeroModelLibrary.metersPerSecond(moveSpeed)
         if hasSecondary {
@@ -728,7 +733,10 @@ final class SkinnedHeroModel: HeroDisplayModel {
         let qp = HeroSegmentRotations(p)
         var q = qp
         var root = V3.zero
-        if clips { animator.overlay(into: &q, hipsOffset: &root) }
+        if clips {
+            animator.overlay(into: &q, hipsOffset: &root)
+            animator.overlayHit(into: &q)
+        }
         if clips, hasSecondary, animator.state != .dead {
             // Upper-body bank/lag leaves authored foot contacts and game facing intact.
             let bank = max(-0.12, min(0.12, secondary.turn * -0.017))

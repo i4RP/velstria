@@ -647,6 +647,34 @@ final class HeroMotionClipTests: XCTestCase {
         XCTAssertEqual(archer.clips.bowstringContact, 0)
     }
 
+    func testLuminaHitDoesNotInterruptReleaseAndDeathHolds() throws {
+        let lib = HeroMotionClips.library(heroID: "H025")
+        let set = try XCTUnwrap(HeroMotionSets.set(heroID: "H025"))
+        let binding = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))
+        XCTAssertTrue(binding.casts.allSatisfy { $0 != nil })
+        XCTAssertNotNil(binding.hit)
+        var a = HeroAnimator(profile: profile("H025"), defaultRunSpeed: 3.375, motion: binding)
+        a.playAttack(windup: 0.3, interval: 1)
+        a.awaitAttackRelease()
+        for _ in 0..<12 { _ = a.advance(dt: 1.0 / 60, moveSpeed: 3.375) }
+        let before = a.clips.clipTime
+        a.reactToHit(direction: [0, 0, 1], strength: 1)
+        XCTAssertEqual(a.clips.clipTime, before)
+        for _ in 0..<3 { _ = a.advance(dt: 1.0 / 60, moveSpeed: 3.375) }
+        var pose = HeroSegmentRotations()
+        a.overlayHit(into: &pose)
+        XCTAssertGreaterThan(abs(pose.torso.angle), 0.03)
+        XCTAssertTrue(a.clips.awaitingRelease)
+        a.synchronizeAttackRelease()
+        XCTAssertEqual(a.clips.bowstringContact, 0)
+        a.setState(.dead)
+        for _ in 0..<120 { _ = a.advance(dt: 1.0 / 60, moveSpeed: 0) }
+        XCTAssertEqual(a.clips.clipName, "h025_death")
+        XCTAssertTrue(a.clips.holdAtEnd)
+        XCTAssertEqual(a.clips.clipTime, 1.2, accuracy: 1e-5)
+        XCTAssertFalse(a.baseLocomotion.isActive)
+    }
+
     /// H034 ゴルム: 専用の収録の待機・移動・叩きつけが Motion_H034 の全身の通常攻撃に上書きされず、打撃が sim の windup に来る。
     func testBundledGormClipsOwnIdleGaitAndAttack() throws {
         HeroMotionClips.setResolverForTesting(nil)
