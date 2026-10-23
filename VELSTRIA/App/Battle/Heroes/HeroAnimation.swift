@@ -1658,7 +1658,7 @@ struct HeroClipLayer {
 
     /// Connection weight for the bowstring before release; the arrow itself remains simulation driven.
     var bowstringContact: Float {
-        guard isActive, role == .attack, !fadingOut, let lib = binding?.library else { return 0 }
+        guard isActive, role == .attack || role == .cast, !fadingOut, let lib = binding?.library else { return 0 }
         let info = lib.clips[clip]
         guard let release = info.release, clipTime < release / info.fps - 1e-5 else { return 0 }
         let attached = (info.drawStart ?? min(release * 0.18, 4)) / info.fps

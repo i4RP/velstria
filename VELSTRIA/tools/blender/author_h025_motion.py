@@ -230,22 +230,140 @@ def pack(q, previous):
     return [round(q.x, 6), round(q.y, 6), round(q.z, 6), round(q.w, 6)], q
 
 
+def reference_pose(rig, sources, state, t):
+    """2026-10-23 screen recording: low carried bow, running, sky shot and veil hop.
+
+    Hand-authored from the visible silhouettes/timing, not recovered 3D mocap.
+    Facing and travel remain owned by the simulation; the film's joystick turn
+    is not baked into a cast. All targets are in the shipped hero's metre space.
+    """
+    qs, _, details, _ = make_pose(rig, sources, 'idle', 0)
+    move = state in ('walk', 'run')
+    sky = state == 'skill2'
+    veil = state == 'ultimate'
+    seconds = t * (.70 if veil else .60)
+    wave = math.sin(t * math.tau)
+    breath = .003 * math.sin(t * math.tau) if state == 'idle' else 0
+    lift = curve(seconds, [(0,0),(.10,.65),(.18,1),(.28,1),(.44,.55),(.60,0)]) if sky else 0
+    release = curve(seconds, [(0,0),(8/30,0),(.30,1),(.41,.65),(.60,0)]) if sky else 0
+    spread = curve(seconds, [(0,0),(.10,.12),(.26,1),(.38,.95),(.56,.25),(.70,0)]) if veil else 0
+    hop = curve(seconds, [(0,0),(.08,-.035),(.23,.13),(.32,.15),(.51,0),(.58,-.025),(.70,0)]) if veil else 0
+    airborne = curve(seconds, [(0,0),(.11,0),(.23,.19),(.34,.18),(.51,0),(.70,0)]) if veil else 0
+    twist = curve(seconds, [(0,0),(.12,-.12),(.28,.38),(.46,.12),(.70,0)]) if veil else 0
+    offset = V((0, -.055 + breath - .065*lift + hop, 0))
+    yaw = -.22 - .38*lift + twist
+    lean = -.035 - .06*lift
+    if move:
+        offset.y = (-.15 if state == 'run' else -.08) - (.012 if state == 'run' else .006)*(1-math.cos(t*math.tau*2))
+        yaw = -.12 + .045*wave
+        lean = -.20 if state == 'run' else -.08
+    qs[0] = axis((0,1,0), yaw*.28) @ axis((1,0,0), lean*.35)
+    qs[1] = axis((0,1,0), yaw) @ axis((1,0,0), lean)
+    qs[2] = axis((0,1,0), -.03 + twist*.3) @ axis((1,0,0), .10*lift)
+    for side, sign in [('left',-1),('right',1)]:
+        details[side+'shoulder'] = local_delta(rig, side+'shoulder',
+            axis((0,1,0), sign*.035*lift) @ axis((0,0,1), -sign*.08*spread))
+
+    errors = []
+    for side, suffix, phase in [('right','R',t),('left','L',t+.5)]:
+        target = rig.P0[rig.index[side+'foot']].copy()
+        target.x = .11 if side == 'right' else -.11
+        target.z += .065 if side == 'right' else -.065
+        roll = 0
+        if move:
+            contact, duration, speed = (.42, .60, 3.375) if state == 'run' else (.60, .90, 1.2)
+            reach = speed*duration*contact/2
+            u = phase % 1
+            if u < contact:
+                v = u/contact
+                target.z = -reach + 2*reach*v
+                roll = .14*smooth((v-.82)/.18)
+            else:
+                v = (u-contact)/(1-contact)
+                tangent = 2*reach*(1-contact)/contact
+                target.z = reach-2*reach*smooth(v)+tangent*(2*v**3-3*v*v+v)
+                target.y += (.13 if state == 'run' else .055)*math.sin(math.pi*v)**2
+                roll = .14*(1-smooth(v))-.07*math.sin(math.pi*v)
+            target.y += .07*math.sin(max(0,roll))
+        elif sky:
+            target.z += (.09 if side == 'right' else -.09)*lift
+        elif veil:
+            target.y += airborne * (1.0 if side == 'right' else 1.12)
+            target.z += (.10 if side == 'right' else -.035)*spread
+            roll = -.15*spread
+        details[side+'toebase'] = local_delta(rig, side+'toebase', axis((1,0,0), -roll*.65))
+        qs[cm.SEG_INDEX['foot'+suffix]] = axis((1,0,0), roll) @ rig.seg_C('foot'+suffix).inverted()
+        errors.append(ik(rig, qs, offset, details,
+            [side+'upleg',side+'leg',side+'foot'], ['thigh'+suffix,'shin'+suffix], target, V((0,0,-1))))
+
+    # Carry the bow beside the left hip; the free right arm follows the stride.
+    left = V((-.235, 1.015+breath, -.035))
+    right = V((.17, 1.10+breath, -.14))
+    bow = axis((1,0,0), .35) @ axis((0,0,1), -.12)
+    if move:
+        left = V((-.235, .995+.018*wave, -.035+.05*wave))
+        right = V((.16, 1.09-.035*wave, -.14-.09*wave))
+        bow = axis((1,0,0), .35+.07*wave) @ axis((0,0,1), -.12)
+    elif sky:
+        left = left.lerp(V((-.15,1.49,-.16)), lift)
+        right = right.lerp(V((.105,1.22,.065)), lift)
+        right += V((.045,.008,.04))*release
+        # The arrow points up/forward; the bow limbs lie across that axis.
+        bow = cm.slerp(bow, axis((1,0,0), .98) @ axis((0,0,1), -.22), lift)
+        for finger in ('thumb','index','middle','ring','pinky'):
+            for n in (1,2,3):
+                role = 'righthand'+finger+str(n)
+                if role in details:
+                    degrees = ([15,25,18] if finger=='thumb' else [35,72,45])[n-1]
+                    details[role] = local_delta(rig, role, axis((0,0,-1), math.radians(degrees)*(1-.88*release)))
+    elif veil:
+        left += V((-.16,.29,.055))*spread + V((0,hop,0))
+        right += V((.22,.20,.16))*spread + V((0,hop,0))
+        bow = cm.slerp(bow, axis((0,0,1), .68) @ axis((1,0,0), -.32), spread)
+        for role in details:
+            if role.startswith('righthand'):
+                details[role] = cm.slerp(details[role], Quaternion(), spread*.9)
+    qs[8] = bow @ axis((1,0,0), math.pi/2)
+    qs[5] = axis((1,0,0), 1.2) @ axis((0,0,1), -.16-.12*release)
+    errors.append(ik(rig, qs, offset, details, ['leftarm','leftforearm','lefthand'],
+                     ['armL','foreArmL'], left, V((-.8,-.4,.15))))
+    errors.append(ik(rig, qs, offset, details, ['rightarm','rightforearm','righthand'],
+                     ['armR','foreArmR'], right, V((1,-.25,.3))))
+    return qs, offset/rig.leg_length, details, max(errors)
+
+
 def author(rig, sources, out):
     clips, report = [], {}
-    for state, frames, loop in [('idle', 90, True), ('walk', 33, True), ('run', 24, True), ('attack', 46, False)]:
+    for state, frames, loop in [('idle',90,True), ('walk',27,True), ('run',18,True),
+                                ('attack',46,False), ('skill2',19,False), ('ultimate',22,False)]:
         c = dict(name='h025_bow_attack' if state == 'attack' else 'h025_'+state,
-                 source='meshy:prime:01a1640b-0d5b-7455-b14f-dfc020cdedee+local:H025-contact-finish' if state == 'attack' else 'tripo:40f57d2f-640f-4c4a-899e-f4d15d50c52a:'+state+'+local:H025-contact-finish',
+                 source='meshy:prime:01a1640b-0d5b-7455-b14f-dfc020cdedee+local:H025-contact-finish' if state == 'attack' else 'local:H025-screenrecording-2026-10-23-reference',
                  frames=frames, loop=loop, rootXZ=0, melee=False, events={}, rot=[], root=[],
                  detailJoints=[r for r in DETAILS if r in rig.index], detailRot=[])
         if state == 'attack':
             c['events'] = dict(drawStart=5, impact=25, release=25, end=45)
+        elif state == 'skill2':
+            c['events'] = dict(drawStart=3, release=8, impact=8, end=18)
+            c['blend'] = .06
+        elif state == 'ultimate':
+            c['events'] = dict(impact=3, end=21)
+            c['blend'] = .06
+            # Keep the short airborne pose even if the player is already moving.
+            c['lockLowerUntil'] = 16
         if state in ('walk', 'run'):
-            c['groundSpeed'] = 1.0 if state == 'walk' else 2.1
+            c['groundSpeed'] = 1.2 if state == 'walk' else 3.375
         prev, pd = [None]*15, [None]*len(c['detailJoints'])
         errors = []
         for f in range(frames):
             t = f/(frames if loop else frames-1)
-            qs, root, details, err = make_pose(rig, sources, state, t)
+            qs, root, details, err = (make_pose if state == 'attack' else reference_pose)(rig, sources, state, t)
+            if state == 'attack':
+                # Keep the existing shot, but join its ends to the new carry pose.
+                idle, r0, d0, _ = reference_pose(rig, sources, 'idle', 0)
+                w = min(smooth(t/.14), smooth((1-t)/.18))
+                qs = [cm.slerp(a,b,w) for a,b in zip(idle,qs)]
+                root = r0.lerp(root,w)
+                details = {r: cm.slerp(d0[r],q,w) for r,q in details.items()}
             for i, q in enumerate(qs):
                 vals, prev[i] = pack(q, prev[i]); c['rot'] += vals
             c['root'] += [round(x, 6) for x in root]
@@ -253,8 +371,9 @@ def author(rig, sources, out):
                 vals, pd[i] = pack(details[role], pd[i]); c['detailRot'] += vals
             errors.append(err)
         clips.append(c)
-        a, _, _, _ = make_pose(rig, sources, state, 0)
-        b, _, _, _ = make_pose(rig, sources, state, 1)
+        pose = make_pose if state == 'attack' else reference_pose
+        a, _, _, _ = pose(rig, sources, state, 0)
+        b, _, _, _ = pose(rig, sources, state, 1)
         report[c['name']] = dict(frames=frames, maxTargetClampMm=round(max(errors)*1000, 3),
                                   loopBoundaryDegrees=round(max(cm.quat_angle_deg(x,y) for x,y in zip(a,b)), 3))
     out.parent.mkdir(parents=True, exist_ok=True)

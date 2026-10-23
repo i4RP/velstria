@@ -590,6 +590,39 @@ final class HeroMotionClipTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(releases, 3, "The bundled gallery attack must keep drawing and releasing")
     }
 
+    func testLuminaReferenceCastsReleaseAndLandWhileMoving() throws {
+        HeroMotionClips.setResolverForTesting(nil)
+        let lib = HeroMotionClips.library(heroID: "H025")
+        let set = try XCTUnwrap(HeroMotionSets.set(heroID: "H025"))
+        let binding = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))
+        let bp = HeroBlueprints.blueprint(heroID: "H025", role: nil)
+        let p = HeroMotionProfile(blueprint: bp, metrics: BodyMetrics.make(bp.build), heroID: "H025")
+        var archer = HeroAnimator(profile: p, defaultRunSpeed: 3.375, motion: binding)
+        archer.playCast(.skill2, stage: 0)
+        XCTAssertEqual(archer.clips.clipTime, 0, accuracy: 1e-6, "The windup must not be skipped by castLead")
+        XCTAssertEqual(archer.clips.impactTime, 8.0 / 30.0, accuracy: 1e-5)
+        for _ in 0..<14 { _ = archer.advance(dt: 1.0 / 60, moveSpeed: 0) }
+        XCTAssertGreaterThan(archer.clips.bowstringContact, 0.99, "Sky shot must draw the physical bowstring")
+        for _ in 0..<3 { _ = archer.advance(dt: 1.0 / 60, moveSpeed: 0) }
+        XCTAssertEqual(archer.clips.bowstringContact, 0, accuracy: 1e-5)
+        XCTAssertFalse(archer.clips.awaitingRelease, "Skill casts do not receive normal-attack release events")
+
+        for slot in [SkillSlot.skill2, .ultimate] {
+            let c = try XCTUnwrap(binding.cast(HeroAnimator.castIndex(slot)))
+            XCTAssertEqual(archer.castDuration(slot), lib.clips[c].endTime, accuracy: 1e-5,
+                           "The cast must not fall back to its old pose before recovery ends")
+        }
+        archer.setState(.run)
+        archer.playCast(.ultimate, stage: 0)
+        for _ in 0..<20 { _ = archer.advance(dt: 1.0 / 60, moveSpeed: 3.375) }
+        XCTAssertEqual(archer.clips.clipName, "h025_ultimate")
+        XCTAssertGreaterThan(archer.clipLowerWeight, 0.99, "Moving must not erase the short veil hop")
+        archer.setState(.run)
+        for _ in 0..<60 { _ = archer.advance(dt: 1.0 / 60, moveSpeed: 3.375) }
+        XCTAssertEqual(archer.clips.clipName, "h025_run", "Landing must resume the stride")
+        XCTAssertEqual(archer.clips.bowstringContact, 0)
+    }
+
     /// H034 ゴルム: 専用の収録の待機・移動・叩きつけが Motion_H034 の全身の通常攻撃に上書きされず、打撃が sim の windup に来る。
     func testBundledGormClipsOwnIdleGaitAndAttack() throws {
         HeroMotionClips.setResolverForTesting(nil)

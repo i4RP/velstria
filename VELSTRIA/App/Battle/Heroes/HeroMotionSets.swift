@@ -194,6 +194,9 @@ enum HeroMotionSets {
         s.dedicatedIdle = true
         s.walk = "h025_walk"
         s.run = "h025_run"
+        s.stateBlend = 0.10
+        s.casts = [nil, "h025_skill2", "h025_ultimate"]
+        s.castsFromStart = true
         return s
     }()
 

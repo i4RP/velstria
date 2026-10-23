@@ -11,7 +11,7 @@ import VelstriaCore
 //                           0.07〜0.33 秒に濃い青の気（加算の青）が全身を包んで消える。分裂の矢は通常攻撃の弾（汎用の演出）。
 //                           効果中は弓の先に白い水色の星が時々きらめく（MLBB は矢を放つたびに弓の先で閃く。長さは発動のイベントの
 //                           duration = 効果時間。0 なら書いた 4 秒: durationFromCast）
-//   スキル2 月蝕の矢      — 弓を天へ向けて引き、0.32 秒で天へ矢を放つ（cast。画面収録: 指を離してから 0.31 秒）: 弓の先で水色の星が閃き、
+//   スキル2 月蝕の矢      — 弓を天へ向けて引き、約0.27秒で天へ矢を放つ（2026-10-23 の収録に更新）: 弓の先で水色の星が閃き、
 //                           青い矢が天へ抜ける。着弾点（ゾーンの telegraph = 発動と同時）には 0.05 秒から細い水色の輪だけが出る
 //                           （MLBB では着弾まで矢の雨は見えない）。0.65 秒（s2Delay）に着弾: 白い閃光 → 縁の輪が太い光の帯になって渦を巻き、
 //                           中央を白い渦が回り、地面から矢じりが上の光の矢が昇る。移動不能 1.2 秒の敵は水色の光の檻（下が明るい円柱）に入る（hit）。
@@ -51,8 +51,8 @@ enum FX_H025: HeroFXSet {
     private static let eclipseDelay: Float = 0.65
     private static let eclipseRadius: Float = 1.7
     private static let rootTime: Float = 1.2
-    /// 天へ矢を放つ時刻（画面収録: 指を離してから弓を天へ向けて 0.27〜0.32 秒）。
-    private static let eclipseShoot: Float = 0.32
+    /// 2026-10-23 の収録: 構え始め6.38秒前後 → 矢が見える6.65秒前後。専用クリップの8フレーム目。
+    private static let eclipseShoot: Float = 8.0 / 30.0
     /// 6 本の小さな矢が散る時刻（着弾 + s2SplitDelay 0.33）。
     private static let eclipseSplit: Float = 0.98
     /// 小さな矢が射程の端（400）へ着くまで（速度 1250）。
@@ -152,7 +152,7 @@ enum FX_H025: HeroFXSet {
 
     // MARK: - スキル2 月蝕の矢
 
-    /// 天へ放つ（0.32）→ 着弾点に細い輪だけ（0.05〜0.65）→ 着弾（0.65）: 白い閃光・渦を巻く光の帯・昇る光の矢 →
+    /// 天へ放つ（約0.27）→ 着弾点に細い輪だけ（0.05〜0.65）→ 着弾（0.65）: 白い閃光・渦を巻く光の帯・昇る光の矢 →
     /// 範囲が白く光って 6 本の小さな矢が散る（0.98、travel）。
     private static func eclipse() -> SkillFXRecipe {
         var r = SkillFXRecipe()
@@ -162,7 +162,7 @@ enum FX_H025: HeroFXSet {
         let split = eclipseSplit
         let skyward = bowHigh + SIMD3<Float>(0, 0.5, 0)
         r.cast = [
-            // 0.32: 天へ放つ瞬間、弓の先で水色の星が閃く（f329 #7BDBFD / #9EFAFE）
+            // 離弦: 弓の先で水色の星が閃く（色は旧収録 f329 #7BDBFD / #9EFAFE）
             .emit(.sheet(.hitFlash, 1.3, .secondary, end: .primary, life: 0.16), at: shoot, offset: bowHigh),
             // 天へ抜ける青い矢（f329〜331: 3 本の青い筋。速さに沿って伸びる光の筋）と、矢じりの見える主矢（直交する 2 枚の板）
             .emit(FXEmit(tex: .streak, tint: .core, tintEnd: arrowBlue, count: 3, emit: 0.04, life: 0.14, lifeVar: 0.1,
@@ -270,7 +270,7 @@ enum FX_H025: HeroFXSet {
         return r
     }
 
-    // MARK: - 詠唱モーション（2026-10-17 の作り直しでは変えていない）
+    // MARK: - 詠唱モーション（H025MotionClips の長さと揃える。未読込時の姿勢も同じ動作へ）
 
     static func motion(_ slot: SkillSlot, _ m: inout MotionBuilder) {
         switch slot {
@@ -282,19 +282,26 @@ enum FX_H025: HeroFXSet {
             m.release(0.04)
             m.hold(0.14) { $0.glow = 1.8 }
         case .skill2:
-            // 弓を天へゆっくり向けて引き（画面収録: 指を離してから 0.27〜0.32 秒）、0.32 秒で放ち、矢が落ちるまで空を見上げる
-            // （0.32 + 0.2 + 0.1 + 戻り 0.25 = 0.87 秒）
-            m.draw(0.12, up: 0.35)
-            m.draw(0.16, up: 0.75)
+            // 2026-10-23 の収録: すぐ斜め上へ掲げ、約0.27秒で離弦、0.60秒で走りへ戻る。
+            m.draw(0.10, up: 0.35)
+            m.draw(eclipseShoot - 0.14, up: 0.75)
             m.release(0.04)
-            m.hold(0.2) { $0.glow = 1.6; $0.headPitch = -0.35 }
-            m.settle(0.1)
+            m.hold(0.35 - eclipseShoot) { $0.glow = 1.6; $0.headPitch = -0.25 }
         case .ultimate:
-            // 腰を落として外套で身を包み、月影に紛れる
-            m.brace(0.08, depth: 0.22)
-            m.guardCross(0.1)
-            m.hold(0.12) { $0.glow = 2.0; $0.ring = 1.0 }
-            m.settle(0.12)
+            // 軽く踏み切り、両腕を開いて月光へ浮く。0.70 秒で復帰（クリップ側は接地まで脚を保持）。
+            m.fullBody = true
+            m.brace(0.08, depth: 0.04)
+            m.key(0.15, .out) {
+                $0.offset.y = 0.15
+                $0.hipsDrop = 0
+                $0.torsoYaw = 0.3
+                $0.armL = ArmPose(pitch: 0.1, out: 1.05, yaw: -0.2, elbow: 0.2)
+                $0.armR = ArmPose(pitch: 0.05, out: 1.0, yaw: 0.2, elbow: 0.25)
+                $0.legR = LegPose(pitch: -0.15, out: 0.1, knee: 0.45)
+                $0.legL = LegPose(pitch: 0.1, out: 0.1, knee: 0.35)
+                $0.glow = 2; $0.ring = 1
+            }
+            m.key(0.12, .inOut) { $0.offset.y = 0.10; $0.torsoYaw = 0.1 }
         }
     }
 }
