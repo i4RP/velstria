@@ -22,6 +22,7 @@ struct HeroSecondaryMotion {
     private var previousYaw: Float = 0
     private var previousSpeed: Float = 0
     private var time: Float = 0
+    private var deadTime: Float = 0
     private(set) var turn: Float = 0
     private(set) var acceleration: Float = 0
 
@@ -43,6 +44,7 @@ struct HeroSecondaryMotion {
         previousSpeed = speed
         turn = 0
         acceleration = 0
+        deadTime = 0
         pose = HeroSecondaryPose()
         velocityX = .zero
         velocityZ = .zero
@@ -63,6 +65,8 @@ struct HeroSecondaryMotion {
         previousYaw = yaw
         previousSpeed = speed
         time += dt
+        deadTime = dead ? deadTime + dt : 0
+        let collapse = smooth01((deadTime - 0.25) / 0.50)
         let run = dead ? 0 : min(1.5, speed / 3.375)
         let wind = dead ? 0 : acceleration * 0.004
         for i in 0..<HeroSecondaryPose.names.count {
@@ -72,7 +76,7 @@ struct HeroSecondaryMotion {
             let inheritedX = parent >= 0 ? pose.pitch[parent] * 0.18 : 0
             let inheritedZ = parent >= 0 ? pose.roll[parent] * 0.30 : 0
             let ripple = sin(time * 10.5 - Float(depth) * 0.9 + side * 0.4) * 0.025 * run
-            let target: SIMD2<Float>
+            var target: SIMD2<Float>
             if i < 6 {
                 let drag: Float = depth == 0 ? 0.29 : 0.07
                 target = SIMD2(-0.035 - drag * run - wind + inheritedX + ripple,
@@ -84,11 +88,17 @@ struct HeroSecondaryMotion {
             } else {
                 target = SIMD2(0.04 + run * 0.20 + max(0, wind), side * 0.02 + turn * 0.01)
             }
+            if dead, i < 9 {
+                // The torso finishes nearly horizontal. Let chains drape toward
+                // the floor instead of retaining a rigid, horizontal cape/tail.
+                let gravity: Float = i < 6 ? (depth == 0 ? 0.58 : 0.04) : (depth == 0 ? 0.85 : 0.04)
+                target = target + (SIMD2(gravity, 0) - target) * collapse
+            }
             let frequency: Float = i >= 9 ? 16 : (depth == 0 ? 16 : (depth == 1 ? 12 : 9))
             let (v, speed) = Self.spring(value: SIMD2(pose.pitch[i], pose.roll[i]),
                                          velocity: SIMD2(velocityX[i], velocityZ[i]), target: target,
                                          frequency: frequency, damping: 0.72, dt: dt)
-            pose.pitch[i] = min(0.42, max(-0.65, v.x))
+            pose.pitch[i] = min(dead ? 0.95 : 0.42, max(-0.65, v.x))
             pose.roll[i] = min(0.28, max(-0.28, v.y))
             velocityX[i] = abs(v.x - pose.pitch[i]) > 1e-5 ? 0 : speed.x
             velocityZ[i] = abs(v.y - pose.roll[i]) > 1e-5 ? 0 : speed.y

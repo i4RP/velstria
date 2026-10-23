@@ -36,4 +36,15 @@ final class HeroSecondaryMotionTests: XCTestCase {
         XCTAssertEqual(cloth.pose.pitch, .zero)
         XCTAssertEqual(cloth.turn, 0)
     }
+
+    func testDeathDrapesCapeAndHairThenRespawnReturnsToIdle() {
+        var cloth = HeroSecondaryMotion()
+        cloth.update(dt: 0, position: .zero, yaw: 0, speed: 0, dead: false)
+        for _ in 0..<90 { cloth.update(dt: 1.0 / 60, position: .zero, yaw: 0, speed: 0, dead: true) }
+        XCTAssertEqual(cloth.pose.pitch[0], 0.58, accuracy: 0.01)
+        XCTAssertEqual(cloth.pose.pitch[6], 0.85, accuracy: 0.01)
+        for _ in 0..<120 { cloth.update(dt: 1.0 / 60, position: .zero, yaw: 0, speed: 0, dead: false) }
+        XCTAssertLessThan(abs(cloth.pose.pitch[0]), 0.05)
+        XCTAssertLessThan(abs(cloth.pose.pitch[6]), 0.05)
+    }
 }

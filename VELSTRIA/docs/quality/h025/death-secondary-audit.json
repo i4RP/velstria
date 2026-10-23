@@ -1,0 +1,5 @@
+{
+  "minMeshY": 0.0039987643249332905,
+  "endMeshY": 0.004000372253358364,
+  "note": "Offline approximation of the runtime death springs; no body collision solver."
+}
