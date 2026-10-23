@@ -342,6 +342,8 @@ struct HeroSkeletonRig {
     let drive: [Drive]
     /// Optional clip detail channel for each joint (-1 = none); the legacy Drive contract is unchanged.
     let detailIndex: [Int]
+    /// Secondary-chain channels are resolved once while loading the rig.
+    let secondaryIndex: [Int]
     /// 四肢のレスト補正（レストの骨の向き → 手続きのレスト方向 -Y）。
     let correction: [simd_quatf]
     let index: [HeroJointRole: Int]
@@ -465,6 +467,7 @@ struct HeroSkeletonRig {
         setEnd(.footL, .legL, .footL)
         self.drive = drive
         detailIndex = jointNames.map { HeroDetailRotations.names.firstIndex(of: HeroJointRole.normalize($0)) ?? -1 }
+        secondaryIndex = jointNames.map { HeroSecondaryPose.names.firstIndex(of: HeroJointRole.normalize($0)) ?? -1 }
         self.correction = correction
 
         func grip(_ hand: HeroJointRole, _ finger: HeroJointRole) -> Float {
@@ -498,7 +501,8 @@ struct HeroSkeletonPoser {
 
     /// 区間回転と腰の沈み・ずれからローカル変換を求める。
     /// hipsOffset: クリップの腰の位置（ヒーロー空間・m、脚の長さを掛けた後）。hipsDrop と足し合わせる。
-    mutating func solve(_ q: HeroSegmentRotations, hipsDrop: Float, hipsOffset: V3 = .zero) {
+    mutating func solve(_ q: HeroSegmentRotations, hipsDrop: Float, hipsOffset: V3 = .zero,
+                        secondary: HeroSecondaryPose? = nil) {
         let hips = rig.index[.hips] ?? -1
         let drop = V3(0, -hipsDrop, 0) + hipsOffset
         for j in rig.order {
@@ -517,7 +521,12 @@ struct HeroSkeletonPoser {
             case .rest:
                 let base = p < 0 ? rig.entityRotation * rest.rotation : rotation[p] * rest.rotation
                 let d = rig.detailIndex[j]
-                rot = d >= 0 && q.details.contains(d) ? base * q.details[d] : base
+                let s = rig.secondaryIndex[j]
+                if s >= 0, let secondary {
+                    rot = base * secondary.rotation(s)
+                } else {
+                    rot = d >= 0 && q.details.contains(d) ? base * q.details[d] : base
+                }
             case .hips: rot = q.hips * rig.restRotation[j]
             case .spine(let t): rot = simd_slerp(q.hips, q.torso, t) * rig.restRotation[j]
             case .neck: rot = simd_slerp(q.torso, q.head, 0.5) * rig.restRotation[j]

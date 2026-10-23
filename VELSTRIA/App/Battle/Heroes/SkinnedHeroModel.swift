@@ -425,6 +425,8 @@ final class SkinnedHeroModel: HeroDisplayModel {
     private var lastApplyTime: Float = 0
     private let weaponPoints: HeroWeaponPoints
     private var animator: HeroAnimator
+    private var secondary = HeroSecondaryMotion()
+    private let hasSecondary: Bool
     /// 歩幅の基準にする腰から足首までの長さ（m）。テストで手続きモデルと skinned モデルの走りの位相を揃えるのに使う。
     var legLength: Float {
         get { animator.legLength }
@@ -444,6 +446,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
         self.skin = skin
         skinnedEntities = skinned
         poser = HeroSkeletonPoser(rig: rig)
+        hasSecondary = heroID == "H025" && rig.secondaryIndex.contains(where: { $0 >= 0 })
         handR = rig.index[.handR]!
         handL = rig.index[.handL]!
         stringIndexR = rig.jointNames.firstIndex { HeroJointRole.normalize($0) == "righthandindex3" }
@@ -634,7 +637,13 @@ final class SkinnedHeroModel: HeroDisplayModel {
     func playCastHit(_ slot: SkillSlot) -> Float? { animator.playCastHit(slot) }
 
     func update(dt: Double, moveSpeed: Double) {
-        let pose = animator.advance(dt: Float(dt), moveSpeed: HeroModelLibrary.metersPerSecond(moveSpeed))
+        let speed = HeroModelLibrary.metersPerSecond(moveSpeed)
+        if hasSecondary {
+            let forward = root.orientation(relativeTo: nil).act(V3(0, 0, -1))
+            secondary.update(dt: Float(dt), position: root.position(relativeTo: nil),
+                             yaw: atan2(-forward.x, -forward.z), speed: speed, dead: animator.state == .dead)
+        }
+        let pose = animator.advance(dt: Float(dt), moveSpeed: speed)
         apply(pose, time: animator.time)
     }
 
@@ -720,7 +729,15 @@ final class SkinnedHeroModel: HeroDisplayModel {
         var q = qp
         var root = V3.zero
         if clips { animator.overlay(into: &q, hipsOffset: &root) }
-        poser.solve(q, hipsDrop: p.hipsDrop * hipsDropScale * k, hipsOffset: root * clipLegLength)
+        if clips, hasSecondary, animator.state != .dead {
+            // Upper-body bank/lag leaves authored foot contacts and game facing intact.
+            let bank = max(-0.12, min(0.12, secondary.turn * -0.017))
+            let lag = max(-0.16, min(0.16, secondary.turn * -0.023))
+            q.torso = ry(lag) * rz(bank) * q.torso
+            q.head = ry(lag * -0.3) * q.head
+        }
+        poser.solve(q, hipsDrop: p.hipsDrop * hipsDropScale * k, hipsOffset: root * clipLegLength,
+                    secondary: clips && hasSecondary ? secondary.pose : nil)
         for e in skinnedEntities { e.jointTransforms = poser.local }
 
         // 武器は手首から握りの分だけ前腕の向きへずらし、向きは手続きモデルと同じ（胴基準の絶対角）。

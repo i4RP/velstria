@@ -636,6 +636,8 @@ struct HeroAnimator {
     private(set) var current = HeroPose()
     /// 重ねるモーションクリップ（binding が nil なら何もしない = 手続きのみ）。
     private(set) var clips: HeroClipLayer
+    /// H025 keeps a distance-matched base beneath upper-body actions.
+    private var locomotionClips: HeroClipLayer
     /// 通常攻撃のクリップを状態だけで回す（setState(.attack)）。playAttack が来たら false（シムの拍に合わせる）。
     private var attackAuto = true
     private var attackCursor = 0
@@ -675,6 +677,7 @@ struct HeroAnimator {
         current = initial
         snapshot = initial
         clips = HeroClipLayer(binding: motion)
+        locomotionClips = HeroClipLayer(binding: motion?.distanceMatchedLocomotion == true ? motion : nil)
         // 最初の状態（待機）は setState が来ないので、ここで待機のクリップを始める（無ければ何もしない）
         enterClips(state, from: state, autoAttack: true)
     }
@@ -682,6 +685,7 @@ struct HeroAnimator {
     /// クリップの割り当てを差し替える（テスト・ギャラリー用）。今の状態のクリップから始め直す。
     mutating func setMotion(_ motion: HeroMotionBinding?) {
         clips = HeroClipLayer(binding: motion)
+        locomotionClips = HeroClipLayer(binding: motion?.distanceMatchedLocomotion == true ? motion : nil)
         attackCursor = 0
         enterClips(state, from: state, autoAttack: true)
     }
@@ -903,7 +907,7 @@ struct HeroAnimator {
         stateTime += dt
         blendTime += dt
         var target = moveSpeed
-        if state == .run && target < 0.2 { target = defaultRunSpeed }
+        if state == .run && target < 0.2 && clips.binding?.distanceMatchedLocomotion != true { target = defaultRunSpeed }
         if state == .dead || state == .channel || state == .stunned || state == .victory { target = 0 }
         // 急な速度変化を平滑化
         speed += (max(0, target) - speed) * (1 - exp(-dt * 10))
@@ -938,8 +942,38 @@ struct HeroAnimator {
             clips.advance(dt: dt, speed: speed, maskSpeed: target)
             if clips.finished && !clips.fadingOut && !clips.holdAtEnd { clipFinished() }
         }
+        advanceLocomotion(dt: dt, travelSpeed: max(0, target))
         return current
     }
+
+    private mutating func advanceLocomotion(dt: Float, travelSpeed: Float) {
+        guard let b = locomotionClips.binding else { return }
+        switch state {
+        case .dead, .stunned, .channel, .victory:
+            locomotionClips.cut()
+            return
+        default: break
+        }
+        let moving = travelSpeed > 0.08
+        let next: Int?
+        if moving, let walk = b.walk, let run = b.run {
+            let split = ((b.library.clips[walk].groundSpeed ?? 1.25) + (b.library.clips[run].groundSpeed ?? 3.375)) * 0.5
+            let threshold = locomotionClips.clip == run ? split - 0.15 : split + 0.15
+            next = travelSpeed < threshold ? walk : run
+        } else { next = moving ? b.run ?? b.walk : b.idle }
+        guard let next else { return }
+        if !locomotionClips.isActive || locomotionClips.clip != next {
+            let phase = moving && locomotionClips.isLocomotion && locomotionClips.endTime > 0
+                ? locomotionClips.clipTime / locomotionClips.endTime : 0
+            locomotionClips.start(next, role: .state, from: phase * b.library.clips[next].duration,
+                                  fullBody: true, speedMask: false, hold: true, runRate: moving,
+                                  blendDuration: moving ? 0.12 : 0.20)
+        }
+        // Smoothing speed for pose selection must not make planted feet slide.
+        locomotionClips.advance(dt: dt, speed: travelSpeed, maskSpeed: travelSpeed)
+    }
+
+    var baseLocomotion: HeroClipLayer { locomotionClips }
 
     // MARK: クリップの層
 
@@ -952,13 +986,21 @@ struct HeroAnimator {
     static let castHitLead: Float = 0.03
 
     /// クリップの重み（上半身・下半身、0〜1）。下半身の重みの分だけ手続きの全身の傾き・浮き沈み・腰の沈みを止める。
-    var clipUpperWeight: Float { clips.isActive ? clips.upperWeight : 0 }
-    var clipLowerWeight: Float { clips.isActive ? clips.lowerWeight : 0 }
+    var clipUpperWeight: Float { max(clips.isActive ? clips.upperWeight : 0, locomotionClips.upperWeight) }
+    var clipLowerWeight: Float { max(clips.isActive ? clips.lowerWeight : 0, locomotionClips.lowerWeight) }
     /// 再生中のクリップ（手続きの武器向きと混ぜる時の握り）。
     var motion: HeroMotionBinding? { clips.binding }
 
     /// 手続きの区間回転 q にクリップを重ねる。hipsOffset には腰のずれ（脚の長さ単位）を足す。
     func overlay(into q: inout HeroSegmentRotations, hipsOffset: inout V3) {
+        if locomotionClips.isActive {
+            locomotionClips.overlay(into: &q, hipsOffset: &hipsOffset)
+            if clips.role == .state && (state == .idle || state == .run) { return }
+            var actionRoot = V3.zero
+            clips.overlay(into: &q, hipsOffset: &actionRoot)
+            hipsOffset = hipsOffset * (1 - clips.lowerWeight) + actionRoot
+            return
+        }
         clips.overlay(into: &q, hipsOffset: &hipsOffset)
     }
 

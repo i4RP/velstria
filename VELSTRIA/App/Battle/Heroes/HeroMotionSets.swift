@@ -32,6 +32,8 @@ struct HeroMotionSet {
     var empowered: String?
     /// 待機・歩行・走行の切り替えのクロスフェード（秒）。
     var stateBlend: Float = HeroClipLayer.fadeIn
+    /// Dedicated in-place gait remains underneath attacks/casts and follows actual travel speed.
+    var distanceMatchedLocomotion = false
     var walk: String?
     var run: String?
     var death: String?
@@ -75,6 +77,7 @@ struct HeroMotionBinding {
     let dedicatedIdle: Bool
     let empowered: Int?
     let stateBlend: Float
+    let distanceMatchedLocomotion: Bool
     let walk: Int?
     let run: Int?
     let death: Int?
@@ -101,6 +104,7 @@ struct HeroMotionBinding {
         dedicatedIdle = set.dedicatedIdle && idle != nil
         empowered = find(set.empowered)
         stateBlend = set.stateBlend
+        distanceMatchedLocomotion = set.distanceMatchedLocomotion
         walk = find(set.walk)
         run = find(set.run)
         death = find(set.death)
@@ -194,7 +198,8 @@ enum HeroMotionSets {
         s.dedicatedIdle = true
         s.walk = "h025_walk"
         s.run = "h025_run"
-        s.stateBlend = 0.10
+        s.stateBlend = 0.16
+        s.distanceMatchedLocomotion = true
         s.casts = [nil, "h025_skill2", "h025_ultimate"]
         s.castsFromStart = true
         return s

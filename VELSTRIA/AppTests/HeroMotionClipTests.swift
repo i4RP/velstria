@@ -590,6 +590,30 @@ final class HeroMotionClipTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(releases, 3, "The bundled gallery attack must keep drawing and releasing")
     }
 
+    func testLuminaTravelPhaseAndMovingAttackKeepAuthoredLegs() throws {
+        HeroMotionClips.setResolverForTesting(nil)
+        let lib = HeroMotionClips.library(heroID: "H025")
+        let binding = try XCTUnwrap(HeroMotionBinding(set: XCTUnwrap(HeroMotionSets.set(heroID: "H025")), library: lib))
+        var animator = HeroAnimator(profile: profile("H025"), defaultRunSpeed: 3.375, motion: binding)
+        animator.setState(.run)
+        for _ in 0..<30 { _ = animator.advance(dt: 1.0 / 60, moveSpeed: 3.375) }
+        XCTAssertEqual(animator.baseLocomotion.clipTime, 0.5, accuracy: 1e-5)
+        animator.playAttack(windup: 0.3, interval: 1)
+        for _ in 0..<12 { _ = animator.advance(dt: 1.0 / 60, moveSpeed: 3.375) }
+        XCTAssertEqual(animator.baseLocomotion.clipName, "h025_run")
+        var q = HeroSegmentRotations(), root = SIMD3<Float>.zero
+        animator.overlay(into: &q, hipsOffset: &root)
+        XCTAssertLessThan(Self.rotationError(q.shinR, animator.baseLocomotion.pose.shinR), 1e-5)
+        XCTAssertEqual(root.y, animator.baseLocomotion.root.y, accuracy: 1e-5)
+        animator.setState(.idle)
+        for _ in 0..<30 { _ = animator.advance(dt: 1.0 / 60, moveSpeed: 0) }
+        animator.playAttack(windup: 0.3, interval: 1)
+        for _ in 0..<12 { _ = animator.advance(dt: 1.0 / 60, moveSpeed: 0) }
+        root = .zero
+        animator.overlay(into: &q, hipsOffset: &root)
+        XCTAssertEqual(root.y, animator.clips.root.y, accuracy: 1e-5, "Action root must replace the idle root, not add it twice")
+    }
+
     func testLuminaReferenceCastsReleaseAndLandWhileMoving() throws {
         HeroMotionClips.setResolverForTesting(nil)
         let lib = HeroMotionClips.library(heroID: "H025")

@@ -123,12 +123,14 @@ def setup(hero, tile=(384, 480), view='34'):
 def sheets(hero, clips, only=None):
     rig, meshes, label, bow, strings = setup(hero)
     report = {}
-    for state in ['idle', 'walk', 'run', 'attack', 'skill2', 'ultimate']:
+    for state in ['idle', 'walk', 'run', 'attack', 'skill1', 'skill2', 'ultimate', 'hit', 'death']:
         if only and state != only:
             continue
         name = 'h025_bow_attack' if state == 'attack' else 'h025_'+state
         clip = clips[name]
-        frames = [0, 5, 13, 20, 24, 25, 28, 35, clip['frames']-1] if state == 'attack' else preview.sample_frames(clip, 8 if state != 'idle' else 4)
+        release = clip.get('events', {}).get('release', clip['frames']//3)
+        frames = [0, release*.3, release*.7, release-1, release, release+1,
+                  release+4, (release+clip['frames']-1)/2, clip['frames']-1] if state == 'attack' else preview.sample_frames(clip, 8 if state != 'idle' else 4)
         files, ground = [], []
         for i, frame in enumerate(frames):
             apply(rig, clip, frame, bow, strings)
@@ -204,7 +206,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--hero', default='App/Resources/Heroes/Hero_H025.usdz')
     parser.add_argument('--clips', default='App/Resources/Heroes/H025MotionClips.json')
-    parser.add_argument('--only', choices=['idle','walk','run','attack','skill2','ultimate'])
+    parser.add_argument('--only', choices=['idle','walk','run','attack','skill1','skill2','ultimate','hit','death'])
     parser.add_argument('--video', action='store_true')
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
     OUT.mkdir(parents=True, exist_ok=True)
