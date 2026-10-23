@@ -541,28 +541,37 @@ def build_idle(rig, srcs, ground):
         # 視線: 頭は胴より 6 フレーム先の向き
         fr.qs[SEG['head']] = orig[(i + 6) % N].qs[SEG['head']].copy()
     smooth_segments(frames, [SEG['armL'], SEG['foreArmL'], SEG['handL']], 5, True)
-    # 腰を少しだけ上げる（深いしゃがみ → 低い半身の構え）。足は元の位置で固定
+    # 堂々とした直立の構え: 腰・胴・頭を起こし（元の揺れは 1 割だけ残す）、膝はわずかに曲げる程度へ腰を上げる
+    for fr in frames:
+        for s, k in (('hips', 0.85), ('torso', 0.9), ('head', 0.92)):
+            q = fr.qs[SEG[s]]
+            up = q @ V((0, 1, 0))
+            fr.qs[SEG[s]] = (cm.rotation_between(up, up.lerp(V((0, 1, 0)), k).normalized()) @ q).normalized()
+    cx = sum((fr.off.x for fr in frames), 0.0) / N
+    cz = sum((fr.off.z for fr in frames), 0.0) / N
+    y0 = sum((yaw_of(fr.qs[SEG['torso']]) for fr in frames), 0.0) / N
     for i, fr in enumerate(frames):
-        fr.off = fr.off + V((0, 0.035, 0))
-    pins = {}
-    for side, role in FOOT_ROLES.items():
-        acc = V((0, 0, 0))
-        for fr in frames:
-            _, P = solve(rig, fr.qs, fr.off, {})
-            acc += P[rig.index[role]]
-        pins[side] = acc / N
+        fr.off = V((cx, -0.025 + 0.006 * math.sin(math.tau * i / N), cz))
+    # 足は肩幅、右足をわずかに前へ（剣の側）
+    pins = {'R': V((cx, 0, cz)) + ry(y0) @ V((0.15, 0, -0.06)), 'L': V((cx, 0, cz)) + ry(y0) @ V((-0.14, 0, 0.07))}
     flags = {s: [True] * N for s in FOOT_ROLES}
     plant_feet(rig, frames, flags, True, ground, pin_pos=pins)
     errs = [solve_legs(rig, fr, ground) for fr in frames]
-    # 剣: 下段（前へ、切っ先を下げる）。胴の向きに追従
+    # 右手: 柄を腰の前でしっかり握り、剣は右前下へ斜めに下ろす。左手は拳を体の脇へ
     for i, fr in enumerate(frames):
         y = yaw_of(fr.qs[SEG['torso']])
-        set_blade(rig, fr, ry(y) @ V((0.12, -0.3, -0.95)).normalized())
+        Y = ry(y)
+        _, P = solve(rig, fr.qs, fr.off, {})
+        sway = 0.008 * math.sin(math.tau * i / N + 0.6)
+        arm_ik(rig, fr, 'R', P[rig.index['rightarm']] + Y @ V((0.1, -0.4 + sway, -0.2)), Y @ V((0.7, -0.1, 0.7)).normalized())
+        arm_ik(rig, fr, 'L', P[rig.index['leftarm']] + Y @ V((-0.07, -0.5 + sway, 0.03)), Y @ V((-0.5, 0, 0.85)).normalized())
+        fr.qs[SEG['handL']] = fr.qs[SEG['foreArmL']].copy()
+        set_blade(rig, fr, Y @ V((0.32, -0.62, -0.72)).normalized())
     # 左手の指先: ゆっくり開閉（2 回/周）
     dets = []
     for i, fr in enumerate(frames):
-        k = 0.28 + 0.1 * math.sin(2 * math.tau * i / N) + 0.04 * math.sin(3 * math.tau * i / N + 1)
-        dets.append(details_for(rig, fr, relaxed(k), left_spread=4 * math.sin(math.tau * i / N)))
+        k = 0.72 + 0.05 * math.sin(2 * math.tau * i / N)
+        dets.append(details_for(rig, fr, relaxed(k), left_spread=0.0))
     return dict(name='idle_h028', frames=frames, dets=dets, loop=True, events={}, melee=False,
                 ik=max(errs), source=f'idle2_prime')
 
