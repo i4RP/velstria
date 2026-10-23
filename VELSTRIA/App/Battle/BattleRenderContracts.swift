@@ -79,6 +79,8 @@ protocol HeroModelHandle: AnyObject {
     func playAttack(windup: Double, interval: Double)
     /// Synchronize a visual release to the simulation event without changing game timing.
     func synchronizeAttackRelease()
+    /// 描画だけの被弾反応。攻撃・詠唱・ゲーム判定は中断しない。direction はワールドの攻撃元方向。
+    func reactToHit(direction: SIMD3<Float>, strength: Float)
     /// 通常攻撃を 1 回振る。empowered = その攻撃がキットの強い通常攻撃（三連突き・円撃。HeroKits.empoweredAttackReady）。
     /// 強い通常攻撃の全身のモーション（HeroSkillMotions）を持つモデルはそれを振り、無ければ playAttack(windup:interval:) と同じ。
     func playAttack(windup: Double, interval: Double, empowered: Bool)
@@ -96,6 +98,7 @@ extension HeroModelHandle {
     /// 既定は何もしない（手続きモデルは setState(.attack) の手続きの振りのまま）。
     func playAttack(windup: Double, interval: Double) {}
     func synchronizeAttackRelease() {}
+    func reactToHit(direction: SIMD3<Float>, strength: Float) {}
     func playAttack(windup: Double, interval: Double, empowered: Bool) { playAttack(windup: windup, interval: interval) }
     func setEmpoweredReady(_ ready: Bool) {}
     /// 既定: 段のモーションは無い（従来どおり setState(.cast) だけ）。

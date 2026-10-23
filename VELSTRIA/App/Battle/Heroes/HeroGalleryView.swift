@@ -75,6 +75,14 @@ struct HeroGalleryView: View {
     }
 
     var body: some View {
+        if DebugLaunch.args.contains("-heroQualityReview") {
+            HeroQualityReviewView()
+        } else {
+            galleryBody
+        }
+    }
+
+    private var galleryBody: some View {
         ZStack {
             StarfieldBackground()
             VStack(spacing: 0) {
