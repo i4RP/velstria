@@ -11,11 +11,16 @@ import VelstriaCore
 struct HeroPreview3DView: View {
     let heroID: String
     var skinID: String?
+    var allowsSkillPreview = false
+    var skillPreview: HeroSkillPreviewRequest?
+    var isActive = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HeroStageView(config: HeroStageConfig(slots: [HeroStageSlot(heroID: heroID, skinID: skinID)],
-                                              pedestal: true, autoRotate: !reduceMotion))
+                                              pedestal: true, autoRotate: !reduceMotion,
+                                              allowsSkillPreview: allowsSkillPreview, skillPreview: skillPreview),
+                      isActive: isActive)
             .accessibilityElement()
             .accessibilityLabel(MasterData.shared.hero(heroID).map { MasterText.hero($0) } ?? heroID)
             .accessibilityIdentifier("hero_preview_3d")
@@ -51,6 +56,9 @@ struct HeroStageConfig: Equatable {
     var showOverheadMarker = false
     /// 台の初期回転（ラジアン、0 = 正面）。
     var yaw: Float = 0
+    /// 詳細画面だけ、表示中の 1 体のスキル演出を準備する。
+    var allowsSkillPreview = false
+    var skillPreview: HeroSkillPreviewRequest?
 }
 
 /// RealityView の中身を保持する（フレーム更新・ドラッグ回転）。
@@ -78,27 +86,40 @@ final class HeroStageDriver {
     var isDragIgnored = false
     /// 画面に表示されている間だけ進める（NavigationStack で奥へ遷移している間は止め、戻ったら再開する）。
     /// フレーム更新の購読は RealityView の make でしか作れないため、非表示でも解除せずこのフラグで止める。
-    var isActive = true
+    var isActive = true {
+        didSet { if !isActive { skillPlayback?.stop() } }
+    }
     /// 非表示から戻った直後などの大きな dt で姿勢が飛ばないようにする上限（秒）。
     static let maxTickDelta: Double = 1.0 / 15.0
     private var autoYaw: Float = 0
     private var swayTime: Float = 0
+    /// 跳躍・頭上への振り上げも収め、終了後は元の展示距離へ滑らかに戻す。
+    private var skillFraming: Float = 0
     /// 並べた内容の最上端（m）。カメラの収まりに使う。
     private var contentTop: Float = 2.0
     private var frozen = false
+    private(set) var skillPlayback: HeroSkillPreviewPlayback?
 
     func apply(_ c: HeroStageConfig) {
+        let requestChanged = config?.skillPreview != c.skillPreview
         if config?.slots != c.slots || config?.team != c.team || config?.pedestal != c.pedestal
-            || config?.freezeAt != c.freezeAt || config?.showOverheadMarker != c.showOverheadMarker {
+            || config?.freezeAt != c.freezeAt || config?.showOverheadMarker != c.showOverheadMarker
+            || config?.allowsSkillPreview != c.allowsSkillPreview {
             rebuild(c)
         } else if config?.state != c.state {
             for m in models { m.setState(c.state) }
         }
         config = c
         layout()
+        if requestChanged, isActive, let request = c.skillPreview {
+            skillPlayback?.play(request)
+        }
     }
 
     private func rebuild(_ c: HeroStageConfig) {
+        skillPlayback?.stop()
+        skillPlayback = nil
+        skillFraming = 0
         for r in slotRoots { r.removeFromParent() }
         slotRoots.removeAll()
         models.removeAll()
@@ -130,6 +151,9 @@ final class HeroStageDriver {
             let b = h.visualBounds(recursive: true, relativeTo: h, excludeInactive: false)
             if b.max.y.isFinite { contentTop = max(contentTop, min(3.2, b.max.y)) }
         }
+        if c.allowsSkillPreview, let model = models.first, let holder = slotRoots.first {
+            skillPlayback = HeroSkillPreviewPlayback(model: model, parent: holder)
+        }
         frozen = false
         if let f = c.freezeAt {
             let steps = max(1, Int(f / (1.0 / 60.0)))
@@ -155,11 +179,11 @@ final class HeroStageDriver {
         switch c.camera {
         case .showcase:
             // 武器・浮遊物まで含めた全身が上下に余白を持って収まる距離
-            let height = contentTop * 1.12 + 0.45
+            let height = (contentTop + skillFraming * 1.4) * 1.12 + 0.45
             let distW = (width / 2 + 0.3) / halfH
             let distH = (height / 2) / halfV
             let d = max(distW, distH) * 1.03
-            let target = V3(0, contentTop * 0.5, 0)
+            let target = V3(0, contentTop * 0.5 + skillFraming * 0.5, 0)
             camera.look(at: target, from: target + V3(0, d * 0.12, d), relativeTo: nil)
         case .battle:
             // 戦闘カメラ相当（約 56° 見下ろし・遠景）
@@ -173,7 +197,7 @@ final class HeroStageDriver {
     func tick(_ rawDelta: Double) {
         guard isActive, let c = config else { return }
         let dt = min(max(0, rawDelta), HeroStageDriver.maxTickDelta)
-        if c.autoRotate && !isDragging {
+        if c.autoRotate && !isDragging && skillPlayback?.isPlaying != true {
             // 正面を中心にゆっくり左右へ回る（顔が見えている時間を長く）
             swayTime += Float(dt)
             autoYaw = 0.75 * sin(swayTime * 0.33)
@@ -182,6 +206,12 @@ final class HeroStageDriver {
         let yaw = ry(.pi + c.yaw + autoYaw + dragYaw)
         for r in slotRoots { r.orientation = yaw }
         guard !frozen else { return }
+        skillPlayback?.update(dt: Float(dt))
+        let framing: Float = skillPlayback?.isPlaying == true ? 1 : 0
+        if abs(skillFraming - framing) > 0.001 {
+            skillFraming += (framing - skillFraming) * min(1, Float(dt) * 12)
+            layout()
+        }
         let speed = c.state == .run ? c.runSpeed : 0
         for m in models { m.update(dt: dt, moveSpeed: speed) }
     }
@@ -255,6 +285,8 @@ final class HeroStageDriver {
 /// 1 体または複数体のヒーローを並べる RealityView。
 struct HeroStageView: View {
     let config: HeroStageConfig
+    var isActive = true
+    @Environment(\.scenePhase) private var scenePhase
     @State private var driver = HeroStageDriver()
 
     var body: some View {
@@ -262,6 +294,7 @@ struct HeroStageView: View {
             RealityView { content in
                 content.camera = .virtual
                 content.add(driver.world)
+                driver.isActive = isActive && scenePhase == .active
                 driver.aspect = Float(geo.size.width / max(1, geo.size.height))
                 driver.apply(config)
                 driver.tick(0)
@@ -270,6 +303,7 @@ struct HeroStageView: View {
                     driver?.tick(e.deltaTime)
                 }
             } update: { _ in
+                driver.isActive = isActive && scenePhase == .active
                 driver.aspect = Float(geo.size.width / max(1, geo.size.height))
                 driver.apply(config)
             }
@@ -296,7 +330,9 @@ struct HeroStageView: View {
         }
         // 購読は解除しない（make は再実行されないため、解除すると戻った後に止まったままになる）。
         // 非表示の間は tick を止め、RealityView が破棄されれば購読もシーンと一緒に無効になる。
-        .onAppear { driver.isActive = true }
+        .onAppear { driver.isActive = isActive && scenePhase == .active }
         .onDisappear { driver.isActive = false }
+        .onChange(of: isActive) { _, active in driver.isActive = active && scenePhase == .active }
+        .onChange(of: scenePhase) { _, phase in driver.isActive = isActive && phase == .active }
     }
 }

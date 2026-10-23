@@ -38,6 +38,7 @@ struct HeroDetailView: View {
     @State private var showsBattleSkills = false
     /// スキルタブで開いているスキル（nil = スキル 1）。
     @State private var selectedSkillID: String?
+    @State private var skillPreview: HeroSkillPreviewRequest?
 
     var body: some View {
         if let hero = app.master.hero(heroID) {
@@ -52,7 +53,9 @@ struct HeroDetailView: View {
                         HStack(spacing: 0) {
                             showcaseInfo(hero, skills: skills)
                                 .frame(width: geometry.size.width * 0.28)
-                            HeroPreview3DView(heroID: hero.heroID, skinID: app.profile.equippedSkins[hero.heroID])
+                            HeroPreview3DView(heroID: hero.heroID, skinID: app.profile.equippedSkins[hero.heroID],
+                                              allowsSkillPreview: true, skillPreview: skillPreview,
+                                              isActive: !showsDetails)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .overlay(alignment: .bottom) {
                                     Text(L("ドラッグして回転", "Drag to rotate"))
@@ -179,17 +182,19 @@ struct HeroDetailView: View {
                 .buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("herodetail_practice")
                 HStack(spacing: 2) {
                     ForEach(skills) { skill in
-                        SkillIconButton(skill: skill, hero: hero, isSelected: false,
+                        SkillIconButton(skill: skill, hero: hero, isSelected: selectedSkillID == skill.skillID,
                                         identifier: "skill_" + skill.skillID) {
                             selectedSkillID = skill.skillID
-                            openDetails(.skills)
+                            skillPreview = HeroSkillPreviewRequest(skillID: skill.skillID)
+                            app.haptics.tap()
                         }.frame(maxWidth: .infinity)
                     }
                 }
-                HStack(spacing: 16) {
+                HStack(spacing: 12) {
                     showcaseShortcut(.stats)
                     showcaseShortcut(.build)
                     showcaseShortcut(.overview)
+                    showcaseShortcut(.skills)
                 }
             }
             .padding(.top, 8).padding(.bottom, 4)
@@ -201,14 +206,16 @@ struct HeroDetailView: View {
     private func showcaseShortcut(_ selection: HeroDetailTab) -> some View {
         Button { openDetails(selection) } label: {
             VStack(spacing: 3) {
-                Image(systemName: selection.symbol)
+                Image(systemName: selection == .skills ? "info.circle" : selection.symbol)
                     .font(.system(size: 17)).frame(width: 32, height: 32)
                     .overlay(Circle().stroke(Theme.cyan.opacity(0.35)))
-                Text(selection == .overview ? L("伝記", "Lore") : selection.title).font(Theme.body(10))
+                Text(selection == .overview ? L("伝記", "Lore")
+                     : (selection == .skills ? L("スキル説明", "Skill details") : selection.title))
+                    .font(Theme.body(10)).lineLimit(1).minimumScaleFactor(0.7)
             }.frame(minHeight: 44)
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("herodetail_quick_\(selection.rawValue)")
+        .accessibilityIdentifier(selection == .skills ? "herodetail_skill_details" : "herodetail_quick_\(selection.rawValue)")
     }
 
     private func skinRail(_ hero: HeroDef, height: CGFloat) -> some View {

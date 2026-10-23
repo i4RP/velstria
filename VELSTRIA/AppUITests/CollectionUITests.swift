@@ -38,19 +38,18 @@ final class CollectionUITests: XCTestCase {
         element(app, "heroes_role_Support").tap()
         snapshot(app, "heroes_support")
         card.tap()
-        let skillsTab = element(app, "herodetail_tab_skills")
-        XCTAssertTrue(skillsTab.waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "hero_preview_3d").waitForExistence(timeout: 10))
         snapshot(app, "hero_detail_overview")
-        element(app, "herodetail_tab_stats").tap()
+        element(app, "herodetail_quick_stats").tap()
         snapshot(app, "hero_detail_stats")
         element(app, "herodetail_tab_skins").tap()
         snapshot(app, "hero_detail_skins")
         element(app, "herodetail_tab_build").tap()
         snapshot(app, "hero_detail_build")
-        skillsTab.tap()
+        element(app, "herodetail_tab_skills").tap()
         snapshot(app, "hero_detail_skills")
-        // 左のスキルアイコン列（ヒーロー詳細の左パネル）を押すと、右にそのスキルの詳細（説明・レベル表）が出る
-        let ult = element(app, "skill_SK029_5")
+        // 説明シート内のスキルアイコン列は説明・レベル表を切り替える。
+        let ult = element(app, "detail_skill_SK029_5")
         XCTAssertTrue(ult.waitForExistence(timeout: 5))
         ult.tap()
         XCTAssertTrue(element(app, "skilldetail_description").waitForExistence(timeout: 5))
@@ -82,21 +81,34 @@ final class CollectionUITests: XCTestCase {
     }
 
     func testHeroPreviewKeepsAnimatingAfterSkillSelection() {
-        let app = launch(route: "heroDetail:H001")
+        let app = launch(route: "heroDetail:H033")
         let preview = element(app, "hero_preview_3d")
         XCTAssertTrue(preview.waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "herodetail_quick_stats").isHittable)
         Thread.sleep(forTimeInterval: 1.0)
         XCTAssertTrue(previewIsAnimating(preview), "詳細を開いた直後に 3D プレビューが動いていない")
-        element(app, "herodetail_tab_skills").tap()
-        let skill = element(app, "skill_SK001_2")
-        XCTAssertTrue(skill.waitForExistence(timeout: 5))
-        skill.tap()
-        // スキルを選ぶと右パネルが切り替わるが、左の 3D プレビューは動き続ける
-        XCTAssertTrue(element(app, "skilldetail_description").waitForExistence(timeout: 5))
+        for id in ["SK033_1", "SK033_2", "SK033_3", "SK033_5", "SK033_5"] {
+            let skill = element(app, "skill_" + id)
+            XCTAssertTrue(skill.waitForExistence(timeout: 5))
+            skill.tap()
+            if id == "SK033_2" {
+                let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+                shot.name = "hero_skill_preview_effect"
+                shot.lifetime = .keepAlways
+                add(shot)
+            }
+            XCTAssertTrue(skill.isSelected)
+            XCTAssertFalse(element(app, "skilldetail_description").exists, "再生で説明シートを開かない")
+        }
         XCTAssertTrue(preview.waitForExistence(timeout: 5))
         Thread.sleep(forTimeInterval: 1.0)
         snapshot(app, "hero_detail_preview_after_skill")
         XCTAssertTrue(previewIsAnimating(preview), "スキルを選んだ後に 3D プレビューが止まっている")
+        element(app, "herodetail_skill_details").tap()
+        XCTAssertTrue(element(app, "skilldetail_description").waitForExistence(timeout: 5))
+        app.buttons["閉じる"].firstMatch.tap()
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        XCTAssertTrue(previewIsAnimating(preview), "説明を閉じた後に待機モーションが再開しない")
     }
 
 

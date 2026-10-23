@@ -82,6 +82,7 @@ jobs:
             -only-testing:VELSTRIATests/RenderLogicTests \
             -only-testing:VELSTRIATests/SkillFXTests \
             -only-testing:VELSTRIATests/HeroFullBodyMotionTests \
+            -only-testing:VELSTRIATests/HeroSkillPreviewTests \
             -only-testing:VELSTRIATests/SkillFXRangeTests \
             -only-testing:VELSTRIATests/EmpoweredAttackFXTests \
             -only-testing:VELSTRIATests/BattleFeelTests \
