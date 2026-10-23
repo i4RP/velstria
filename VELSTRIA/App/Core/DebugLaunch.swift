@@ -23,7 +23,8 @@ import VelstriaCore
 //   -seekTo <秒>          最初の観戦・リプレイの読み込み後にその時刻へシークする
 //   -sampleReplays        リプレイ一覧の確認用に見本のリプレイを保存する（AI 観戦・自分の試合・乱闘・別バージョン）
 //   -practiceNoCD / -practiceLevel <n>  -battle practice の設定（クールダウン無し / 開始レベル）
-//   -efkAuto <atk|s1|s2|ult>  -battle practice で、人形へ近づいて 2 秒ごとに通常攻撃 / スキルを撃ち続ける（Effekseer の確認用）
+//   -efkAuto <atk|s1|s2|ult|quality>  -battle practice でスキルを習得し、人形へ近づいて 2 秒ごとに撃つ。
+//                         quality は通常攻撃・全スキル・移動を巡回（Release + SCREENSHOTS の性能計測にも使用）。
 //   -fxCapture <s1,s2,ult|all>  -battle practice で、人形の前でスキルを順に撃ち、発動からの決まった時刻の戦闘画面を書き出す
 //                         （スキル演出の比較撮影。FXCapture・.github/workflows/fx-capture.yml）。-fxCaptureRings / -fxCaptureExit も読む
 //   -cameraPreset <legacy|mlbb>  戦闘カメラの組（CameraRig.Preset。比較の撮影用）
@@ -150,6 +151,10 @@ enum DebugLaunch {
                     humanHeroID: hero, humanName: name,
                     options: PracticeOptions(noCooldowns: args.contains("-practiceNoCD"), startLevel: value(after: "-practiceLevel").flatMap { Int($0) } ?? 1),
                     tutorial: mode == "tutorial", seed: seed)
+                if mode == "practice", value(after: "-efkAuto") != nil,
+                   let i = config.players.firstIndex(where: { $0.controller == .human }) {
+                    config.players[i].autoLevelSkills = true
+                }
                 // 比較撮影（FXCapture）: 英雄にだけ撃てるスキル（FXCheckDriver.heroOnly）の的に、敵の Bot の英雄を 1 体足す
                 // （演出チェックの FXCheckSession.config と同じ。撮影の間は人間の操作扱いにして動かさない）
                 if mode == "practice", value(after: "-fxCapture") != nil {

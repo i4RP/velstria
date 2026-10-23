@@ -119,6 +119,14 @@ H025の丸影の不透明度を0.32→0.23へ調整し、手元の発光を弓�
 [モデル報告](quality/h025/model-report.json)、[全フレームの床/接地検査](quality/h025/motion-audit.json)、
 [S2音声の再配置](quality/h025/audio-retime.json)を保存した。
 
+実戦計測は `tools/capture_h025_practice.sh <simulator UUID> <Release .app> <出力先> [秒数]` で再現する。
+Release ビルドに `SCREENSHOTS TESTER_TOOLS` を指定し、arm64 シミュレータでは
+`ONLY_ACTIVE_ARCH=YES ARCHS=arm64` を使用する（既存エフェクトライブラリの x86_64 リンクを避ける）。
+`-efkAuto quality` はスキルを自動習得し、通常のゲーム入力で人形へ接近、通常攻撃・S1・S2・奥義・移動を巡回する。
+撮影補助は DEBUG / SCREENSHOTS 限定で、TestFlight の操作やゲーム判定は変更しない。
+最初の Release 計測では補助が DEBUG 限定だったため待機しか記録されず、戦闘確認から除外した。
+補助の修正後に再計測する。補助修正は比較映像のモデル・材質・モーションを変更しない。
+
 未達または未検証を以下に分ける。
 
 - **造形の差は残る**：顔、衣装の細部、髪の束、装飾は既存メッシュを基にしており、MLBBの同一モデルではない。

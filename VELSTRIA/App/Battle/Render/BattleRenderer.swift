@@ -457,8 +457,10 @@ final class BattleRenderer {
             // 一時停止の前後のフレームは自動調整の判定に使わない
             governor.resetWindow()
         }
-        #if DEBUG
+        #if DEBUG || SCREENSHOTS
         debugAutoDrive(dt: dt)
+        #endif
+        #if DEBUG
         debugCoreFinaleDemo()
         #endif
         let t0 = CACurrentMediaTime()
@@ -836,9 +838,11 @@ final class BattleRenderer {
     #if DEBUG
     /// -fxCapture: スキル演出の比較撮影（FXCapture）。
     private lazy var fxCapture: FXCapture? = FXCapture.isRequested ? FXCapture() : nil
+    #endif
+    #if DEBUG || SCREENSHOTS
     private var autoClock: Double = 0
     private var autoStep = 0
-    /// -efkAuto <atk|s1|s2|ult>: 一番近い敵（人形）へ近づき、2 秒ごとに通常攻撃 / スキルを撃つ。
+    /// -efkAuto <atk|s1|s2|ult|quality>: Release 計測でも通常の入力で人形へ接近・攻撃する。
     private func debugAutoDrive(dt: Double) {
         guard let what = DebugLaunch.value(after: "-efkAuto"), let me = controller.humanIndex else { return }
         let s = controller.state
@@ -871,7 +875,9 @@ final class BattleRenderer {
         default: controller.send(.attack(targetID: foe.id))
         }
     }
+    #endif
 
+    #if DEBUG
     private var finaleDemoDone = false
     /// -coreFinaleDemo <red|blue>: 幕が上がって 2 秒後、その Core を守る塔を倒した状態に置き換え（controller.restore。sim の
     /// 規則は変えない）、攻める側のヒーローを Core の前へ、守る側を地図の中央へ移して Core の HP を僅かにする。
