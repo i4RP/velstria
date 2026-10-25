@@ -1,17 +1,19 @@
 #!/bin/bash
 # Same sequence/camera/lights for each stage; owns no user simulator.
-# Usage: capture_h025_quality.sh <booted simulator UUID> <app> <output dir> [close]
+# Usage: capture_h025_quality.sh <booted simulator UUID> <app> <output dir> [close|battle] [H025|H028]
 set -euo pipefail
 udid="$1"
 app="$2"
 out="$3"
 mode="${4:-battle}"
-handshake=/tmp/velstria-h025-review
+hero="${5:-H025}"
+case "$hero" in H025|H028) ;; *) echo 'Hero must be H025 or H028' >&2; exit 1 ;; esac
+handshake="/tmp/velstria-$(echo "$hero" | tr '[:upper:]' '[:lower:]')-review"
 bundle=com.bitcoinpay.velstria
 mkdir -p "$out" "$handshake"
 rm -f "$handshake/ready.json" "$handshake/done.json" "$handshake/go"
 xcrun simctl install "$udid" "$app"
-args=(-uiTesting -skipOnboarding -language en -heroGallery -heroQualityReview)
+args=(-uiTesting -skipOnboarding -language en -heroGallery -heroQualityReview -heroReviewHero "$hero")
 if [[ "$mode" == close ]]; then args+=(-heroReviewClose); fi
 xcrun simctl launch --terminate-running-process "$udid" "$bundle" "${args[@]}" > "$out/launch.log"
 for ((i=0;i<180;i++)); do
@@ -38,7 +40,7 @@ trap - EXIT
 cp "$handshake/done.json" "$out/completed.json"
 git rev-parse HEAD > "$out/commit.txt"
 xcodebuild -version > "$out/environment.txt"
-shasum -a 256 "$app/Hero_H025.usdz" "$app/H025MotionClips.json" > "$out/assets.sha256"
+shasum -a 256 "$app/Hero_${hero}.usdz" "$app/${hero}MotionClips.json" > "$out/assets.sha256"
 # Simulator's video is portrait storage; normalize orientation, preserving scale.
 ffmpeg -y -hide_banner -loglevel error -i "$out/raw.mp4" -vf 'transpose=2,scale=1600:-2' \
     -c:v libx264 -crf 18 -pix_fmt yuv420p -an "$out/review.mp4"

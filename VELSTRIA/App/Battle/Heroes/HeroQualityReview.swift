@@ -29,9 +29,15 @@ final class HeroQualityReviewDriver {
     private var finished = false
     private var action = -1
     private var releaseAt: Float?
+    private var castHitAt: Float?
     private var yaw: Float = .pi * 0.75
     private let close = DebugLaunch.args.contains("-heroReviewClose")
-    private let dir = URL(fileURLWithPath: "/tmp/velstria-h025-review", isDirectory: true)
+    private let heroID: String = {
+        let args = DebugLaunch.args
+        if let i = args.firstIndex(of: "-heroReviewHero"), args.indices.contains(i + 1), args[i + 1] == "H028" { return "H028" }
+        return "H025"
+    }()
+    private var dir: URL { URL(fileURLWithPath: "/tmp/velstria-\(heroID.lowercased())-review", isDirectory: true) }
     static let duration: Float = 38
 
     func makeView() -> ARView {
@@ -39,7 +45,7 @@ final class HeroQualityReviewDriver {
         view.environment.background = .color(UIColor(red: 0.17, green: 0.22, blue: 0.20, alpha: 1))
         view.renderOptions.insert(.disableMotionBlur)
         view.renderOptions.insert(.disableDepthOfField)
-        let hero = HeroModelLibrary.makeHero(heroID: "H025", skinID: nil, team: .neutral,
+        let hero = HeroModelLibrary.makeHero(heroID: heroID, skinID: nil, team: .neutral,
                                             master: .shared, options: .init(teamMarker: false, shadow: true, aura: false))
         model = hero
         anchor.addChild(hero.root)
@@ -76,10 +82,10 @@ final class HeroQualityReviewDriver {
         floorB.baseColor = .init(tint: UIColor(red: 0.25, green: 0.31, blue: 0.27, alpha: 1))
         var mats = [RealityKit.Material](repeating: floorA, count: HeroMat.allCases.count)
         mats[Int(HeroMat.secondary.rawValue)] = floorB
-        if let mesh = grid.makeMesh(name: "h025.review.grid") {
+        if let mesh = grid.makeMesh(name: "hero.review.grid") {
             anchor.addChild(ModelEntity(mesh: mesh, materials: mats))
         }
-        for name in ["h025.review.anchor", "h025.review.camera", "h025.review.sun", "h025.review.fill", "h025.review.floor"] {
+        for name in ["hero.review.anchor", "hero.review.camera", "hero.review.sun", "hero.review.fill", "hero.review.floor"] {
             AssetLedger.record(.entity, name)
         }
         view.scene.addAnchor(anchor)
@@ -112,7 +118,7 @@ final class HeroQualityReviewDriver {
         warmed += dt
         if warmed > 3, !ready {
             ready = true
-            write("ready.json", ["sequence": 1, "duration": Self.duration, "close": close,
+            write("ready.json", ["sequence": 1, "heroID": heroID, "duration": Self.duration, "close": close,
                 "pitch": CameraRig.pitchDegrees, "fov": CameraRig.fovDegrees, "distance": CameraRig.baseDistance,
                 "triangles": model.triangleCount, "entities": model.entityCount,
                 "note": "RealityKit review stage; battle lens and lights. Not gameplay or physical-device FPS."])
@@ -139,6 +145,13 @@ final class HeroQualityReviewDriver {
             facing = angle - .pi / 2
             speed = t >= 8 && t < 12 ? 3.375 : 0
             label = speed > 0 ? "TURN / REVERSE" : "SETTLE"
+        } else if heroID == "H028", t >= 23, t < 25 {
+            position = ry(facing).act(V3(0, 0, -3 * min(1, (t - 23) / 0.2)))
+            speed = t < 23.2 ? 15 : 0
+        } else if heroID == "H028", t >= 26, t < 29 {
+            position = ry(facing).act(V3(0, 0, -3 * min(1, (t - 26) / 0.18)))
+            speed = t < 26.18 ? 17 : 0
+            label = "ULT / 3 STRIKES / LAND"
         } else if t >= 26, t < 29 {
             speed = t < 28 ? 3.375 : 3.375 * (29 - t)
             position = ry(facing).act(V3(0, 0, -3.375 * (min(2, t - 26) + max(0, t - 28) - pow(max(0, t - 28), 2) / 2)))
@@ -169,7 +182,9 @@ final class HeroQualityReviewDriver {
                 switch event {
                 case 1: model.playCast(.skill1, stage: 0)
                 case 2: model.playCast(.skill2, stage: 0)
-                case 3: model.playCast(.ultimate, stage: 0)
+                case 3:
+                    model.playCast(.ultimate, stage: 0)
+                    if heroID == "H028" { castHitAt = t + 0.18 }
                 case 4, 5: model.reactToHit(direction: [0, 0, 1], strength: 0.8)
                 case 6: model.setState(.dead)
                 default: model.setState(speed > 0.2 ? .run : .idle)
@@ -178,9 +193,10 @@ final class HeroQualityReviewDriver {
         }
         if event < 0 { model.setState(speed > 0.2 ? .run : .idle) }
         if let releaseAt, t >= releaseAt { model.synchronizeAttackRelease(); self.releaseAt = nil }
+        if let castHitAt, t >= castHitAt { model.playCastHit(.ultimate); self.castHitAt = nil }
         model.update(dt: started ? Double(dt) : 0, moveSpeed: Double(speed) * Balance.unitsPerMeter)
-        caption.text = String(format: " H025 · %@ · %.2fs \n %@ \n RealityKit review stage · fixed battle lights ",
-                              close ? "DETAIL" : "BATTLE CAMERA 1×", t, label)
+        caption.text = String(format: " %@ · %@ · %.2fs \n %@ \n RealityKit review stage · fixed battle lights ",
+                              heroID, close ? "DETAIL" : "BATTLE CAMERA 1×", t, label)
         if t >= Self.duration {
             finished = true
             write("done.json", ["elapsed": t, "sequence": 1, "completed": true])
