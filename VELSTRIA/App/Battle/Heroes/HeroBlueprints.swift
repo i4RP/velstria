@@ -69,7 +69,7 @@ enum WeaponKind {
 enum OffhandKind {
     case none, gateShield, harpBow, ashBow, moonLantern, stoneFist, grimoire, glassDagger, hideShield
     case shortBlade, petalBlade, lightBow, azureClaw, dreamNeedle
-    case crescentBow, heaterShield
+    case crescentBow, heaterShield, photonBlade
     case abyssRing
 }
 
@@ -141,6 +141,7 @@ struct HeroBlueprint {
         case .stoneFist: return 1.1
         case .ashBow, .lightBow: return 1.12
         case .crescentBow: return 0.98
+        case .photonBlade: return 0.72
         default: return 1.28
         }
     }
@@ -308,7 +309,7 @@ enum HeroBlueprints {
         // 銀白の高い結い髪と赤い襟巻き・赤く光る刃縁の黒い長剣。回る剣は S1 の演出だけに表示する。
         // 基調色 = Theme.heroHue（鋼青 0.59）、metal = 銀（縁・鍔・耳当て）、accent = 赤（襟巻き・髪紐）、glow = 赤（visor・刃縁）。
         HeroBlueprint(build: .slim, armor: .cyber, pauldron: .angular, skirt: .tassets, hair: .highPonytail,
-                      gear: [.cyberVisor], weapon: .photonBlade, offhand: .none, back: .scarfTails, float: .none,
+                      gear: [.cyberVisor], weapon: .photonBlade, offhand: .photonBlade, back: .scarfTails, float: .none,
                       attack: .slash, metal: .silver, skin: .fair, hairColor: HSB(0.6, 0.06, 0.94),
                       accent: HSB(0.99, 0.85, 0.88), glow: HSB(0.0, 0.82, 1.0), scale: 1.02),
         // H029 聖槌のボルグ（Support）: 巨大な聖槌と金の大盾・青い板金に金の縁取り・赤いマント・金髪に金の額冠（兜は被らない）。

@@ -278,19 +278,7 @@ struct HeroGearBuilder {
             b.sphere(V3(0, 0.86, 0), 0.035, .glow, .low)
             weaponTip = V3(0, 1.06, 0)
         case .photonBlade:
-            // 光刃の長剣（H028 ザイル）: 細身の長い黒い刃に赤く光る刃縁と銀の峰・角張った銀の鍔と赤い宝珠。
-            // 刃は XY 面（平らな面が ±Z）に置く。刃筋を ±Z にすると上方カメラが北向き・南向きの刃を真横から見て線になる
-            grip(&b, 0.1)
-            b.rbox(V3(0, 0.12, 0), V3(0.22, 0.05, 0.07), 0.015, .metal)
-            for s: Float in [-1, 1] {
-                b.extrude([V2(s * 0.1, 0.1), V2(s * 0.16, 0.2), V2(s * 0.07, 0.14)], depth: 0.04, .zero, .metal)
-            }
-            b.sphere(V3(0, 0.12, -0.035), 0.026, .glow, .low)
-            let blade: [V2] = [V2(-0.045, 0), V2(0.05, 0), V2(0.05, 0.86), V2(-0.045, 1.0)]
-            b.extrude(blade, depth: 0.026, V3(0, 0.145, 0), .dark)
-            b.extrude([V2(0.05, 0.02), V2(0.07, 0.02), V2(0.07, 0.86), V2(-0.04, 1.03), V2(-0.045, 1.0), V2(0.05, 0.86)],
-                      depth: 0.032, V3(0, 0.145, 0), .glow)
-            b.box(V3(-0.05, 0.6, 0), V3(0.016, 0.9, 0.034), .metal)
+            photonBlade(&b)
             weaponTip = V3(0, 1.1, 0)
         case .holyMaul:
             // 聖槌: 片手で振る巨大な大槌。長い柄・青い槌頭（前後の打撃面は金の当て金と金の帯）・上面と側面に聖印。
@@ -428,6 +416,22 @@ struct HeroGearBuilder {
         return b
     }
 
+    private func photonBlade(_ b: inout HeroMeshBuilder) {
+        // 光刃の長剣（H028 ザイル）: 細身の長い黒い刃に赤く光る刃縁と銀の峰・角張った銀の鍔と赤い宝珠。
+        // 刃は XY 面（平らな面が ±Z）に置く。刃筋を ±Z にすると上方カメラが北向き・南向きの刃を真横から見て線になる
+        grip(&b, 0.1)
+        b.rbox(V3(0, 0.12, 0), V3(0.22, 0.05, 0.07), 0.015, .metal)
+        for s: Float in [-1, 1] {
+            b.extrude([V2(s * 0.1, 0.1), V2(s * 0.16, 0.2), V2(s * 0.07, 0.14)], depth: 0.04, .zero, .metal)
+        }
+        b.sphere(V3(0, 0.12, -0.035), 0.026, .glow, .low)
+        let blade: [V2] = [V2(-0.045, 0), V2(0.05, 0), V2(0.05, 0.86), V2(-0.045, 1.0)]
+        b.extrude(blade, depth: 0.026, V3(0, 0.145, 0), .dark)
+        b.extrude([V2(0.05, 0.02), V2(0.07, 0.02), V2(0.07, 0.86), V2(-0.04, 1.03), V2(-0.045, 1.0), V2(0.05, 0.86)],
+                  depth: 0.032, V3(0, 0.145, 0), .glow)
+        b.box(V3(-0.05, 0.6, 0), V3(0.016, 0.9, 0.034), .metal)
+    }
+
     // MARK: 左手
 
     func offhand(includeBowString: Bool = true) -> HeroMeshBuilder {
@@ -512,6 +516,8 @@ struct HeroGearBuilder {
             }
         case .shortBlade:
             katana(&b, scale: 0.62)
+        case .photonBlade:
+            photonBlade(&b)
         case .petalBlade:
             dagger(&b, petalShape(), bladeMat: .accent, glowEdge: false)
             b.rbox(V3(0, 0.3, 0), V3(0.036, 0.24, 0.012), 0.005, .glow)
@@ -598,6 +604,7 @@ struct HeroGearBuilder {
         case .dreamNeedle: return V3(0, 0.52, 0)
         // katana(scale: 0.62): 霧の刀の先端 0.96 × 0.62
         case .shortBlade: return V3(0, 0.6, 0)
+        case .photonBlade: return V3(0, 1.1, 0)
         case .moonLantern: return V3(0, -0.26, 0)
         case .harpBow, .ashBow, .lightBow, .crescentBow: return .zero
         case .stoneFist: return V3(0, -0.15, 0)

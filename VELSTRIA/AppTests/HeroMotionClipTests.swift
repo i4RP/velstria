@@ -947,6 +947,23 @@ final class HeroMotionClipTests: XCTestCase {
         XCTAssertLessThan(animator.clips.clipTime, hit)
         _ = animator.playCastHit(.ultimate)
         XCTAssertGreaterThanOrEqual(animator.clips.clipTime, hit - 1e-4, "到着の命中で到着の姿勢へ")
+
+        // The shipped rig must actually leave the ground, then land before the
+        // cast returns to locomotion. A torso-only airborne pose is insufficient.
+        let ultIndex = try XCTUnwrap(binding.cast(HeroAnimator.castIndex(.ultimate)))
+        for (time, airborne) in [(Float(0.60), true), (1.55, false)] {
+            let (q, root) = lib.sample(ultIndex, time: time)
+            poser.solve(q, hipsDrop: 0, hipsOffset: root * leg)
+            let sole = contacts.map { poser.position[$0].y }.min()!
+            if airborne { XCTAssertGreaterThan(sole - restLowest, 0.25) }
+            else { XCTAssertEqual(sole, restLowest, accuracy: 0.035) }
+        }
+        animator.setState(.idle)
+        animator.playAttack(windup: 0.18, interval: 0.70, empowered: true)
+        XCTAssertEqual(animator.clips.clipName, "sword_dive_h028", "突進後の強化攻撃は振り下ろし")
+        for _ in 0..<22 { _ = animator.advance(dt: 1.0 / 120, moveSpeed: 0) }
+        XCTAssertEqual(animator.clips.clipTime, animator.clips.impactTime, accuracy: 0.015,
+                       "強化斬撃も既存の命中時刻へ追従")
     }
 
     /// H032 ディアス: 専用のクリップ（H032MotionClips.json）が試合の実際のモデルで接地し、スキルの打撃が sim の時刻

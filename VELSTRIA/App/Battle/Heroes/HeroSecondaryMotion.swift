@@ -1,7 +1,7 @@
 import Foundation
 import simd
 
-/// A fixed-size local pose for H025's authored cloth/hair chains. No entities,
+/// A fixed-size local pose for authored cloth/hair chains (H025, H028). No entities,
 /// timers, allocations or physics world; evaluated by the visible model update.
 struct HeroSecondaryPose {
     static let names = ["capel1", "capel2", "capel3", "caper1", "caper2", "caper3",

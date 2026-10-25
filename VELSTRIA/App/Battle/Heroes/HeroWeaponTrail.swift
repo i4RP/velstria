@@ -21,7 +21,7 @@ struct HeroWeaponPoints {
 
     /// 左手の軌跡を出す副手。二刀の短剣・小太刀に加え、三日月の短刀と組む月の灯籠（左手で打つ二刀の振りを灯りの筋で見せる）と、
     /// 両手首の刃の輪（H032）。
-    static let dualBlades: Set<OffhandKind> = [.glassDagger, .petalBlade, .dreamNeedle, .shortBlade, .moonLantern, .abyssRing]
+    static let dualBlades: Set<OffhandKind> = [.glassDagger, .petalBlade, .dreamNeedle, .shortBlade, .moonLantern, .abyssRing, .photonBlade]
     /// 体に付ける籠手・爪（発射・軌跡の根元は手のひら = 武器エンティティの原点）。
     static let bodyWorn: Set<WeaponKind> = [.stoneFist, .azureClaw]
 

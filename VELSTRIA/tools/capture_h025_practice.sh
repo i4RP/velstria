@@ -1,10 +1,13 @@
 #!/bin/bash
-# Release + SCREENSHOTS + TESTER_TOOLS build; records real practice inputs and PerfReport.
+# Records real practice inputs and PerfReport. Use Release + SCREENSHOTS + TESTER_TOOLS for performance comparisons.
+# Args: simulator app output [seconds >= 65] [H025|H028]
 set -euo pipefail
 udid=${1:?simulator UUID}
 app=${2:?path to VELSTRIA.app}
 out=${3:?output directory}
 seconds=${4:-65}
+hero=${5:-H025}
+case "$hero" in H025|H028) ;; *) echo "Hero must be H025 or H028" >&2; exit 1 ;; esac
 [[ "$seconds" =~ ^[0-9]+$ ]] && (( seconds >= 65 ))
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
@@ -15,7 +18,7 @@ rm -f "$report"
 xcrun simctl launch --terminate-running-process \
     --stdout="$out/runtime.log" --stderr="$out/runtime.log" \
     "$udid" com.bitcoinpay.velstria \
-    -uiTesting -skipOnboarding -grant -language en -battle practice -hero H025 \
+    -uiTesting -skipOnboarding -grant -language en -battle practice -hero "$hero" \
     -practiceNoCD -practiceLevel 4 -efkAuto quality -perfRun "$seconds" -perfQuality medium \
     > "$out/launch.log"
 xcrun simctl io "$udid" recordVideo --codec=h264 --force "$out/raw.mp4" > "$out/record.log" 2>&1 &

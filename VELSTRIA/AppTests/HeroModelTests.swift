@@ -377,6 +377,7 @@ final class HeroModelTests: XCTestCase {
         XCTAssertTrue((0.05...0.12).contains(r[26].glow.h), "橙の竜の光 \(r[26].glow.h)")
         // H028 ザイル（セイバー）: 赤い刃縁の黒い長剣・鋼青の機甲に黒い下地・赤い visor・銀白の高い結い髪。常時の浮遊剣は無い
         XCTAssertEqual(r[27].weapon, .photonBlade)
+        XCTAssertEqual(r[27].offhand, .photonBlade)
         XCTAssertEqual(r[27].attack, .slash)
         XCTAssertEqual(r[27].armor, .cyber)
         XCTAssertTrue(r[27].gear.contains(.cyberVisor))

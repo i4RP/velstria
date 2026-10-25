@@ -448,7 +448,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
         skinnedEntities = skinned
         poser = HeroSkeletonPoser(rig: rig)
         footContacts = heroID == "H025" ? HeroFootContacts(rig: rig) : nil
-        hasSecondary = heroID == "H025" && rig.secondaryIndex.contains(where: { $0 >= 0 })
+        hasSecondary = (heroID == "H025" || heroID == "H028") && rig.secondaryIndex.contains(where: { $0 >= 0 })
         handR = rig.index[.handR]!
         handL = rig.index[.handL]!
         stringIndexR = rig.jointNames.firstIndex { HeroJointRole.normalize($0) == "righthandindex3" }
