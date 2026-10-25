@@ -139,7 +139,8 @@ struct HeroBlueprint {
         case .hideShield: return 0.95
         case .heaterShield: return 1.0
         case .stoneFist: return 1.1
-        case .ashBow, .lightBow, .crescentBow: return 1.12
+        case .ashBow, .lightBow: return 1.12
+        case .crescentBow: return 0.98
         default: return 1.28
         }
     }

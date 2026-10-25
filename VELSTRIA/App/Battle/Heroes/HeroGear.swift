@@ -534,7 +534,7 @@ struct HeroGearBuilder {
             for i in 0...rings {
                 let a = -Self.crescentHalfSpan + 2 * Self.crescentHalfSpan * Float(i) / Float(rings)
                 let centre = Self.crescentPoint(a)
-                let normal = V3(0, sin(a), -cos(a))
+                let normal = simd_normalize(V3(0, sin(a) / 0.72, -cos(a) / 0.46))
                 let taper = 1 - 0.62 * pow(abs(a) / Self.crescentHalfSpan, 1.4)
                 for j in 0..<sides {
                     let t = Float(j) * 2 * .pi / Float(sides)
@@ -737,7 +737,7 @@ struct HeroGearBuilder {
     /// Same endpoints as the crescent bow's baked yaw. Used by the two reusable string segments.
     static let crescentHalfSpan: Float = 1.06
     static func crescentPoint(_ a: Float) -> V3 {
-        V3(0, sin(a) * 0.72, 0.70 - cos(a) * 0.72)
+        V3(0, sin(a) * 0.72, 0.44 - cos(a) * 0.46)
     }
     static let crescentStringTop = ry(0.6).act(crescentPoint(crescentHalfSpan))
     static let crescentStringBottom = ry(0.6).act(crescentPoint(-crescentHalfSpan))
