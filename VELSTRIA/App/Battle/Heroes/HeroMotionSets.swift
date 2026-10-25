@@ -262,7 +262,7 @@ enum HeroMotionSets {
         return s
     }()
 
-    /// H028 ザイル: 専用の収録（H028MotionClips.json、docs/H028_MOTION.md）。低い半身の構え・低い歩行と前傾の走行・
+    /// H028 ザイル: 専用の収録（H028MotionClips.json、docs/H028_MOTION.md）。剣を外下方へ下ろす直立・低い歩行と前傾の走行・
     /// 3 段の通常攻撃（袈裟 → 返し → 低い薙ぎ）。スキルの詠唱も専用のクリップ（環剣の一回し・断空突進・三連断空）。
     private static let zail: HeroMotionSet = {
         var s = make(["sword_slash_a_h028", "sword_slash_b_h028", "sword_slash_c_h028"], idle: "idle_h028",

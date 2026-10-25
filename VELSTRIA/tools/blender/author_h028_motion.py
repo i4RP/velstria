@@ -552,21 +552,22 @@ def build_idle(rig, srcs, ground):
     y0 = sum((yaw_of(fr.qs[SEG['torso']]) for fr in frames), 0.0) / N
     for i, fr in enumerate(frames):
         fr.off = V((cx, -0.025 + 0.006 * math.sin(math.tau * i / N), cz))
-    # 足は肩幅、右足をわずかに前へ（剣の側）
-    pins = {'R': V((cx, 0, cz)) + ry(y0) @ V((0.15, 0, -0.06)), 'L': V((cx, 0, cz)) + ry(y0) @ V((-0.14, 0, 0.07))}
+    # 10/26 の参考立ち絵: 肩幅で立ち、右足を前へ。構えを深く沈めず脚の長いシルエットを保つ。
+    pins = {'R': V((cx, 0, cz)) + ry(y0) @ V((0.16, 0, -0.07)), 'L': V((cx, 0, cz)) + ry(y0) @ V((-0.15, 0, 0.06))}
     flags = {s: [True] * N for s in FOOT_ROLES}
     plant_feet(rig, frames, flags, True, ground, pin_pos=pins)
     errs = [solve_legs(rig, fr, ground) for fr in frames]
-    # 右手: 柄を腰の前でしっかり握り、剣は右前下へ斜めに下ろす。左手は拳を体の脇へ
+    # 右手は腿の外側へ下ろす。短くした剣を外下方へ向け、胸・腹の正面を空ける。
+    # 左手は体の脇。手首の可動域と胴への干渉は set_blade の共通処理で保つ。
     for i, fr in enumerate(frames):
         y = yaw_of(fr.qs[SEG['torso']])
         Y = ry(y)
         _, P = solve(rig, fr.qs, fr.off, {})
         sway = 0.008 * math.sin(math.tau * i / N + 0.6)
-        arm_ik(rig, fr, 'R', P[rig.index['rightarm']] + Y @ V((0.1, -0.4 + sway, -0.2)), Y @ V((0.7, -0.1, 0.7)).normalized())
+        arm_ik(rig, fr, 'R', P[rig.index['rightarm']] + Y @ V((0.14, -0.46 + sway, -0.055)), Y @ V((0.8, -0.1, 0.4)).normalized())
         arm_ik(rig, fr, 'L', P[rig.index['leftarm']] + Y @ V((-0.07, -0.5 + sway, 0.03)), Y @ V((-0.5, 0, 0.85)).normalized())
         fr.qs[SEG['handL']] = fr.qs[SEG['foreArmL']].copy()
-        set_blade(rig, fr, Y @ V((0.32, -0.62, -0.72)).normalized())
+        set_blade(rig, fr, Y @ V((0.76, -0.62, -0.20)).normalized())
     # 左手の指先: ゆっくり開閉（2 回/周）
     dets = []
     for i, fr in enumerate(frames):

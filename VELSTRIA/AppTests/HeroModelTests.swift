@@ -375,13 +375,13 @@ final class HeroModelTests: XCTestCase {
         XCTAssertTrue(r[26].gear.contains(.dragonCrest))
         XCTAssertTrue(r[26].accent.h > 0.95 || r[26].accent.h < 0.03, "赤いマント \(r[26].accent.h)")
         XCTAssertTrue((0.05...0.12).contains(r[26].glow.h), "橙の竜の光 \(r[26].glow.h)")
-        // H028 ザイル（セイバー）: 赤い刃縁の黒い長剣・鋼青の機甲に黒い下地・赤い visor・銀白の高い結い髪・回る小剣
+        // H028 ザイル（セイバー）: 赤い刃縁の黒い長剣・鋼青の機甲に黒い下地・赤い visor・銀白の高い結い髪。常時の浮遊剣は無い
         XCTAssertEqual(r[27].weapon, .photonBlade)
         XCTAssertEqual(r[27].attack, .slash)
         XCTAssertEqual(r[27].armor, .cyber)
         XCTAssertTrue(r[27].gear.contains(.cyberVisor))
         XCTAssertEqual(r[27].hair, .highPonytail)
-        XCTAssertEqual(r[27].float, .orbitBlades)
+        XCTAssertEqual(r[27].float, .none)
         XCTAssertEqual(r[27].metal, .silver)
         XCTAssertTrue(r[27].glow.h > 0.95 || r[27].glow.h < 0.03, "赤い visor・刃縁 \(r[27].glow.h)")
         XCTAssertLessThan(r[27].hairColor.s, 0.15, "銀白の髪")
