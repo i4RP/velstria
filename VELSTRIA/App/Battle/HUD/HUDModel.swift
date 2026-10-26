@@ -1800,8 +1800,18 @@ final class HUDModel {
         joystickActive = true
         joystickVector = vector
         let len = (vector.dx * vector.dx + vector.dy * vector.dy).squareRoot()
-        let dir: Vec2 = len < radius * HUDJoystickMath.deadZone ? .zero : HUDAim.simDirection(vector)
+        let dir: Vec2 = len < radius * HUDJoystickMath.deadZone ? .zero : controller.movementDirection(fromDrag: vector)
         sendMove(dir, raw: vector, force: false)
+    }
+
+    func lookChanged(_ delta: CGVector) {
+        guard canControl, panel == nil, !controller.isPaused, !hero.isDead else { return }
+        controller.look(delta: delta)
+        // 左指を止めて押したまま、右指で見回しても常に現在の視点を基準に進む。
+        if joystickActive, lastSentMove != .zero {
+            sendMove(controller.movementDirection(fromDrag: joystickVector), raw: joystickVector, force: false)
+        }
+        if aimSession?.aiming == true { updateAimIndicator() }
     }
 
     func joystickEnded() {
@@ -2014,12 +2024,17 @@ final class HUDModel {
         }
     }
 
-    /// タップ（スマート発動）の対象。帰還門だけは前線のタワーを自動で選ぶ。
+    /// 一人称のタップは視点の正面へ発動。帰還門だけは前線のタワーを自動で選ぶ。
     private func smartTarget(for session: AimSession) -> SkillTarget {
-        guard session.spellID == HUDSpellAim.teleportID, let hi = controller.humanIndex else { return .none }
-        let s = controller.sim.state
-        return .point(HUDSpellAim.teleportDestination(state: s, team: s.units[hi].team, origin: s.units[hi].pos,
-                                                      drag: .zero, fountain: controller.ctx.map.fountain(s.units[hi].team)))
+        if session.spellID == HUDSpellAim.teleportID, let hi = controller.humanIndex {
+            let s = controller.sim.state
+            return .point(HUDSpellAim.teleportDestination(state: s, team: s.units[hi].team, origin: s.units[hi].pos,
+                                                          drag: .zero, fountain: controller.ctx.map.fountain(s.units[hi].team)))
+        }
+        guard controller.firstPersonEnabled else { return .none }
+        var forward = session
+        forward.drag = CGVector(dx: 0, dy: -(layout?.aimDragRadius ?? 84))
+        return castTarget(for: forward)
     }
 
     private func castTarget(for session: AimSession) -> SkillTarget {
@@ -2027,21 +2042,23 @@ final class HUDModel {
         let s = controller.sim.state
         let u = s.units[hi]
         let maxDrag = layout?.aimDragRadius ?? 84
+        let drag = controller.worldDrag(fromScreenDrag: session.drag)
+        let facing = controller.firstPersonEnabled ? controller.firstPersonYaw : u.facing
         if session.spellID == HUDSpellAim.teleportID {
-            return .point(HUDSpellAim.teleportDestination(state: s, team: u.team, origin: u.pos, drag: session.drag,
+            return .point(HUDSpellAim.teleportDestination(state: s, team: u.team, origin: u.pos, drag: drag,
                                                           fountain: controller.ctx.map.fountain(u.team)))
         }
-        let aimPoint = HUDAim.aimPoint(origin: u.pos, drag: session.drag, maxDrag: maxDrag, targeting: session.targeting,
-                                       facing: u.facing)
+        let aimPoint = HUDAim.aimPoint(origin: u.pos, drag: drag, maxDrag: maxDrag, targeting: session.targeting,
+                                       facing: facing)
         if let spellID = session.spellID {
             // 狩猟印は、ジャングルの祝福を強化済み（モンスター・キル・アシスト 5）なら敵ヒーローにも使える
             let smiteHeroes = u.hero.map { GearEffects.jungleBlessingActive($0, master: controller.ctx.master) } ?? false
             return HUDSpellAim.castTarget(spellID: spellID, targeting: session.targeting, origin: u.pos, aimPoint: aimPoint,
-                                          drag: session.drag, facing: u.facing, state: s, team: u.team,
+                                          drag: drag, facing: facing, state: s, team: u.team,
                                           smiteHeroes: smiteHeroes)
         }
-        return HUDAim.castTarget(targeting: session.targeting, origin: u.pos, aimPoint: aimPoint, drag: session.drag,
-                                 facing: u.facing, state: s, team: u.team, casterID: u.id)
+        return HUDAim.castTarget(targeting: session.targeting, origin: u.pos, aimPoint: aimPoint, drag: drag,
+                                 facing: facing, state: s, team: u.team, casterID: u.id)
     }
 
     private func updateAimIndicator() {
@@ -2052,13 +2069,15 @@ final class HUDModel {
         let s = controller.sim.state
         let u = s.units[hi]
         let maxDrag = layout?.aimDragRadius ?? 84
+        let drag = controller.worldDrag(fromScreenDrag: session.drag)
+        let facing = controller.firstPersonEnabled ? controller.firstPersonYaw : u.facing
         let target: Vec2
         if session.spellID == HUDSpellAim.teleportID {
-            target = HUDSpellAim.teleportDestination(state: s, team: u.team, origin: u.pos, drag: session.drag,
+            target = HUDSpellAim.teleportDestination(state: s, team: u.team, origin: u.pos, drag: drag,
                                                      fountain: controller.ctx.map.fountain(u.team))
         } else {
-            target = HUDAim.aimPoint(origin: u.pos, drag: session.drag, maxDrag: maxDrag, targeting: session.targeting,
-                                     facing: u.facing)
+            target = HUDAim.aimPoint(origin: u.pos, drag: drag, maxDrag: maxDrag, targeting: session.targeting,
+                                     facing: facing)
         }
         let kind: AimIndicator.Kind
         switch session.source {

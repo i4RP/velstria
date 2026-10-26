@@ -96,6 +96,11 @@ private struct HUDRoot: View {
                     // 戦術マップの間は VoiceOver でマップのカードとドックだけを辿る（観戦ではマップを .isModal にしない）
                     .accessibilityHidden(model.isTacticalMapOpen)
             }
+            if showControls && !model.hero.isDead && model.controller.firstPersonEnabled {
+                HUDLookGestureLayer(model: model)
+                    .allowsHitTesting(!model.isTacticalMapOpen && model.panel == nil)
+                    .accessibilityHidden(model.isTacticalMapOpen || model.panel != nil)
+            }
             if !spectating { HUDVignetteLayer(model: model) }
             if showControls { HUDDeathTintLayer(model: model) }
 

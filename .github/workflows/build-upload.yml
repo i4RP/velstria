@@ -115,6 +115,7 @@ jobs:
             -only-testing:VELSTRIATests/ReplayBakerTests \
             -only-testing:VELSTRIATests/CameraDirectorTests \
             -only-testing:VELSTRIATests/SpectatorCameraTests \
+            -only-testing:VELSTRIATests/FirstPersonCameraTests \
             -only-testing:VELSTRIATests/CoreFinaleTests \
             -only-testing:VELSTRIATests/DeathSpectateTests \
             -only-testing:VELSTRIATests/ReplayLibraryTests \

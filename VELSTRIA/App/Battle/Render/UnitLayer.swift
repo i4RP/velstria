@@ -184,6 +184,10 @@ final class UnitLayer {
     func hero(_ id: EntityID) -> HeroVisual? { heroes[id] }
     func structure(_ id: EntityID) -> StructureVisual? { structures[id] }
 
+    func firstPersonEyePosition(_ id: EntityID) -> SIMD3<Float>? {
+        heroes[id]?.firstPersonEyePosition
+    }
+
     /// 表示中のユニットの頭上高さ（VFX の位置合わせ）。
     func headHeight(_ id: EntityID) -> Float {
         if let h = heroes[id] { return h.handle.overheadHeight }

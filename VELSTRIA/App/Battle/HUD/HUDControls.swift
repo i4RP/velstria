@@ -6,6 +6,59 @@ import VelstriaCore
 // 死亡中は絵柄が見えたまま暗くし、秒数は読めるまま進める。
 // ジェスチャーは HUD 全面の座標空間（HUDSpace.name）で受け、HUDLayout の座標と一致させる。
 
+// MARK: - 一人称の視点
+
+/// 操作部品より下に置く。スティック・スキルを押した指は奪わず、空いている場所のドラッグだけを受ける。
+struct HUDLookGestureLayer: View {
+    let model: HUDModel
+    @State private var previousTranslation: CGSize = .zero
+    @State private var touchStart: CGPoint?
+    @GestureState private var touching = false
+
+    var body: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .updating($touching) { _, state, _ in state = true }
+                    .onChanged { value in
+                        if touchStart != value.startLocation {
+                            touchStart = value.startLocation
+                            previousTranslation = .zero
+                        }
+                        model.lookChanged(CGVector(dx: value.translation.width - previousTranslation.width,
+                                                   dy: value.translation.height - previousTranslation.height))
+                        previousTranslation = value.translation
+                    }
+                    .onEnded { _ in reset() }
+            )
+            .overlay {
+                Circle()
+                    .fill(.white.opacity(0.9))
+                    .frame(width: 4, height: 4)
+                    .overlay(Circle().stroke(.black.opacity(0.65), lineWidth: 1))
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+            .onChange(of: touching) { _, active in if !active { reset() } }
+            .accessibilityElement()
+            .accessibilityLabel(L("視点操作", "Look around"))
+            .accessibilityHint(L("空いている場所をドラッグして見回します。下を向くと自分の体が見えます",
+                                 "Drag an empty area to look around. Look down to see your body"))
+            .accessibilityAction(named: L("右を向く", "Look right")) { model.lookChanged(CGVector(dx: 100, dy: 0)) }
+            .accessibilityAction(named: L("左を向く", "Look left")) { model.lookChanged(CGVector(dx: -100, dy: 0)) }
+            .accessibilityAction(named: L("上を向く", "Look up")) { model.lookChanged(CGVector(dx: 0, dy: -100)) }
+            .accessibilityAction(named: L("下を向く", "Look down")) { model.lookChanged(CGVector(dx: 0, dy: 100)) }
+            .accessibilitySortPriority(-1)
+            .accessibilityIdentifier("hud_look")
+    }
+
+    private func reset() {
+        previousTranslation = .zero
+        touchStart = nil
+    }
+}
+
 // MARK: - 仮想スティック
 
 struct HUDJoystick: View {

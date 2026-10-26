@@ -585,6 +585,12 @@ final class BattleRenderer {
     private func updateCamera(world: BattleWorld, dt: Float) {
         world.updateCamera(rig: rig, dt: dt, snap: false)
         updateFinaleCamera(world: world)
+        if rig.isFirstPerson && !rig.isPresenting {
+            finaleSky?.isShown = true
+            finaleSky?.follow(rig.camera.position)
+        } else if !rig.isPresenting {
+            finaleSky?.isShown = false
+        }
         followSun()
     }
 
@@ -652,7 +658,7 @@ final class BattleRenderer {
         guard size.width > 0, size.height > 0 else { return }
         let camera = rig.camera
         let projection = CombatTextProjection(position: camera.position, orientation: camera.orientation,
-                                              viewport: size, verticalFOV: CameraRig.fovDegrees,
+                                              viewport: size, verticalFOV: rig.verticalFOV,
                                               near: camera.camera.near, far: camera.camera.far)
         let right = camera.orientation.act(SIMD3<Float>(1, 0, 0))
         var flat = camera.orientation.act(SIMD3<Float>(0, 0, -1))

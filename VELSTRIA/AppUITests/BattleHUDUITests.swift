@@ -52,6 +52,33 @@ final class BattleHUDUITests: XCTestCase {
         snap("hud_standard_ui2")
     }
 
+    /// 実際の空き領域ドラッグで目線を下げ、胴体の表示と HUD の入力分離を確認する。
+    func testFirstPersonLookAndBodyCapture() {
+        let app = launch(["-battle", "practice", "-hero", "H025", "-language", "ja"])
+        XCTAssertTrue(element(app, "hud_attack").waitForExistence(timeout: Self.battleStartTimeout))
+        XCTAssertTrue(element(app, "hud_look").waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 1)
+        snap("fps_forward_H025")
+
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+        let down = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+        for _ in 0..<2 {
+            from.press(forDuration: 0.05, thenDragTo: down, withVelocity: .slow, thenHoldForDuration: 0.05)
+        }
+        Thread.sleep(forTimeInterval: 1)
+        snap("fps_body_H025_after_drag")
+
+        let center = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        let right = app.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.4))
+        center.press(forDuration: 0.05, thenDragTo: right)
+        tap(app, "hud_attack")
+        snap("fps_body_H025_turned")
+        tap(app, "hud_scoreboard")
+        XCTAssertTrue(element(app, "scoreboard_panel").waitForExistence(timeout: 5))
+        tap(app, "scoreboard_close")
+        XCTAssertTrue(element(app, "hud_look").exists)
+    }
+
     func testPracticeControlsShopPauseAndLeave() {
         let app = launch(["-battle", "practice", "-language", "ja"])
         XCTAssertTrue(element(app, "hud_attack").waitForExistence(timeout: BattleHUDUITests.battleStartTimeout), "HUD が表示されない")

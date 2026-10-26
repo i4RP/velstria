@@ -23,6 +23,10 @@ struct RenderFrame {
     var presentationTime: Double = 0
     /// カメラの world 位置（HP バーの画面サイズ一定化に使う）。
     var camera: SIMD3<Float> = SIMD3(60, 10, -50)
+    /// 一人称で操作しているヒーローだけ頭部・頭上表示を隠し、胴の向きを視線に合わせる。
+    var firstPersonID: EntityID? = nil
+    var firstPersonYaw: Float = 0
+    var detailFrustum: FirstPersonFrustum? = nil
 
     /// nil during loading/pause; independent of team visibility and simulation.
     var detailBounds: (min: SIMD2<Float>, max: SIMD2<Float>)?
@@ -31,6 +35,7 @@ struct RenderFrame {
     func needsDetail(_ i: Int) -> Bool {
         let id = state.units[i].id
         if id == focusID || id == humanID { return true }
+        if let detailFrustum, !detailFrustum.contains(worldPosition(interpolated(i)), height: 4) { return false }
         guard let detailBounds else { return true }
         return BattleWorld.isInside(worldPosition(interpolated(i)), bounds: detailBounds)
     }
@@ -755,6 +760,7 @@ final class HeroVisual {
     private var ringPulse: Float = 0
     private var focusPulse: Float = 0
     private var isSelf: Bool
+    private var firstPerson = false
     private var lastResource: Double = -1
     /// 近接の武器の軌跡（右手、二刀は左手も）。trailKit を渡され、演出表に軌跡があるヒーローだけ。root の子
     /// （ヒーローの可視性・死亡のフェードを継ぐ）で、頂点は root 基準に書く。
@@ -769,6 +775,7 @@ final class HeroVisual {
         self.isSelf = isSelf
         let h = u.hero
         handle = HeroModelFactory.make(heroID: h?.heroID ?? HeroRoster.defaultHeroID, skinID: h?.skinID, team: u.team, master: master)
+        if isSelf { (handle as? any HeroDisplayModel)?.prepareFirstPerson() }
         root.name = "hero_\(u.id)"
         root.addChild(modelRoot)
         modelRoot.addChild(handle.root)
@@ -814,6 +821,13 @@ final class HeroVisual {
     /// 追っているヒーローの輪の色・半径。
     static let focusRingColor = TeamColors.gold
     static let focusRingRadius: Float = 0.98
+
+    /// アニメーションによる頭の振りを除いた、キャラの寸法に合う目のワールド座標。
+    var firstPersonEyePosition: SIMD3<Float> {
+        let eye = (handle as? any HeroDisplayModel)?.firstPersonEyeOffset
+            ?? SIMD3<Float>(0, max(0.8, handle.overheadHeight - 0.5), 0)
+        return handle.root.convert(position: eye, to: nil)
+    }
 
     /// 追っている輪を出すか: カメラの注目対象（観戦の追従・死亡中の味方追従）で、自分自身ではなく、生きている。
     static func showsFocusRing(id: EntityID, frame f: RenderFrame, dead: Bool) -> Bool {
@@ -861,6 +875,12 @@ final class HeroVisual {
         let u = f.state.units[i]
         let dt = f.dt
         let dead = u.hero?.isDead == true || !u.isAlive
+        let localFirstPerson = f.firstPersonID == id && !dead
+        if localFirstPerson != firstPerson {
+            firstPerson = localFirstPerson
+            (handle as? any HeroDisplayModel)?.setFirstPerson(firstPerson)
+            status.root.isEnabled = !firstPerson
+        }
         // 可視性
         let target: Float = visible ? 1 : 0
         visibility += (target - visibility) * min(1, dt * 9)
@@ -892,7 +912,7 @@ final class HeroVisual {
         root.position = worldPosition(p)
         let speed = u.pos.distance(to: u.prevPos) / Balance.dt
         if !dead {
-            yaw = approachAngle(yaw, yawForFacing(u.facing), rate: 13, dt: dt)
+            yaw = firstPerson ? f.firstPersonYaw : approachAngle(yaw, yawForFacing(u.facing), rate: 13, dt: dt)
             modelRoot.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0])
         }
         // 次の通常攻撃が強い間は武器の先を光らせる（キットのヒーローだけ。変わった時だけ切り替える）
@@ -915,8 +935,8 @@ final class HeroVisual {
         handle.update(dt: Double(dt), moveSpeed: dead ? 0 : speed)
         updateWeaponTrails(time: f.time, dead: dead)
         // 足元リング・バー
-        ring.isEnabled = !dead
-        bar.root.isEnabled = !dead
+        ring.isEnabled = !dead && !firstPerson
+        bar.root.isEnabled = !dead && !firstPerson
         if isSelf {
             ringPulse += dt
             let s = 1 + sin(ringPulse * 3) * 0.03

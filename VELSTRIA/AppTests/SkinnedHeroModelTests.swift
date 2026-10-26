@@ -55,6 +55,66 @@ final class SkinnedHeroModelTests: XCTestCase {
 
     // MARK: 読み込み・骨対応
 
+    func testFirstPersonHidesOnlyLocalHeadAndRetainsAnimatedBody() throws {
+        let local = try makeSkinned()
+        let other = try makeSkinned()
+        let eye = local.firstPersonEyeOffset
+        local.applyPose(HeroPose())
+        other.applyPose(HeroPose())
+        let original = try XCTUnwrap(local.skinnedEntity.model?.mesh)
+        let before = other.skinnedEntity.jointTransforms
+        local.prepareFirstPerson()
+        local.setFirstPerson(true)
+        local.applyPose(HeroPose())
+        let headless = try XCTUnwrap(local.skinnedEntity.model?.mesh)
+        XCTAssertFalse(headless === original, "共有メッシュを破壊せず一人称の面だけを切り替える")
+        XCTAssertTrue(other.skinnedEntity.model?.mesh === original, "他のヒーローは頭を残す")
+        XCTAssertLessThan(HeroAssetLibrary.triangleCount(headless), HeroAssetLibrary.triangleCount(original))
+        XCTAssertGreaterThan(HeroAssetLibrary.triangleCount(headless), HeroAssetLibrary.triangleCount(original) / 2)
+        XCTAssertEqual(headless.contents.skeletons.first?.joints.count, original.contents.skeletons.first?.joints.count)
+        let hidden = local.skinnedEntity.jointTransforms
+        for role in [HeroJointRole.hips, .spine, .armL, .armR, .foreArmL, .foreArmR, .upLegL, .upLegR, .legL, .legR] {
+            let j = try XCTUnwrap(local.rig.index[role])
+            XCTAssertEqual(hidden[j].scale, before[j].scale, role.rawValue)
+            XCTAssertEqual(hidden[j].translation, before[j].translation, role.rawValue)
+        }
+        local.setState(.attack)
+        local.update(dt: 0.15, moveSpeed: 0)
+        XCTAssertEqual(local.firstPersonEyeOffset, eye, "攻撃モーションで視点を振り回さない")
+        XCTAssertTrue(local.skinnedEntity.model?.mesh === headless)
+        XCTAssertGreaterThan(eye.y, 1)
+        XCTAssertLessThan(eye.y, local.overheadHeight)
+        local.setFirstPerson(false)
+        XCTAssertTrue(local.skinnedEntity.model?.mesh === original)
+        local.setFirstPerson(true)
+        XCTAssertTrue(local.skinnedEntity.model?.mesh === headless, "再表示時は準備済みメッシュを再利用する")
+    }
+
+    func testBundledArcherFirstPersonRemovesHeadSurfaces() throws {
+        let model = HeroModelLibrary.makeHero(heroID: "H025", skinID: nil, team: .blue, master: master, options: .battle)
+        let local = try XCTUnwrap(model as? SkinnedHeroModel)
+        let original = try XCTUnwrap(local.skinnedEntity.model?.mesh)
+        local.prepareFirstPerson()
+        local.setFirstPerson(true)
+        let mesh = try XCTUnwrap(local.skinnedEntity.model?.mesh)
+        XCTAssertLessThan(HeroAssetLibrary.triangleCount(mesh), HeroAssetLibrary.triangleCount(original))
+        let headY = local.rig.restPosition[try XCTUnwrap(local.rig.index[.head])].y
+        var visibleHeadTriangles = 0
+        for model in mesh.contents.models {
+            for part in model.parts {
+                let positions = part.positions.elements
+                let indices = part.triangleIndices?.elements ?? []
+                for i in stride(from: 0, to: indices.count, by: 3) {
+                    let a = positions[Int(indices[i])], b = positions[Int(indices[i + 1])], c = positions[Int(indices[i + 2])]
+                    if simd_length_squared(simd_cross(b - a, c - a)) > 1e-12,
+                       min(a.y, min(b.y, c.y)) > headY { visibleHeadTriangles += 1 }
+                }
+            }
+        }
+        XCTAssertEqual(visibleHeadTriangles, 0, "目の下に顔や髪の面を残さない")
+        XCTAssertFalse(try XCTUnwrap(local.root.findEntity(named: "teamRing")).isEnabled)
+    }
+
     func testJointNameNormalization() {
         XCTAssertEqual(HeroJointRole.normalize("mixamorig:LeftArm"), "leftarm")
         XCTAssertEqual(HeroJointRole.normalize("mixamorig_Hips/mixamorig_Spine"), "spine")

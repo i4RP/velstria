@@ -132,9 +132,8 @@ final class OverheadBar {
             root.components.set(OpacityComponent(opacity: 0))
         }
         #endif
-        // 画面に平行なビルボード。カメラは回転しないので姿勢は一定（親は回転させない）。
-        // BillboardComponent はワールド上方向を保つため、俯角 56° の画面端でバーが傾いて見える。
-        root.orientation = CameraRig.orientation
+        // 画面に平行なビルボード（親は回転させない）。FPS の見回しにも描画中の姿勢で追従する。
+        root.orientation = Self.cameraOrientation
         var w: Float, h: Float
         switch style {
         case .hero: w = 1.9; h = 0.16
@@ -305,6 +304,10 @@ final class OverheadBar {
     /// 観戦者が大きく引いた時に上限を広げる倍率（BattleWorld がカメラの実際の倍率から毎フレーム設定する。
     /// プレイヤーの倍率範囲では 1 で従来どおり）。
     static var zoomScale: Float = 1
+    /// 描画中のカメラ姿勢。見回してもバーの向きと深度の計算を同じ視線に合わせる。
+    static var cameraOrientation: simd_quatf = CameraRig.orientation
+    /// 目の前の対象にも一定の画面寸法を保つため、FPS では従来の最小倍率を使わない。
+    static var firstPerson = false
     /// 演出のカメラ（Star Core の終幕の低い視点・引きの構図）の間は隠す（画面に平行な板はゲームカメラの向き専用）。
     /// BattleRenderer が毎フレーム設定し、試合を出る時に戻す。
     static var cinematicHidden = false
@@ -322,17 +325,25 @@ final class OverheadBar {
         max(0.5, min(maxScreenScale * max(1, k), distance / referenceDistance))
     }
 
+    static func firstPersonScreenScale(distance: Float) -> Float {
+        guard distance > 0 else { return 0.0001 }
+        return max(0.001, min(maxScreenScale, distance / referenceDistance))
+    }
+
     /// 透視投影の深度。直線距離を使うと画面端のバーだけ大きくなる。
     static func viewDepth(world: SIMD3<Float>, camera: SIMD3<Float>) -> Float {
-        simd_dot(world - camera, CameraRig.orientation.act(SIMD3(0, 0, -1)))
+        simd_dot(world - camera, cameraOrientation.act(SIMD3(0, 0, -1)))
     }
 
     /// 光軸方向の深度に比例して拡縮し、画面上の大きさを一定に保つ。
     func keepScreenSize(camera: SIMD3<Float>) {
+        root.orientation = Self.cameraOrientation
         let world = (root.parent?.position ?? .zero) + root.position
+        let depth = Self.viewDepth(world: world, camera: camera)
         let s = OverheadBar.cinematicHidden ? 0.0001
-            : OverheadBar.screenScale(distance: Self.viewDepth(world: world, camera: camera), zoomScale: OverheadBar.zoomScale)
-        guard abs(s - screenScale) > 0.01 else { return }
+            : (Self.firstPerson ? Self.firstPersonScreenScale(distance: depth)
+                : Self.screenScale(distance: depth, zoomScale: Self.zoomScale))
+        guard abs(s - screenScale) > (Self.firstPerson ? 0.0001 : 0.01) else { return }
         screenScale = s
         root.scale = SIMD3(repeating: s)
         root.position.x = horizontalOffset * s

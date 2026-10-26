@@ -47,7 +47,9 @@ final class EffekseerTests: XCTestCase {
     func testPlayingAndRenderingDoesNotCrash() throws {
         let overlay = try XCTUnwrap(EffekseerOverlay(), "Metal が使えない環境では確認できない")
         overlay.loadBundledEffects()
-        let camera = Entity()
+        let camera = PerspectiveCamera()
+        camera.camera = PerspectiveCameraComponent(near: CameraRig.firstPersonNear, far: 160,
+                                                   fieldOfViewInDegrees: CameraRig.firstPersonFOV)
         camera.position = [0, 20, 14]
         camera.look(at: .zero, from: camera.position, relativeTo: nil)
         let host = UIView(frame: CGRect(x: 0, y: 0, width: 390, height: 844))

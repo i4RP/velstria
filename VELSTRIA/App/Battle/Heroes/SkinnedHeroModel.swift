@@ -204,6 +204,9 @@ final class SkinnedHeroTemplate {
     let baseMaterials: [[RealityKit.Material]]
     /// 色味（RGBA）ごとに共有する塗り分け済みマテリアル。
     private var tinted: [String: [[RealityKit.Material]]] = [:]
+    /// 操作キャラから要求された時だけ、読み込み中に一度作る（全員分は作らない）。
+    private var firstPersonMeshes: [MeshResource]?
+    private var didPrepareFirstPerson = false
 
     init?(url: URL, entity: Entity) {
         let name = url.lastPathComponent
@@ -287,6 +290,70 @@ final class SkinnedHeroTemplate {
         headCenter = hc
         headRadius = max(halfH, halfW)
         headBack = hBack.isFinite && hBack > 0 ? hBack : max(halfH, halfW)
+    }
+
+    /// 頭・首・その子の髪/帽子が影響する面を除く。頂点・UV・材質・骨バッファはそのまま保つ。
+    /// jointTransforms の scale は取り込んだスキンの描画で反映されない場合があるため、面を描かせない。
+    func prepareFirstPersonMeshes() -> [MeshResource]? {
+        if didPrepareFirstPerson { return firstPersonMeshes }
+        didPrepareFirstPerson = true
+        do {
+            firstPersonMeshes = try skinnedPaths.map { path in
+                let mesh = (HeroAssetLibrary.entity(at: path, in: entity) as! ModelEntity).model!.mesh
+                return try Self.headlessMesh(mesh, name: url.lastPathComponent)
+            }
+        } catch {
+            heroAssetLog.error("\(self.url.lastPathComponent, privacy: .public): 一人称メッシュの準備に失敗 \(error.localizedDescription, privacy: .public)")
+        }
+        return firstPersonMeshes
+    }
+
+    static func headlessMesh(_ mesh: MeshResource, name: String) throws -> MeshResource {
+        var contents = mesh.contents
+        for var model in contents.models {
+            for var part in model.parts {
+                guard let triangles = part.triangleIndices?.elements,
+                      let influenceBuffer = part.jointInfluences?.influences,
+                      let skeleton = part.skeletonID.flatMap({ contents.skeletons[$0] }) ?? contents.skeletons.first,
+                      part.positions.count > 0 else { continue }
+                let influences = influenceBuffer.elements
+                let stride = influences.count / part.positions.count
+                guard stride > 0 else { continue }
+                var headJoints = Set<Int>()
+                for i in skeleton.joints.indices {
+                    var joint: Int? = i
+                    while let j = joint {
+                        let name = HeroJointRole.normalize(skeleton.joints[j].name)
+                        if name == HeroJointRole.head.rawValue || name == HeroJointRole.neck.rawValue {
+                            headJoints.insert(i)
+                            break
+                        }
+                        joint = skeleton.joints[j].parentIndex
+                    }
+                }
+                var hidden = [Bool](repeating: false, count: part.positions.count)
+                for vertex in hidden.indices {
+                    var weight: Float = 0
+                    for k in 0..<stride {
+                        let influence = influences[vertex * stride + k]
+                        if headJoints.contains(influence.jointIndex) { weight += influence.weight }
+                    }
+                    hidden[vertex] = weight > 0.15
+                }
+                var kept: [UInt32] = []
+                kept.reserveCapacity(triangles.count)
+                for i in Swift.stride(from: 0, to: triangles.count, by: 3) {
+                    let a = triangles[i], b = triangles[i + 1], c = triangles[i + 2]
+                    if !hidden[Int(a)] && !hidden[Int(b)] && !hidden[Int(c)] { kept += [a, b, c] }
+                }
+                // 頭だけの材質パーツも構造は残す。縮退三角形には描画面が無い。
+                part.triangleIndices = MeshBuffers.TriangleIndices(kept.isEmpty ? [0, 0, 0] : kept)
+                model.parts.update(part)
+            }
+            contents.models.update(model)
+        }
+        AssetLedger.record(.mesh, "first person \(name)")
+        return try MeshResource.generate(from: contents)
     }
 
     /// 規約（正面 -Z・右手 +X）に反していれば理由。左右の入れ替わったリグ・後ろ向きのリグを弾く。
@@ -378,6 +445,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
 
     let root = Entity()
     let overheadHeight: Float
+    let firstPersonEyeOffset: SIMD3<Float>
     let heroID: String
     let skin: HeroSkinInfo
     private(set) var entityCount = 0
@@ -388,6 +456,9 @@ final class SkinnedHeroModel: HeroDisplayModel {
     private let motion = Entity()
     /// 骨付きメッシュ（jointTransforms を書く）。先頭が代表。
     let skinnedEntities: [ModelEntity]
+    private let template: SkinnedHeroTemplate
+    private let thirdPersonMeshes: [MeshResource]
+    private var firstPersonMeshes: [MeshResource]?
     var skinnedEntity: ModelEntity { skinnedEntities[0] }
     let weapon: ModelEntity
     let offhand: ModelEntity
@@ -406,6 +477,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
     private let stringIndexR: Int?
     private let stringMiddleR: Int?
     private let headJoint: Int
+    private var firstPerson = false
     private let upperSpine: Int
     private let wingDepth: Float
     private let haloOffset: V3
@@ -446,6 +518,8 @@ final class SkinnedHeroModel: HeroDisplayModel {
         self.heroID = heroID
         self.skin = skin
         skinnedEntities = skinned
+        self.template = template
+        thirdPersonMeshes = skinned.map { $0.model!.mesh }
         poser = HeroSkeletonPoser(rig: rig)
         footContacts = heroID == "H025" ? HeroFootContacts(rig: rig) : nil
         hasSecondary = (heroID == "H025" || heroID == "H028") && rig.secondaryIndex.contains(where: { $0 >= 0 })
@@ -496,6 +570,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
         // 武器・副手のエンティティは手続きの武器座標のまま（Prop は propFit の中）なので、手続きの先端がそのまま使える
         weaponPoints = HeroWeaponPoints(blueprint: bp, meshes: ms)
         overheadHeight = (template.bounds.max.y + 0.38) * bp.scale
+        firstPersonEyeOffset = (template.headCenter + V3(0, 0, -min(0.08, template.headRadius * 0.35))) * bp.scale
 
         if tintBody, let tint = HeroAssetLibrary.skinTint(palette, variant: skin.variant) {
             let mats = template.materials(tint: tint)
@@ -684,6 +759,22 @@ final class SkinnedHeroModel: HeroDisplayModel {
 
     func weaponTrailSample() -> HeroWeaponTrailSample? {
         weaponPoints.trailSample(weapon: weapon, offhand: offhand, swing: animator.weaponSwing)
+    }
+
+    func prepareFirstPerson() {
+        firstPersonMeshes = template.prepareFirstPersonMeshes()
+    }
+
+    func setFirstPerson(_ enabled: Bool) {
+        guard firstPerson != enabled else { return }
+        firstPerson = enabled
+        if case .halo = floatMotion { float?.isEnabled = !enabled }
+        effects.teamRing?.isEnabled = !enabled
+        let meshes = enabled ? firstPersonMeshes ?? thirdPersonMeshes : thirdPersonMeshes
+        for (e, mesh) in zip(skinnedEntities, meshes) {
+            e.model?.mesh = mesh
+            e.jointTransforms = poser.local
+        }
     }
 
     /// クリップの割り当てを差し替える（テスト・ギャラリー用。nil = 手続きのみ）。

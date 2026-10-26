@@ -93,6 +93,7 @@ final class BattleWorld {
     private var cameraEpoch: Int?
     /// 画面に映る地面の範囲（world x・z の外接矩形 + 余白。演出の間引き）。
     private var cullBounds: (min: SIMD2<Float>, max: SIMD2<Float>)?
+    private var detailFrustum: FirstPersonFrustum?
     /// 最後に同期した視点チーム（一時停止中の視点の切替を検出する）。
     private var syncedViewer: Team?
     private var hasSyncedViewer = false
@@ -185,6 +186,10 @@ final class BattleWorld {
                             viewerTeam: controller.viewerTeam, humanID: controller.humanHeroID, focusID: focus,
                             ended: state.phase == .ended, winner: state.winner)
         f.presentationTime = state.time + endedClock
+        if controller.firstPersonEnabled {
+            f.firstPersonID = controller.humanHeroID
+            f.firstPersonYaw = Float(controller.firstPersonYaw - .pi / 2)
+        }
         return f
     }
 
@@ -220,6 +225,7 @@ final class BattleWorld {
         if controller.isPresentationReady && !controller.isPaused, let bounds = cullBounds {
             let padding = SIMD2<Float>(repeating: BattleWorkBudget.unitMargin - BattleWorld.cullMargin)
             frame.detailBounds = (bounds.min - padding, bounds.max + padding)
+            frame.detailFrustum = detailFrustum
         }
         culledUnitDetails = frame.detailBounds != nil
         let live = controller.isPresentationReady && !controller.isPaused
@@ -336,7 +342,7 @@ final class BattleWorld {
         guard overlay.activeCount > 0 else { return }
         let camera = rig.camera
         let projection = CombatTextProjection(position: camera.position, orientation: camera.orientation,
-                                             viewport: arView.bounds.size, verticalFOV: CameraRig.fovDegrees,
+                                             viewport: arView.bounds.size, verticalFOV: rig.verticalFOV,
                                              near: camera.camera.near, far: camera.camera.far)
         overlay.update(dt: dt, project: projection.project)
     }
@@ -408,6 +414,7 @@ final class BattleWorld {
 
     /// 画面に映る地面の近く（演出の間引き）。カメラの実際の倍率で変わる映る範囲（+ 余白）で判定する（B28）。
     private func nearCamera(_ p: SIMD3<Float>) -> Bool {
+        if let detailFrustum, !detailFrustum.contains(p, height: 6) { return false }
         if let b = cullBounds { return BattleWorld.isInside(p, bounds: b) }
         guard let arView else { return true }
         let c = arView.cameraTransform.translation
@@ -441,6 +448,16 @@ final class BattleWorld {
     }
 
     private func updateCullBounds(rig: CameraRig) {
+        if rig.isFirstPerson {
+            let camera = rig.camera
+            detailFrustum = FirstPersonFrustum(position: camera.position, orientation: camera.orientation,
+                                               verticalFOV: rig.verticalFOV, aspect: viewAspect, far: camera.camera.far)
+            let center = SIMD2(camera.position.x, camera.position.z)
+            let radius = SIMD2<Float>(repeating: camera.camera.far + Self.cullMargin)
+            cullBounds = (center - radius, center + radius)
+            return
+        }
+        detailFrustum = nil
         cullBounds = BattleWorld.cullBounds(footprint: rig.groundFootprint(aspectRatio: viewAspect), margin: BattleWorld.cullMargin)
     }
 
@@ -961,6 +978,18 @@ final class BattleWorld {
     var presentationTime: Double { controller.state.time + endedClock }
 
     func updateCamera(rig: CameraRig, dt: Float, snap: Bool) {
+        if controller.firstPersonEnabled, let id = controller.humanHeroID,
+           let eye = units.firstPersonEyePosition(id) {
+            rig.updateFirstPerson(eye: eye, yaw: Float(controller.firstPersonYaw - .pi / 2),
+                                  pitch: Float(controller.firstPersonPitch), dt: dt)
+            cameraLink.renderedFocus = controller.state.unit(id)?.pos
+            cameraLink.renderedZoom = 1
+            OverheadBar.zoomScale = 1
+            OverheadBar.cameraOrientation = rig.camera.orientation
+            OverheadBar.firstPerson = true
+            return
+        }
+        OverheadBar.firstPerson = false
         let seeking = controller.seekingToTick != nil
         // シーク中は sim が途中の tick を行き来する（描画は同期しない）ので、視界の切替の反映もシークの後で行う
         if controller.isPaused && !seeking { refreshVisionWhilePaused(rig: rig, dt: dt) }
@@ -993,6 +1022,7 @@ final class BattleWorld {
         #endif
         drive.transition = cameraTransition(rig: rig, aim: aim, target: target, snap: snap)
         rig.update(drive, dt: dt, mapMeters: Float(controller.ctx.map.size / Balance.unitsPerMeter))
+        OverheadBar.cameraOrientation = rig.camera.orientation
         lastCameraSubject = aim.subject
         lastCameraKind = aim.kind
         lastCameraFitZoom = aim.fitZoom

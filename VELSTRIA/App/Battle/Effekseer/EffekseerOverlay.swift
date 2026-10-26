@@ -77,7 +77,7 @@ final class EffekseerOverlay {
 
     /// 1 フレーム進めて描く（dt = 0 で止める）。inPostProcess = true の時は進めるだけで、描くのは後処理（PostProcessor）。
     /// 重ねのレイヤーは後処理へ切り替えた時に空にして隠し、戻した時に見せる（EfkRuntime.drawsInPostProcess）。
-    func render(camera: Entity, host: UIView, dt: Double, inPostProcess: Bool = false) {
+    func render(camera: PerspectiveCamera, host: UIView, dt: Double, inPostProcess: Bool = false) {
         runtime.drawsInPostProcess = inPostProcess
         if inPostProcess {
             runtime.advance(cameraWorld: camera.transformMatrix(relativeTo: nil), deltaSeconds: dt)
@@ -86,7 +86,8 @@ final class EffekseerOverlay {
         let scale = runtime.layer.contentsScale
         let size = CGSize(width: host.bounds.width * scale, height: host.bounds.height * scale)
         runtime.render(withCameraWorld: camera.transformMatrix(relativeTo: nil),
-                       verticalFOV: CameraRig.fovDegrees * .pi / 180, near: 1.0, far: 160,
+                       verticalFOV: camera.camera.fieldOfViewInDegrees * .pi / 180,
+                       near: camera.camera.near, far: camera.camera.far,
                        deltaSeconds: dt, drawableSize: size)
     }
 }

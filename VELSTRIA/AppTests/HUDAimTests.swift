@@ -140,6 +140,51 @@ final class HUDAimTests: XCTestCase {
 
     // MARK: スティック
 
+    @MainActor
+    func testHeldFirstPersonStickTurnsWithLookAndReleases() {
+        let app = AppModel(persistence: ServicesFixtures.tempPersistence())
+        let config = MatchFactory.practiceMatch(humanHeroID: "H001", humanName: "Tester",
+                                                options: PracticeOptions(), seed: 17)
+        let controller = BattleController(launch: BattleLaunch(config: config))
+        let model = HUDModel(controller: controller)
+        model.start(app: app, onFinish: { _ in })
+        defer { model.stop() }
+        controller.look(delta: CGVector(dx: (controller.firstPersonYaw - .pi / 2) / 0.005, dy: 0))
+        model.joystickChanged(CGVector(dx: 0, dy: -60), radius: 60)
+        model.lookChanged(CGVector(dx: (.pi / 2) / 0.005, dy: 0))
+        model.joystickEnded()
+        controller.frame(dt: Balance.dt)
+        let moves = (controller.recorder?.frames ?? []).flatMap(\.commands).compactMap { command -> Vec2? in
+            if case .move(let direction) = command.command { return direction }
+            return nil
+        }
+        XCTAssertEqual(moves.count, 3)
+        guard moves.count == 3 else { return }
+        XCTAssertEqual(moves[0].x, 0, accuracy: 1e-9)
+        XCTAssertEqual(moves[0].y, 1, accuracy: 1e-9)
+        XCTAssertEqual(moves[1].x, 1, accuracy: 1e-9)
+        XCTAssertEqual(moves[1].y, 0, accuracy: 1e-9)
+        XCTAssertEqual(moves[2], .zero)
+    }
+
+    @MainActor
+    func testFirstPersonCanLookDownWithoutFlippingAndLeavesMapControlsUnchanged() {
+        let config = MatchFactory.practiceMatch(humanHeroID: "H001", humanName: "Tester",
+                                                options: PracticeOptions(), seed: 17)
+        let controller = BattleController(launch: BattleLaunch(config: config))
+        XCTAssertTrue(controller.firstPersonEnabled)
+        controller.look(delta: CGVector(dx: 0, dy: 10_000))
+        XCTAssertEqual(controller.firstPersonPitch, -85 * .pi / 180, accuracy: 1e-9)
+        controller.look(delta: CGVector(dx: 0, dy: -20_000))
+        XCTAssertEqual(controller.firstPersonPitch, 85 * .pi / 180, accuracy: 1e-9)
+        controller.cameraMode = .free(Vec2(1000, 1000))
+        XCTAssertFalse(controller.firstPersonEnabled)
+        let yaw = controller.firstPersonYaw
+        controller.look(delta: CGVector(dx: 100, dy: 100))
+        XCTAssertEqual(controller.firstPersonYaw, yaw)
+        XCTAssertEqual(controller.movementDirection(fromDrag: CGVector(dx: 1, dy: 0)), Vec2(1, 0))
+    }
+
     func testJoystickSendsOnlyMeaningfulChanges() {
         let east = Vec2(1, 0)
         XCTAssertTrue(HUDJoystickMath.shouldSend(new: east, last: .zero), "停止 → 移動")

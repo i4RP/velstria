@@ -10,6 +10,27 @@ final class HeroModelTests: XCTestCase {
     private static var battle: HeroModelOptions { HeroModelOptions.battle.with(mesh: .procedural) }
     private static let showcase = HeroModelOptions.showcase.with(mesh: .procedural)
 
+    func testFirstPersonKeepsBodyAndRestoresHead() throws {
+        let model = HeroModelLibrary.makeHero(heroID: "H003", skinID: nil, team: .blue, master: master,
+                                              options: Self.battle)
+        let head = try XCTUnwrap(model.root.findEntity(named: "head"))
+        let eye = model.firstPersonEyeOffset
+        let entityCount = model.entityCount
+        model.setFirstPerson(true)
+        model.setState(.run)
+        for _ in 0..<60 { model.update(dt: 1 / 60, moveSpeed: 330) }
+        XCTAssertFalse(head.isEnabled)
+        for name in ["torso", "hips", "upperArmL", "upperArmR", "foreArmL", "foreArmR", "thighL", "thighR", "shinL", "shinR"] {
+            XCTAssertTrue(try XCTUnwrap(model.root.findEntity(named: name)).isEnabled, name)
+        }
+        XCTAssertEqual(model.firstPersonEyeOffset, eye, "走行モーションで視点の高さが揺れない")
+        XCTAssertGreaterThan(eye.y, 1)
+        XCTAssertLessThan(eye.y, model.overheadHeight)
+        XCTAssertEqual(model.entityCount, entityCount)
+        model.setFirstPerson(false)
+        XCTAssertTrue(head.isEnabled)
+    }
+
     func testPlayableGaitsHaveDistinctLowerBodyAndContinuousContacts() throws {
         var signatures = Set<String>()
         for n in 25...34 {

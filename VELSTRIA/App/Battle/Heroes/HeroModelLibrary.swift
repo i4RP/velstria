@@ -55,6 +55,16 @@ protocol HeroDisplayModel: HeroModelHandle {
     var triangleCount: Int { get }
     /// スキンメッシュ（同梱アセット）で表示しているか。
     var isSkinned: Bool { get }
+    /// 足元からの目の位置（root ローカル）。攻撃・待機の頭の揺れをカメラに伝えない。
+    var firstPersonEyeOffset: SIMD3<Float> { get }
+    /// 読み込み中、操作キャラだけの一人称表示用リソースを準備する。
+    func prepareFirstPerson()
+    /// 操作中の本人だけ頭・髪・頭飾りを隠す。胴・手足・武器は通常のアニメーションで表示する。
+    func setFirstPerson(_ enabled: Bool)
+}
+
+extension HeroDisplayModel {
+    func prepareFirstPerson() {}
 }
 
 @MainActor
@@ -241,6 +251,7 @@ enum HeroEffectMeshes {
 final class HeroModel: HeroDisplayModel {
     let root = Entity()
     let overheadHeight: Float
+    let firstPersonEyeOffset: SIMD3<Float>
     let heroID: String
     let skin: HeroSkinInfo
     /// 骨・装備・効果を含むエンティティ数（性能確認用）。
@@ -296,6 +307,8 @@ final class HeroModel: HeroDisplayModel {
         offhandFollowsArm = bp.offhand == .stoneFist || bp.offhand == .azureClaw
         weaponPoints = HeroWeaponPoints(blueprint: bp, meshes: ms)
         overheadHeight = (ms.metrics.headTop + 0.38) * bp.scale
+        firstPersonEyeOffset = V3(0, ms.metrics.hipY + 0.03 + ms.metrics.torsoLen + ms.metrics.headY,
+                                  -min(0.08, ms.metrics.headR * 0.35)) * bp.scale
 
         func part(_ mesh: MeshResource?, _ name: String) -> ModelEntity {
             let e = ModelEntity()
@@ -388,6 +401,13 @@ final class HeroModel: HeroDisplayModel {
     // MARK: HeroModelHandle
 
     var state: HeroAnimState { animator.state }
+
+    func setFirstPerson(_ enabled: Bool) {
+        // 髪・兜・顔はすべて head のメッシュに含まれる。子階層を隠しても腕・胴は残る。
+        head.isEnabled = !enabled
+        if case .halo = floatMotion { float?.isEnabled = !enabled }
+        effects.teamRing?.isEnabled = !enabled
+    }
 
     func setState(_ state: HeroAnimState) {
         let wasDead = animator.state == .dead

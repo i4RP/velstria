@@ -10,9 +10,9 @@ import VelstriaCore
 // - SimEvent を購読者（描画・HUD・音）へ配信
 // - カメラ・照準表示の共有状態
 //
-// 座標系: 人間は常に Blue（左下）。カメラは回転しないので、画面の右 = sim +x、画面の上 = sim +y。
-// よってドラッグベクトル (dx, dy)（UIKit 座標）は sim 方向 Vec2(dx, -dy) に対応する。
-// オンライン対戦（launch.onlineSeat != nil）では自分のヒーローは座席のもの（Red 側のこともある。カメラは回転しない）。
+// 座標系: プレイヤーはヒーローの目線。移動・照準のドラッグはカメラの水平向きを基準に sim 座標へ変換する。
+// 観戦の俯瞰では画面の右 = sim +x、画面の上 = sim +y。
+// オンライン対戦（launch.onlineSeat != nil）では自分のヒーローは座席のもの（Red 側のこともある）。
 //
 // 観戦（launch.isSpectating: AI 同士の観戦・リプレイ・オンラインの観戦席・人間のいない構成）:
 // - 操作は送れない。霧は spectatorVision（nil = 全体が見える、.blue / .red = そのチームの視界）。
@@ -133,6 +133,10 @@ final class BattleController {
     // MARK: 描画が毎フレーム読む値（非監視）
 
     @ObservationIgnored var aim: AimIndicator?
+    /// 一人称の水平向き（sim の角度: 0 = +x、π/2 = +y）。入力・描画周期で更新する。
+    @ObservationIgnored private(set) var firstPersonYaw: Double = 0
+    /// 一人称の上下の向き（上が正）。真下近くまで向いて自分の胴体・腕を確認できる。
+    @ObservationIgnored private(set) var firstPersonPitch: Double = 0
     /// 補間係数（前 tick → 現 tick）。
     @ObservationIgnored private(set) var interpolationAlpha: Double = 0
     @ObservationIgnored private(set) var renderedCameraViewport: [Vec2] = []
@@ -211,6 +215,14 @@ final class BattleController {
             if !launch.isOnline, Self.spectatorSpeeds.contains(o.speed) { speed = o.speed }
             spectatorDirectorEnabled = o.director ?? (launch.replay == nil)
         }
+        if let id = humanHeroID, let hero = sim.state.unit(id) { firstPersonYaw = hero.facing }
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "-firstPersonPitch"), arguments.indices.contains(index + 1),
+           let degrees = Double(arguments[index + 1]), degrees.isFinite {
+            firstPersonPitch = min(85, max(-85, degrees)) * .pi / 180
+        }
+        #endif
     }
 
     var state: SimState { sim.state }
@@ -225,6 +237,12 @@ final class BattleController {
 
     /// 人間ヒーローの units 添字（観戦中は nil）。
     var humanIndex: Int? { humanHeroID.flatMap { sim.state.index(of: $0) } }
+
+    /// 生存中の自分を追う通常プレイだけを一人称にする。死亡中の味方追従・マップ閲覧・観戦は俯瞰を維持。
+    var firstPersonEnabled: Bool {
+        guard !isSpectating, !isEnded, cameraMode == .followHero, let i = humanIndex else { return false }
+        return sim.state.units[i].isAlive && sim.state.units[i].hero?.isDead != true
+    }
 
     /// 自分のチーム（観戦中は nil）。
     var localTeam: Team? {
@@ -682,8 +700,30 @@ final class BattleController {
 
     /// 仮想スティック（UIKit のドラッグベクトル。長さは任意）。
     func joystick(_ drag: CGVector) {
-        let v = Vec2(Double(drag.dx), -Double(drag.dy))
-        send(.move(direction: v.length < 0.05 ? .zero : v.normalized))
+        send(.move(direction: movementDirection(fromDrag: drag)))
+    }
+
+    /// 画面の空き領域をドラッグして見回す。スティック操作でカメラの向きは変えない。
+    func look(delta: CGVector) {
+        guard firstPersonEnabled, !isPaused, !isEnded, delta.dx.isFinite, delta.dy.isFinite else { return }
+        firstPersonYaw = (firstPersonYaw - Double(delta.dx) * 0.005).remainder(dividingBy: 2 * .pi)
+        let limit = 85.0 * .pi / 180
+        firstPersonPitch = min(limit, max(-limit, firstPersonPitch - Double(delta.dy) * 0.005))
+    }
+
+    /// スティックの上はカメラの前、右はカメラの右。長さを保って既存の照準計算にも渡せる。
+    func worldDrag(fromScreenDrag drag: CGVector) -> CGVector {
+        guard firstPersonEnabled else { return drag }
+        let forward = Vec2.fromAngle(firstPersonYaw)
+        let right = Vec2(forward.y, -forward.x)
+        let world = right * Double(drag.dx) - forward * Double(drag.dy)
+        return CGVector(dx: world.x, dy: -world.y)
+    }
+
+    func movementDirection(fromDrag drag: CGVector) -> Vec2 {
+        let world = worldDrag(fromScreenDrag: drag)
+        let v = Vec2(Double(world.dx), -Double(world.dy))
+        return v.length < 0.05 ? .zero : v.normalized
     }
 
     /// UIKit のドラッグベクトル → sim の方向ベクトル（正規化）。

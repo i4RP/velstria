@@ -3,7 +3,29 @@ import RealityKit
 import simd
 import VelstriaCore
 
-// 担当: battle-renderer。参照ステージ共通の透視カメラ（俯角46.12°、縦画角32.37°、回転なし）。
+/// Eye-level views include the horizon, so ground-corner bounds alone cannot cull them.
+/// Test a padded sphere around each unit; simulation and team visibility remain independent.
+struct FirstPersonFrustum {
+    var position: SIMD3<Float>
+    var orientation: simd_quatf
+    var verticalFOV: Float
+    var aspect: Float
+    var far: Float
+
+    func contains(_ foot: SIMD3<Float>, height: Float) -> Bool {
+        let radius = max(2, height * 0.5) + 2
+        let p = orientation.inverse.act(foot + SIMD3(0, height * 0.5, 0) - position)
+        let depth = -p.z
+        guard depth + radius >= 0, depth - radius <= far else { return false }
+        let vertical = tan(verticalFOV * .pi / 360)
+        let horizontal = vertical * aspect
+        return abs(p.x) <= max(0, depth) * horizontal + radius * sqrt(1 + horizontal * horizontal)
+            && abs(p.y) <= max(0, depth) * vertical + radius * sqrt(1 + vertical * vertical)
+    }
+}
+
+// 担当: battle-renderer。通常プレイはキャラの目の位置からの一人称カメラ。
+// 観戦・地図閲覧は参照ステージ共通の俯瞰カメラ（俯角46.12°、縦画角32.37°）。
 // 注視点を臨界減衰バネで追従（自由視点だけ地図内にクランプ）。大きな出来事で小さく揺らす（トラウマ方式）。
 // 観戦（BattleWorld が CameraDrive で指示する）:
 // - 倍率の範囲が広い（spectatorZoomRange。地図の余白は広げた分だけ内側へ寄せ、地図の外の虚空を見せない）
@@ -151,6 +173,8 @@ final class CameraRig {
     nonisolated static let teleportSnapDistance: Float = 25
     /// 地図の余白・倍率による拡大の基準にする画面の縦横比（横長 iPhone）。
     nonisolated static let designAspect: Float = 2.16
+    nonisolated static let firstPersonFOV: Float = 68
+    nonisolated static let firstPersonNear: Float = 0.025
 
     let camera = PerspectiveCamera()
     private(set) var focus = CriticallyDampedSpring(.zero)
@@ -168,6 +192,8 @@ final class CameraRig {
                                            pitch: -CameraRig.pitchDegrees * .pi / 180)
     /// 演出の姿勢を描いている（次の update で既定の向きへ戻す）。
     private(set) var isPresenting = false
+    private(set) var isFirstPerson = false
+    var verticalFOV: Float { camera.camera.fieldOfViewInDegrees }
 
     private struct Glide {
         var from: SIMD2<Float>
@@ -294,8 +320,19 @@ final class CameraRig {
     /// Screen corners intersected with y = 0, in clockwise sim coordinates.
     /// Uses the rendered pose, including damping, map-edge clamping, zoom and camera shake.
     func groundFootprint(aspectRatio: Float) -> [Vec2] {
-        Self.groundFootprint(position: camera.position, orientation: camera.orientation,
-                             verticalFieldOfView: Self.fovDegrees, aspectRatio: aspectRatio)
+        if isFirstPerson {
+            // Clip rays at a finite distance when they reach the horizon or sky.
+            let halfHeight = tan(verticalFOV * .pi / 360)
+            return [SIMD2<Float>(-1, 1), SIMD2(1, 1), SIMD2(1, -1), SIMD2(-1, -1)].map { corner in
+                let ray = simd_normalize(camera.orientation.act(SIMD3(corner.x * halfHeight * aspectRatio,
+                                                                         corner.y * halfHeight, -1)))
+                let travel = ray.y < -0.00001 ? min(camera.camera.far, -camera.position.y / ray.y) : camera.camera.far
+                let hit = camera.position + ray * travel
+                return Vec2(Double(hit.x) * Balance.unitsPerMeter, -Double(hit.z) * Balance.unitsPerMeter)
+            }
+        }
+        return Self.groundFootprint(position: camera.position, orientation: camera.orientation,
+                                   verticalFieldOfView: verticalFOV, aspectRatio: aspectRatio)
     }
 
     nonisolated static func groundFootprint(position: SIMD3<Float>, orientation: simd_quatf,
@@ -351,6 +388,13 @@ final class CameraRig {
     }
 
     func update(_ d: CameraDrive, dt: Float, mapMeters: Float) {
+        if isFirstPerson {
+            isFirstPerson = false
+            initialized = false
+            camera.camera.near = 1
+            camera.camera.fieldOfViewInDegrees = Self.fovDegrees
+            camera.orientation = Self.orientation
+        }
         time += dt
         let targetDistance = CameraRig.distance(forZoom: d.zoom, range: d.zoomRange)
         let lead = d.lead ?? (d.free ? 0 : CameraRig.focusLead)
@@ -391,7 +435,7 @@ final class CameraRig {
         distance.update(target: targetDistance, smoothTime: d.directZoom ? 0.04 : (d.zoomSmoothTime ?? 0.25), dt: dt)
 
         var pos = SIMD3(focus.value.x, 0, focus.value.y) + CameraRig.offset(distance: distance.value)
-        gamePose.position = pos
+        gamePose = CameraPose(position: pos, yaw: 0, pitch: -Self.pitchDegrees * .pi / 180)
         // 奥義の押し込み: 視線の方向へ寄る（gamePose・distance は押し込む前のまま）
         let push = currentPushIn
         if push > 0.0001 { pos -= simd_normalize(CameraRig.offset(distance: distance.value)) * push }
@@ -410,8 +454,29 @@ final class CameraRig {
         camera.position = pos
     }
 
+    /// Match the interpolated body without a follow spring: the camera must never trail behind its eyes.
+    func updateFirstPerson(eye: SIMD3<Float>, yaw: Float, pitch: Float, dt: Float) {
+        isFirstPerson = true
+        isPresenting = false
+        initialized = true
+        glide = nil
+        focus.snap(to: SIMD2(eye.x, eye.z))
+        distance = CriticallyDampedScalar(value: Self.baseDistance)
+        camera.camera.near = Self.firstPersonNear
+        camera.camera.fieldOfViewInDegrees = Self.firstPersonFOV
+        gamePose = CameraPose(position: eye, yaw: yaw, pitch: pitch)
+        camera.position = eye
+        camera.orientation = gamePose.orientation
+        // Keep attacks at the eyes instead of pushing the view through the body or walls.
+        trauma = max(0, trauma - dt * 1.8)
+        pushAge += dt
+        time += dt
+    }
+
     /// 演出のカメラ（Star Core の終幕）の姿勢で描く。update の後に毎フレーム呼ぶ（呼ばなければ次の update でゲームカメラに戻る）。
     func present(_ pose: CameraPose) {
+        camera.camera.near = 1
+        camera.camera.fieldOfViewInDegrees = Self.fovDegrees
         camera.position = pose.position
         camera.orientation = pose.orientation
         isPresenting = true
