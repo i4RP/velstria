@@ -196,6 +196,52 @@ final class RenderSceneTests: XCTestCase {
                     focusID: sim.state.humanHeroID, ended: sim.isEnded, winner: sim.state.winner)
     }
 
+    func testFirstPersonBodyOpacityIsImmediateLocalAndRestoresWithConcealment() throws {
+        AssetLedger.beginLoading()
+        defer { AssetLedger.end() }
+        let sim = Simulation(config: MatchFactory.botMatch(seed: 3))
+        let indices = sim.state.units.indices.filter { sim.state.units[$0].kind == .hero }
+        let i = try XCTUnwrap(indices.first), j = try XCTUnwrap(indices.dropFirst().first)
+        let materials = RenderMaterials(colorblind: false), meshes = UnitMeshLibrary(), text = TextMeshCache()
+        let local = HeroVisual(unit: sim.state.units[i], isSelf: true, master: .shared,
+                               materials: materials, meshes: meshes, text: text)
+        let other = HeroVisual(unit: sim.state.units[j], isSelf: false, master: .shared,
+                               materials: materials, meshes: meshes, text: text)
+        var f = frame(sim, viewer: nil, dt: 0)
+        f.firstPersonID = local.id
+        local.update(f, index: i, visible: true)
+        other.update(f, index: j, visible: true)
+        XCTAssertEqual(local.modelRoot.components[OpacityComponent.self]?.opacity ?? 1, 0.5,
+                       "dt が 0 の切替フレームから 50%")
+        XCTAssertNil(other.modelRoot.components[OpacityComponent.self], "他のキャラの材質・透明度は変えない")
+
+        f.dt = 1
+        f.state.units[i].statuses = [StatusEffect(kind: .stealth, duration: 5)]
+        local.update(f, index: i, visible: true)
+        XCTAssertEqual(local.modelRoot.components[OpacityComponent.self]?.opacity ?? 1, KitStatusVisuals.stealthAllyOpacity)
+        f.firstPersonID = nil
+        local.update(f, index: i, visible: true)
+        XCTAssertEqual(local.modelRoot.components[OpacityComponent.self]?.opacity ?? 1, KitStatusVisuals.stealthAllyOpacity,
+                       "一人称を解除してもステルスは維持")
+        f.state.units[i].statuses = []
+        local.update(f, index: i, visible: true)
+        XCTAssertNil(local.modelRoot.components[OpacityComponent.self])
+
+        f.firstPersonID = local.id
+        local.update(f, index: i, visible: true)
+        f.state.units[i].hp = 0
+        f.state.units[i].isAlive = false
+        f.state.units[i].hero?.respawnTimer = 10
+        f.dt = 2
+        local.update(f, index: i, visible: true)
+        XCTAssertEqual(local.root.components[OpacityComponent.self]?.opacity ?? 1, 1,
+                       "死亡直後は既存の 2.2 秒の表示時間を維持")
+        f.dt = 0.5
+        local.update(f, index: i, visible: true)
+        XCTAssertLessThan(local.root.components[OpacityComponent.self]?.opacity ?? 1, 1,
+                          "死亡時のフェードは独立して残る")
+    }
+
     func testRenderFrameVisibility() {
         let sim = Simulation(config: MatchFactory.botMatch(seed: 3))
         let f = frame(sim, viewer: .blue)

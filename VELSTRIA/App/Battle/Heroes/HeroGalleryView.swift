@@ -75,7 +75,9 @@ struct HeroGalleryView: View {
     }
 
     var body: some View {
-        if DebugLaunch.args.contains("-heroQualityReview") {
+        if DebugLaunch.args.contains("-fpsVisibilityReview") {
+            FirstPersonVisibilityReviewView().ignoresSafeArea()
+        } else if DebugLaunch.args.contains("-heroQualityReview") {
             HeroQualityReviewView()
         } else {
             galleryBody

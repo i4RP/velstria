@@ -406,7 +406,7 @@ final class HeroModel: HeroDisplayModel {
         // 髪・兜・顔はすべて head のメッシュに含まれる。子階層を隠しても腕・胴は残る。
         head.isEnabled = !enabled
         if case .halo = floatMotion { float?.isEnabled = !enabled }
-        effects.teamRing?.isEnabled = !enabled
+        effects.setFirstPerson(enabled)
     }
 
     func setState(_ state: HeroAnimState) {
@@ -511,6 +511,7 @@ struct HeroEffects {
     private var glowVisible = false
     private var ringVisible = false
     private var auraVisible = true
+    private var firstPerson = false
 
     /// castGlow は glowParent（武器）の weaponTip に、輪・チームリング・オーラは body の下に置く。
     init(body: Entity, glowParent: Entity, weaponTip: V3, palette: HeroPalette, team: Team, options: HeroModelOptions,
@@ -576,7 +577,7 @@ struct HeroEffects {
     /// 発光・足元の輪・オーラ・透明度を姿勢に合わせる（毎フレーム）。
     mutating func apply(_ p: HeroPose, time t: Float, dead: Bool, body: Entity) {
         let g = p.glow
-        let showGlow = g > 0.03
+        let showGlow = !firstPerson && g > 0.03
         if showGlow != glowVisible {
             castGlow.isEnabled = showGlow
             glowVisible = showGlow
@@ -594,13 +595,25 @@ struct HeroEffects {
             groundRing.orientation = ry(t * 1.4)
         }
         if let aura {
-            let show = !dead
+            let show = !firstPerson && !dead
             if show != auraVisible {
                 aura.isEnabled = show
                 auraVisible = show
             }
         }
         setOpacity(p.opacity, body: body)
+    }
+
+    /// 本人の目の前の装飾粒子を抑える。別レイヤーのスキル・範囲予告は変更しない。
+    mutating func setFirstPerson(_ enabled: Bool) {
+        firstPerson = enabled
+        teamRing?.isEnabled = !enabled
+        if enabled {
+            castGlow.isEnabled = false
+            glowVisible = false
+            aura?.isEnabled = false
+            auraVisible = false
+        }
     }
 
     mutating func setOpacity(_ o: Float, body: Entity) {

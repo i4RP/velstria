@@ -769,7 +769,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
         guard firstPerson != enabled else { return }
         firstPerson = enabled
         if case .halo = floatMotion { float?.isEnabled = !enabled }
-        effects.teamRing?.isEnabled = !enabled
+        effects.setFirstPerson(enabled)
         let meshes = enabled ? firstPersonMeshes ?? thirdPersonMeshes : thirdPersonMeshes
         for (e, mesh) in zip(skinnedEntities, meshes) {
             e.model?.mesh = mesh

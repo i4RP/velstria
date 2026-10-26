@@ -31,6 +31,32 @@ final class HeroModelTests: XCTestCase {
         XCTAssertTrue(head.isEnabled)
     }
 
+    func testFirstPersonSuppressesOwnGlowWithoutChangingWorldCastRing() throws {
+        for source in [HeroMeshSource.procedural, .auto] {
+            let model = HeroModelLibrary.makeHero(heroID: "H025", skinID: nil, team: .blue, master: master,
+                                                  options: HeroModelOptions.battle.with(mesh: source))
+            model.prepareFirstPerson()
+            var pose = HeroPose()
+            pose.glow = 1
+            pose.ring = 1
+            func apply() {
+                if let m = model as? HeroModel { m.applyPose(pose) }
+                if let m = model as? SkinnedHeroModel { m.applyPose(pose) }
+            }
+            apply()
+            let glow = try XCTUnwrap(model.root.findEntity(named: "castGlow"))
+            let ring = try XCTUnwrap(model.root.findEntity(named: "groundRing"))
+            XCTAssertTrue(glow.isEnabled)
+            model.setFirstPerson(true)
+            apply()
+            XCTAssertFalse(glow.isEnabled)
+            XCTAssertTrue(ring.isEnabled, "範囲の描画は装飾粒子の抑制に巻き込まない")
+            model.setFirstPerson(false)
+            apply()
+            XCTAssertTrue(glow.isEnabled)
+        }
+    }
+
     func testPlayableGaitsHaveDistinctLowerBodyAndContinuousContacts() throws {
         var signatures = Set<String>()
         for n in 25...34 {

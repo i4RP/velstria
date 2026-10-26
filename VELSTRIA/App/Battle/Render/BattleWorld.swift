@@ -189,6 +189,7 @@ final class BattleWorld {
         if controller.firstPersonEnabled {
             f.firstPersonID = controller.humanHeroID
             f.firstPersonYaw = Float(controller.firstPersonYaw - .pi / 2)
+            f.firstPersonPitch = Float(controller.firstPersonPitch)
         }
         return f
     }
@@ -977,8 +978,10 @@ final class BattleWorld {
     /// 演出の時刻（RenderFrame.presentationTime と同じ値。Star Core の終幕のカメラが倒壊と同じ時計で動く）。
     var presentationTime: Double { controller.state.time + endedClock }
 
-    func updateCamera(rig: CameraRig, dt: Float, snap: Bool) {
-        if controller.firstPersonEnabled, let id = controller.humanHeroID,
+    func updateCamera(rig: CameraRig, dt: Float, snap: Bool, warmup: Bool = false) {
+        // 幕の裏は既存の陳列を収める俯瞰で描く。自分の CustomMaterial は同期済みなので、
+        // クリップで画素を捨てる場合もスキン・装備の実際の描画パイプラインをここで通す。
+        if !warmup, controller.firstPersonEnabled, let id = controller.humanHeroID,
            let eye = units.firstPersonEyePosition(id) {
             rig.updateFirstPerson(eye: eye, yaw: Float(controller.firstPersonYaw - .pi / 2),
                                   pitch: Float(controller.firstPersonPitch), dt: dt)

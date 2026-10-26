@@ -689,7 +689,7 @@ final class BattleRenderer {
         warmupFrameIndex += 1
         let t0 = CACurrentMediaTime()
         world.sync(events: [], dt: Float(dt), rig: rig)
-        world.updateCamera(rig: rig, dt: 0, snap: true)
+        world.updateCamera(rig: rig, dt: 0, snap: true, warmup: true)
         followSun()
         // 終幕の空も幕の裏で描いておく（シェーダーの用意。カメラの位置に置くので画面の隅に映るだけ）
         finaleSky?.isShown = true
@@ -735,6 +735,9 @@ final class BattleRenderer {
         setSunShadow(governed.settings.quality.shadows)
         // 影の両状態を描き終えたので、自動調整が影を切り替えてよい
         if let change = governor.setShadowSwitchable(scheduler.shadowVariantsWarmed) { applyGovernor(change) }
+        // 幕が透け始める前に、ウォームアップ用の俯瞰から実際の目線へ戻す。
+        world.updateCamera(rig: rig, dt: 0, snap: true)
+        followSun()
         view.setLoading(progress: 1, label: L("準備完了", "Ready"))
         view.liftCurtain()
         // ここから試合開始（予備駆動は sim を進めずに待っている。HUD もここで表示する）

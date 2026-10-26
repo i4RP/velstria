@@ -1,0 +1,295 @@
+{
+  "heroes": 34,
+  "sampleHz": 3.0,
+  "samples": 2399,
+  "maximumForwardCoverage": 0.08413911879706476,
+  "threshold": 0.1,
+  "opacity": 0.5,
+  "pixelThreshold": "max RGB > 8/255; full pixel counts",
+  "rosterComplete": true,
+  "capturedHeroes": [
+    "H001",
+    "H002",
+    "H003",
+    "H004",
+    "H005",
+    "H006",
+    "H007",
+    "H008",
+    "H009",
+    "H010",
+    "H011",
+    "H012",
+    "H013",
+    "H014",
+    "H015",
+    "H016",
+    "H017",
+    "H018",
+    "H019",
+    "H020",
+    "H021",
+    "H022",
+    "H023",
+    "H024",
+    "H025",
+    "H026",
+    "H027",
+    "H028",
+    "H029",
+    "H030",
+    "H031",
+    "H032",
+    "H033",
+    "H034"
+  ],
+  "passed": true,
+  "date": "2026-10-26",
+  "environment": "iPhone 17 simulator / iOS 26.3.1 / Debug / landscape",
+  "scenarios": 358,
+  "relatedTestsPassed": 82,
+  "runtimeSeconds": 65,
+  "runtimeLiveAssets": {},
+  "runtimeLiveAssetSamples": [],
+  "scope": "Self mesh in sampled isolated rendered motions, with a representative H025 gameplay run. All heroes forward and down-look images visually reviewed.",
+  "perHero": [
+    {
+      "hero": "H001",
+      "samples": 65,
+      "maximumForwardCoverage": 0.07973544431415261,
+      "downwardCoverage": 0.4966086172240754,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H002",
+      "samples": 64,
+      "maximumForwardCoverage": 0.0507502533101085,
+      "downwardCoverage": 0.22891264501292166,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H003",
+      "samples": 59,
+      "maximumForwardCoverage": 0.04468504161116614,
+      "downwardCoverage": 0.23027564946687867,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H004",
+      "samples": 60,
+      "maximumForwardCoverage": 0.03157015583157186,
+      "downwardCoverage": 0.29313861660424045,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H005",
+      "samples": 59,
+      "maximumForwardCoverage": 0.05359105818479431,
+      "downwardCoverage": 0.32267565047885416,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H006",
+      "samples": 60,
+      "maximumForwardCoverage": 0.04116463196349805,
+      "downwardCoverage": 0.15081881464783886,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H007",
+      "samples": 68,
+      "maximumForwardCoverage": 0.06624739258196685,
+      "downwardCoverage": 0.5811215344583971,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H008",
+      "samples": 60,
+      "maximumForwardCoverage": 0.01488647532740569,
+      "downwardCoverage": 0.25121658425391474,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H009",
+      "samples": 59,
+      "maximumForwardCoverage": 0.05541482771750199,
+      "downwardCoverage": 0.3282731397677263,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H010",
+      "samples": 60,
+      "maximumForwardCoverage": 0.047663095658245766,
+      "downwardCoverage": 0.42842076168863286,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H011",
+      "samples": 59,
+      "maximumForwardCoverage": 0.08377449138745631,
+      "downwardCoverage": 0.3849867747456463,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H012",
+      "samples": 64,
+      "maximumForwardCoverage": 0.05390318936717379,
+      "downwardCoverage": 0.2009454380778538,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H013",
+      "samples": 64,
+      "maximumForwardCoverage": 0.022646745929644937,
+      "downwardCoverage": 0.25623598255860286,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H014",
+      "samples": 68,
+      "maximumForwardCoverage": 0.06463455668517316,
+      "downwardCoverage": 0.17187075049365427,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H015",
+      "samples": 59,
+      "maximumForwardCoverage": 0.05204684687419755,
+      "downwardCoverage": 0.45313984362449133,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H016",
+      "samples": 60,
+      "maximumForwardCoverage": 0.02910947424079703,
+      "downwardCoverage": 0.22035892239792645,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H017",
+      "samples": 59,
+      "maximumForwardCoverage": 0.02381621007598671,
+      "downwardCoverage": 0.2938726150584479,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H018",
+      "samples": 64,
+      "maximumForwardCoverage": 0.046210594624133336,
+      "downwardCoverage": 0.16804896190291865,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H019",
+      "samples": 61,
+      "maximumForwardCoverage": 0.057722764261580496,
+      "downwardCoverage": 0.39403604909598966,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H020",
+      "samples": 64,
+      "maximumForwardCoverage": 0.08413911879706476,
+      "downwardCoverage": 0.22207453705284916,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H021",
+      "samples": 59,
+      "maximumForwardCoverage": 0.06180418780746661,
+      "downwardCoverage": 0.285082975663255,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H022",
+      "samples": 60,
+      "maximumForwardCoverage": 0.00914224959615854,
+      "downwardCoverage": 0.12498244855053489,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H023",
+      "samples": 59,
+      "maximumForwardCoverage": 0.06728087252524563,
+      "downwardCoverage": 0.5024300060845025,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H024",
+      "samples": 64,
+      "maximumForwardCoverage": 0.03075266940153036,
+      "downwardCoverage": 0.14628421583918697,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H025",
+      "samples": 93,
+      "maximumForwardCoverage": 0.08112532936638951,
+      "downwardCoverage": 0.2660859824953544,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H026",
+      "samples": 80,
+      "maximumForwardCoverage": 0.02652830432126173,
+      "downwardCoverage": 0.24149687615823753,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H027",
+      "samples": 101,
+      "maximumForwardCoverage": 0.014358666874121634,
+      "downwardCoverage": 0.2540343034383131,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H028",
+      "samples": 88,
+      "maximumForwardCoverage": 0.02587020402690337,
+      "downwardCoverage": 0.16618945698661536,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H029",
+      "samples": 103,
+      "maximumForwardCoverage": 0.05759057496650994,
+      "downwardCoverage": 0.7942970122689376,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H030",
+      "samples": 77,
+      "maximumForwardCoverage": 0.011572255680661019,
+      "downwardCoverage": 0.23218100952142415,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H031",
+      "samples": 99,
+      "maximumForwardCoverage": 0.01287770403006579,
+      "downwardCoverage": 0.16834180230300316,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H032",
+      "samples": 84,
+      "maximumForwardCoverage": 0.06472152332666695,
+      "downwardCoverage": 0.5210082944039022,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H033",
+      "samples": 93,
+      "maximumForwardCoverage": 0.044146797160902834,
+      "downwardCoverage": 0.2893895637500269,
+      "bodyAndArmsVisuallyReviewed": true
+    },
+    {
+      "hero": "H034",
+      "samples": 103,
+      "maximumForwardCoverage": 0.02051211018388859,
+      "downwardCoverage": 0.3317353608261768,
+      "bodyAndArmsVisuallyReviewed": true
+    }
+  ]
+}

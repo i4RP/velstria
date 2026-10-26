@@ -26,6 +26,7 @@ struct RenderFrame {
     /// 一人称で操作しているヒーローだけ頭部・頭上表示を隠し、胴の向きを視線に合わせる。
     var firstPersonID: EntityID? = nil
     var firstPersonYaw: Float = 0
+    var firstPersonPitch: Float = 0
     var detailFrustum: FirstPersonFrustum? = nil
 
     /// nil during loading/pause; independent of team visibility and simulation.
@@ -749,7 +750,7 @@ final class HeroVisual {
     private var yaw: Float = 0
     var visibility: Float = 1
     private var opacityApplied: Float = 1
-    /// モデル本体（modelRoot）の不透明度。草むらで隠れている自分・味方とステルス中の自分・味方で下げる（HP バー・足元リングは薄くしない）。
+    /// モデル本体（modelRoot）の不透明度。一人称は最大 50%。草むら・ステルスはさらに薄くできる。
     private var modelOpacity: Float = 1
     private var castUntil: Float = -1
     private var castSlot: SkillSlot = .skill1
@@ -761,6 +762,7 @@ final class HeroVisual {
     private var focusPulse: Float = 0
     private var isSelf: Bool
     private var firstPerson = false
+    private var firstPersonVisibility: FirstPersonVisibility?
     private var lastResource: Double = -1
     /// 近接の武器の軌跡（右手、二刀は左手も）。trailKit を渡され、演出表に軌跡があるヒーローだけ。root の子
     /// （ヒーローの可視性・死亡のフェードを継ぐ）で、頂点は root 基準に書く。
@@ -779,6 +781,7 @@ final class HeroVisual {
         root.name = "hero_\(u.id)"
         root.addChild(modelRoot)
         modelRoot.addChild(handle.root)
+        if isSelf { firstPersonVisibility = FirstPersonVisibility(root: handle.root) }
         if let trailKit, let heroID = h?.heroID, let profile = HeroFXProfiles.profile(heroID), let style = profile.trail,
            let material = trailKit.material(for: profile, trail: style) {
             let bp = HeroBlueprints.blueprint(heroID: heroID, role: master.hero(heroID)?.role)
@@ -881,6 +884,7 @@ final class HeroVisual {
             (handle as? any HeroDisplayModel)?.setFirstPerson(firstPerson)
             status.root.isEnabled = !firstPerson
         }
+        firstPersonVisibility?.update(enabled: firstPerson, pitch: f.firstPersonPitch)
         // 可視性
         let target: Float = visible ? 1 : 0
         visibility += (target - visibility) * min(1, dt * 9)
@@ -897,9 +901,11 @@ final class HeroVisual {
         let brushTarget: Float = concealed ? HeroVisual.brushOpacity : 1
         let stealthTarget = KitStatusVisuals.stealthOpacity(stealthed: u.has(.stealth), dead: dead, unitTeam: u.team,
                                                             viewerTeam: f.viewerTeam)
-        let modelTarget = min(brushTarget, stealthTarget)
+        let opacityLimit: Float = firstPerson ? Self.firstPersonOpacity : 1
+        let modelTarget = min(opacityLimit, min(brushTarget, stealthTarget))
         if modelOpacity != modelTarget {
-            modelOpacity += (modelTarget - modelOpacity) * min(1, dt * 9)
+            // 視点切替直後の 1 フレームも半透明にする。死亡・霧のフェードは別階層で従来どおり重なる。
+            modelOpacity = min(opacityLimit, modelOpacity + (modelTarget - modelOpacity) * min(1, dt * 9))
             if abs(modelTarget - modelOpacity) < 0.005 { modelOpacity = modelTarget }
             if modelOpacity == 1 {
                 modelRoot.components.remove(OpacityComponent.self)
@@ -971,6 +977,8 @@ final class HeroVisual {
 
     /// 草むらで隠れている間のヒーロー本体の不透明度。
     static let brushOpacity: Float = 0.5
+    /// 操作中の一人称モデル（胴・腕・脚・装備）の不透明度。
+    static let firstPersonOpacity: Float = 0.5
 
     /// 草むらで隠れている表示（半透明・斜線の目）を出すか: 自分・味方のヒーローで、敵から隠れている間だけ。
     /// 観戦（viewerTeam = nil）と敵の視点では出さない。
@@ -981,7 +989,7 @@ final class HeroVisual {
     /// 武器の軌跡（ハンドルの更新の後 = 今フレームの姿勢の刃）。見えない・死亡・画質で切った間は消して標本を捨てる。
     private func updateWeaponTrails(time: Float, dead: Bool) {
         guard !weaponTrails.isEmpty else { return }
-        guard weaponTrailsOn, root.isEnabled, !dead else {
+        guard weaponTrailsOn, root.isEnabled, !dead, !firstPerson else {
             for t in weaponTrails where !t.isWarmup { t.reset() }
             return
         }
