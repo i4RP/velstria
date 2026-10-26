@@ -28,7 +28,7 @@ final class FirstPersonVisibilityReviewDriver {
     private var model: (any HeroDisplayModel)?
     private var visibility: FirstPersonVisibility?
     private let heroID = DebugLaunch.value(after: "-fpsVisibilityHero") ?? "H001"
-    private let sampleHz = min(60, max(1, Double(DebugLaunch.value(after: "-fpsVisibilityHz") ?? "10") ?? 10))
+    private let sampleHz = min(60, max(1, Double(DebugLaunch.value(after: "-fpsVisibilityHz") ?? "3") ?? 3))
     private let handshake = URL(fileURLWithPath: DebugLaunch.value(after: "-fpsVisibilityHandshake")
                                 ?? "/tmp/velstria-fpsvisibility", isDirectory: true)
     private var output: URL {
@@ -106,7 +106,7 @@ final class FirstPersonVisibilityReviewDriver {
         }
         hero.update(dt: 0, moveSpeed: 0)
         setCamera(pitch: 0)
-        visibility?.update(enabled: true, pitch: 0, mask: true)
+        visibility?.update(enabled: true, mask: true)
         subscription = view.scene.subscribe(to: SceneEvents.Update.self) { [weak self] _ in self?.tick() }
         return view
     }
@@ -276,10 +276,11 @@ final class FirstPersonVisibilityReviewDriver {
         }
         let mask = kind == "mask"
         setCamera(pitch: scenario.pitch)
-        visibility?.update(enabled: true, pitch: scenario.pitch, mask: mask)
+        visibility?.update(enabled: true, mask: mask)
         view?.environment.background = .color(mask ? .black : UIColor(red: 0.18, green: 0.24, blue: 0.27, alpha: 1))
         nextID += 1
         pending = ["id": nextID, "hero": heroID, "scenario": scenario.name, "kind": kind,
+                   "renderingMode": "unclippedHalfOpacity",
                    "sample": sample, "time": elapsed, "pitch": Double(scenario.pitch),
                    "opacity": Double(opacity), "fov": Double(CameraRig.firstPersonFOV),
                    "near": Double(CameraRig.firstPersonNear), "sampleHz": sampleHz,
@@ -314,14 +315,15 @@ final class FirstPersonVisibilityReviewDriver {
         finished = true
         let forward = records.filter { ($0["pitch"] as? Double ?? -1) == 0 }
         let maximum = forward.compactMap { $0["coverage"] as? Double }.max() ?? 1
-        let manifest: [String: Any] = ["hero": heroID, "completed": true, "sampleHz": sampleHz, "schemaVersion": 2,
+        let manifest: [String: Any] = ["hero": heroID, "completed": true, "sampleHz": sampleHz, "schemaVersion": 3,
+            "renderingMode": "unclippedHalfOpacity",
             "currentPlayableRoster": MasterData.shared.heroes.map(\.heroID).sorted(),
             "allHeroRoster": MasterData.shared.allHeroes.map(\.heroID).sorted(),
-            "integrationHz": 60, "opacity": records.first?["opacity"] ?? 0, "forwardLimit": 0.1,
-            "forwardMaximum": maximum, "passedForwardLimit": maximum < 0.1,
+            "integrationHz": 60, "opacity": records.first?["opacity"] ?? 0,
+            "forwardMaximum": maximum,
             "scenarios": scenarios.map(\.name), "samples": records,
             "environment": "iPhone simulator, isolated RealityKit drawable; not physical-device evidence",
-            "metric": "Any nonblack self-mesh pixel counts in full, including 50% transparent pixels; no alpha weighting"]
+            "metric": "Descriptive occupancy only, with no area limit. Any nonblack self-mesh pixel counts in full, including 50% transparent pixels; no alpha weighting"]
         write(manifest, to: output.appendingPathComponent("manifest.json"))
         write(["hero": heroID, "completed": true], to: handshake.appendingPathComponent("finished.json"))
     }

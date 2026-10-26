@@ -5,21 +5,8 @@ using namespace metal;
 namespace first_person {
 constexpr sampler materialSampler(coord::normalized, address::repeat, filter::linear, mip_filter::linear);
 
-// custom: x = NDC upper boundary, y = texture flags, z = original emissive intensity, w = capture mask.
-inline half visibility(realitykit::surface_parameters params) {
-    float boundary = params.uniforms().custom_parameter().x;
-    if (boundary >= 1.0) { return 1.0h; }
-    float4 world = float4(params.geometry().world_position(), 1.0);
-    float4 clip = params.uniforms().view_to_projection() * params.uniforms().world_to_view() * world;
-    if (clip.w <= 0.0 || !all(isfinite(clip))) { discard_fragment(); }
-    float y = clip.y / clip.w;
-    if (y > boundary) { discard_fragment(); }
-    // 0.3% of the screen, entirely INSIDE the permitted band. Never expands its coverage.
-    return half(1.0 - smoothstep(boundary - 0.006, boundary, y));
-}
-
+// custom: x = unused, y = texture flags, z = original emissive intensity, w = capture mask.
 inline void shade(realitykit::surface_parameters params, bool unlit) {
-    half keep = visibility(params);
     float4 cp = params.uniforms().custom_parameter();
     uint flags = uint(cp.y);
     float2 uv = params.geometry().uv0();
@@ -31,7 +18,7 @@ inline void shade(realitykit::surface_parameters params, bool unlit) {
     half opacity = half(mc.opacity_scale()) * base.a;
     if (flags & 1024u) { opacity *= tex.opacity().sample(materialSampler, uv).r; }
     if (opacity <= half(mc.opacity_threshold())) { discard_fragment(); }
-    surface.set_opacity(opacity * keep);
+    surface.set_opacity(opacity);
     if (cp.w > 0.5) {
         surface.set_base_color(half3(0.0h));
         surface.set_emissive_color(half3(1.0h));

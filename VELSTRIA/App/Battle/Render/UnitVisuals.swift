@@ -26,7 +26,6 @@ struct RenderFrame {
     /// 一人称で操作しているヒーローだけ頭部・頭上表示を隠し、胴の向きを視線に合わせる。
     var firstPersonID: EntityID? = nil
     var firstPersonYaw: Float = 0
-    var firstPersonPitch: Float = 0
     var detailFrustum: FirstPersonFrustum? = nil
 
     /// nil during loading/pause; independent of team visibility and simulation.
@@ -884,7 +883,7 @@ final class HeroVisual {
             (handle as? any HeroDisplayModel)?.setFirstPerson(firstPerson)
             status.root.isEnabled = !firstPerson
         }
-        firstPersonVisibility?.update(enabled: firstPerson, pitch: f.firstPersonPitch)
+        firstPersonVisibility?.update(enabled: firstPerson)
         // 可視性
         let target: Float = visible ? 1 : 0
         visibility += (target - visibility) * min(1, dt * 9)

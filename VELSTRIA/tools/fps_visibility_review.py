@@ -11,7 +11,9 @@ Merge completed batches without accessing a simulator:
 
 Never chooses or alters another simulator. One hero per process; normal games do
 not load the whole roster. Requires Pillow and numpy. Masks count every covered
-pixel, not alpha-weighted area. The output is simulator evidence, not device FPS.
+pixel, not alpha-weighted area. Occupancy is descriptive; there is no area limit.
+Only unclipped schema 3 captures can be resumed or summarized. Historical clipped
+reports remain separate. The output is simulator evidence, not device FPS.
 """
 import argparse
 import csv
@@ -28,6 +30,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 BUNDLE = "com.bitcoinpay.velstria"
+RENDERING_MODE = "unclippedHalfOpacity"
 MASTER_PATH = Path(__file__).resolve().parents[1] / "Packages/VelstriaCore/Sources/VelstriaCore/Resources/master_runtime.json"
 
 
@@ -39,9 +42,12 @@ def all_hero_ids():
 
 
 def current_playable_roster(report):
-    # Schema 1 called the active-only list "masterRoster". Preserve those raw
-    # reports and interpret that field honestly; the renderer is unchanged.
-    return report.get("currentPlayableRoster", report.get("masterRoster"))
+    return report.get("currentPlayableRoster")
+
+
+def require_current_capture(report):
+    if report.get("schemaVersion", 1) < 3 or report.get("renderingMode") != RENDERING_MODE:
+        raise ValueError("Historical clipped captures cannot verify the current unclipped model; keep them separately and use a new output directory")
 
 
 def command(*args, check=True):
@@ -68,6 +74,8 @@ def frame_for_request(raw_path, request):
 
 
 def capture(udid, handshake, dest, request):
+    if request.get("renderingMode") != RENDERING_MODE:
+        raise ValueError("The installed review app predates unclipped rendering; rebuild it before capture")
     if not request.get("shaderReady") or request.get("unsupportedMaterials") != 0:
         raise ValueError("Shader not ready or unsupported material; empty masks are not a pass")
     raw = handshake / "raw.png"
@@ -150,6 +158,7 @@ def summarize(args, reports, environment):
     failures = []
     roster = all_hero_ids()
     for report in reports:
+        require_current_capture(report)
         if not current_playable_roster(report) or report["hero"] not in roster:
             raise ValueError(f"{report['hero']}: missing playable roster metadata or hero absent from the complete source catalog")
         if report.get("allHeroRoster", roster) != roster:
@@ -172,12 +181,12 @@ def summarize(args, reports, environment):
                 raise ValueError(f"{report['hero']}: shader was not ready in {scenario}")
             worst = max(samples, key=lambda row: row["coverage"])
             # A few noisy pixels cannot count as evidence that the down-look body rendered.
-            limit_pass = worst["coverage"] < 0.1 if worst["pitch"] == 0 else worst["coverage"] > 0.005
+            visible = worst["coverage"] > 0.005 if scenario == "look_down" else True
             row = {"hero": report["hero"], "scenario": scenario, "samples": len(samples),
                    "maxCoverage": worst["coverage"], "timeOfMaximum": worst["time"],
-                   "opacity": worst["opacity"], "pitch": worst["pitch"], "pass": limit_pass}
+                   "opacity": worst["opacity"], "pitch": worst["pitch"], "pass": visible}
             rows.append(row)
-            if not limit_pass:
+            if not visible:
                 failures.append(row)
     forward = [row["maxCoverage"] for row in rows if row["pitch"] == 0]
     playable_roster = current_playable_roster(reports[0]) if reports else []
@@ -187,14 +196,15 @@ def summarize(args, reports, environment):
     if len(set(captured)) != len(captured):
         raise ValueError("Duplicate hero reports cannot count toward all-roster coverage")
     summary = {"environment": environment, "heroes": len(reports), "sampleHz": args.hz,
+               "renderingMode": RENDERING_MODE,
                "allHeroRoster": roster, "capturedHeroes": captured, "rosterComplete": captured == roster,
                "currentPlayableRoster": playable_roster,
                "completeRosterSource": str(MASTER_PATH.relative_to(Path(__file__).resolve().parents[2])),
                "captureSchemaVersions": sorted({report.get("schemaVersion", 1) for report in reports}),
                "samples": sum(row["samples"] for row in rows), "maximumForwardCoverage": max(forward, default=None),
-               "threshold": 0.1, "opacity": 0.5, "pixelThreshold": "max RGB > 8/255; full pixel counts",
+               "coverageIsDescriptive": True, "opacity": 0.5, "pixelThreshold": "max RGB > 8/255; full pixel counts",
                "physicalDeviceVerified": False, "passed": not failures and len(reports) == len(args.heroes),
-               "limitations": "Deterministic sampled rendered poses. No claim of physical-device FPS, latency, or full gameplay testing.",
+               "limitations": "Deterministic sampled rendered poses. Coverage has no pass/fail upper limit; inspect color images for visible shape. No claim of full gameplay testing.",
                "failures": failures, "states": rows}
     atomic_json(args.out / "summary.json", summary)
     with (args.out / "coverage.csv").open("w", newline="") as file:
@@ -258,6 +268,7 @@ def merge_existing(args):
         sources.append(source)
         for manifest in sorted(directory.glob("H*/manifest.json")):
             report = json.loads(manifest.read_text())
+            require_current_capture(report)
             hero = report.get("hero")
             if hero not in roster or manifest.parent.name != hero:
                 raise ValueError(f"Unexpected hero report: {manifest}")

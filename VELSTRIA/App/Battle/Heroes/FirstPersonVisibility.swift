@@ -2,24 +2,10 @@ import Foundation
 import Metal
 import RealityKit
 
-/// 自分のモデルだけの画面占有を制限する。ロード中に材質を用意し、プレイ中は uniform のみを変更する。
-/// クリップはスキニング後のフラグメント位置で行うので、攻撃・移動中も画面下 9% を越えない。
+/// 自分のモデルを半透明で描く材質。画面位置による切り取りはせず、体・武器の形を保つ。
+/// 不透明度は親の OpacityComponent で適用し、材質はロード中に準備する。
 @MainActor
 final class FirstPersonVisibility {
-    static let coverageLimit: Float = 0.09
-    static let revealStart: Float = -20 * .pi / 180
-    static let revealEnd: Float = -60 * .pi / 180
-
-    /// 下を向き始めるまでは 9%。-20°〜-60°で滑らかに胴体全体を解放する。
-    nonisolated static func visibleFraction(pitch: Float) -> Float {
-        guard pitch.isFinite else { return 0.09 }
-        let t = min(1, max(0, (-pitch * 180 / .pi - 20) / 40))
-        return 0.09 + 0.91 * t * t * (3 - 2 * t)
-    }
-
-    /// NDC の上端（下端 = -1、上端 = 1）。フェザーはこの境界の内側だけに掛ける。
-    nonisolated static func cutoff(pitch: Float) -> Float { -1 + 2 * visibleFraction(pitch: pitch) }
-
     private final class Entry {
         let entity: Entity
         let originals: [any RealityKit.Material]
@@ -38,7 +24,6 @@ final class FirstPersonVisibility {
 
     private var entries: [Entry] = []
     private var previousEnabled = false
-    private var previousCutoff: Float = .nan
     private var previousMask = false
     private(set) var unsupportedMaterialCount = 0
     private(set) var preparedModelCount = 0
@@ -73,14 +58,13 @@ final class FirstPersonVisibility {
         if let failure { print("VELSTRIA_FIRST_PERSON_VISIBILITY \(failure)") }
     }
 
-    /// mask は占有率撮影用。同じクリップ・元のアルファのまま白く描く。不透明度 50% は親が適用する。
-    func update(enabled: Bool, pitch: Float, mask: Bool = false) {
-        let boundary = Self.cutoff(pitch: pitch)
-        let changed = enabled != previousEnabled || boundary != previousCutoff || mask != previousMask
+    /// mask は撮影用。形・元のアルファを保って白く描く。不透明度 50% は親が適用する。
+    func update(enabled: Bool, mask: Bool = false) {
+        let changed = enabled != previousEnabled || mask != previousMask
         for entry in entries {
-            // 材質変換に失敗しても制限外を描かない。十分下を向いた時だけ元のモデルを見せる。
+            // 通常表示は元の材質を保つ。白マスクを準備できない場合だけ撮影対象を隠す。
             if !entry.supported {
-                let hide = enabled && (boundary < 1 || mask)
+                let hide = enabled && mask
                 if hide {
                     if !entry.hiddenByFallback { entry.previousEnabled = entry.entity.isEnabled }
                     entry.entity.isEnabled = false
@@ -94,7 +78,6 @@ final class FirstPersonVisibility {
             if enabled {
                 for index in entry.prepared.indices {
                     guard var material = entry.prepared[index] as? CustomMaterial else { continue }
-                    material.custom.value.x = boundary
                     material.custom.value.w = mask ? 1 : 0
                     entry.prepared[index] = material
                 }
@@ -107,7 +90,6 @@ final class FirstPersonVisibility {
             entry.entity.components.set(model)
         }
         previousEnabled = enabled
-        previousCutoff = boundary
         previousMask = mask
     }
 
@@ -138,10 +120,10 @@ final class FirstPersonVisibility {
         }
         if opacity.texture != nil { flags |= 1024 }
         material.blending = .transparent(opacity: opacity)
-        // Alpha is composited against the world; a discarded fragment must not hide the background.
+        // The translucent body must not occlude the world through depth writes.
         material.writesDepth = false
         let intensity = (original as? PhysicallyBasedMaterial)?.emissiveIntensity ?? 1
-        material.custom.value = SIMD4(-1 + 2 * coverageLimit, Float(flags), intensity, 0)
+        material.custom.value = SIMD4(0, Float(flags), intensity, 0)
         return material
     }
 }
