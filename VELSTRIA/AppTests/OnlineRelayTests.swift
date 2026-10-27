@@ -1,4 +1,5 @@
 import XCTest
+import Network
 @testable import VELSTRIA
 import VelstriaCore
 
@@ -409,6 +410,76 @@ final class OnlineRelayTests: XCTestCase {
     }
 
     // MARK: 対戦
+
+    /// InMemoryRelay では通らない URLSession の実際のキューから、試合開始と分割した状態を届ける。
+    func testRealWebSocketDeliversMatchStartAndSnapshotOnMainActor() async throws {
+        let rig = makeHost()
+        let guest = join(rig, id: "guest")
+        let config = startedMatch(rig, guest: guest)
+        let snapshot = Simulation(config: config).state
+        let expected: [OnlineMessage] = [.startMatch(config: config), .snapshot(snapshot)]
+        let payload = try expected.reduce(into: Data()) { $0.append(try OnlineFramer.encode($1)) }
+        let chunks = RelayWire.chunks(payload, maxBytes: OnlineRelayConfig.chunkBytes)
+        XCTAssertGreaterThan(chunks.count, 1, "試合の状態を複数の WebSocket メッセージに分ける")
+
+        let options = NWProtocolWebSocket.Options()
+        options.autoReplyPing = true
+        options.setClientRequestHandler(.main) { _, _ in
+            NWProtocolWebSocket.Response(status: .accept, subprotocol: nil)
+        }
+        let parameters = NWParameters.tcp
+        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
+        parameters.defaultProtocolStack.applicationProtocols.insert(options, at: 0)
+        let listener = try NWListener(using: parameters)
+        let listening = expectation(description: "Local WebSocket listening")
+        let delivered = expectation(description: "Match start and snapshot decoded")
+        var server: NWConnection?
+        listener.stateUpdateHandler = { state in
+            switch state {
+            case .ready: listening.fulfill()
+            case .failed(let error):
+                XCTFail("Local WebSocket listener: \(error)")
+                listening.fulfill()
+            default: break
+            }
+        }
+        listener.newConnectionHandler = { connection in
+            MainActor.assumeIsolated {
+                server = connection
+                connection.stateUpdateHandler = { state in
+                    guard case .ready = state else { return }
+                    for chunk in chunks {
+                        let metadata = NWProtocolWebSocket.Metadata(opcode: .binary)
+                        let context = NWConnection.ContentContext(identifier: "match", metadata: [metadata])
+                        connection.send(content: chunk, contentContext: context, isComplete: true,
+                                        completion: .contentProcessed { error in
+                            if let error { XCTFail("Local WebSocket send: \(error)") }
+                        })
+                    }
+                }
+                connection.start(queue: .main)
+            }
+        }
+        listener.start(queue: .main)
+        defer { server?.cancel(); listener.cancel() }
+        await fulfillment(of: [listening], timeout: 5)
+        let port = try XCTUnwrap(listener.port)
+        let baseURL = try XCTUnwrap(URL(string: "ws://127.0.0.1:\(port.rawValue)"))
+        let connection = RelayGuestConnection(code: "K7MP2X", baseURL: baseURL)
+        defer { connection.close() }
+        var received: [OnlineMessage] = []
+        connection.onMessage = { message in
+            MainActor.assertIsolated()
+            received.append(message)
+            if received.count == expected.count { delivered.fulfill() }
+        }
+        connection.onStateChange = { state in
+            if case .failed(let reason) = state { XCTFail(reason) }
+        }
+        connection.start()
+        await fulfillment(of: [delivered], timeout: 5)
+        XCTAssertEqual(received, expected)
+    }
 
     /// 両者が着席・ピック・準備完了し、ホストが開始した状態。
     private func startedMatch(_ rig: Rig, guest: OnlineSession, seed: UInt64 = 42) -> MatchConfig {

@@ -69,6 +69,56 @@ final class OnlineSessionTests: XCTestCase {
 
     // MARK: ロビー
 
+    /// Session 単体では置き換えている AppModel の開始コールバックまで通す。
+    /// ピック完了時のプロフィール更新・最近遊んだ相手の記録と、両端末の戦闘表示を確かめる。
+    func testAppModelsLaunchBattleAfterPickingAndRecordRecentPlayers() throws {
+        let hostPersistence = ServicesFixtures.tempPersistence()
+        let clientPersistence = ServicesFixtures.tempPersistence()
+        let savedLanguage = Loc.current
+        let hostApp = AppModel(persistence: hostPersistence)
+        let clientApp = AppModel(persistence: clientPersistence)
+        hostApp.friends.isEnabled = { false }
+        clientApp.friends.isEnabled = { false }
+        defer {
+            clientApp.leaveOnlineRoom()
+            hostApp.leaveOnlineRoom()
+            hostPersistence.flushPendingSaves()
+            clientPersistence.flushPendingSaves()
+            try? FileManager.default.removeItem(at: hostPersistence.directory)
+            try? FileManager.default.removeItem(at: clientPersistence.directory)
+            Loc.current = savedLanguage
+        }
+        hostApp.profile.displayName = "Host"
+        hostApp.profile.friendCode = "ABCD2345"
+        clientApp.profile.displayName = "Guest"
+        clientApp.profile.friendCode = "WXYZ6789"
+        hostApp.hostOnlineRoom(name: "Room", port: nil, relay: false)
+        let host = try XCTUnwrap(hostApp.online)
+        let (hostLink, clientLink) = LoopbackConnection.pair()
+        host.accept(hostLink)
+        clientApp.joinOnlineRoom(connection: clientLink)
+        let client = try XCTUnwrap(clientApp.online)
+
+        host.takeSeat(blueMid)
+        client.takeSeat(redMid)
+        host.enterPickStage()
+        host.setLoadout(OnlineLoadout(heroID: "H001"))
+        host.setReady(true)
+        client.setLoadout(OnlineLoadout(heroID: "H002"))
+        client.setReady(true)
+        XCTAssertTrue(host.startMatch(master: .shared, seed: UInt64.max))
+
+        let hostBattle = try XCTUnwrap(hostApp.activeBattle)
+        let clientBattle = try XCTUnwrap(clientApp.activeBattle)
+        XCTAssertEqual(hostBattle.config, clientBattle.config)
+        XCTAssertEqual(hostBattle.onlineSeat, blueMid)
+        XCTAssertEqual(clientBattle.onlineSeat, redMid)
+        XCTAssertEqual(hostApp.profile.lastPickedHeroID, "H001")
+        XCTAssertEqual(clientApp.profile.lastPickedHeroID, "H002")
+        XCTAssertEqual(hostApp.profile.recentPlayers.map(\.code), [clientApp.profile.friendCode])
+        XCTAssertEqual(clientApp.profile.recentPlayers.map(\.code), [hostApp.profile.friendCode])
+    }
+
     func testLobbyFlow() {
         let p = makePair()
         XCTAssertEqual(p.client.status, .lobby)
