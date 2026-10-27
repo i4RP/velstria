@@ -143,6 +143,15 @@ def main():
   if 'Terrain' in name or 'BaseGround' in tex or 'BaseBlueGround' in name or 'BaseRedGround' in name:
    ground.extend(polygons(footprint(p)))
    p=p.copy();p[:,2]=ground_heights(p[:,2],tex)
+  # Eye-level canopy: preserve every vertex below the collision body's 2.1m
+  # ceiling and all horizontal coordinates. No extra triangles/atlas space.
+  if 'TreeGroup' in name:
+   threshold=2.1/SCALE
+   upper=p[:,2]>threshold
+   p=p.copy();n=n.copy()
+   p[upper,2]=threshold+(p[upper,2]-threshold)*2.4
+   n[upper,2]/=2.4
+   n/=np.maximum(np.linalg.norm(n,axis=1,keepdims=True),1e-8)
   objects.append((row,p,n,uv))
  print('Unique static objects',len(objects),'source triangles',sum(len(p)//3 for _,p,_,_ in objects),flush=True)
  # Ground coverage prevents movement into the unmodelled exterior, but preserves the two fountain plazas.

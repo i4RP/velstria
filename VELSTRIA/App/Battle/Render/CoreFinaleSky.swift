@@ -4,7 +4,7 @@ import RealityKit
 import UIKit
 
 // 担当: battle-renderer（カメラ）。一人称と Star Core の終幕で共有する空。
-// 明るい青空と少量の白い雲のドーム。俯瞰カメラでは隠す。
+// 夕方の青紫の空と柔らかな雲のドーム。俯瞰カメラでは隠す。
 // 読み込み幕の裏で作り（AssetLedger に記録）、ウォームアップの間も描いてシェーダーを用意しておく（終幕で初めて描いて止まらない）。
 // 毎フレームはカメラの位置へ動かすだけ（ドームの中心 = カメラ。半径はカメラの far 160 m の内側）。影は落とさない。
 
@@ -15,16 +15,16 @@ final class CoreFinaleSky {
     /// ドームの下端（地平線より下。外周の地面の板の向こうに見える分）。
     static let lowestElevation: Float = -15 * .pi / 180
 
-    /// 地平線の淡い水色から天頂の澄んだ青へ（位置はドームの v = 0〜1）。
+    /// 地平線の淡い夕色から天頂の青紫へ（位置はドームの v = 0〜1）。
     static let stops: [(v: CGFloat, r: CGFloat, g: CGFloat, b: CGFloat)] = [
-        (0.00, 0.72, 0.87, 0.97),
-        (0.143, 0.68, 0.85, 0.97),
-        (0.25, 0.42, 0.73, 0.96),
-        (0.50, 0.20, 0.58, 0.91),
-        (1.00, 0.10, 0.39, 0.78),
+        (0.00, 0.72, 0.66, 0.73),
+        (0.143, 0.78, 0.69, 0.76),
+        (0.25, 0.48, 0.53, 0.73),
+        (0.50, 0.29, 0.39, 0.65),
+        (1.00, 0.17, 0.27, 0.51),
     ]
 
-    static let backgroundColor = UIColor(red: 0.68, green: 0.85, blue: 0.97, alpha: 1)
+    static let backgroundColor = UIColor(red: 0.78, green: 0.69, blue: 0.76, alpha: 1)
 
     init() {
         let model = ModelEntity()
@@ -127,7 +127,6 @@ final class CoreFinaleSky {
     }
 
     private static func drawCloud(in ctx: CGContext, rect: CGRect) {
-        let path = CGMutablePath()
         // 不揃いな丸みを重ね、底は薄く、日を受ける上側は白くする。
         let puffs: [CGRect] = [
             CGRect(x: 0.06, y: 0.05, width: 0.87, height: 0.36),
@@ -137,25 +136,22 @@ final class CoreFinaleSky {
             CGRect(x: 0.60, y: 0.16, width: 0.28, height: 0.55),
             CGRect(x: 0.76, y: 0.10, width: 0.24, height: 0.38),
         ]
+        // Feather every lobe into the sky; no opaque cutout edge at eye level.
+        let colors = [CGColor(srgbRed: 0.92, green: 0.78, blue: 0.78, alpha: 0.52),
+                      CGColor(srgbRed: 0.70, green: 0.66, blue: 0.80, alpha: 0.28),
+                      CGColor(srgbRed: 0.60, green: 0.61, blue: 0.76, alpha: 0)] as CFArray
+        guard let gradient = CGGradient(colorsSpace: ctx.colorSpace, colors: colors,
+                                        locations: [0, 0.55, 1]) else { return }
         for puff in puffs {
-            path.addEllipse(in: CGRect(x: rect.minX + puff.minX * rect.width,
-                                       y: rect.minY + puff.minY * rect.height,
-                                       width: puff.width * rect.width, height: puff.height * rect.height))
+            let box = CGRect(x: rect.minX + puff.minX * rect.width,
+                             y: rect.minY + puff.minY * rect.height,
+                             width: puff.width * rect.width, height: puff.height * rect.height)
+            ctx.saveGState()
+            ctx.translateBy(x: box.midX, y: box.midY)
+            ctx.scaleBy(x: box.width / 2, y: box.height / 2)
+            ctx.drawRadialGradient(gradient, startCenter: .zero, startRadius: 0,
+                                   endCenter: .zero, endRadius: 1, options: [])
+            ctx.restoreGState()
         }
-        ctx.saveGState()
-        ctx.setShadow(offset: .zero, blur: 2, color: CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.35))
-        ctx.setFillColor(CGColor(srgbRed: 0.97, green: 0.99, blue: 1, alpha: 1))
-        ctx.addPath(path)
-        ctx.fillPath()
-        ctx.setShadow(offset: .zero, blur: 0, color: nil)
-        ctx.addPath(path)
-        ctx.clip()
-        let colors = [CGColor(srgbRed: 0.79, green: 0.87, blue: 0.94, alpha: 1),
-                      CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)] as CFArray
-        if let gradient = CGGradient(colorsSpace: ctx.colorSpace, colors: colors, locations: [0, 0.65]) {
-            ctx.drawLinearGradient(gradient, start: CGPoint(x: rect.midX, y: rect.minY),
-                                   end: CGPoint(x: rect.midX, y: rect.maxY), options: [.drawsAfterEndLocation])
-        }
-        ctx.restoreGState()
     }
 }

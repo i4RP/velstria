@@ -89,7 +89,9 @@ final class BattleRenderer {
         #if DEBUG || SCREENSHOTS
         // 起動引数で自動起動した戦闘（tools/screenshots.sh）は、シミュレータの負荷で画質が揺れないようフレーム時間では動かさない
         // （-perfRun の計測では動かす）
-        if DebugLaunch.args.contains("-battle") && PerfRun.requestedSeconds == nil { config.adaptsToFrameTime = false }
+        if DebugLaunch.args.contains("-battle") && (PerfRun.requestedSeconds == nil || DebugLaunch.args.contains("-visualReview")) {
+            config.adaptsToFrameTime = false
+        }
         #endif
         governor = AdaptiveQuality(user: settings, thermal: info.thermalState, lowPower: info.isLowPowerModeEnabled,
                                    config: config)
@@ -168,12 +170,12 @@ final class BattleRenderer {
 
     private func setupLights() {
         // 太陽: 左上奥から（影は右手前へ落ちる）
-        sun.light.intensity = 3400
-        sun.light.color = UIColor(red: 1.0, green: 0.96, blue: 0.88, alpha: 1)
+        sun.light.intensity = 3900
+        sun.light.color = UIColor(red: 1.0, green: 0.87, blue: 0.74, alpha: 1)
         sun.look(at: .zero, from: [-0.55, 1.0, -0.45], relativeTo: nil)
         anchor.addChild(sun)
         // 補助光（青みの空色、影なし）
-        fill.light.intensity = 900
+        fill.light.intensity = 1250
         fill.light.color = UIColor(red: 0.62, green: 0.74, blue: 1.0, alpha: 1)
         fill.look(at: .zero, from: [0.6, 0.8, 0.7], relativeTo: nil)
         anchor.addChild(fill)
@@ -759,6 +761,7 @@ final class BattleRenderer {
         view?.perfLabel?.isHidden = !PerfProbe.shared.enabled
         view?.setNeedsLayout()
         governor.resetWindow()
+        if DebugLaunch.args.contains("-visualReview") { note("visual review: frame-time adaptation disabled; thermal limits retained") }
         note("quality at live: \(governor.step) (thermal \(AdaptiveQuality.thermalName(governor.thermal)), low power \(governor.lowPower))")
         if let loadInterval { FrameStats.signposter.endInterval("battle.load", loadInterval) }
         loadInterval = nil

@@ -136,7 +136,7 @@ final class BattleController {
     /// 一人称の水平向き（sim の角度: 0 = +x、π/2 = +y）。入力・描画周期で更新する。
     @ObservationIgnored private(set) var firstPersonYaw: Double = 0
     /// 一人称の上下の向き（上が正）。真下近くまで向いて自分の胴体・腕を確認できる。
-    @ObservationIgnored private(set) var firstPersonPitch: Double = 0
+    @ObservationIgnored private(set) var firstPersonPitch: Double = -8 * .pi / 180
     /// 補間係数（前 tick → 現 tick）。
     @ObservationIgnored private(set) var interpolationAlpha: Double = 0
     @ObservationIgnored private(set) var renderedCameraViewport: [Vec2] = []

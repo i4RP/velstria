@@ -116,7 +116,7 @@ final class StageScene {
                 AssetLedger.record(.texture, "canyon atlas 2048x1024")
                 let texture = try TextureResource(image: image, options: .init(semantic: .color, mipmapsMode: .allocateAndGenerateAll))
                 AssetLedger.record(.material, "canyon cutout")
-                var material = try CustomMaterial(surfaceShader: .init(named: "stageCanyonSurface", in: lib), lightingModel: .unlit)
+                var material = try CustomMaterial(surfaceShader: .init(named: "stageCanyonSurface", in: lib), lightingModel: .lit)
                 material.baseColor = .init(texture: .init(texture))
                 material.faceCulling = .none
                 materials.append(material)
@@ -132,7 +132,7 @@ final class StageScene {
             for (i, chunk) in plan.chunks.enumerated() {
                 AssetLedger.record(.mesh, "canyon chunk")
                 AssetLedger.record(.entity, "canyon chunk")
-                guard add(chunk.mesh, name: "canyon_\(i)", material: materials[chunk.atlas], castsShadow: false) != nil else { return false }
+                guard add(chunk.mesh, name: "canyon_\(i)", material: materials[chunk.atlas], castsShadow: plan.quality == .high) != nil else { return false }
             }
             AssetLedger.record(.texture, "canyon dense brush atlas 1024x512")
             let brushTexture = try TextureResource(image: plan.foliageAtlas,
