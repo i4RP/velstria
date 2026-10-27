@@ -53,7 +53,7 @@ struct PracticeSetupView: View {
     @Environment(AppModel.self) private var app
     @State private var heroID: String?
     @State private var roleFilter: Role?
-    @State private var options = PracticeOptions()
+    @State private var options = PracticeOptions(infiniteGold: true)
 
     var body: some View {
         let selected = heroID ?? PracticeSetup.defaultHeroID(profile: app.profile, master: app.master)

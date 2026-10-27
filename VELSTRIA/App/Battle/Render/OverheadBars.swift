@@ -4,8 +4,8 @@ import UIKit
 import VelstriaCore
 
 // 担当: battle-renderer。頭上の HP バー（画面に平行なビルボード）。
-// 深度テストなしで常に最前面に描き、描画順は ModelSortGroup で固定する（背景 → 遅延 → HP → シールド → 文字）。
-// 参照画像1368×630上でヒーローHP約104×9px。敵味方・距離・画面端で同じ寸法を保つ。
+// 壁・地形の深度を読み、パネル内の描画順は固定する（背景 → 遅延 → HP → シールド → 文字）。
+// FPS は近くに見えているメッシュの頭上だけ。レベル章と陣営色の HP を小さく保つ。
 
 enum OverlayOrder {
     /// 地面デカール・頭上 UI の描画順グループ。半透明で深度を書かない地面の表示は全てこのグループに入れ、
@@ -119,6 +119,10 @@ final class OverheadBar {
     private let text: TextMeshCache
     private let materials: RenderMaterials
     private var levelMaterial: UnlitMaterial
+    private var occlusionTick: Int?
+    private var occlusionFrom = Vec2.zero
+    private var occlusionTo = Vec2.zero
+    private var wallVisible = false
 
     init(style: Style, fillColor: RGB, materials: RenderMaterials, meshes: UnitMeshLibrary, text: TextMeshCache,
          name: String? = nil, resourceColor: RGB? = nil) {
@@ -136,8 +140,8 @@ final class OverheadBar {
         root.orientation = Self.cameraOrientation
         var w: Float, h: Float
         switch style {
-        case .hero: w = 1.9; h = 0.16
-        case .minion: w = 0.95; h = 0.09
+        case .hero: w = 1.65; h = 0.17
+        case .minion: w = 0.88; h = 0.11
         case .monster(let boss, let sentinel):
             w = boss ? 3.1 : (sentinel ? 2.2 : 1.8)
             h = boss ? 0.18 : (sentinel ? 0.12 : 0.09)
@@ -151,25 +155,25 @@ final class OverheadBar {
         var showsResource = false
         if case .hero(_, let res) = style, res { totalH += 0.1; showsResource = true }
 
-        back = ModelEntity(mesh: quad, materials: [materials.unlit(RGB(0.03, 0.04, 0.08), alpha: 0.88, depthTest: false)])
+        back = ModelEntity(mesh: quad, materials: [materials.overhead(RGB(0.03, 0.04, 0.08), alpha: 0.94)])
         back.position = [-w / 2 - pad, -(totalH - h) / 2, 0]
         back.scale = [w + pad * 2, totalH + pad * 2, 1]
         OverlayOrder.apply(back, OverlayOrder.barBack)
         root.addChild(back)
 
-        lag = ModelEntity(mesh: quad, materials: [materials.unlit(RGB(1.0, 0.93, 0.78), alpha: 1, depthTest: false)])
+        lag = ModelEntity(mesh: quad, materials: [materials.overhead(RGB(1.0, 0.93, 0.78))])
         lag.position = [-w / 2, 0, 0]
         lag.scale = [w, h, 1]
         OverlayOrder.apply(lag, OverlayOrder.barLag)
         root.addChild(lag)
 
-        fill = ModelEntity(mesh: quad, materials: [materials.unlit(fillColor, alpha: 1, depthTest: false)])
+        fill = ModelEntity(mesh: quad, materials: [materials.overhead(fillColor)])
         fill.position = [-w / 2, 0, 0]
         fill.scale = [w, h, 1]
         OverlayOrder.apply(fill, OverlayOrder.barFill)
         root.addChild(fill)
 
-        shield = ModelEntity(mesh: quad, materials: [materials.unlit(RGB(0.93, 0.95, 1.0), alpha: 1, depthTest: false)])
+        shield = ModelEntity(mesh: quad, materials: [materials.overhead(RGB(0.93, 0.95, 1.0))])
         shield.position = [w / 2, 0, 0]
         shield.scale = [0.0001, h, 1]
         shield.isEnabled = false
@@ -178,7 +182,7 @@ final class OverheadBar {
 
         // 上端のハイライト（立体感）。数の多いミニオン等はドローコール節約のため省く
         if case .hero = style {
-            let gloss = ModelEntity(mesh: quad, materials: [materials.unlit(RGB(1, 1, 1), alpha: 0.18, depthTest: false)])
+            let gloss = ModelEntity(mesh: quad, materials: [materials.overhead(RGB(1, 1, 1), alpha: 0.18)])
             gloss.position = [-w / 2, h * 0.3, 0]
             gloss.scale = [w, h * 0.35, 1]
             OverlayOrder.apply(gloss, OverlayOrder.barFront)
@@ -186,7 +190,7 @@ final class OverheadBar {
         }
 
         if showsResource {
-            let r = ModelEntity(mesh: quad, materials: [materials.unlit(resourceColor ?? RGB(0.35, 0.62, 1.0), alpha: 1, depthTest: false)])
+            let r = ModelEntity(mesh: quad, materials: [materials.overhead(resourceColor ?? RGB(0.35, 0.62, 1.0))])
             r.position = [-w / 2, -h / 2 - 0.065, 0]
             r.scale = [w, 0.07, 1]
             OverlayOrder.apply(r, OverlayOrder.barFill)
@@ -194,26 +198,25 @@ final class OverheadBar {
             resource = r
         }
 
-        levelMaterial = materials.unlit(RGB(1, 0.97, 0.9), alpha: 1, depthTest: false)
+        levelMaterial = materials.overhead(RGB(1, 0.97, 0.9))
         if case .hero(let isSelf, _) = style {
             // レベルの丸い章（左端。MLBB のように縁取りの丸の中に数字。バーの端に少し重ねる）
             let disc = meshes.barDisc ?? quad
             let badgeD: Float = 0.46
             let badgeX = -w / 2 - pad - 0.2
             let badgeY = -(totalH - h) / 2
-            let rim = ModelEntity(mesh: disc, materials: [materials.unlit(isSelf ? TeamColors.gold : RGB(0.92, 0.94, 1.0),
-                                                                           alpha: 0.95, depthTest: false)])
+            let rim = ModelEntity(mesh: disc, materials: [materials.overhead(isSelf ? TeamColors.gold : fillColor)])
             rim.position = [badgeX, badgeY, 0]
             rim.scale = [badgeD + 0.06, badgeD + 0.06, 1]
             OverlayOrder.apply(rim, OverlayOrder.barBack)
             root.addChild(rim)
-            let badge = ModelEntity(mesh: disc, materials: [materials.unlit(RGB(0.03, 0.04, 0.08), alpha: 1, depthTest: false)])
+            let badge = ModelEntity(mesh: disc, materials: [materials.overhead(RGB(0.03, 0.04, 0.08))])
             badge.position = [badgeX, badgeY, 0]
             badge.scale = [badgeD, badgeD, 1]
             OverlayOrder.apply(badge, OverlayOrder.barLag)
             root.addChild(badge)
             // HP の区切り目盛り（使う本数は最大 HP で決まる。update で並べ直す）
-            let tickMaterial = materials.unlit(RGB(0.02, 0.03, 0.05), alpha: 0.7, depthTest: false)
+            let tickMaterial = materials.overhead(RGB(0.02, 0.03, 0.05), alpha: 0.7)
             for _ in 0..<OverheadBar.tickPool {
                 let t = ModelEntity(mesh: quad, materials: [tickMaterial])
                 t.scale = [0.022, h, 1]
@@ -227,7 +230,7 @@ final class OverheadBar {
             OverlayOrder.apply(lt, OverlayOrder.barText)
             root.addChild(lt)
             levelText = lt
-            let mark = ModelEntity(mesh: quad, materials: [materials.unlit(RGB(1, 0.12, 0.12), alpha: 1, depthTest: false)])
+            let mark = ModelEntity(mesh: quad, materials: [materials.overhead(RGB(1, 0.12, 0.12))])
             mark.position = [badgeX, badgeY, 0.004]
             mark.scale = [0.62, 0.05, 1]
             mark.orientation = simd_quatf(angle: .pi / 4, axis: [0, 0, 1])
@@ -236,8 +239,7 @@ final class OverheadBar {
             root.addChild(mark)
             executeMark = mark
             if let name, let e = text.mesh(name, size: OverheadBar.nameTextSize) {
-                let nt = ModelEntity(mesh: e.mesh, materials: [materials.unlit(isSelf ? RGB(1, 0.95, 0.78) : RGB(0.96, 0.97, 1.0),
-                                                                             alpha: 1, depthTest: false)])
+                let nt = ModelEntity(mesh: e.mesh, materials: [materials.overhead(isSelf ? RGB(1, 0.95, 0.78) : RGB(0.96, 0.97, 1.0))])
                 let scale: Float = e.width > w + 0.3 ? (w + 0.3) / e.width : 1
                 nt.scale = [scale, scale, 1]
                 nt.position = [e.offsetX * scale, h / 2 + 0.2 + e.offsetY * scale, 0.001]
@@ -246,7 +248,9 @@ final class OverheadBar {
                 nameText = nt
             }
             if let eye = materials.concealEye {
-                let e = ModelEntity(mesh: eye.mesh, materials: [eye.material])
+                var material = eye.material
+                material.readsDepth = true
+                let e = ModelEntity(mesh: eye.mesh, materials: [material])
                 e.position = [w / 2 + pad + 0.26, badgeY, 0.002]
                 e.scale = [OverheadBar.concealIconSize, OverheadBar.concealIconSize, 1]
                 e.isEnabled = false
@@ -294,11 +298,12 @@ final class OverheadBar {
     static let levelTextSize: Float = 0.26
     static let nameTextSize: Float = 0.24
     /// バーの色（マテリアルの事前生成に使う）。
-    static let monsterFill = RGB(0.96, 0.18, 0.14)
+    static let monsterFill = RGB(0.96, 0.72, 0.24)
     static let dummyFill = RGB(0.95, 0.4, 0.4)
 
     /// この距離（m）で設計寸法どおりの大きさに見える。
     static let referenceDistance: Float = 19.8
+    static let firstPersonMaxDistance: Float = 18
     /// 拡縮の上限（プレイヤーの倍率範囲。画面上端の遠いバーはこれ以上大きくしない）。
     static let maxScreenScale: Float = 1.8
     /// 観戦者が大きく引いた時に上限を広げる倍率（BattleWorld がカメラの実際の倍率から毎フレーム設定する。
@@ -336,17 +341,72 @@ final class OverheadBar {
     }
 
     /// 光軸方向の深度に比例して拡縮し、画面上の大きさを一定に保つ。
-    func keepScreenSize(camera: SIMD3<Float>) {
+    func keepScreenSize(camera: SIMD3<Float>, projection: CombatTextProjection? = nil) {
         root.orientation = Self.cameraOrientation
+        // 一人称では名前を重ねず、レベルと HP・陣営を一列に収める。
+        nameText?.isEnabled = !Self.firstPerson
         let world = (root.parent?.position ?? .zero) + root.position
         let depth = Self.viewDepth(world: world, camera: camera)
-        let s = OverheadBar.cinematicHidden ? 0.0001
+        var s = OverheadBar.cinematicHidden ? 0.0001
             : (Self.firstPerson ? Self.firstPersonScreenScale(distance: depth)
                 : Self.screenScale(distance: depth, zoomScale: Self.zoomScale))
+        if Self.firstPerson, let projection, projection.focalLength > 0 {
+            let referenceFocal = Float(projection.viewport.height) / (2 * tan(CameraRig.fovDegrees * .pi / 360))
+            s *= referenceFocal / projection.focalLength
+        }
         guard abs(s - screenScale) > (Self.firstPerson ? 0.0001 : 0.01) else { return }
         screenScale = s
         root.scale = SIMD3(repeating: s)
         root.position.x = horizontalOffset * s
+    }
+
+    /// 描画と同じ投影を使う。霧・死亡はフェードを待たず即座にバーを消す。
+    /// 壁は既存 NavGrid の正確な輪郭を再利用し、候補だけを視界更新と同じ 10 Hz で調べる。
+    func updateVisibility(_ frame: RenderFrame, index i: Int, bodyHeight: Float, meshVisible: Bool) {
+        let unit = frame.state.units[i]
+        let foot = worldPosition(frame.interpolated(i))
+        guard meshVisible, unit.isAlive, unit.hero?.isDead != true, frame.isVisible(i), frame.needsDetail(i),
+              unit.id != frame.firstPersonID, !Self.cinematicHidden else {
+            root.isEnabled = false
+            occlusionTick = nil
+            return
+        }
+        if frame.firstPersonID != nil,
+           simd_distance_squared(foot, frame.camera) > Self.firstPersonMaxDistance * Self.firstPersonMaxDistance {
+            root.isEnabled = false
+            occlusionTick = nil
+            return
+        }
+        if let projection = frame.overheadProjection {
+            let upperBody = foot + SIMD3(0, max(0.2, bodyHeight) * 0.7, 0)
+            let head = foot + SIMD3(0, max(0.2, bodyHeight), 0)
+            let viewport = CGRect(origin: .zero, size: projection.viewport)
+            func onscreen(_ point: SIMD3<Float>) -> Bool {
+                projection.project(point).map { viewport.contains($0) } ?? false
+            }
+            guard onscreen(upperBody) || onscreen(head) else {
+                root.isEnabled = false
+                occlusionTick = nil
+                return
+            }
+        }
+        if frame.firstPersonID != nil, let navigation = frame.overheadNavigation {
+            let from = Vec2(Double(frame.camera.x) * Balance.unitsPerMeter,
+                            -Double(frame.camera.z) * Balance.unitsPerMeter)
+            let to = frame.interpolated(i)
+            let tick = frame.state.tick / Balance.visionUpdateEveryTicks
+            let moved = from != occlusionFrom || to != occlusionTo
+            if occlusionTick == nil || (moved && (tick != occlusionTick || frame.dt == 0)) {
+                wallVisible = navigation.hasLineOfSight(from: from, to: to)
+                occlusionTick = tick
+                occlusionFrom = from
+                occlusionTo = to
+            }
+            root.isEnabled = wallVisible
+        } else {
+            root.isEnabled = true
+            occlusionTick = nil
+        }
     }
 
     /// 表示中の値（テスト・デバッグ用）。
@@ -413,6 +473,6 @@ final class OverheadBar {
 
     /// 自分の HP バーとして色を変える（観戦の追従切替など）。
     func setFillColor(_ c: RGB) {
-        fill.model?.materials = [materials.unlit(c, alpha: 1, depthTest: false)]
+        fill.model?.materials = [materials.overhead(c)]
     }
 }

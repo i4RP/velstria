@@ -186,6 +186,7 @@ final class BattleWorld {
                             viewerTeam: controller.viewerTeam, humanID: controller.humanHeroID, focusID: focus,
                             ended: state.phase == .ended, winner: state.winner)
         f.presentationTime = state.time + endedClock
+        f.overheadNavigation = controller.ctx.nav
         if controller.firstPersonEnabled {
             f.firstPersonID = controller.humanHeroID
             f.firstPersonYaw = Float(controller.firstPersonYaw - .pi / 2)
@@ -222,6 +223,7 @@ final class BattleWorld {
         var frame = makeFrame(dt: dt)
         frame.camera = rig.camera.position
         #endif
+        frame.overheadProjection = cameraProjection(rig: rig)
         if controller.isPresentationReady && !controller.isPaused, let bounds = cullBounds {
             let padding = SIMD2<Float>(repeating: BattleWorkBudget.unitMargin - BattleWorld.cullMargin)
             frame.detailBounds = (bounds.min - padding, bounds.max + padding)
@@ -338,13 +340,19 @@ final class BattleWorld {
     }
 
     func updateOverlay(dt: Float, rig: CameraRig) {
-        guard let overlay, let arView else { return }
+        guard let overlay else { return }
         guard overlay.activeCount > 0 else { return }
-        let camera = rig.camera
-        let projection = CombatTextProjection(position: camera.position, orientation: camera.orientation,
-                                             viewport: arView.bounds.size, verticalFOV: rig.verticalFOV,
-                                             near: camera.camera.near, far: camera.camera.far)
+        guard let projection = cameraProjection(rig: rig) else { return }
         overlay.update(dt: dt, project: projection.project)
+    }
+
+    /// 頭上パネルと戦闘数値の両方で描画中のカメラ・レンズを共有する。
+    private func cameraProjection(rig: CameraRig) -> CombatTextProjection? {
+        guard let arView else { return nil }
+        let camera = rig.camera
+        return CombatTextProjection(position: camera.position, orientation: camera.orientation,
+                                    viewport: arView.bounds.size, verticalFOV: rig.verticalFOV,
+                                    near: camera.camera.near, far: camera.camera.far)
     }
 
     // MARK: 不連続（シーク・再同期）
@@ -1177,6 +1185,7 @@ final class BattleWorld {
         if culledUnitDetails {
             var frame = makeFrame(dt: 0)
             frame.camera = rig.camera.position
+            frame.overheadProjection = cameraProjection(rig: rig)
             units.sync(frame)
             culledUnitDetails = false
         }

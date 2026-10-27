@@ -18,6 +18,8 @@ public enum MinionSystem {
     static let returnLookAhead: Double = 200
     /// 縦列の重なりを減らす横ずれ量。
     static let laneLateralSpread: Double = 40
+    /// 塔・Core は近接兵と同じ距離まで進んで攻める。遠隔兵も保護解除と塔の迎撃範囲へ入る。
+    static let structureAttackRange: Double = 120
 
     /// 1 tick 分の共有データ（索敵候補・構造物の無敵・レーン経路・救援要請）。
     struct Frame {
@@ -103,7 +105,7 @@ public enum MinionSystem {
         let id = s.units[t].id
         s.units[i].attackTargetID = id
         s.units[i].windupRemaining = nil
-        s.units[i].moveIntent = .follow(targetID: id, range: s.units[i].stats.attackRange)
+        s.units[i].moveIntent = .follow(targetID: id, range: CombatSystem.attackRange(s, attacker: i, target: t))
         s.units[i].path = []
     }
 

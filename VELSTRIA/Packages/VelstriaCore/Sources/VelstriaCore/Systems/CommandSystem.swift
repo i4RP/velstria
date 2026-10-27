@@ -63,6 +63,8 @@ public enum CommandSystem {
                 ItemSystem.buy(&s, ctx, heroIndex: i, itemID: itemID)
             case .sellItem(let slotIndex):
                 ItemSystem.sell(&s, ctx, heroIndex: i, slotIndex: slotIndex)
+            case .practice(let command):
+                PracticeSystem.apply(command, &s, ctx, heroIndex: i)
             case .setGearOption(let option):
                 GearSystem.setOption(&s, ctx, heroIndex: i, option: option)
             case .useItemActive:

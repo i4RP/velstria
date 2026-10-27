@@ -43,6 +43,7 @@ final class BattleHUDUITests: XCTestCase {
         let app = launch(["-battle", "standard", "-hero", "H003", "-language", "ja"])
         XCTAssertTrue(element(app, "hud_attack").waitForExistence(timeout: Self.battleStartTimeout))
         XCTAssertTrue(element(app, "hud_shop").exists)
+        XCTAssertTrue(element(app, "hud_player_hp").exists, "自分のHPを画面下中央に表示する")
         XCTAssertFalse(element(app, "hud_hp").exists, "詳細HPはショップに集約する")
         // CI の描画速度に左右されないよう、HUD の実データ表示だけを確認してから撮る。
         let score = element(app, "hud_score")
@@ -50,6 +51,26 @@ final class BattleHUDUITests: XCTestCase {
         XCTAssertFalse(score.label.isEmpty)
         Thread.sleep(forTimeInterval: 2)
         snap("hud_standard_ui2")
+    }
+
+    /// 練習用のレベル変更を実操作し、画面下中央のHPと閉じた後の視界を確認する。
+    func testPracticeToolsAndPlayerHealth() {
+        let app = launch(["-battle", "practice", "-hero", "H025", "-language", "ja"])
+        XCTAssertTrue(element(app, "hud_attack").waitForExistence(timeout: Self.battleStartTimeout))
+        let health = element(app, "hud_player_hp")
+        XCTAssertTrue(health.exists)
+        XCTAssertGreaterThan(health.frame.midY, app.frame.height * 0.8)
+        tap(app, "hud_practice")
+        XCTAssertTrue(element(app, "practice_tools").waitForExistence(timeout: 5))
+        tap(app, "practice_level_max")
+        let level = element(app, "practice_level")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Lv 15"), object: level)], timeout: 5), .completed)
+        snap("practice_tools_max_level")
+        tap(app, "practice_level_reset")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Lv 1"), object: level)], timeout: 5), .completed)
+        tap(app, "practice_close")
+        XCTAssertTrue(element(app, "practice_tools").waitForNonExistence(timeout: 5))
+        snap("practice_fps_health")
     }
 
     /// 実際の空き領域ドラッグで目線を下げ、胴体の表示と HUD の入力分離を確認する。

@@ -149,7 +149,7 @@ enum DebugLaunch {
             case "practice", "tutorial":
                 var config = MatchFactory.practiceMatch(
                     humanHeroID: hero, humanName: name,
-                    options: PracticeOptions(noCooldowns: args.contains("-practiceNoCD"), startLevel: value(after: "-practiceLevel").flatMap { Int($0) } ?? 1),
+                    options: PracticeOptions(infiniteGold: mode == "practice", noCooldowns: args.contains("-practiceNoCD"), startLevel: value(after: "-practiceLevel").flatMap { Int($0) } ?? 1),
                     tutorial: mode == "tutorial", seed: seed)
                 if mode == "practice", value(after: "-efkAuto") != nil,
                    let i = config.players.firstIndex(where: { $0.controller == .human }) {

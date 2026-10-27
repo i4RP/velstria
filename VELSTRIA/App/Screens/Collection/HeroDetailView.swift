@@ -173,7 +173,7 @@ struct HeroDetailView: View {
                 Button {
                     let name = app.profile.displayName.isEmpty ? "Player" : app.profile.displayName
                     let config = MatchFactory.practiceMatch(humanHeroID: hero.heroID, humanName: name,
-                                                            options: PracticeOptions(), seed: UInt64.random(in: 1...UInt64.max))
+                                                            options: PracticeOptions(infiniteGold: true), seed: UInt64.random(in: 1...UInt64.max))
                     app.startBattle(BattleLaunch(config: config))
                 } label: {
                     Label(L("練習場で試す", "Try in Practice"), systemImage: "figure.fencing")

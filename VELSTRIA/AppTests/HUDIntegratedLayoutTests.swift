@@ -106,6 +106,23 @@ final class HUDIntegratedLayoutTests: XCTestCase {
 
     // MARK: テスト
 
+    func testPlayerHealthStaysCenteredBelowAuxiliaryButtons() {
+        for (tag, l) in layouts() {
+            let frame = l.playerHealthFrame
+            XCTAssertEqual(frame.midX, l.width / 2, accuracy: 0.01, tag)
+            XCTAssertLessThanOrEqual(frame.height, 10, tag)
+            XCTAssertLessThan(frame.maxY, l.height - l.safe.bottom, tag)
+            for center in [l.recallCenter, l.spellCenter(0), l.spellCenter(1)] {
+                let button = rect(center, CGSize(width: 44, height: 44))
+                XCTAssertFalse(frame.intersects(button), "\(tag): 自分のHPが補助ボタンに重なる")
+                let labelCenter = CGPoint(x: center.x, y: center.y + HUDSpellLabel.labelCenterOffset(l.spellDiameter))
+                let label = rect(labelCenter, CGSize(width: l.spellDiameter * HUDSpellLabel.maxWidthRatio,
+                                                     height: HUDSpellLabel.fontSize(l.spellDiameter) * 1.2))
+                XCTAssertFalse(frame.intersects(label), "\(tag): 自分のHPが補助ボタンのラベルに重なる")
+            }
+        }
+    }
+
     func testOwnersDoNotOverlapEachOther() {
         for (tag, l) in layouts() {
             let groups: [(owner: String, rects: [(String, CGRect)])] = [

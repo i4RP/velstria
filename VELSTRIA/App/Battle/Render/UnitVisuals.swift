@@ -27,6 +27,9 @@ struct RenderFrame {
     var firstPersonID: EntityID? = nil
     var firstPersonYaw: Float = 0
     var detailFrustum: FirstPersonFrustum? = nil
+    /// 描画中の投影と読み込み済みの壁判定。頭上表示もメッシュと同じ視点を使う。
+    var overheadProjection: CombatTextProjection? = nil
+    var overheadNavigation: NavGrid? = nil
 
     /// nil during loading/pause; independent of team visibility and simulation.
     var detailBounds: (min: SIMD2<Float>, max: SIMD2<Float>)?
@@ -516,7 +519,7 @@ final class CreatureVisual {
             }
         }
         bar = OverheadBar(style: barStyle, fillColor: barColor, materials: materials, meshes: meshes, text: text)
-        bar.root.position.y = headHeight + 0.25
+        bar.root.position.y = headHeight + 0.18
         root.addChild(bar.root)
         var footprint: Float
         switch key {
@@ -624,16 +627,20 @@ final class CreatureVisual {
         let speed = Float(u.pos.distance(to: u.prevPos) / Balance.dt)
         let moving = speed > 20
         animator?.update(dt: dt, moving: moving, visible: root.isEnabled)
-        guard root.isEnabled else { return }
+        guard root.isEnabled else { bar.root.isEnabled = false; return }
         yaw = approachAngle(yaw, yawForFacing(u.facing), rate: 9, dt: dt)
         yawNode.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0])
         unitScale = u.minion?.isSuper == true ? Float(Balance.superMinionRadiusMultiplier) : 1
         animate(time: f.time, dt: dt, speed: speed, moving: moving)
         // HP バー
         let maxHP = max(1, u.stats.maxHP)
-        bar.update(hp: Float(u.hp / maxHP), shield: Float(u.totalShield / maxHP), resource: nil, level: nil, dt: dt)
-        bar.keepScreenSize(camera: f.camera)
-        bar.root.isEnabled = u.isAlive
+        bar.root.position.y = headHeight * unitScale + body.position.y + 0.18
+        bar.updateVisibility(f, index: i, bodyHeight: headHeight * unitScale,
+                             meshVisible: visible && body.isEnabled)
+        if bar.root.isEnabled {
+            bar.update(hp: Float(u.hp / maxHP), shield: Float(u.totalShield / maxHP), resource: nil, level: nil, dt: dt)
+            bar.keepScreenSize(camera: f.camera, projection: f.overheadProjection)
+        }
         status.update(StatusIndicators.flags(of: u), dt: dt)
     }
 
@@ -810,7 +817,8 @@ final class HeroVisual {
         let resColor = h?.resourceKind == .energy ? RGB(1.0, 0.84, 0.3) : RGB(0.35, 0.62, 1.0)
         bar = OverheadBar(style: .hero(isSelf: isSelf, showResource: isSelf), fillColor: fill, materials: materials,
                           meshes: meshes, text: text, name: h.map { PlayerNameRules.shown($0.displayName) }, resourceColor: resColor)
-        bar.root.position.y = handle.overheadHeight + 0.60
+        // overheadHeight 自体が頭頂に約 0.38 m の余白を含む。
+        bar.root.position.y = handle.overheadHeight - 0.12
         root.addChild(bar.root)
         status = StatusIndicators(meshes: meshes, materials: materials, headHeight: handle.overheadHeight, size: 0.85,
                                   recallTeam: u.team, iceReady: h?.heroID == KitStatusVisuals.freezeHeroID)
@@ -934,6 +942,7 @@ final class HeroVisual {
             handle.setState(state)
         }
         guard root.isEnabled else {
+            bar.root.isEnabled = false
             updateWeaponTrails(time: f.time, dead: dead)
             return
         }
@@ -941,7 +950,8 @@ final class HeroVisual {
         updateWeaponTrails(time: f.time, dead: dead)
         // 足元リング・バー
         ring.isEnabled = !dead && !firstPerson
-        bar.root.isEnabled = !dead && !firstPerson
+        bar.updateVisibility(f, index: i, bodyHeight: handle.overheadHeight - 0.38,
+                             meshVisible: visible && !dead && !firstPerson && modelRoot.isEnabled && handle.root.isEnabled)
         if isSelf {
             ringPulse += dt
             let s = 1 + sin(ringPulse * 3) * 0.03
@@ -963,9 +973,11 @@ final class HeroVisual {
                 let damage = 100 + 10 * Double(player.hero?.level ?? 1) + max(0, maxHP - u.hp) * 0.13
                 bar.setExecutable(u.hp <= damage * CombatSystem.damageReductionMultiplier(u.stats.damageReduction))
             } else { bar.setExecutable(false) }
-            bar.update(hp: Float(u.hp / maxHP), shield: Float(u.totalShield / maxHP), resource: res,
-                       level: u.hero?.level, dt: dt, maxHP: Float(maxHP))
-            bar.keepScreenSize(camera: f.camera)
+            if bar.root.isEnabled {
+                bar.update(hp: Float(u.hp / maxHP), shield: Float(u.totalShield / maxHP), resource: res,
+                           level: u.hero?.level, dt: dt, maxHP: Float(maxHP))
+                bar.keepScreenSize(camera: f.camera, projection: f.overheadProjection)
+            }
             bar.setConcealed(concealed)
             status.update(StatusIndicators.flags(of: u), dt: dt)
         } else {

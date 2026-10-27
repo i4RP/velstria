@@ -33,6 +33,8 @@ public enum PlayerCommand: Codable, Hashable, Sendable {
     case buyItem(itemID: String)
     /// items 配列の添字。
     case sellItem(slotIndex: Int)
+    /// 練習場の操作中ヒーロー専用。通常戦・チュートリアルでは無効。
+    case practice(PracticeCommand)
     /// 靴にジャングル・ロームの祝福を付ける（付け替える）。靴が無ければスピードブーツを一緒に買う。
     case setGearOption(GearOption)
     /// 装備のアクティブ（ウィンタークラウン・ナチュラルウィンド）を使う。

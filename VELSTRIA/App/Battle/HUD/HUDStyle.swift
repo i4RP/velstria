@@ -251,7 +251,7 @@ struct HUDLayout: Equatable {
     private var auxiliaryMiddleX: CGFloat {
         min(width * 0.575, attackCenterRight.x - 244 * scale)
     }
-    var auxiliaryY: CGFloat { bottomEdge - 32 * scale }
+    var auxiliaryY: CGFloat { bottomEdge - 44 * scale }
     var spellRowY: CGFloat { auxiliaryY }
     func spellCenter(_ index: Int) -> CGPoint {
         mirrored(CGPoint(x: auxiliaryMiddleX + CGFloat(1 - index) * 54 * scale, y: auxiliaryY))

@@ -379,6 +379,20 @@ final class RenderMaterials {
         return m
     }
 
+    /// 頭上パネル: 壁・地形の深度を読み、同じ面に重なる HP/文字の深度は書かない。
+    func overhead(_ c: RGB, alpha: Double = 1) -> UnlitMaterial {
+        let key = Self.key(c, alpha: alpha, depthTest: true) | (1 << 33)
+        if let material = unlitCache[key] { return material }
+        AssetLedger.record(.material, "overhead \(key)")
+        var material = UnlitMaterial(applyPostProcessToneMap: false)
+        material.color = .init(tint: c.uiColor)
+        material.blending = .transparent(opacity: .init(floatLiteral: Float(alpha)))
+        material.readsDepth = true
+        material.writesDepth = false
+        unlitCache[key] = material
+        return material
+    }
+
     /// 作成済みの単色 Unlit 全て（ウォームアップの陳列で一度ずつ描く）。
     var builtUnlit: [UnlitMaterial] { unlitCache.keys.sorted().compactMap { unlitCache[$0] } }
 

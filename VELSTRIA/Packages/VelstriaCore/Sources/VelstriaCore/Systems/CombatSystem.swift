@@ -682,7 +682,7 @@ public enum CombatSystem {
             return
         }
 
-        let range = s.units[i].stats.attackRange
+        let range = attackRange(s, attacker: i, target: t)
         let reach = range + s.units[i].radius + s.units[t].radius
         let delta = s.units[t].pos - s.units[i].pos
         let dist = delta.length
@@ -745,7 +745,7 @@ public enum CombatSystem {
     static func chaseIntent(_ s: SimState, _ i: Int) -> MoveIntent? {
         guard chasesAttackTarget(s.units[i].kind), let tid = s.units[i].attackTargetID,
               let t = s.index(of: tid), s.isTargetableEnemy(t, of: s.units[i].team) else { return nil }
-        let range = s.units[i].stats.attackRange
+        let range = attackRange(s, attacker: i, target: t)
         let reach = range + s.units[i].radius + s.units[t].radius
         guard s.units[i].pos.distanceSquared(to: s.units[t].pos) > reach * reach else { return nil }
         return .follow(targetID: tid, range: chaseRange(range))
@@ -966,9 +966,18 @@ public enum CombatSystem {
         return t
     }
 
-    /// 通常攻撃が実際に届く距離（射程 + 双方の半径）か。
+    /// 対象別の攻撃距離。ミニオンだけは構造物の足元へ入り、通常射程から撃ち続けない。
+    static func attackRange(_ s: SimState, attacker i: Int, target t: Int) -> Double {
+        let range = s.units[i].stats.attackRange
+        if s.units[i].kind == .minion, s.units[t].isStructure {
+            return min(range, MinionSystem.structureAttackRange)
+        }
+        return range
+    }
+
+    /// 通常攻撃が実際に届く距離（対象別の射程 + 双方の半径）か。
     static func inAttackRange(_ s: SimState, attacker i: Int, target t: Int) -> Bool {
-        let reach = s.units[i].stats.attackRange + s.units[i].radius + s.units[t].radius
+        let reach = attackRange(s, attacker: i, target: t) + s.units[i].radius + s.units[t].radius
         return s.units[i].pos.distanceSquared(to: s.units[t].pos) <= reach * reach
     }
 

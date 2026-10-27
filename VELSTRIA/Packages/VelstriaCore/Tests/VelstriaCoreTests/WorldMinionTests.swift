@@ -18,6 +18,78 @@ final class WorldMinionTests: XCTestCase {
         MinionSystem.update(&s, ctx)
     }
 
+    func testAllMinionTypesApproachTowerBeforeAttackingAndRemoveBackdoorProtection() {
+        for team in Team.players {
+            for type in [MinionType.melee, .ranged, .siege] {
+                var (s, ctx) = makeField()
+                let tower = Kit.structureIndex(s, team: team.opponent, lane: .mid, tier: .outer)
+                let towerID = s.units[tower].id
+                let towerPos = s.units[tower].pos
+                s.units[tower].shields.removeAll()
+                // Keep the defender from killing the single test minion while observing its attack position.
+                s.units[tower].statuses.append(StatusEffect(kind: .stun, duration: 10))
+                let approach = (ctx.map.fountain(team) - towerPos).normalized
+                let m = Kit.addMinion(&s, ctx, type: type, team: team, pos: towerPos + approach * 760)
+                let minionID = s.units[m].id
+                let originalRange = s.units[m].stats.attackRange
+                let hero = Kit.addHero(&s, ctx, team: team, pos: ctx.map.fountain(team))
+                let heroID = s.units[hero].id
+                let hp = s.units[tower].hp
+                XCTAssertFalse(TowerSystem.escorted(s, structureIndex: tower))
+                XCTAssertEqual(TowerSystem.damageTakenMultiplier(s, ctx, structureIndex: tower, sourceIndex: hero), 0.5)
+
+                let sim = Simulation(snapshot: s)
+                var attacks = 0
+                sim.runHeadless(maxTime: s.time + 6) { events in
+                    for event in events {
+                        if case .attackStarted(let source, let target) = event, source == minionID, target == towerID {
+                            attacks += 1
+                            let unit = sim.state.unit(minionID)!
+                            XCTAssertLessThanOrEqual(unit.pos.distance(to: towerPos),
+                                MinionSystem.structureAttackRange + unit.radius + s.units[tower].radius + 0.001,
+                                "\(team) \(type) must enter before winding up")
+                        }
+                    }
+                }
+                let finalTower = sim.state.index(of: towerID)!
+                let finalHero = sim.state.index(of: heroID)!
+                XCTAssertGreaterThan(attacks, 0, "\(team) \(type) must reach and attack the tower")
+                XCTAssertLessThan(sim.state.units[finalTower].hp, hp)
+                XCTAssertTrue(TowerSystem.escorted(sim.state, structureIndex: finalTower))
+                XCTAssertEqual(TowerSystem.damageTakenMultiplier(sim.state, sim.ctx, structureIndex: finalTower,
+                                                                 sourceIndex: finalHero), 1)
+                XCTAssertEqual(sim.state.unit(minionID)?.stats.attackRange, originalRange)
+            }
+        }
+    }
+
+    func testRangedMinionsKeepUnitRangeButContinueChasingStructures() {
+        for type in [MinionType.ranged, .siege] {
+            var w = CombatWorld()
+            let m = w.addMinion(type, team: .blue, at: Vec2(5000, 5000))
+            let enemy = w.addUnit(.minion, team: .red, at: Vec2(5550, 5000))
+            MinionSystem.setTarget(&w.s, m, enemy)
+            CombatSystem.updateAttacks(&w.s, w.ctx)
+            XCTAssertNotNil(w.s.units[m].windupRemaining, "Ordinary unit attacks retain their ranged reach")
+
+            let tower = w.addUnit(.tower, team: .red, at: Vec2(5550, 5000), radius: Balance.towerRadius)
+            MinionSystem.setTarget(&w.s, m, tower)
+            XCTAssertFalse(CombatSystem.inAttackRange(w.s, attacker: m, target: tower))
+            // Even after another system clears movement, the combat chase must use the approach range.
+            w.s.units[m].moveIntent = .none
+            MovementSystem.update(&w.s, w.ctx)
+            CombatSystem.updateAttacks(&w.s, w.ctx)
+            XCTAssertGreaterThan(w.s.units[m].pos.x, 5000)
+            XCTAssertNil(w.s.units[m].windupRemaining)
+
+            let hero = w.addHero(team: .blue, at: Vec2(5000, 5000), ranged: true,
+                                 stats: CombatWorld.stats(range: 550))
+            w.s.units[hero].attackTargetID = w.id(tower)
+            CombatSystem.updateAttacks(&w.s, w.ctx)
+            XCTAssertNotNil(w.s.units[hero].windupRemaining, "Hero attacks on structures retain their normal range")
+        }
+    }
+
     /// 敵ヒーローは常に最優先: 近くに敵ミニオンがいても、索敵範囲内の敵ヒーローを狙う。
     func testAlwaysPrefersHeroesOverCloserMinions() {
         var (s, ctx) = makeField()

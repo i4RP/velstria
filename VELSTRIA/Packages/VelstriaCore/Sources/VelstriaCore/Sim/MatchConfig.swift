@@ -153,7 +153,8 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     ///     ロード後の蟹なし・川の流れ・ロームの最初の 8 分 30%・隠蔽の解除・プランの靴の祝福）。docs/JUNGLE_ROAM_MLBB.md。
     /// 45: 塔・ベース・ミニオンの構成・復活・チーム賞金を MLBB 2.2.16 に（docs/TOWER_BASE_MLBB.md）。
     /// 46: Canyon のタワーを道幅中央へ移動。全固体設置物の衝突と埋まり復帰を追加。
-    public static let currentSimVersion = 46
+    /// 47: ミニオンは塔・Coreへ近接距離まで進んで攻撃。練習用のレベル・装備操作を追加。
+    public static let currentSimVersion = 47
 
     public var simVersion: Int
     public var mode: MatchMode

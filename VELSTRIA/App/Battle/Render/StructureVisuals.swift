@@ -666,7 +666,7 @@ final class StructureVisual {
         lastStyle = style
         lastCollapseElapsed = deathTime.map { now - $0 }
         // 画面外は姿勢・バーを更新しない（戻った時に今の時刻の姿勢へ合わせる。生死・合図は上で更新済み）
-        guard f.needsDetail(i) || snap || !applied else { return }
+        guard f.needsDetail(i) || snap || !applied else { bar.root.isEnabled = false; return }
         let pose = TowerPose.evaluate(input)
         apply(pose, alive: u.isAlive)
         applied = true
@@ -691,8 +691,12 @@ final class StructureVisual {
         let maxHP = max(1, u.stats.maxHP)
         let shield = max(0, u.totalShield)
         let span = max(maxHP, u.hp + shield)
-        bar.update(hp: Float(u.hp / span), shield: Float(shield / span), resource: nil, level: nil, dt: f.dt)
-        bar.keepScreenSize(camera: f.camera)
+        bar.updateVisibility(f, index: i, bodyHeight: bar.root.position.y - 0.8,
+                             meshVisible: root.isEnabled && body.isEnabled)
+        if bar.root.isEnabled {
+            bar.update(hp: Float(u.hp / span), shield: Float(shield / span), resource: nil, level: nil, dt: f.dt)
+            bar.keepScreenSize(camera: f.camera, projection: f.overheadProjection)
+        }
         // 射程円（フェード）
         let target: Float = showRange ? 1 : 0
         rangeAlpha += (target - rangeAlpha) * min(1, f.dt * 6)
