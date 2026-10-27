@@ -4,7 +4,7 @@ import RealityKit
 import UIKit
 
 // 担当: battle-renderer（カメラ）。一人称と Star Core の終幕で共有する空。
-// 夕暮れの霞（地平線）→ 深い青緑（天頂）のドーム。俯瞰カメラでは隠す。
+// 明るい青空と少量の白い雲のドーム。俯瞰カメラでは隠す。
 // 読み込み幕の裏で作り（AssetLedger に記録）、ウォームアップの間も描いてシェーダーを用意しておく（終幕で初めて描いて止まらない）。
 // 毎フレームはカメラの位置へ動かすだけ（ドームの中心 = カメラ。半径はカメラの far 160 m の内側）。影は落とさない。
 
@@ -15,15 +15,16 @@ final class CoreFinaleSky {
     /// ドームの下端（地平線より下。外周の地面の板の向こうに見える分）。
     static let lowestElevation: Float = -15 * .pi / 180
 
-    /// グラデーションの色（下端 → 天頂。位置はドームの v = 0〜1）。石・苔・青緑の配色に合わせた霞んだ夕暮れ。
+    /// 地平線の淡い水色から天頂の澄んだ青へ（位置はドームの v = 0〜1）。
     static let stops: [(v: CGFloat, r: CGFloat, g: CGFloat, b: CGFloat)] = [
-        (0.00, 0.08, 0.12, 0.10),
-        (0.12, 0.20, 0.25, 0.22),
-        (0.143, 0.50, 0.50, 0.44),
-        (0.19, 0.38, 0.44, 0.44),
-        (0.40, 0.18, 0.27, 0.32),
-        (1.00, 0.05, 0.08, 0.13),
+        (0.00, 0.72, 0.87, 0.97),
+        (0.143, 0.68, 0.85, 0.97),
+        (0.25, 0.42, 0.73, 0.96),
+        (0.50, 0.20, 0.58, 0.91),
+        (1.00, 0.10, 0.39, 0.78),
     ]
+
+    static let backgroundColor = UIColor(red: 0.68, green: 0.85, blue: 0.97, alpha: 1)
 
     init() {
         let model = ModelEntity()
@@ -32,7 +33,7 @@ final class CoreFinaleSky {
         if let mesh = CoreFinaleSky.makeMesh() {
             AssetLedger.record(.mesh, "finale sky")
             var material = UnlitMaterial(applyPostProcessToneMap: false)
-            if let image = CoreFinaleSky.gradientImage(),
+            if let image = CoreFinaleSky.skyImage(),
                let texture = try? TextureResource(image: image, options: .init(semantic: .color, mipmapsMode: .none)) {
                 AssetLedger.record(.texture, "finale sky")
                 var t = MaterialParameters.Texture(texture)
@@ -44,7 +45,7 @@ final class CoreFinaleSky {
                 t.sampler = .init(sd)
                 material.color = .init(tint: .white, texture: t)
             } else {
-                material.color = .init(tint: UIColor(red: 0.22, green: 0.31, blue: 0.35, alpha: 1))
+                material.color = .init(tint: Self.backgroundColor)
             }
             material.faceCulling = .none
             AssetLedger.record(.material, "finale sky")
@@ -96,9 +97,10 @@ final class CoreFinaleSky {
         return try? MeshResource.generate(from: [d])
     }
 
-    /// 縦 1 列のグラデーション（画像の上端 = 天頂。RealityKit の標準の UV は v = 1 が画像の上端）。
-    private static func gradientImage() -> CGImage? {
-        let w = 4, h = 256
+    /// 雲も読み込み中に 1 枚へ焼く。追加の Entity・毎フレームの生成や更新は不要。
+    /// 画像の上端 = 天頂（RealityKit の標準の UV は v = 1 が画像の上端）。
+    private static func skyImage() -> CGImage? {
+        let w = 1024, h = 512
         guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
                                   space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
@@ -107,6 +109,53 @@ final class CoreFinaleSky {
         guard let gradient = CGGradient(colorsSpace: ctx.colorSpace, colors: colors, locations: locations) else { return nil }
         // CGContext の y は下から上（y = 0 が画像の下端 = v 0）
         ctx.drawLinearGradient(gradient, start: CGPoint(x: 0, y: 0), end: CGPoint(x: 0, y: h), options: [])
+        // 360 度に散らした小さな積雲。画像の左右端と天頂は空け、継ぎ目や極の歪みを避ける。
+        let clouds: [(u: CGFloat, v: CGFloat, width: CGFloat, height: CGFloat)] = [
+            (0.08, 0.29, 0.090, 0.065),
+            (0.26, 0.42, 0.085, 0.075),
+            (0.44, 0.25, 0.070, 0.045),
+            (0.60, 0.35, 0.105, 0.080),
+            (0.78, 0.49, 0.075, 0.065),
+            (0.92, 0.26, 0.065, 0.045),
+        ]
+        for cloud in clouds {
+            drawCloud(in: ctx, rect: CGRect(x: (cloud.u - cloud.width / 2) * CGFloat(w),
+                                           y: cloud.v * CGFloat(h),
+                                           width: cloud.width * CGFloat(w), height: cloud.height * CGFloat(h)))
+        }
         return ctx.makeImage()
+    }
+
+    private static func drawCloud(in ctx: CGContext, rect: CGRect) {
+        let path = CGMutablePath()
+        // 不揃いな丸みを重ね、底は薄く、日を受ける上側は白くする。
+        let puffs: [CGRect] = [
+            CGRect(x: 0.06, y: 0.05, width: 0.87, height: 0.36),
+            CGRect(x: 0.00, y: 0.14, width: 0.31, height: 0.42),
+            CGRect(x: 0.18, y: 0.20, width: 0.35, height: 0.61),
+            CGRect(x: 0.39, y: 0.23, width: 0.35, height: 0.77),
+            CGRect(x: 0.60, y: 0.16, width: 0.28, height: 0.55),
+            CGRect(x: 0.76, y: 0.10, width: 0.24, height: 0.38),
+        ]
+        for puff in puffs {
+            path.addEllipse(in: CGRect(x: rect.minX + puff.minX * rect.width,
+                                       y: rect.minY + puff.minY * rect.height,
+                                       width: puff.width * rect.width, height: puff.height * rect.height))
+        }
+        ctx.saveGState()
+        ctx.setShadow(offset: .zero, blur: 2, color: CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.35))
+        ctx.setFillColor(CGColor(srgbRed: 0.97, green: 0.99, blue: 1, alpha: 1))
+        ctx.addPath(path)
+        ctx.fillPath()
+        ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        ctx.addPath(path)
+        ctx.clip()
+        let colors = [CGColor(srgbRed: 0.79, green: 0.87, blue: 0.94, alpha: 1),
+                      CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)] as CFArray
+        if let gradient = CGGradient(colorsSpace: ctx.colorSpace, colors: colors, locations: [0, 0.65]) {
+            ctx.drawLinearGradient(gradient, start: CGPoint(x: rect.midX, y: rect.minY),
+                                   end: CGPoint(x: rect.midX, y: rect.maxY), options: [.drawsAfterEndLocation])
+        }
+        ctx.restoreGState()
     }
 }

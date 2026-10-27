@@ -15,9 +15,6 @@ MLBB の音は使っていない。素材の原本・素材集の形ではリポ
 | Digital Audio | Kenney | CC0 1.0 | https://kenney.nl/assets/digital-audio |
 | Music Jingles | Kenney | CC0 1.0 | https://kenney.nl/assets/music-jingles |
 | Casino Audio | Kenney | CC0 1.0 | https://kenney.nl/assets/casino-audio |
-| A Legend Will Rise | CodeManu | CC0 1.0 | https://opengameart.org/content/a-legend-will-rise-orchestral |
-| Fantasy Orchestral Theme | Joth | CC0 1.0 | https://opengameart.org/content/fantasy-orchestral-theme |
-| Treasure Hunter | TAD | CC0 1.0 | https://opengameart.org/content/treasure-hunter |
 | Once Upon a Time (loop) | TAD | CC0 1.0 | https://opengameart.org/content/once-upon-a-time-loop |
 | Battle Theme | Wolfgang_ | CC0 1.0 | https://opengameart.org/content/battle-theme-0 |
 | Final Stand | iamoneabe | CC0 1.0 | https://opengameart.org/content/final-stand |
@@ -30,9 +27,6 @@ MLBB の音は使っていない。素材の原本・素材集の形ではリポ
 |---|---|---|---|
 | bgm_draft.m4a | 116.11 秒 | Battle Theme | ヒーロー選択（ピック） |
 | bgm_draft_tense.m4a | 64.00 秒 | Final Stand | ヒーロー選択の残り時間が少ない時 |
-| bgm_home_fantasia.m4a | 191.69 秒 | Fantasy Orchestral Theme | ホームの選べる曲「幻想の序曲」 |
-| bgm_home_journey.m4a | 65.07 秒 | Treasure Hunter | ホームの選べる曲「宝探しの旅」 |
-| bgm_home_legend.m4a | 69.64 秒 | A Legend Will Rise | ホームの選べる曲「伝説の夜明け」 |
 | bgm_loading.m4a | 43.26 秒 | Intro Cue | ロード画面（試合開始へつなぐ） |
 | bgm_lobby.m4a | 57.60 秒 | Once Upon a Time (loop) | ロビー・パーティ・ヒーロー選択（通常） |
 | bgm_result.m4a | 74.32 秒 | At Home (orchestral) | 結果画面 |

@@ -316,15 +316,15 @@ final class PresentationResetTests: XCTestCase {
                                          multiKill: 1, killerStreak: 1, isShutdown: false))
     }
 
-    /// B34: 終わりから巻き戻すと終了演出が消え、止めた戦闘 BGM が戻る。キルフィード・告知・トーストも捨てる。
-    func testHUDResetClearsNoticesAndEndPhaseAndRestartsMusic() {
+    /// B34: 終わりから巻き戻すと終了演出が消え、戦闘 BGM は無音を保つ。キルフィード・告知・トーストも捨てる。
+    func testHUDResetClearsNoticesAndEndPhaseAndKeepsMusicSilent() {
         let app = AppModel(persistence: ServicesFixtures.tempPersistence())
         let c = BattleController(launch: BattleLaunch(config: MatchFactory.botMatch(seed: 16)))
         let model = HUDModel(controller: c)
         model.start(app: app, onFinish: { _ in })
         defer { model.stop() }
         app.audio.playMusic(.battle)
-        XCTAssertEqual(app.audio.currentTrack, .battle)
+        XCTAssertNil(app.audio.currentTrack)
         model.handle([kill(c.state), .announcement(.towerDestroyed(team: .red, lane: .mid, tier: .outer))])
         model.showToast("x", symbol: "bag.fill", isError: false)
         XCTAssertEqual(model.killFeed.count, 1)
@@ -341,7 +341,7 @@ final class PresentationResetTests: XCTestCase {
         XCTAssertNil(model.banner)
         XCTAssertNil(model.toast)
         XCTAssertNil(model.endPhase, "試合が終わっていなければ終了演出を解除")
-        XCTAssertEqual(app.audio.currentTrack, .battle, "戦闘 BGM を再開")
+        XCTAssertNil(app.audio.currentTrack, "巻き戻し後も戦闘 BGM は無音")
 
         // 変化が無ければ何もしない
         model.handle([kill(c.state)])

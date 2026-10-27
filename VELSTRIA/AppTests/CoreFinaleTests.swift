@@ -351,7 +351,7 @@ final class CoreFinaleTests: XCTestCase {
         XCTAssertEqual(m.panel, .scoreboard, "終幕の後は従来どおり開ける")
     }
 
-    /// 終幕の途中で終わる前へ巻き戻す（観戦のシーク・オンラインの再同期）: 終幕をやめて試合中へ戻り、戦闘 BGM を再開する。
+    /// 終幕の途中で終わる前へ巻き戻す（観戦のシーク・オンラインの再同期）: 終幕をやめて試合中へ戻り、BGM は無音を保つ。
     func testRewindingDuringTheFinaleRestoresTheMatch() {
         let (c, m, app) = start(MatchFactory.botMatch(seed: 13))
         defer { m.stop() }
@@ -364,7 +364,7 @@ final class CoreFinaleTests: XCTestCase {
         m.refresh()
         XCTAssertNil(m.endPhase, "終わる前へ戻ったら終幕を解除")
         XCTAssertFalse(m.endFollowsFinale)
-        XCTAssertEqual(app.audio.currentTrack, .battle)
+        XCTAssertNil(app.audio.currentTrack)
         // もう一度決着すれば、また終幕から
         c.restore(coreDestroyed(c.state, loser: .red))
         m.handle([.matchEnded(winner: .blue, reason: .coreDestroyed)])

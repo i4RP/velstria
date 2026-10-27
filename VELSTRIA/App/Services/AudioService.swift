@@ -29,12 +29,9 @@ enum SFX: String, CaseIterable {
 
 enum MusicTrack: String, CaseIterable {
     case menu, menuDream, menuAdventure, menuAurora, battle, victory, defeat
-    /// ファイルの曲（AudioFiles.music）: ホームの選べる曲 3 つ、ロビー・ヒーロー選択（通常と残りわずか）・ロード画面・結果画面。
+    /// ファイルの曲（AudioFiles.music）。ホーム曲の識別子は旧設定との互換用に残すが、再生しない。
     case menuLegend, menuFantasia, menuJourney, lobby, draft, draftTense, loading, result
 
-    static var selectableMenuTracks: [MusicTrack] {
-        [.menu, .menuDream, .menuAdventure, .menuAurora, .menuLegend, .menuFantasia, .menuJourney]
-    }
     var displayName: String {
         switch self {
         case .menu: return "静かな星明かり"
@@ -54,7 +51,15 @@ enum MusicTrack: String, CaseIterable {
         case .result: return "戦いのあと"
         }
     }
-    var isMenuTrack: Bool { Self.selectableMenuTracks.contains(self) }
+    /// ホームとバトルのメインテーマは廃止。旧設定や画面遷移からの要求でも読み込まず、BGM を止める。
+    var isSilent: Bool {
+        switch self {
+        case .menu, .menuDream, .menuAdventure, .menuAurora, .menuLegend, .menuFantasia, .menuJourney, .battle:
+            return true
+        default:
+            return false
+        }
+    }
 
     /// ループ再生する曲か（勝利・敗北は 1 回だけ鳴るスティンガー）。
     var loops: Bool { self != .victory && self != .defeat }
@@ -146,7 +151,6 @@ final class AudioService {
     static let crossfadeDuration: TimeInterval = 0.8
 
     private(set) var bgmVolume: Double = GameSettings().bgmVolume
-    private var selectedMenuTrack: MusicTrack = .menu
     private(set) var sfxVolume: Double = GameSettings().sfxVolume
     private(set) var voiceVolume: Double = 0.8
     /// 再生中（または準備中）の曲。
@@ -193,18 +197,15 @@ final class AudioService {
         registerObservers()
         _ = startEngine()
         loadSFX()
-        prepareMusic(.menu)
     }
 
     // MARK: - 設定
 
     func apply(settings: GameSettings) {
         bgmVolume = min(1, max(0, settings.bgmVolume))
-        selectedMenuTrack = MusicTrack(rawValue: settings.bgmTrack).flatMap { $0.isMenuTrack ? $0 : nil } ?? .menu
         sfxVolume = min(1, max(0, settings.sfxVolume))
         voiceVolume = min(1, max(0, settings.voiceVolume))
         applyVolumes()
-        if currentTrack?.isMenuTrack == true, currentTrack != selectedMenuTrack { playMusic(selectedMenuTrack) }
     }
 
     func setTemporaryMute(_ muted: Bool) {
@@ -453,7 +454,10 @@ final class AudioService {
 
     /// 曲を再生する。同じループ曲の再指定は無視し、スティンガー（勝利・敗北）は再指定で頭から鳴らし直す。
     func playMusic(_ track: MusicTrack) {
-        let track = track == .menu ? selectedMenuTrack : track
+        guard !track.isSilent else {
+            stopMusic(immediately: true)
+            return
+        }
         guard track != currentTrack || !track.loops else { return }
         currentTrack = track
         if let file = musicFile(track) {
@@ -465,9 +469,18 @@ final class AudioService {
         }
     }
 
-    func stopMusic() {
+    func stopMusic(immediately: Bool = false) {
         currentTrack = nil
         musicGeneration += 1
+        if immediately {
+            fadeTask?.cancel()
+            // クロスフェード中の旧曲も止め、ホーム・バトルへ持ち越さない。
+            for player in musicPlayers {
+                player.stop()
+                player.volume = 0
+            }
+            return
+        }
         guard graphReady, musicPlayers.indices.contains(activeMusicPlayer) else { return }
         let outgoing = musicPlayers[activeMusicPlayer]
         fade(incoming: nil, outgoing: outgoing, duration: 0.6)
@@ -475,6 +488,7 @@ final class AudioService {
 
     /// 曲を先にレンダリングしておく（ロード画面などで呼ぶと切替が即座になる）。
     func prepareMusic(_ track: MusicTrack) {
+        guard !track.isSilent else { return }
         // ファイルの曲は開くだけ（流し読みなので先に読むものは無い）
         if musicFile(track) != nil { return }
         guard musicBuffers[track] == nil, !renderingTracks.contains(track) else { return }
@@ -486,10 +500,13 @@ final class AudioService {
     }
 
     /// レンダリング済みの曲か（テスト・デバッグ用）。
-    func isMusicPrepared(_ track: MusicTrack) -> Bool { musicBuffers[track] != nil || musicFile(track) != nil }
+    func isMusicPrepared(_ track: MusicTrack) -> Bool {
+        !track.isSilent && (musicBuffers[track] != nil || musicFile(track) != nil)
+    }
 
     /// ファイルの曲（開けて、BGM の形式 = 44.1 kHz ステレオの時だけ。違えば合成で鳴らす）。
     private func musicFile(_ track: MusicTrack) -> AVAudioFile? {
+        guard !track.isSilent else { return nil }
         if let f = musicFiles[track] { return f }
         guard let name = AudioFiles.music(track), let url = AudioFiles.musicURL(name),
               let file = try? AVAudioFile(forReading: url), let stereoFormat,

@@ -59,12 +59,9 @@ enum AudioFiles {
         return (1...6).map { "\(base)_\($0)" }.filter { sfxURL($0, bundle: bundle) != nil }
     }
 
-    /// BGM のファイル名（拡張子なし）。nil = 合成のまま。
+    /// BGM のファイル名（拡張子なし）。ホーム・バトルは無音、それ以外の nil は合成。
     static func music(_ t: MusicTrack) -> String? {
         switch t {
-        case .menuLegend: return "bgm_home_legend"
-        case .menuFantasia: return "bgm_home_fantasia"
-        case .menuJourney: return "bgm_home_journey"
         case .lobby: return "bgm_lobby"
         case .draft: return "bgm_draft"
         case .draftTense: return "bgm_draft_tense"

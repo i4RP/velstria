@@ -13,27 +13,6 @@
    "finalstand"
   ]
  },
- "bgm_home_fantasia.m4a": {
-  "note": "ホームの選べる曲「幻想の序曲」",
-  "seconds": 191.69,
-  "sources": [
-   "fantasia"
-  ]
- },
- "bgm_home_journey.m4a": {
-  "note": "ホームの選べる曲「宝探しの旅」",
-  "seconds": 65.07,
-  "sources": [
-   "treasure"
-  ]
- },
- "bgm_home_legend.m4a": {
-  "note": "ホームの選べる曲「伝説の夜明け」",
-  "seconds": 69.64,
-  "sources": [
-   "legend"
-  ]
- },
  "bgm_loading.m4a": {
   "note": "ロード画面（試合開始へつなぐ）",
   "seconds": 43.26,

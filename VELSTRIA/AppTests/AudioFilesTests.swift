@@ -32,11 +32,11 @@ final class AudioFilesTests: XCTestCase {
             XCTAssertEqual(f.processingFormat.channelCount, 2, name)
             XCTAssertGreaterThan(Double(f.length) / f.processingFormat.sampleRate, 20, "\(name) が短すぎる")
         }
-        XCTAssertEqual(musicCount, 8)
+        XCTAssertEqual(musicCount, 5)
     }
 
     /// AudioService は効果音をファイルで鳴らし（試合開始の合図のファイルは 2 秒ある）、
-    /// ファイルの曲を用意済みとして扱う。ホームの選べる曲にファイルの 3 曲が入っている。
+    /// ファイルの曲を用意済みとして扱う。廃止したホーム曲は読み込まない。
     func testServiceUsesTheFiles() async {
         let audio = AudioService()
         await audio.waitUntilSFXReady()
@@ -44,15 +44,15 @@ final class AudioFilesTests: XCTestCase {
         XCTAssertNotNil(audio.sfxDuration(.uiTab))
         XCTAssertTrue(audio.isMusicPrepared(.lobby))
         for t in [MusicTrack.menuLegend, .menuFantasia, .menuJourney] {
-            XCTAssertTrue(MusicTrack.selectableMenuTracks.contains(t))
-            XCTAssertTrue(t.loops)
+            XCTAssertNil(AudioFiles.music(t))
+            XCTAssertFalse(audio.isMusicPrepared(t))
         }
         XCTAssertFalse(MusicTrack.victory.loops)
-        // ファイルの曲を流してから合成の曲へ切り替えても、終わったファイルの曲の予約し直しで戻らない
+        // ファイルの曲を流してからバトルへ移った時は BGM を止める
         audio.playMusic(.lobby)
         XCTAssertEqual(audio.currentTrack, .lobby)
         audio.playMusic(.battle)
-        XCTAssertEqual(audio.currentTrack, .battle)
+        XCTAssertNil(audio.currentTrack)
         audio.stopMusic()
         XCTAssertNil(audio.currentTrack)
     }

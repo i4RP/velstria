@@ -52,14 +52,6 @@ SOURCES = {
                     title="Music Jingles", author="Kenney", page="https://kenney.nl/assets/music-jingles"),
     "casino": dict(kind="zip", url=KENNEY + "casino-audio/2472606a04-1721639069/kenney_casino-audio.zip",
                    title="Casino Audio", author="Kenney", page="https://kenney.nl/assets/casino-audio"),
-    "legend": dict(kind="file", url="https://opengameart.org/sites/default/files/A%20Legend%20Will%20Rise.mp3",
-                   title="A Legend Will Rise", author="CodeManu",
-                   page="https://opengameart.org/content/a-legend-will-rise-orchestral"),
-    "fantasia": dict(kind="file", url="https://opengameart.org/sites/default/files/FantasyOrchestralTheme_1.mp3",
-                     title="Fantasy Orchestral Theme", author="Joth",
-                     page="https://opengameart.org/content/fantasy-orchestral-theme"),
-    "treasure": dict(kind="file", url="https://opengameart.org/sites/default/files/treasure_hunter_0.mp3",
-                     title="Treasure Hunter", author="TAD", page="https://opengameart.org/content/treasure-hunter"),
     "onceupon": dict(kind="file", url="https://opengameart.org/sites/default/files/once_upon_a_time_loop.wav",
                      title="Once Upon a Time (loop)", author="TAD",
                      page="https://opengameart.org/content/once-upon-a-time-loop"),
@@ -277,9 +269,6 @@ def build_ui():
 
 def build_music():
     print("music")
-    write_music("bgm_home_legend", "legend", "ホームの選べる曲「伝説の夜明け」")
-    write_music("bgm_home_fantasia", "fantasia", "ホームの選べる曲「幻想の序曲」")
-    write_music("bgm_home_journey", "treasure", "ホームの選べる曲「宝探しの旅」")
     write_music("bgm_lobby", "onceupon", "ロビー・パーティ・ヒーロー選択（通常）")
     write_music("bgm_draft", "battle", "ヒーロー選択（ピック）")
     write_music("bgm_draft_tense", "finalstand", "ヒーロー選択の残り時間が少ない時")

@@ -128,7 +128,7 @@ final class BattleRenderer {
             .disableMotionBlur, .disableDepthOfField, .disableCameraGrain, .disablePersonOcclusion,
             .disableFaceMesh, .disableGroundingShadows, .disableAREnvironmentLighting,
         ]
-        arView.environment.background = .color(UIColor(red: 0.03, green: 0.05, blue: 0.10, alpha: 1))
+        arView.environment.background = .color(CoreFinaleSky.backgroundColor)
         arView.isUserInteractionEnabled = false
         arView.isMultipleTouchEnabled = false
 

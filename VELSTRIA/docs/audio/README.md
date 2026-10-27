@@ -3,7 +3,8 @@
 **2026-10-20 から効果音はすべて実音の録音**（合成の効果音 SFXSynth と、Kenney の電子音・SF の音は外した。ファイルが無い効果音は鳴らさない）。
 作り方は `python tools/audio/make_sounds.py <名前…>`（`sets/weapons.py` 武器ごとの通常攻撃の組・`sets/common.py` 戦闘の共通の音・
 `sets/ui.py` 試合の外の画面の音・`sets/legacy.py` 旧 24 体のスキル・`heroes/h0xx.py` H025〜H034 のスキル）。表は [WEAPONS.md](WEAPONS.md)・
-[LEGACY.md](LEGACY.md)・ヒーローごとの `H0xx.md`、どの録音を使ったかは [SOURCES.md](SOURCES.md)。BGM（ファイルの曲と合成の曲）は今までどおり。
+[LEGACY.md](LEGACY.md)・ヒーローごとの `H0xx.md`、どの録音を使ったかは [SOURCES.md](SOURCES.md)。
+2026-10-27 にホーム・バトルのメインテーマを廃止し、ホーム専用の音源 3 曲も削除した。効果音・ボイス、ロビー・ドラフト・ロード・結果画面の BGM は継続する。
 以下は 2026-10-18 までの記録（合成の扱いの記述は古い）。
 
 - 仕組み: `App/Services/AudioService.swift`（AVAudioEngine）。音のファイル（`App/Services/AudioFiles.swift` の対応表、

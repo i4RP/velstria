@@ -56,25 +56,31 @@ final class ServicesAudioServiceTests: XCTestCase {
         XCTAssertEqual(audio.bgmVolume, 0)
         audio.play(.uiTap)
         audio.playMusic(.menu)
-        XCTAssertEqual(audio.currentTrack, .menu)
+        XCTAssertNil(audio.currentTrack)
         audio.playMusic(.victory)
         XCTAssertEqual(audio.currentTrack, .victory)
         audio.stopMusic()
         XCTAssertNil(audio.currentTrack)
     }
 
-    /// ループ曲は一度だけレンダリングして保持し、スティンガーは再指定で鳴らし直せる。
-    func testMusicIsRenderedOnceAndStingersRetrigger() async throws {
+    /// ホーム・バトル曲は旧設定や直接指定でも準備・再生せず、スティンガーは再指定で鳴らし直せる。
+    func testHomeAndBattleStaySilentAndStingersRetrigger() async throws {
         let audio = AudioService()
-        audio.playMusic(.battle)
-        for _ in 0..<200 where !(audio.isMusicPrepared(.menu) && audio.isMusicPrepared(.battle)) {
-            try await Task.sleep(nanoseconds: 50_000_000)
+        var settings = GameSettings()
+        settings.bgmVolume = 1
+        for track in [MusicTrack.menu, .menuDream, .menuAdventure, .menuAurora,
+                      .menuLegend, .menuFantasia, .menuJourney, .battle] {
+            settings.bgmTrack = track.rawValue
+            audio.apply(settings: settings)
+            audio.playMusic(.lobby)
+            XCTAssertEqual(audio.currentTrack, .lobby)
+            audio.prepareMusic(track)
+            audio.playMusic(track)
+            XCTAssertNil(audio.currentTrack, "\(track) への遷移で前の BGM も止める")
+            XCTAssertFalse(audio.isMusicPrepared(track), "廃止した曲は読み込み・合成しない")
+            audio.playMusic(.menu)
+            XCTAssertNil(audio.currentTrack, "保存済みのホーム選曲設定でも無音")
         }
-        XCTAssertTrue(audio.isMusicPrepared(.menu), "起動時に準備したメニュー曲は別の曲の再生中も保持する")
-        XCTAssertTrue(audio.isMusicPrepared(.battle))
-        audio.playMusic(.menu)
-        XCTAssertEqual(audio.currentTrack, .menu)
-        XCTAssertTrue(audio.isMusicPrepared(.battle))
         audio.playMusic(.victory)
         audio.playMusic(.victory)
         XCTAssertEqual(audio.currentTrack, .victory)
@@ -100,7 +106,7 @@ final class ServicesAudioServiceTests: XCTestCase {
         for sfx in SFX.allCases { audio.play(sfx) }
         for _ in 0..<20 { audio.play(.gold, gain: 0.7) }
         audio.playMusic(.battle)
-        XCTAssertEqual(audio.currentTrack, .battle)
+        XCTAssertNil(audio.currentTrack)
         audio.playMusic(.defeat)
         XCTAssertEqual(audio.currentTrack, .defeat)
         audio.stopMusic()
