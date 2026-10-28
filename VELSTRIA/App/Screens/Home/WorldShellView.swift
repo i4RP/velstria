@@ -27,7 +27,8 @@ struct WorldShellView: View {
 
     var body: some View {
         WorldShellFrame(title: title, subtitle: isHome ? L("- パーティ", "- Party") : nil,
-                        sideTab: $sideTab, onBack: back, onMenu: toggleMenu) {
+                        sideTab: $sideTab, showsBackButton: !isHome,
+                        onBack: back, onMenu: toggleMenu) {
             Group {
                 if let battleSession {
                     sessionContent(battleSession)
@@ -119,14 +120,19 @@ struct WorldShellFrame<Content: View>: View {
     let title: String
     var subtitle: String? = nil
     @Binding var sideTab: PartySideTab
+    var showsBackButton = true
     let onBack: () -> Void
     var onMenu: (() -> Void)? = nil
     @ViewBuilder var content: () -> Content
     @Environment(AppModel.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isContentExpanded = false
 
     var body: some View {
         GeometryReader { geo in
             let sideWidth = geo.size.width * 0.34
+            // フレンド欄は本来の幅のまま画面外へ送り、戻すための余白を残す。
+            let visibleSideWidth = isContentExpanded ? min(48, sideWidth) : sideWidth
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
                     header
@@ -137,25 +143,65 @@ struct WorldShellFrame<Content: View>: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipped()
                 }
-                .frame(width: geo.size.width - sideWidth)
+                .frame(width: geo.size.width - visibleSideWidth)
+                .contentShape(Rectangle())
+                // 子のボタン・スクロールを奪わず、タップが完了してから広げる。
+                .simultaneousGesture(TapGesture().onEnded { isContentExpanded = true })
                 PartySidePanel(tab: $sideTab)
                     .frame(width: sideWidth)
                     .environment(\.isWorldShellEmbedded, true)
+                    .allowsHitTesting(!isContentExpanded)
+                    .accessibilityHidden(isContentExpanded)
+                    .frame(width: visibleSideWidth, alignment: .leading)
+                    .clipped()
+                    .background {
+                        LinearGradient(colors: [Color(red: 0.12, green: 0.28, blue: 0.62),
+                                                Color(red: 0.08, green: 0.16, blue: 0.40)],
+                                       startPoint: .top, endPoint: .bottom)
+                            .ignoresSafeArea(edges: [.top, .bottom, .trailing])
+                    }
+                    .overlay {
+                        if isContentExpanded {
+                            Button { isContentExpanded = false } label: {
+                                ZStack {
+                                    Color(red: 0.10, green: 0.22, blue: 0.51)
+                                    Image(systemName: "chevron.left")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundStyle(Theme.cyan)
+                                }
+                                .overlay(alignment: .leading) {
+                                    Rectangle().fill(Theme.cyan.opacity(0.5)).frame(width: 1)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .ignoresSafeArea(edges: [.top, .bottom, .trailing])
+                            .accessibilityLabel(L("フレンド欄を戻す", "Restore friends panel"))
+                            .accessibilityIdentifier("world_restore_sidebar")
+                            .transition(.opacity)
+                        }
+                    }
             }
+            .animation(reduceMotion ? nil : .spring(duration: 0.52, bounce: 0.12), value: isContentExpanded)
         }
     }
 
     private var header: some View {
         HStack(alignment: .top, spacing: 10) {
-            Button(action: onBack) {
-                Image(systemName: "arrow.uturn.backward")
-                    .font(.system(size: 24, weight: .heavy))
-                    .foregroundStyle(Theme.gold)
-                    .frame(width: 38, height: 44)
+            if showsBackButton {
+                Button(action: onBack) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 24, weight: .heavy))
+                        .foregroundStyle(Theme.gold)
+                        .frame(width: 38, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("戻る", "Back"))
+                .accessibilityIdentifier("nav_back")
+            } else {
+                // ホームには戻り先がない。見出しの位置は他の画面と揃える。
+                Color.clear.frame(width: 38, height: 44).accessibilityHidden(true)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(L("戻る・メニュー", "Back / Menu"))
-            .accessibilityIdentifier("nav_back")
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     Text(title).font(Theme.title(22)).foregroundStyle(Theme.gold)
