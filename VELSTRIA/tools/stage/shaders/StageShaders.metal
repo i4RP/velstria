@@ -363,6 +363,9 @@ inline float caustics(float2 m, float t) {
     half luminance = dot(leaf.rgb, half3(0.2126h, 0.7152h, 0.0722h));
     half tone = clamp(luminance * 2.8h, 0.0h, 1.0h);
     half3 reed = mix(half3(0.012h, 0.060h, 0.052h), half3(0.075h, 0.245h, 0.225h), tone);
+    if (params.uniforms().custom_parameter().z > 0.5) {
+        reed = mix(half3(0.035h, 0.13h, 0.025h), half3(0.22h, 0.52h, 0.065h), tone);
+    }
     params.surface().set_base_color(reed * tint);
     params.surface().set_emissive_color(reed * (0.025h + rim * 0.08h));
     params.surface().set_roughness(0.96h);
@@ -416,5 +419,61 @@ constexpr sampler canyonSampler(coord::normalized, address::clamp_to_edge, filte
     params.surface().set_emissive_color(color.rgb * 0.22h);
     params.surface().set_roughness(0.9h);
     params.surface().set_specular(0.12h);
+    params.surface().set_metallic(0.0h);
+}
+
+// Seaside uses bounded vertex chunks and shader time; no water/foliage timers or live allocations.
+[[visible]] void stageSeasideSandSurface(realitykit::surface_parameters params) {
+    float3 p = params.geometry().model_position();
+    float2 m = float2(p.x, -p.z);
+    // A broad shallow bay opens toward the eastern/southern side of the battlefield.
+    float coast = max(-8.0, m.x * 0.40 - 7.5) + sin(m.x * 0.14) * 1.1;
+    if (m.y < coast) { discard_fragment(); }
+    float fine = stage::vnoise(m * 23.0);
+    float broad = stage::fbm3(m * 0.21);
+    float ripple = sin(m.x * 9.0 + m.y * 3.0 + broad * 5.0) * 0.008;
+    half wet = half(1.0 - smoothstep(coast, coast + 2.5, m.y));
+    half3 dry = half3(0.62h, 0.52h, 0.31h) * half(0.89 + broad * 0.18 + (fine - 0.5) * 0.12 + ripple);
+    half3 color = mix(dry, half3(0.61h, 0.66h, 0.48h), wet * 0.65h);
+    params.surface().set_base_color(color);
+    params.surface().set_emissive_color(color * 0.035h);
+    params.surface().set_roughness(0.92h - wet * 0.2h);
+    params.surface().set_specular(0.12h);
+    params.surface().set_metallic(0.0h);
+}
+
+[[visible]] void stageSeasideStoneSurface(realitykit::surface_parameters params) {
+    float3 p = params.geometry().model_position();
+    half3 color = half3(params.geometry().color().rgb);
+    half grain = half(0.94 + 0.10 * stage::vnoise(p.xz * 2.7 + p.y * 1.7));
+    params.surface().set_base_color(color * grain);
+    params.surface().set_emissive_color(color * 0.035h);
+    params.surface().set_roughness(0.96h);
+    params.surface().set_specular(0.08h);
+    params.surface().set_metallic(0.0h);
+}
+
+[[visible]] void stageSeasideWaterSurface(realitykit::surface_parameters params) {
+    float3 p = params.geometry().model_position();
+    float2 m = float2(p.x, -p.z);
+    float time = params.uniforms().time();
+    float extent = params.uniforms().custom_parameter().y;
+    float coast = max(-8.0, m.x * 0.40 - 7.5) + sin(m.x * 0.14) * 1.1;
+    float shoreDistance = abs(m.y - coast);
+    float oceanDistance = max(max(-m.x, m.x - extent), max(-m.y, m.y - extent));
+    float wave = sin(m.x * 2.9 + m.y * 1.6 + time * 1.4);
+    float wave2 = sin(m.x * 1.1 - m.y * 4.5 - time * 1.1);
+    float caustic = pow(max(0.0, wave * wave2), 12.0);
+    float crest = pow(max(0.0, sin(m.y * 6.0 + sin(m.x * 0.8) + time * 1.6)), 18.0);
+    half deep = half(smoothstep(3.0, 70.0, oceanDistance));
+    half3 color = mix(half3(0.045h, 0.68h, 0.72h), half3(0.025h, 0.34h, 0.68h), deep);
+    color += half3(0.38h, 0.58h, 0.44h) * half(caustic * 0.12 + crest * 0.07);
+    float foam = (1.0 - smoothstep(0.15, 1.3, shoreDistance + sin(m.x * 2.2 + time) * 0.24)) * (0.6 + crest * 0.4);
+    color = mix(color, half3(0.76h, 0.94h, 0.89h), half(foam));
+    // Gentle emission keeps water blue under the same sun as the existing characters.
+    params.surface().set_base_color(color * 0.58h);
+    params.surface().set_emissive_color(color * 0.48h);
+    params.surface().set_roughness(0.33h);
+    params.surface().set_specular(0.48h);
     params.surface().set_metallic(0.0h);
 }

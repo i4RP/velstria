@@ -1,0 +1,52 @@
+{
+  "limestone_arch": {
+    "provider": "meshy",
+    "submitting": false,
+    "concept": "references/seaside/limestone_arch.png",
+    "input_sha256": "4db4be00786f9fd260b75249b928681db8207d4ee5f30837184e42417d995cb1",
+    "request": {
+      "ai_model": "meshy-t2.5",
+      "model_type": "smart-topology",
+      "should_texture": false,
+      "enable_pbr": false,
+      "topology": "triangle",
+      "target_polycount": 2400,
+      "target_formats": [
+        "glb"
+      ]
+    },
+    "balance_before": 13,
+    "submitted_at": "2026-10-28T10:02:11.812Z",
+    "task_id": "01a181f5-cdb4-7494-b369-e35cc06546ec",
+    "status": "SUCCEEDED",
+    "progress": 100,
+    "credits": 5,
+    "model_sha256": "ba84daa6c05d115c025fb3df08650768d8a71cbf1351a515457c98bc82af2951",
+    "completed_at": "2026-10-28T10:04:54.945Z"
+  },
+  "palm_cluster": {
+    "provider": "tripo",
+    "submitting": false,
+    "concept": "references/seaside/palm_cluster.png",
+    "input_sha256": "a47881aba94a30459bb617bde1208e7765453bd84d10169d43c6561c12da8824",
+    "request": {
+      "model": "P1-20260311",
+      "face_limit": 12000,
+      "texture": true,
+      "pbr": true,
+      "texture_quality": "detailed",
+      "texture_version": "v3.5-20260815",
+      "delight": true,
+      "texture_alignment": "original_image",
+      "orientation": "align_image"
+    },
+    "balance_before": 5010,
+    "submitted_at": "2026-10-28T10:06:10.375Z",
+    "task_id": "2733b11b-c0ae-4043-b93e-a8b701bdc1de",
+    "status": "success",
+    "progress": 100,
+    "credits": 60,
+    "model_sha256": "d9cec25d0d9081bc72e2fdac6a84e9cd937344e1afac9473cb58ce85ed1de23f",
+    "completed_at": "2026-10-28T10:08:52.782Z"
+  }
+}

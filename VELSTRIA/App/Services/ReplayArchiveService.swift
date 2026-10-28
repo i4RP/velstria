@@ -128,6 +128,7 @@ enum ReplayArchiveService {
     /// 試合を区別するキー（構成が同じなら同じ。シード・モード・版数・編成・難易度・最大時間）。
     static func matchKey(_ config: MatchConfig) -> String {
         var parts = ["\(config.mode.rawValue)", "\(config.simVersion)", "\(config.seed)", "\(Int(config.maxDuration))"]
+        if let stage = config.stage { parts.append(stage.rawValue) }
         for p in config.players {
             parts.append("\(p.team.rawValue)\(p.position.rawValue)\(p.heroID)\(p.controller == .human ? "h" : "b")\(p.botDifficulty.rawValue)")
         }
@@ -145,6 +146,7 @@ enum ReplayArchiveService {
             var m = meta
             let config = replay.config
             m.simVersion = config.simVersion
+            m.stage = config.resolvedStage
             m.formatVersion = replay.formatVersion
             m.winner = replay.summary?.winner
             m.seed = config.seed
@@ -173,6 +175,7 @@ enum ReplayArchiveService {
             guard let u = updates[profile.replays[i].id], profile.replays[i].simVersion == nil else { continue }
             var m = profile.replays[i]
             m.simVersion = u.simVersion
+            m.stage = u.stage
             m.formatVersion = u.formatVersion
             m.winner = u.winner
             m.seed = u.seed
@@ -321,7 +324,7 @@ enum ReplayArchiveService {
         }
         if !commandHeroes.isEmpty {
             // ヒーローのエンティティ ID は構成から決まる（初期状態を作って確かめる）
-            let state = Simulation(config: config, map: MapDefinition.map(for: config.mode)).state
+            let state = Simulation(config: config, map: MapDefinition.map(for: config)).state
             let heroIDs = Set(state.heroIndices.map { state.units[$0].id })
             guard commandHeroes.isSubset(of: heroIDs) else { throw ImportError.invalidContent }
         }

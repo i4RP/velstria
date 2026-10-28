@@ -416,7 +416,7 @@ final class PersistenceService: @unchecked Sendable {
                           simVersion: config.simVersion, formatVersion: replay.formatVersion,
                           source: source ?? ReplaySource.of(config), ownerSeat: seat,
                           winner: replay.summary?.winner, seed: config.seed, heroIDs: config.players.map(\.heroID),
-                          contentKey: ReplayArchiveService.contentKey(of: replay))
+                          contentKey: ReplayArchiveService.contentKey(of: replay), stage: config.resolvedStage)
     }
 
     /// リプレイをファイルに同期保存する（ディスク上は常に最新 maxReplays 件まで。お気に入りは数えない）。

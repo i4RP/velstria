@@ -130,7 +130,7 @@ final class BattleRenderer {
             .disableMotionBlur, .disableDepthOfField, .disableCameraGrain, .disablePersonOcclusion,
             .disableFaceMesh, .disableGroundingShadows, .disableAREnvironmentLighting,
         ]
-        arView.environment.background = .color(CoreFinaleSky.backgroundColor)
+        arView.environment.background = .color(controller.ctx.map.stageID == "seaside" ? CoreFinaleSky.seasideBackgroundColor : CoreFinaleSky.backgroundColor)
         arView.isUserInteractionEnabled = false
         arView.isMultipleTouchEnabled = false
 
@@ -170,8 +170,9 @@ final class BattleRenderer {
 
     private func setupLights() {
         // 太陽: 左上奥から（影は右手前へ落ちる）
+        let seaside = controller.ctx.map.stageID == "seaside"
         sun.light.intensity = 3900
-        sun.light.color = UIColor(red: 1.0, green: 0.87, blue: 0.74, alpha: 1)
+        sun.light.color = seaside ? UIColor(red: 1.0, green: 0.97, blue: 0.87, alpha: 1) : UIColor(red: 1.0, green: 0.87, blue: 0.74, alpha: 1)
         sun.look(at: .zero, from: [-0.55, 1.0, -0.45], relativeTo: nil)
         anchor.addChild(sun)
         // 補助光（青みの空色、影なし）
@@ -309,7 +310,7 @@ final class BattleRenderer {
         world = w
         // Star Core の終幕の空と撮り方の候補（地図の検査）は幕の裏で作っておく（決着の瞬間に作らない）
         let f0 = CACurrentMediaTime()
-        let sky = CoreFinaleSky()
+        let sky = CoreFinaleSky(seaside: controller.ctx.map.stageID == "seaside")
         anchor.addChild(sky.entity)
         finaleSky = sky
         let map = controller.ctx.map

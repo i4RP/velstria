@@ -55,6 +55,14 @@ public struct PracticeOptions: Codable, Hashable, Sendable {
     }
 }
 
+/// Three-lane stage selection. Brawl keeps its dedicated single-lane map.
+public enum MatchStage: String, Codable, CaseIterable, Hashable, Sendable {
+    case seaside
+    case canyon
+
+    public var displayName: String { self == .seaside ? "Seaside" : "Canyon" }
+}
+
 public struct MatchConfig: Codable, Hashable, Sendable {
     /// リプレイ互換性のためのシミュレーション版数。ルール変更時に上げる。
     /// 4: 乱闘（単レーン・経済加速）を追加。
@@ -158,6 +166,9 @@ public struct MatchConfig: Codable, Hashable, Sendable {
 
     public var simVersion: Int
     public var mode: MatchMode
+    /// New matches persist their stage. Missing keys belong to pre-Seaside Canyon replays.
+    public var stage: MatchStage?
+    public var resolvedStage: MatchStage { stage ?? .canyon }
     public var seed: UInt64
     /// 通常は 10 人（blue 5 + red 5）。練習場・チュートリアルは人間 1 人のみ。
     public var players: [PlayerSlot]
@@ -166,9 +177,10 @@ public struct MatchConfig: Codable, Hashable, Sendable {
     public var maxDuration: Double
 
     public init(mode: MatchMode, seed: UInt64, players: [PlayerSlot], practice: PracticeOptions? = nil,
-                maxDuration: Double = 40 * 60) {
+                maxDuration: Double = 40 * 60, stage: MatchStage = .seaside) {
         self.simVersion = MatchConfig.currentSimVersion
         self.mode = mode
+        self.stage = stage
         self.seed = seed
         self.players = players
         self.practice = practice

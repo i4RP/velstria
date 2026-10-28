@@ -88,9 +88,9 @@ enum SpectateSetup {
         map == .brawl ? L("乱闘", "Brawl") : L("標準", "Standard")
     }
 
-    static func mapDetail(_ map: SpectateMap) -> String {
+    static func mapDetail(_ map: SpectateMap, stage: MatchStage = .seaside) -> String {
         map == .brawl ? L("乱闘の回廊（単レーン・加速）", "Brawl Corridor (1 lane, fast)")
-                      : L("星環の戦場（3 レーン）", "Star Ring (3 lanes)")
+                      : stage.displayName + L("（3 レーン）", " (3 lanes)")
     }
 
     static func speedTitle(_ speed: Double) -> String {
@@ -203,7 +203,7 @@ struct SpectateSetupView: View {
                 app.audio.play(.uiTap)
                 // マップが変わると枠のポジション適性も変わるので、指定はそのまま（ドラフトがやり直される）
             })
-            .accessibilityHint(SpectateSetup.mapDetail(prefs.map))
+            .accessibilityHint(SpectateSetup.mapDetail(prefs.map, stage: app.profile.settings.battleStage))
         }
         .frame(width: 92)
     }

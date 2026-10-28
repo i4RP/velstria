@@ -573,10 +573,16 @@ extension MapDefinition {
     /// Only positions and terrain extents change; obstacle footprints and gameplay stats do not.
     public static let relayout: MapDefinition = makeCompactRelayout()
 
-    /// モードに応じたマップ（`config.mode` から決定論的に導出する。リプレイはマップを保存しないため、
-    /// `Simulation` を組む全箇所でこれを使うこと）。マジックチェスは専用の `magicChessBoard` を直接使う。
-    public static func map(for mode: MatchMode) -> MapDefinition {
-        mode == .brawl ? .brawl : .canyon
+    /// New matches default to Seaside. Brawl and Magic Chess keep their dedicated maps.
+    public static func map(for mode: MatchMode, stage: MatchStage = .seaside) -> MapDefinition {
+        if mode == .brawl { return .brawl }
+        return stage == .seaside ? .seaside : .canyon
+    }
+
+    /// Resolve the recorded stage as well as the mode for matches, online play and replays.
+    /// Legacy configs without a stage continue to use Canyon.
+    public static func map(for config: MatchConfig) -> MapDefinition {
+        map(for: config.mode, stage: config.resolvedStage)
     }
 
     /// 乱闘マップ（単レーン・ジャングル無し）。mid の対角 1 本だけを使う 5v5。

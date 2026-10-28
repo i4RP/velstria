@@ -33,9 +33,9 @@ enum CustomSetup {
         }
     }
 
-    static func mapName(_ kind: MapKind) -> String {
+    static func mapName(_ kind: MapKind, stage: MatchStage = .seaside) -> String {
         switch kind {
-        case .standard: return L("星環の戦場（3 レーン）", "Star Ring (3 lanes)")
+        case .standard: return stage.displayName + L("（3 レーン）", " (3 lanes)")
         case .brawl: return L("乱闘（単レーン）", "Brawl (single lane)")
         }
     }
@@ -157,7 +157,7 @@ struct CustomSetupView: View {
                                    CelestialTab(value: $0, title: $0 == .brawl ? L("乱闘", "Brawl") : L("標準", "Standard"),
                                                         identifier: "custom_map_\($0.rawValue)")
                                }, selection: $mapKind)
-                Text(CustomSetup.mapName(mapKind))
+                Text(CustomSetup.mapName(mapKind, stage: app.profile.settings.battleStage))
                     .font(Theme.body(11))
                     .foregroundStyle(Theme.cyan)
                 labeledSegment(L("味方 AI", "Allied AI"),

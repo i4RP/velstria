@@ -102,8 +102,8 @@ public final class ReplayPlayer {
         self.data = data
         self.keyframeInterval = max(1, keyframeInterval)
         self.master = master
-        // マップは保存しないので記録時の mode から導出する（乱闘リプレイのデシンク防止）。
-        self.map = map ?? MapDefinition.map(for: data.config.mode)
+        // 記録時の mode と stage から導出する（旧版の記録は Canyon のまま）。
+        self.map = map ?? MapDefinition.map(for: data.config)
         self.frames = data.frames.enumerated()
             .sorted { $0.element.tick != $1.element.tick ? $0.element.tick < $1.element.tick : $0.offset < $1.offset }
             .map(\.element)

@@ -98,6 +98,7 @@ jobs:
             -only-testing:VELSTRIATests/SkinnedHeroModelTests/testBundledHeroAssetsMeetContract \
             -only-testing:VELSTRIATests/HeroMotionClipTests \
             -only-testing:VELSTRIATests/StageTests/testTriangleBudget \
+            -only-testing:VELSTRIATests/StageTests/testSeasideFitsExistingBudgetsAndKeepsConcealment \
             -only-testing:VELSTRIATests/TowerPoseTests \
             -only-testing:VELSTRIATests/StructureAssetsTests \
             -only-testing:VELSTRIATests/TowerPartModelsTests \

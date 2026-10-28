@@ -89,9 +89,8 @@ struct LoadingScreenView: View {
         return FlowText.mode(launch.config.mode)
     }
 
-    /// マップ名（マップは mode から導出: 乱闘は単レーンの回廊、それ以外は星環の戦場）。
-    static func mapName(_ mode: MatchMode) -> String {
-        mode == .brawl ? L("乱闘の回廊", "Brawl Corridor") : L("星環の戦場", "Star Ring Battlefield")
+    static func mapName(_ mode: MatchMode, stage: MatchStage = .seaside) -> String {
+        mode == .brawl ? L("乱闘の回廊", "Brawl Corridor") : stage.displayName
     }
 
     private var header: some View {
@@ -104,7 +103,7 @@ struct LoadingScreenView: View {
                 .font(Theme.title(20))
                 .foregroundStyle(Theme.textPrimary)
             Text("·").foregroundStyle(Theme.textSecondary)
-            Text(Self.mapName(launch.config.mode))
+            Text(Self.mapName(launch.config.mode, stage: launch.config.resolvedStage))
                 .font(Theme.heading(14))
                 .foregroundStyle(Theme.cyan)
                 .accessibilityIdentifier("loading_map")
@@ -282,7 +281,7 @@ struct LoadingScreenView: View {
             _ = app.master.skills(forHero: slot.heroID)
         }
         // 地面テクスチャ・シェーダー（マテリアル・後処理）をメインスレッドの外で作り始める（戦闘画面は出来上がりを受け取るだけ）
-        BattlePreload.begin(settings: app.profile.settings, map: MapDefinition.map(for: launch.config.mode))
+        BattlePreload.begin(settings: app.profile.settings, map: MapDefinition.map(for: launch.config))
         // 前の試合のテンプレートを先に捨て、読み込みは 1 tick に 1 人ずつ（まとめて読むと最初のフレームが止まる）
         let players = launch.config.players.map { (heroID: $0.heroID, skinID: $0.skinID) }
         HeroModelLibrary.purge(keepingPlayers: players, master: app.master)

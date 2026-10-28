@@ -33,6 +33,7 @@ import VelstriaCore
 //   -autoAdvance          試合終了のバナーとランク戦のリザルトの各画面を数秒ごとに自動で進める（画面の確認用）
 //   -hero <heroID>        -battle で自分が使うヒーロー（省略時は最後に選んだヒーロー、無ければ H003）
 //   -language <ja|en>     表示言語
+//   -stage <seaside|canyon>  次のオフライン試合のステージ（比較撮影用）
 //   -graphics <low|medium|high>  画質
 //   -heroGallery          ヒーロー 3D モデル一覧（hero-models の目視確認用）
 //   -homeRail collapsed   ホームのフレンド欄を畳んだ状態で開く
@@ -113,6 +114,9 @@ enum DebugLaunch {
         }
         if let g = value(after: "-graphics"), let q = GraphicsQuality.allCases.first(where: { "\($0)" == g }) {
             p.settings.graphicsQuality = q
+        }
+        if let raw = value(after: "-stage"), let stage = MatchStage(rawValue: raw) {
+            p.settings.battleStage = stage
         }
         app.profile = p
         if args.contains("-sampleReplays") { addSampleReplays(to: app) }

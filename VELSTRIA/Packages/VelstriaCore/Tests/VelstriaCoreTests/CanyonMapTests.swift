@@ -3,7 +3,7 @@ import XCTest
 
 final class CanyonMapTests: XCTestCase {
     func testDefaultAndExistingMaps() {
-        XCTAssertEqual(MapDefinition.map(for: .practice).stageID, "canyon")
+        XCTAssertEqual(MapDefinition.map(for: .practice, stage: .canyon).stageID, "canyon")
         XCTAssertEqual(MapDefinition.map(for: .brawl), .brawl)
         XCTAssertNil(MapDefinition.relayout.stageID)
         let map = MapDefinition.canyon

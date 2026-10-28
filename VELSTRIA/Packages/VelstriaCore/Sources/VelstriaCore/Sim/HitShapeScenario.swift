@@ -62,7 +62,7 @@ public enum HitShapeScenario {
         let foeHero = heroID == "H029" ? "H034" : "H029"
         config.players.append(PlayerSlot(team: .red, heroID: foeHero, controller: .bot, position: .mid,
                                          displayName: "Foe", botDifficulty: .easy))
-        let sim = Simulation(config: config, master: master, map: MapDefinition.map(for: config.mode))
+        let sim = Simulation(config: config, master: master, map: MapDefinition.map(for: config))
         // 開始の処理（開始レベル・自動習得）を済ませる
         for _ in 0..<10 { sim.step() }
         var s = sim.state

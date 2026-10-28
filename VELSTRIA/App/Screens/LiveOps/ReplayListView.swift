@@ -167,8 +167,9 @@ enum ReplayLibrary {
         }
     }
 
-    /// マップ名（mode から導出）。
-    static func mapName(_ mode: MatchMode) -> String { LoadingScreenView.mapName(mode) }
+    static func mapName(_ mode: MatchMode, stage: MatchStage? = nil) -> String {
+        LoadingScreenView.mapName(mode, stage: stage ?? .canyon)
+    }
 
     /// 勝利チームの表記（色だけに頼らず名前で）。
     static func winnerText(_ winner: Team?) -> String? {
@@ -839,7 +840,7 @@ struct ReplayDetailSheet: View {
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-                Text("\(LiveOpsFormat.modeName(meta.mode)) · \(ReplayLibrary.mapName(meta.mode)) · \(LiveOpsFormat.duration(meta.duration))")
+                Text("\(LiveOpsFormat.modeName(meta.mode)) · \(ReplayLibrary.mapName(meta.mode, stage: meta.stage)) · \(LiveOpsFormat.duration(meta.duration))")
                     .font(Theme.body(12))
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)

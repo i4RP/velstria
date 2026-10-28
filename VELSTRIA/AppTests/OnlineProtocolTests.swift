@@ -174,6 +174,7 @@ final class OnlineProtocolTests: XCTestCase {
         room.botDifficulty = .hard
         let config = room.makeConfig(seed: 100, master: .shared)
         XCTAssertEqual(config.mode, .online)
+        XCTAssertEqual(config.stage, .seaside, "The host records the new default stage for every peer")
         XCTAssertEqual(config.players[blueMid].heroID, "H005")
         XCTAssertEqual(config.players[blueMid].displayName, "Host")
         XCTAssertEqual(config.players[redTop].heroID, "H006")

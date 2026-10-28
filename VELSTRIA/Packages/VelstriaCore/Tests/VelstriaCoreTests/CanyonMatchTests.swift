@@ -16,7 +16,7 @@ final class CanyonMatchTests: XCTestCase {
             for difficulty in [Difficulty.normal, .hard] {
                 let cfg = MatchFactory.botMatch(difficulty: difficulty, seed: seed)
                 reports.append(BotMatchReport.run("canyon seed \(seed) \(difficulty)", config: cfg,
-                                                  map: MapDefinition.map(for: cfg.mode)))
+                                                  map: .canyon))
             }
         }
         print(BotMatchReport.fallHeader())

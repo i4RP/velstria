@@ -19,9 +19,9 @@ final class BrawlTests: XCTestCase {
 
     func testMapResolver() {
         XCTAssertEqual(MapDefinition.map(for: .brawl), MapDefinition.brawl)
-        XCTAssertEqual(MapDefinition.map(for: .standard), MapDefinition.canyon)
-        XCTAssertEqual(MapDefinition.map(for: .ranked), MapDefinition.canyon)
-        XCTAssertEqual(MapDefinition.map(for: .custom), MapDefinition.canyon)
+        XCTAssertEqual(MapDefinition.map(for: .standard), MapDefinition.seaside)
+        XCTAssertEqual(MapDefinition.map(for: .ranked), MapDefinition.seaside)
+        XCTAssertEqual(MapDefinition.map(for: .custom), MapDefinition.seaside)
     }
 
     func testStandardMapUnchanged() {

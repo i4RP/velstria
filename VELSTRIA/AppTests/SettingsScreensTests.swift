@@ -19,6 +19,45 @@ final class SettingsScreensTests: XCTestCase {
         super.tearDown()
     }
 
+    func testSeasideDefaultMigratesExistingSettingsAndKeepsExplicitChoice() throws {
+        XCTAssertEqual(GameSettings().battleStage, .seaside)
+        let legacy = try JSONDecoder().decode(GameSettings.self, from: Data("{}".utf8))
+        XCTAssertEqual(legacy.battleStage, .seaside)
+        var settings = GameSettings()
+        settings.battleStage = .canyon
+        let decoded = try JSONDecoder().decode(GameSettings.self, from: JSONEncoder().encode(settings))
+        XCTAssertEqual(decoded.battleStage, .canyon)
+        XCTAssertEqual(SettingsDefaults.reset(settings).battleStage, .seaside)
+    }
+
+    func testReplayMetadataStoresTheSelectedStage() throws {
+        let config = MatchConfig(mode: .spectate, seed: 1, players: [], stage: .seaside)
+        let replay = ReplayData(config: config, frames: [], finalTick: 30, summary: nil)
+        let meta = PersistenceService.makeReplayMeta(replay, heroID: nil, won: nil, date: Date())
+        XCTAssertEqual(meta.stage, .seaside)
+        let decoded = try JSONDecoder().decode(ReplayMeta.self, from: JSONEncoder().encode(meta))
+        XCTAssertEqual(decoded.stage, .seaside)
+        XCTAssertEqual(ReplayLibrary.mapName(decoded.mode, stage: decoded.stage), "Seaside")
+        XCTAssertEqual(ReplayLibrary.mapName(.standard), "Canyon")
+    }
+
+    @MainActor
+    func testOfflineSelectionDoesNotReplaceRecordedOrOnlineStage() {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("StageTests-\(UUID().uuidString)")
+        let app = AppModel(persistence: PersistenceService(directory: dir))
+        app.profile.settings.battleStage = .canyon
+        let config = MatchConfig(mode: .practice, seed: 1, players: [])
+        app.startBattle(BattleLaunch(config: config))
+        XCTAssertEqual(app.activeBattle?.config.stage, .canyon)
+        let replay = ReplayData(config: config, frames: [], finalTick: 30, summary: nil)
+        app.startBattle(BattleLaunch(config: config, replay: replay))
+        XCTAssertEqual(app.activeBattle?.config.stage, .seaside)
+        app.startBattle(BattleLaunch(config: config, onlineSpectator: true))
+        XCTAssertEqual(app.activeBattle?.config.stage, .seaside)
+        app.startBattle(BattleLaunch(config: config, onlineSeat: 0))
+        XCTAssertEqual(app.activeBattle?.config.stage, .seaside)
+    }
+
     func testResetKeepsLanguageAndNotificationChoice() {
         var s = GameSettings()
         s.language = .en

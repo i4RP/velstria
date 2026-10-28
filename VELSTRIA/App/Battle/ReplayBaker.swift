@@ -114,7 +114,7 @@ enum ReplayBakeEngine {
     /// skipAhead（事前計算の今の tick → 先にある状態）が状態を返したら、そこへ飛んで続きから計算する。
     static func run(_ plan: ReplayBakePlan, skipAhead: @Sendable (Int) async -> ReplayBakeSkip? = { _ in nil },
                     publish: @Sendable (ReplayBakeBatch) async -> Bool) async {
-        let sim = Simulation(config: plan.config, map: MapDefinition.map(for: plan.config.mode))
+        let sim = Simulation(config: plan.config, map: MapDefinition.map(for: plan.config))
         var builder: ReplayTimelineBuilder? = ReplayTimelineBuilder()
         builder?.begin(state: sim.state)
         let interval = max(1, plan.keyframeInterval)
@@ -276,7 +276,7 @@ final class ReplayBaker {
         plan = ReplayBakePlan(config: config, inputs: inputs, finalTick: finalTick,
                               limitTick: min(limitTick ?? Int.max, controller.seekUpperBound),
                               keyframeInterval: max(1, keyframeInterval), maxKeyframes: max(0, maxKeyframes))
-        worker = ReplaySeekWorker(inputs: inputs, finalTick: finalTick, map: MapDefinition.map(for: config.mode))
+        worker = ReplaySeekWorker(inputs: inputs, finalTick: finalTick, map: MapDefinition.map(for: config))
     }
 
     var isRunning: Bool { bakeTask != nil }

@@ -12,6 +12,13 @@ struct GraphicsSettingsView: View {
             HStack(alignment: .top, spacing: 14) {
                 ScrollView(.vertical, showsIndicators: true) {
                     VStack(spacing: 10) {
+                        SettingsSection(title: L("ステージ", "Stage"), symbol: "sun.max.fill") {
+                            SettingsChoiceRow(title: L("バトルステージ", "Battle Stage"),
+                                              detail: L("次のオフラインの3レーン戦に適用します。", "Applies to your next offline three-lane match."),
+                                              symbol: "beach.umbrella.fill",
+                                              options: MatchStage.allCases.map { ($0, $0.displayName) },
+                                              selection: settingsBinding(app, \.battleStage), identifier: "graphics_stage")
+                        }
                         SettingsSection(title: L("描画", "Rendering"), symbol: "sparkles.tv.fill") {
                             SettingsChoiceRow(title: L("画質", "Quality"), detail: SettingsText.qualityDetail(s.graphicsQuality),
                                               symbol: "sparkles",

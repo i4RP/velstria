@@ -752,4 +752,5 @@ def main():
         raise SystemExit(f"unknown command {cmd}")
 
 
-main()
+if __name__ == "__main__":
+    main()

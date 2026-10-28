@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-28",
+  "pipeline": "ImageGen references → Meshy arch / Tripo palms → Blender bake → VSP1",
+  "blender": "5.2.1 LTS",
+  "atlas": {
+    "width": 1024,
+    "height": 1024
+  },
+  "props": [
+    {
+      "id": "ruin_arch",
+      "vertexCount": 2413,
+      "indexCount": 7197,
+      "vertexOffset": 0,
+      "indexOffset": 77216,
+      "boundsMin": [
+        -6.0,
+        0.0,
+        -2.142538070678711
+      ],
+      "boundsMax": [
+        6.0,
+        5.565295219421387,
+        2.142538070678711
+      ],
+      "tris": 2399,
+      "source": "limestone_arch",
+      "sourceSHA256": "bbc97241007b102503a9285f16c9e3920943cdb62077be9d57679e4c307bec7f",
+      "rotationDegrees": 1.214,
+      "triangleBudget": 2500
+    },
+    {
+      "id": "tree_tall",
+      "vertexCount": 3804,
+      "indexCount": 7200,
+      "vertexOffset": 106016,
+      "indexOffset": 227744,
+      "boundsMin": [
+        -2.592216730117798,
+        0.0,
+        -2.5068604946136475
+      ],
+      "boundsMax": [
+        2.592216730117798,
+        6.0,
+        2.5068604946136475
+      ],
+      "tris": 2400,
+      "source": "palm_cluster",
+      "sourceSHA256": "d9cec25d0d9081bc72e2fdac6a84e9cd937344e1afac9473cb58ce85ed1de23f",
+      "rotationDegrees": -36.275,
+      "triangleBudget": 2500
+    }
+  ],
+  "outputs": {
+    "StageSeaside.bin": {
+      "bytes": 257040,
+      "sha256": "543f72b05375aee7a80d63614729f81f56cffd8cc729cb4036f56fbafe9bb5a4"
+    },
+    "StageSeasideAtlas.jpg": {
+      "bytes": 531936,
+      "sha256": "4c1393caf7544f11716d04a610162a32a8b70f1541dc849c87cfabf2e634d078"
+    }
+  }
+}

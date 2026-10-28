@@ -295,6 +295,11 @@ final class AppModel: FriendProfileAccess {
     // MARK: 戦闘
 
     func startBattle(_ launch: BattleLaunch) {
+        var launch = launch
+        // Online uses the host's config; replay uses its recorded stage.
+        if launch.replay == nil && !launch.isOnline {
+            launch.config.stage = profile.settings.battleStage
+        }
         router.isMatchFlowPresented = false
         friends.declineAllAsBusy()
         activeBattle = launch

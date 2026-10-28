@@ -180,7 +180,7 @@ final class BattleController {
     init(launch: BattleLaunch, online: OnlineBattleLink? = nil) {
         self.launch = launch
         self.online = launch.isOnline ? online : nil
-        self.sim = Simulation(config: launch.config, map: MapDefinition.map(for: launch.config.mode))
+        self.sim = Simulation(config: launch.config, map: MapDefinition.map(for: launch.config))
         if let seat = launch.onlineSeat {
             let heroes = sim.state.heroIndices
             if heroes.indices.contains(seat) { localHeroID = sim.state.units[heroes[seat]].id }
@@ -207,6 +207,19 @@ final class BattleController {
                 cameraMode = .followUnit(sim.state.units[first].id)
             }
         }
+        #if DEBUG || SCREENSHOTS
+        // Repeatable shoreline inspection, restricted to offline visual-review practice runs.
+        if DebugLaunch.args.contains("-visualReview"), DebugLaunch.args.contains("-coastalReview"),
+           launch.config.mode == .practice, !launch.isOnline,
+           let id = humanHeroID, let index = sim.state.units.firstIndex(where: { $0.id == id }) {
+            let point = sim.ctx.nav.nearestWalkable(Vec2(7_000, 2_500), radius: sim.state.units[index].radius)
+            var reviewState = sim.state
+            reviewState.units[index].pos = point
+            reviewState.units[index].prevPos = point
+            reviewState.units[index].facing = 0
+            sim.restore(from: reviewState)
+        }
+        #endif
         timelineBuilder.begin(state: sim.state)
         if isSeekable { keyframes = [sim.state] }
         if launch.isSpectating {

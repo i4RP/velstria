@@ -1,0 +1,26 @@
+{
+  "provider": "meshy",
+  "submitting": false,
+  "concept": "references/seaside/limestone_arch.png",
+  "input_sha256": "4db4be00786f9fd260b75249b928681db8207d4ee5f30837184e42417d995cb1",
+  "source_sha256": "ba84daa6c05d115c025fb3df08650768d8a71cbf1351a515457c98bc82af2951",
+  "source_task_id": "01a181f5-cdb4-7494-b369-e35cc06546ec",
+  "request": {
+    "ai_model": "meshy-7",
+    "enable_pbr": true,
+    "enable_original_uv": false,
+    "texture_resolution": "2k",
+    "target_formats": [
+      "glb"
+    ]
+  },
+  "balance_before": 2008,
+  "expected_credits": 10,
+  "submitted_at": "2026-10-28T10:07:12.708Z",
+  "task_id": "01a181fa-63c7-7754-8b4a-67b8eee69c1a",
+  "status": "SUCCEEDED",
+  "progress": 100,
+  "credits": 10,
+  "model_sha256": "bbc97241007b102503a9285f16c9e3920943cdb62077be9d57679e4c307bec7f",
+  "completed_at": "2026-10-28T10:08:10.580Z"
+}

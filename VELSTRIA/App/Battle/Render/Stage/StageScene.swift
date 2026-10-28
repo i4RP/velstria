@@ -39,6 +39,11 @@ final class StageScene {
         root.name = "stage"
         let procedural: ProceduralStagePlan
         switch plan {
+        case .seaside(let tropical):
+            artSet = .ruins
+            fountainSockets = []
+            guard buildSeaside(tropical) else { return nil }
+            return
         case .canyon(let imported):
             artSet = .ruins
             fountainSockets = []
@@ -106,6 +111,66 @@ final class StageScene {
         if let disc = add(plan.layout.runeDiscs, name: "stageRunes", material: materials.rune, castsShadow: false) {
             disc.name = "stageRunes"
         }
+    }
+
+    private func buildSeaside(_ plan: SeasideStagePlan) -> Bool {
+        guard let lib = Self.shaderLibrary(plan.shaderURL) else { return false }
+        do {
+            func material(_ shader: String, wind: Bool = false) throws -> CustomMaterial {
+                AssetLedger.record(.material, "seaside \(shader)")
+                var m = try CustomMaterial(surfaceShader: .init(named: shader, in: lib),
+                    geometryModifier: wind ? .init(named: "stageWindGeometry", in: lib) : nil, lightingModel: .lit)
+                m.faceCulling = .none
+                m.custom.value = SIMD4(plan.quality == .low ? 0.3 : 1, plan.mapMeters, 1, 0)
+                return m
+            }
+            let sand = try material("stageSeasideSandSurface")
+            let stone = try material("stageSeasideStoneSurface")
+            let plants = try material("stageVertexColorSurface", wind: true)
+            let sea = try material("stageSeasideWaterSurface")
+            for (name, chunks, mat, shadow) in [("sand", plan.ground, sand, false), ("stone", plan.stone, stone, true), ("plants", plan.greenery, plants, true)] {
+                for key in chunks.keys.sorted() {
+                    AssetLedger.record(.mesh, "seaside \(name) chunk")
+                    AssetLedger.record(.entity, "seaside \(name) chunk")
+                    guard add(chunks[key], name: "seaside_\(name)_\(key)", material: mat, castsShadow: shadow) != nil else { return false }
+                }
+            }
+            AssetLedger.record(.mesh, "seaside ocean and lagoon")
+            AssetLedger.record(.entity, "seaside ocean and lagoon")
+            guard add(plan.water, name: "seaside_water", material: sea, castsShadow: false) != nil else { return false }
+            if let image = plan.propAtlas {
+                AssetLedger.record(.texture, "seaside atlas")
+                let texture = try TextureResource(image: image, options: .init(semantic: .color, mipmapsMode: .allocateAndGenerateAll))
+                var imported = try material("stageCanyonSurface", wind: true)
+                imported.baseColor = .init(texture: .init(texture))
+                for key in plan.props.keys.sorted() {
+                    AssetLedger.record(.mesh, "seaside imported prop chunk")
+                    AssetLedger.record(.entity, "seaside imported prop chunk")
+                    guard add(plan.props[key], name: "seaside_imported_\(key)", material: imported) != nil else { return false }
+                }
+            }
+            AssetLedger.record(.texture, "seaside brush atlas 1024x512")
+            let texture = try TextureResource(image: plan.foliageAtlas, options: .init(semantic: .color, mipmapsMode: .allocateAndGenerateAll))
+            var brush = try material("stageBrushSurface", wind: true)
+            brush.baseColor = .init(texture: .init(texture))
+            for (i, buffer) in plan.foliage.brushes.enumerated() {
+                guard let near = buffer.makeMesh(), let far = plan.foliage.brushCards[i].makeMesh() else { return false }
+                AssetLedger.record(.mesh, "seaside brush near")
+                AssetLedger.record(.mesh, "seaside brush far")
+                AssetLedger.record(.entity, "seaside brush")
+                let e = ModelEntity(mesh: near, materials: [brush])
+                e.name = "brush_\(i)"
+                e.position = plan.foliage.brushCenters[i]
+                e.components.set(DynamicLightShadowComponent(castsShadow: false))
+                brushLODs.append((near, far))
+                brushIsFar.append(false)
+                brushEntities.append(e)
+                root.addChild(e)
+                triangleCount += buffer.triangleCount
+            }
+            StagePrep.log.notice("seaside scene: entities \(self.root.children.count) tris \(self.triangleCount)")
+            return true
+        } catch { return false }
     }
 
     private func buildCanyon(_ plan: CanyonStagePlan) -> Bool {

@@ -68,6 +68,8 @@ struct GameSettings: Codable, Equatable {
     var voiceVolume: Double = 0.8
     var hapticsEnabled = true
     var graphicsQuality: GraphicsQuality = .medium
+    /// Applies to the next offline three-lane match. New and existing profiles start at Seaside.
+    var battleStage: MatchStage = .seaside
     var frameRate: FrameRateOption = .fps60
     var showDamageNumbers = true
     var joystickMode: JoystickMode = .floating
@@ -105,7 +107,7 @@ struct GameSettings: Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case language, bgmVolume, bgmTrack, sfxVolume, voiceVolume, hapticsEnabled
-        case graphicsQuality, frameRate, showDamageNumbers, joystickMode, skillCastMode
+        case graphicsQuality, battleStage, frameRate, showDamageNumbers, joystickMode, skillCastMode
         case attackPriority, topAttackPriority, bottomAttackPriority, heroLock, activeMonsterDetection
         case cameraZoom, leftHandedLayout, colorblindMode, hudOpacity, subtitlesEnabled
         case notificationsEnabled, autoLevelSkills, showRecommendedItems
@@ -124,6 +126,7 @@ extension GameSettings {
         voiceVolume = try values.decodeIfPresent(Double.self, forKey: .voiceVolume) ?? voiceVolume
         hapticsEnabled = try values.decodeIfPresent(Bool.self, forKey: .hapticsEnabled) ?? hapticsEnabled
         graphicsQuality = try values.decodeIfPresent(GraphicsQuality.self, forKey: .graphicsQuality) ?? graphicsQuality
+        battleStage = try values.decodeIfPresent(MatchStage.self, forKey: .battleStage) ?? battleStage
         frameRate = try values.decodeIfPresent(FrameRateOption.self, forKey: .frameRate) ?? frameRate
         showDamageNumbers = try values.decodeIfPresent(Bool.self, forKey: .showDamageNumbers) ?? showDamageNumbers
         joystickMode = try values.decodeIfPresent(JoystickMode.self, forKey: .joystickMode) ?? joystickMode
@@ -360,11 +363,12 @@ struct ReplayMeta: Codable, Equatable, Identifiable {
     var heroIDs: [String]?
     /// 記録の中身のキー（構成の全体・長さ・入力の数。ReplayArchiveService.contentKey）。重複の判定に使う。nil = 旧版のメタ。
     var contentKey: String?
+    var stage: MatchStage?
 
     init(id: UUID = UUID(), date: Date, fileName: String, mode: MatchMode, heroID: String?, won: Bool?, duration: Double,
          name: String? = nil, isFavorite: Bool = false, simVersion: Int? = nil, formatVersion: Int? = nil,
          source: ReplaySource? = nil, ownerSeat: Int? = nil, winner: Team? = nil, seed: UInt64? = nil, heroIDs: [String]? = nil,
-         contentKey: String? = nil) {
+         contentKey: String? = nil, stage: MatchStage? = nil) {
         self.id = id
         self.date = date
         self.fileName = fileName
@@ -382,6 +386,7 @@ struct ReplayMeta: Codable, Equatable, Identifiable {
         self.seed = seed
         self.heroIDs = heroIDs
         self.contentKey = contentKey
+        self.stage = stage
     }
 
     /// 旧版のメタの出どころ（旧版は報酬対象の対戦しか保存しなかった。観戦は AI 同士）。
@@ -402,7 +407,7 @@ struct ReplayMeta: Codable, Equatable, Identifiable {
 
     private enum CodingKeys: String, CodingKey {
         case id, date, fileName, mode, heroID, won, duration
-        case name, isFavorite, simVersion, formatVersion, source, ownerSeat, winner, seed, heroIDs, contentKey
+        case name, isFavorite, simVersion, formatVersion, source, ownerSeat, winner, seed, heroIDs, contentKey, stage
     }
 }
 
@@ -427,7 +432,8 @@ extension ReplayMeta {
                   winner: try c.decodeIfPresent(Team.self, forKey: .winner),
                   seed: try c.decodeIfPresent(UInt64.self, forKey: .seed),
                   heroIDs: try c.decodeIfPresent([String].self, forKey: .heroIDs),
-                  contentKey: try c.decodeIfPresent(String.self, forKey: .contentKey))
+                  contentKey: try c.decodeIfPresent(String.self, forKey: .contentKey),
+                  stage: try c.decodeIfPresent(MatchStage.self, forKey: .stage))
     }
 }
 

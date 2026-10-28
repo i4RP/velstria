@@ -11,6 +11,7 @@ import VelstriaCore
 enum StagePlan: @unchecked Sendable {
     case procedural(ProceduralStagePlan)
     case canyon(CanyonStagePlan)
+    case seaside(SeasideStagePlan)
 }
 
 struct ProceduralStagePlan: @unchecked Sendable {
@@ -106,6 +107,9 @@ enum StagePrep {
     }
 
     static func make(map: MapDefinition, quality: RenderQuality, set: StageArtSet = .current) -> StagePlan? {
+        if map.stageID == "seaside" {
+            return SeasideStagePlan.load(map: map, quality: quality).map(StagePlan.seaside)
+        }
         if map.stageID == "canyon" {
             return CanyonStagePlan.load(map: map, quality: quality).map(StagePlan.canyon)
         }

@@ -44,7 +44,7 @@ final class MapScene {
             self.stage = stage
             root.addChild(stage.root)
             for e in stage.brushEntities { adoptBrush(e) }
-            if map.stageID == "canyon" { return } // Authored bases, ground and pits already exist in the imported chunks.
+            if map.stageID == "canyon" || map.stageID == "seaside" { return } // Authored bases, ground and pits already exist in the imported chunks.
             buildDecorations(map: map, materials: materials, quality: quality, terrain: false,
                              fountainSockets: stage.fountainSockets)
             buildGroundDecals(map: map, materials: materials, paving: false)

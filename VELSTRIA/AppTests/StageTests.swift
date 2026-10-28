@@ -14,6 +14,40 @@ final class StageTests: XCTestCase {
         try XCTUnwrap(StageAssets.load(set: set), "App/Resources/Stage の素材（\(set.rawValue)）が読めない")
     }
 
+    func testSeasideFitsExistingBudgetsAndKeepsConcealment() async throws {
+        let map = await Task.detached { MapDefinition.seaside }.value
+        for quality in GraphicsQuality.allCases {
+            let loaded = await Task.detached { SeasideStagePlan.load(map: map, quality: .preset(quality)) }.value
+            let plan = try XCTUnwrap(loaded)
+            XCTAssertLessThanOrEqual(plan.triangleCount, BattleWorkBudget.stagePropTriangles(quality))
+            XCTAssertGreaterThan(plan.decorationTriangles, 1_000)
+            XCTAssertFalse(plan.ground.isEmpty)
+            XCTAssertFalse(plan.stone.isEmpty)
+            XCTAssertGreaterThan(plan.water.triangleCount, 2)
+            XCTAssertEqual(plan.foliage.brushes.count, map.brushes.count)
+            XCTAssertEqual(plan.foliage.brushCards.count, map.brushes.count)
+            XCTAssertLessThan(plan.foliage.brushes.reduce(0) { $0 + $1.triangleCount }, 90_000)
+            for (i, brush) in plan.foliage.brushes.enumerated() {
+                let center = plan.foliage.brushCenters[i]
+                for first in stride(from: 0, to: brush.vertexCount, by: 6) {
+                    let root = (brush.positions[first] + brush.positions[first + 1]) / 2 + center
+                    XCTAssertTrue(map.brush(i, contains: Vec2(Double(root.x) * 100, Double(-root.z) * 100)))
+                }
+            }
+            if let atlas = plan.propAtlas {
+                XCTAssertLessThanOrEqual(atlas.width, 2048)
+                XCTAssertLessThanOrEqual(atlas.height, 1024)
+            }
+        }
+        let prepared = await Task.detached { StagePrep.prepare(map: map, quality: .preset(.medium)) }.value
+        XCTAssertTrue(prepared)
+        let scene = MapScene(map: map, materials: RenderMaterials(colorblind: false), quality: .preset(.medium), groundImage: nil)
+        let stage = try XCTUnwrap(scene.stage)
+        XCTAssertNotNil(stage.root.findEntity(named: "seaside_water"))
+        XCTAssertNil(stage.root.findEntity(named: "canyon_0"))
+        XCTAssertEqual(scene.brushEntities.count, map.brushes.count)
+    }
+
     func testCanyonStageFitsExistingBudgets() async throws {
         // Match StagePrep's background preparation; do not block the simulator UI
         // watchdog while baking the full collision map in an unoptimized build.

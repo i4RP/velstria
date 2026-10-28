@@ -26,14 +26,16 @@ final class CoreFinaleSky {
 
     static let backgroundColor = UIColor(red: 0.78, green: 0.69, blue: 0.76, alpha: 1)
 
-    init() {
+    static let seasideBackgroundColor = UIColor(red: 0.48, green: 0.80, blue: 0.94, alpha: 1)
+
+    init(seaside: Bool = false) {
         let model = ModelEntity()
         model.name = "finaleSky"
         entity = model
         if let mesh = CoreFinaleSky.makeMesh() {
             AssetLedger.record(.mesh, "finale sky")
             var material = UnlitMaterial(applyPostProcessToneMap: false)
-            if let image = CoreFinaleSky.skyImage(),
+            if let image = CoreFinaleSky.skyImage(seaside: seaside),
                let texture = try? TextureResource(image: image, options: .init(semantic: .color, mipmapsMode: .none)) {
                 AssetLedger.record(.texture, "finale sky")
                 var t = MaterialParameters.Texture(texture)
@@ -45,7 +47,7 @@ final class CoreFinaleSky {
                 t.sampler = .init(sd)
                 material.color = .init(tint: .white, texture: t)
             } else {
-                material.color = .init(tint: Self.backgroundColor)
+                material.color = .init(tint: seaside ? Self.seasideBackgroundColor : Self.backgroundColor)
             }
             material.faceCulling = .none
             AssetLedger.record(.material, "finale sky")
@@ -99,13 +101,17 @@ final class CoreFinaleSky {
 
     /// 雲も読み込み中に 1 枚へ焼く。追加の Entity・毎フレームの生成や更新は不要。
     /// 画像の上端 = 天頂（RealityKit の標準の UV は v = 1 が画像の上端）。
-    private static func skyImage() -> CGImage? {
+    private static func skyImage(seaside: Bool) -> CGImage? {
         let w = 1024, h = 512
         guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
                                   space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
-        let colors = stops.map { CGColor(srgbRed: $0.r, green: $0.g, blue: $0.b, alpha: 1) } as CFArray
-        let locations = stops.map(\.v)
+        let palette: [(v: CGFloat, r: CGFloat, g: CGFloat, b: CGFloat)] = seaside ? [
+            (0.00, 0.70, 0.90, 0.96), (0.143, 0.48, 0.80, 0.94),
+            (0.25, 0.20, 0.68, 0.92), (0.50, 0.09, 0.55, 0.88), (1.00, 0.06, 0.38, 0.76),
+        ] : stops
+        let colors = palette.map { CGColor(srgbRed: $0.r, green: $0.g, blue: $0.b, alpha: 1) } as CFArray
+        let locations = palette.map(\.v)
         guard let gradient = CGGradient(colorsSpace: ctx.colorSpace, colors: colors, locations: locations) else { return nil }
         // CGContext の y は下から上（y = 0 が画像の下端 = v 0）
         ctx.drawLinearGradient(gradient, start: CGPoint(x: 0, y: 0), end: CGPoint(x: 0, y: h), options: [])
@@ -121,12 +127,12 @@ final class CoreFinaleSky {
         for cloud in clouds {
             drawCloud(in: ctx, rect: CGRect(x: (cloud.u - cloud.width / 2) * CGFloat(w),
                                            y: cloud.v * CGFloat(h),
-                                           width: cloud.width * CGFloat(w), height: cloud.height * CGFloat(h)))
+                                           width: cloud.width * CGFloat(w) * (seaside ? 1.7 : 1), height: cloud.height * CGFloat(h) * (seaside ? 1.35 : 1)), seaside: seaside)
         }
         return ctx.makeImage()
     }
 
-    private static func drawCloud(in ctx: CGContext, rect: CGRect) {
+    private static func drawCloud(in ctx: CGContext, rect: CGRect, seaside: Bool) {
         // 不揃いな丸みを重ね、底は薄く、日を受ける上側は白くする。
         let puffs: [CGRect] = [
             CGRect(x: 0.06, y: 0.05, width: 0.87, height: 0.36),
@@ -137,7 +143,10 @@ final class CoreFinaleSky {
             CGRect(x: 0.76, y: 0.10, width: 0.24, height: 0.38),
         ]
         // Feather every lobe into the sky; no opaque cutout edge at eye level.
-        let colors = [CGColor(srgbRed: 0.92, green: 0.78, blue: 0.78, alpha: 0.52),
+        let colors = seaside ? [CGColor(srgbRed: 1, green: 1, blue: 0.97, alpha: 0.98),
+                                 CGColor(srgbRed: 0.95, green: 0.98, blue: 1, alpha: 0.90),
+                                 CGColor(srgbRed: 0.77, green: 0.89, blue: 0.96, alpha: 0)] as CFArray
+            : [CGColor(srgbRed: 0.92, green: 0.78, blue: 0.78, alpha: 0.52),
                       CGColor(srgbRed: 0.70, green: 0.66, blue: 0.80, alpha: 0.28),
                       CGColor(srgbRed: 0.60, green: 0.61, blue: 0.76, alpha: 0)] as CFArray
         guard let gradient = CGGradient(colorsSpace: ctx.colorSpace, colors: colors,

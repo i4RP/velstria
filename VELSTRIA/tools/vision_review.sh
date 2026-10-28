@@ -1,10 +1,20 @@
 #!/bin/bash
 # Repeatable full-detail first-person capture. Pass an explicitly owned simulator.
-# Usage: tools/vision_review.sh SIMULATOR_UUID APP_PATH OUTPUT_DIRECTORY
+# Usage: tools/vision_review.sh SIMULATOR_UUID APP_PATH OUTPUT_DIRECTORY [seaside|canyon] [coast]
 set -euo pipefail
 udid="${1:?simulator UUID required}"
 app="${2:?app path required}"
 out="${3:?output directory required}"
+stage_args=()
+if [[ -n "${4:-}" ]]; then
+  case "$4" in seaside|canyon) stage_args=(-stage "$4");;
+    *) echo 'Stage must be seaside or canyon' >&2; exit 2;;
+  esac
+fi
+if [[ -n "${5:-}" ]]; then
+  [[ "$5" == coast ]] || { echo 'View must be coast' >&2; exit 2; }
+  stage_args+=(-coastalReview)
+fi
 mkdir -p "$out"
 git rev-parse HEAD > "$out/base-commit.txt"
 git diff --binary > "$out/working.patch"
@@ -12,7 +22,7 @@ xcrun simctl list devices booted > "$out/device.txt"
 xcrun simctl install "$udid" "$app"
 xcrun simctl launch --terminate-running-process "$udid" com.bitcoinpay.velstria \
   -uiTesting -skipOnboarding -battle practice -hero H003 -graphics high -stageFull \
-  -perfRun 65 -perfQuality high -visualReview > "$out/launch.txt"
+  -perfRun 65 -perfQuality high -visualReview "${stage_args[@]}" > "$out/launch.txt"
 # Allow full stage preparation, then record the real drawable (never a mockup).
 # The perf report is written after 65 seconds of battle, excluding loading.
 data="$(xcrun simctl get_app_container "$udid" com.bitcoinpay.velstria data)"

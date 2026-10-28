@@ -17,7 +17,7 @@ public enum MovementSystem {
             }
             // Imported scenery has solid footprints too. Recover from stale positions or
             // external repositioning before idle/CC can leave a hero embedded indefinitely.
-            if kind == .hero, ctx.map.stageID == "canyon",
+            if kind == .hero, (ctx.map.stageID == "canyon" || ctx.map.stageID == "seaside"),
                !ctx.nav.isWalkable(s.units[i].pos, radius: s.units[i].radius) {
                 let safe = ctx.nav.nearestWalkable(s.units[i].pos, radius: s.units[i].radius)
                 s.units[i].pos = safe
