@@ -1,14 +1,24 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: 統合（契約）。Wave 1 では読み取り専用。追加の共通部品は各担当フォルダに作ること。
+/// 非バトル画面は、ルートの同じ背景と固定ヘッダーの中に描画する。
+private struct WorldShellEmbeddedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var isWorldShellEmbedded: Bool {
+        get { self[WorldShellEmbeddedKey.self] }
+        set { self[WorldShellEmbeddedKey.self] = newValue }
+    }
+}
 
 enum Theme {
-    // 背景: 深い藍 → 紫の星空
-    static let bgTop = Color(red: 0.04, green: 0.05, blue: 0.13)
-    static let bgBottom = Color(red: 0.10, green: 0.06, blue: 0.20)
-    static let panel = Color(red: 0.09, green: 0.10, blue: 0.20).opacity(0.92)
-    static let panelStroke = Color(red: 0.55, green: 0.62, blue: 0.95).opacity(0.35)
+    // パーティロビーをすべての画面に共通する世界とする。
+    static let bgTop = Color(red: 0.06, green: 0.20, blue: 0.48)
+    static let bgBottom = Color(red: 0.12, green: 0.42, blue: 0.78)
+    static let panel = Color(red: 0.10, green: 0.29, blue: 0.58).opacity(0.55)
+    static let panelStroke = Color(red: 0.40, green: 0.88, blue: 1.00).opacity(0.42)
     static let gold = Color(red: 0.98, green: 0.80, blue: 0.38)
     static let cyan = Color(red: 0.40, green: 0.88, blue: 1.00)
     static let textPrimary = Color.white
@@ -83,25 +93,50 @@ enum Theme {
     static func mono(_ size: CGFloat = 13) -> Font { .system(size: size, weight: .semibold, design: .monospaced) }
 }
 
-/// 画面全体の背景（星空グラデーション）。
+/// 旧画面もルートと同じ背景を共有する。
 struct StarfieldBackground: View {
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
+
     var body: some View {
-        ZStack {
-            LinearGradient(colors: [Theme.bgTop, Theme.bgBottom], startPoint: .top, endPoint: .bottom)
-            Canvas { ctx, size in
-                var rng = SplitMix64(seed: 2026)
-                for _ in 0..<120 {
-                    let x = rng.nextDouble() * size.width
-                    let y = rng.nextDouble() * size.height
-                    let r = 0.4 + rng.nextDouble() * 1.4
-                    let a = 0.25 + rng.nextDouble() * 0.6
-                    ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: r, height: r)), with: .color(.white.opacity(a)))
-                }
+        Group {
+            if isEmbedded {
+                Color.clear
+            } else {
+                PartyBackdrop()
             }
-            RadialGradient(colors: [Theme.cyan.opacity(0.10), .clear], center: .init(x: 0.8, y: 0.2),
-                           startRadius: 10, endRadius: 500)
         }
-        .ignoresSafeArea()
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+}
+
+/// パーティの席と同じ、青い透過面・細いシアンの上辺・菱形。
+struct WorldCardSurface: View {
+    var tint: Color = Theme.cyan
+    var selected = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(Theme.panel)
+            .overlay {
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(selected ? Theme.gold : tint.opacity(0.35), lineWidth: selected ? 1.5 : 1)
+            }
+            .overlay(alignment: .top) {
+                Rectangle().fill(tint.opacity(0.85)).frame(height: 2)
+            }
+            .overlay(alignment: .top) {
+                Rectangle().fill(tint).frame(width: 7, height: 7)
+                    .rotationEffect(.degrees(45)).offset(y: -3)
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+extension View {
+    func worldShellCard(selected: Bool = false) -> some View {
+        background(WorldCardSurface(selected: selected))
     }
 }
 
@@ -113,8 +148,7 @@ struct Panel<Content: View>: View {
     var body: some View {
         content()
             .padding(padding)
-            .background(HomeChamfer(cut: 9).fill(Celestial.ink.opacity(0.88)))
-            .overlay(HomeChamfer(cut: 9).stroke(Celestial.ice.opacity(0.5), lineWidth: 0.7))
+            .worldShellCard()
     }
 }
 
@@ -130,11 +164,11 @@ struct PrimaryButtonStyle: ButtonStyle {
             .padding(.vertical, 11)
             .frame(minHeight: 44)
             .background(
-                Capsule().fill(LinearGradient(colors: [color, color.opacity(0.75)], startPoint: .top, endPoint: .bottom))
+                PartyBannerShape().fill(LinearGradient(colors: [color.opacity(0.95), color], startPoint: .top, endPoint: .bottom))
             )
-            .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 1))
+            .overlay(PartyBannerShape().stroke(Color.white.opacity(0.9), lineWidth: 1.5))
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
-            .shadow(color: color.opacity(0.45), radius: configuration.isPressed ? 2 : 8)
+            .shadow(color: color.opacity(0.35), radius: configuration.isPressed ? 2 : 6)
     }
 }
 
@@ -147,8 +181,8 @@ struct SecondaryButtonStyle: ButtonStyle {
             .padding(.horizontal, 18)
             .padding(.vertical, 10)
             .frame(minHeight: 44)
-            .background(Capsule().fill(Color.white.opacity(configuration.isPressed ? 0.18 : 0.10)))
-            .overlay(Capsule().stroke(Theme.panelStroke, lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 4).fill(Theme.bgTop.opacity(configuration.isPressed ? 0.85 : 0.65)))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.cyan.opacity(0.6), lineWidth: 1))
     }
 }
 
@@ -162,14 +196,14 @@ struct CurrencyBadge: View {
         HStack(spacing: 5) {
             CurrencyIcon(kind: kind == .coin ? .coin : .gem, size: 16)
             Text(amount.formatted())
-                .font(.system(size: 13, design: .serif))
+                .font(Theme.heading(13))
                 .foregroundStyle(Theme.textPrimary)
                 .monospacedDigit()
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(HomeChamfer(cut: 7).fill(Celestial.ink.opacity(0.85)))
-        .overlay(HomeChamfer(cut: 7).stroke(Celestial.ice.opacity(0.45), lineWidth: 0.6))
+        .background(RoundedRectangle(cornerRadius: 4).fill(Theme.bgTop.opacity(0.65)))
+        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.panelStroke, lineWidth: 1))
         .accessibilityElement(children: .combine)
     }
 }
@@ -180,52 +214,51 @@ struct ScreenScaffold<Content: View>: View {
     var showsCurrencies = true
     @ViewBuilder var content: () -> Content
     @Environment(AppModel.self) private var app
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
 
     var body: some View {
-        ZStack {
-            // ホーム（採用案 Celestial Saber）と同じ質感: ぼかしたキービジュアルの地・面取りの戻る・明朝の題名・細い区切り
-            CelestialBackdrop()
-            VStack(spacing: 0) {
-                HStack(spacing: 12) {
-                    Button {
-                        app.router.pop()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 17, weight: .semibold))
-                            .frame(width: 40, height: 40)
-                            .background(HomeChamfer(cut: 9).fill(Celestial.ink.opacity(0.85)))
-                            .overlay(HomeChamfer(cut: 9).stroke(Celestial.ice.opacity(0.6), lineWidth: 0.7))
-                    }
-                    .foregroundStyle(Celestial.ice)
-                    .accessibilityLabel(L("戻る", "Back"))
-                    .accessibilityIdentifier("nav_back")
-                    Text(title)
-                        .font(Celestial.title(22))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    Spacer()
-                    if showsCurrencies {
-                        CurrencyBadge(kind: .coin, amount: app.profile.starlightCoin)
-                        CurrencyBadge(kind: .gem, amount: app.profile.totalGem)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 6)
-                .overlay(alignment: .bottom) {
-                    Rectangle()
-                        .fill(LinearGradient(colors: [.clear, Celestial.ice.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing))
-                        .frame(height: 0.7)
-                        .padding(.horizontal, 20)
-                }
-                // 中身が画面より高くても「戻る」の行を画面外へ押し出さない（中身の枠は空いた高さで止め、はみ出しは行の下に描く）
-                .zIndex(1)
+        Group {
+            if isEmbedded {
                 content()
                     .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+            } else {
+                ZStack {
+                    CelestialBackdrop()
+                    VStack(spacing: 0) {
+                        standaloneHeader
+                        content()
+                            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                    }
+                }
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var standaloneHeader: some View {
+        HStack(spacing: 12) {
+            Button { app.router.pop() } label: {
+                Image(systemName: "arrow.uturn.backward")
+                    .font(.system(size: 22, weight: .heavy))
+                    .frame(width: 44, height: 44)
+            }
+            .foregroundStyle(Theme.gold)
+            .accessibilityLabel(L("戻る", "Back"))
+            .accessibilityIdentifier("nav_back")
+            Text(title)
+                .font(Theme.title(22))
+                .foregroundStyle(Theme.gold)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Spacer()
+            if showsCurrencies {
+                CurrencyBadge(kind: .coin, amount: app.profile.starlightCoin)
+                CurrencyBadge(kind: .gem, amount: app.profile.totalGem)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .zIndex(1)
     }
 }
 

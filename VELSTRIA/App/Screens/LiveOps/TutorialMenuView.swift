@@ -185,7 +185,7 @@ struct TutorialMenuView: View {
                 tipsPanel
                     .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 10)
         }
     }

@@ -105,7 +105,7 @@ struct NotificationSettingsView: View {
                     previewPanel
                         .frame(maxWidth: .infinity)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 10)
                 .padding(.bottom, 10)
             }
         }
@@ -179,7 +179,7 @@ struct NotificationSettingsView: View {
                     .foregroundStyle(.white)
                 }
                 .padding(12)
-                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white.opacity(0.14)))
+                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.white.opacity(0.14)))
                 .accessibilityElement(children: .combine)
                 Text(L("リマインダーは端末内で作成されるローカル通知です。サーバーからの送信や、通知に関するデータの収集は行いません。",
                        "Reminders are local notifications created on this device. Nothing is sent from a server and no notification data is collected."))

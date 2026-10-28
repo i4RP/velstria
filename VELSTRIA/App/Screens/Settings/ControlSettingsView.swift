@@ -75,9 +75,9 @@ struct ControlSettingsView: View {
                     .padding(.bottom, 10)
                 }
                 ControlLayoutPreview(settings: s)
-                    .frame(width: 250)
+                    .frame(maxWidth: 165)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 8)
         }
     }

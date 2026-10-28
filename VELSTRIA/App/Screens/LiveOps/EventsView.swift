@@ -66,17 +66,8 @@ private struct EventBannerBackground: View {
     let eventID: String
 
     var body: some View {
-        let hue = LiveOpsFormat.hue(for: eventID)
-        ZStack {
-            LinearGradient(colors: [Color(hue: hue, saturation: 0.65, brightness: 0.55),
-                                    Color(hue: (hue + 0.12).truncatingRemainder(dividingBy: 1), saturation: 0.75, brightness: 0.22)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-            Image(systemName: "sparkles")
-                .font(.system(size: 90, weight: .bold))
-                .foregroundStyle(.white.opacity(0.09))
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .offset(x: 14, y: -14)
-        }
+        Theme.panel
+
     }
 }
 
@@ -90,7 +81,7 @@ struct EventsView: View {
             TimelineView(.periodic(from: .now, by: 30)) { ctx in
                 content(now: ctx.date)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 10)
         }
     }
@@ -120,7 +111,7 @@ struct EventsView: View {
         } else {
             // 開催中（終了が近い順）→ 開催予定（開始が近い順）。状態はカードのタグで示す
             ScrollView(.vertical, showsIndicators: true) {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 12)], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
                     ForEach(active + upcoming) { event in
                         EventCard(event: event, now: now) {
                             app.audio.play(.uiTap)
@@ -156,7 +147,7 @@ private struct EventCard: View {
                     Image(systemName: "chevron.right").foregroundStyle(.white.opacity(0.7))
                 }
                 Text(LiveOpsEvents.title(event))
-                    .font(Theme.heading(18))
+                    .font(Theme.heading(16))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -186,11 +177,9 @@ private struct EventCard: View {
                 }
             }
             .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
-            .background(EventBannerBackground(eventID: event.id))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.white.opacity(0.25), lineWidth: 1))
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .frame(maxWidth: .infinity, minHeight: 224, alignment: .topLeading)
+            .worldShellCard(selected: claimable > 0)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -223,7 +212,7 @@ struct EventDetailView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 10)
         }
         .rewardClaimPopup($reward)
@@ -266,9 +255,9 @@ struct EventDetailView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(EventBannerBackground(eventID: event.id))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.white.opacity(0.25), lineWidth: 1))
-            .frame(width: 300)
+            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(Color.white.opacity(0.25), lineWidth: 1))
+            .frame(maxWidth: 205)
 
             missionPanel(event: event, phase: phase, missions: missions)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

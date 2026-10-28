@@ -29,13 +29,15 @@ struct EmblemView: View {
         let unlocked = EmblemMath.isUnlocked(set, profile: app.profile)
         ScreenScaffold(title: L("エンブレム", "Emblems")) {
             VStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    setTabs
-                    chestButton
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        setTabs
+                        chestButton
+                    }
                 }
                 HStack(alignment: .top, spacing: 12) {
                     ringPanel(set: set, page: page, unlocked: unlocked)
-                        .frame(width: 330)
+                        .frame(maxWidth: 210)
                     if let tier = pickingTier, unlocked {
                         pickerPanel(tier: tier, page: page)
                     } else {
@@ -43,16 +45,16 @@ struct EmblemView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 10)
             .animation(.easeInOut(duration: 0.2), value: pickingTier)
         }
         .rewardClaimPopup($reward)
         .onAppear(perform: refreshChest)
-        .sheet(isPresented: $showsBulk) {
+        .worldPanel(isPresented: $showsBulk) {
             EmblemBulkApplySheet(set: set).environment(app)
         }
-        .sheet(isPresented: $showsDetail) {
+        .worldPanel(isPresented: $showsDetail) {
             EmblemDetailSheet(page: page).environment(app)
         }
     }
@@ -676,7 +678,7 @@ struct EmblemView: View {
 struct EmblemBulkApplySheet: View {
     let set: EmblemSetID
     @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.worldPanelDismiss) private var dismiss
     @State private var filter: EmblemHeroFilter = .all
     @State private var selected: Set<String> = []
     @State private var prepared = false
@@ -744,7 +746,7 @@ struct EmblemBulkApplySheet: View {
                 .disabled(selected.isEmpty)
                 .accessibilityIdentifier("emblem_bulk_ok")
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.vertical, 10)
         }
         .preferredColorScheme(.dark)
@@ -796,7 +798,7 @@ struct EmblemBulkApplySheet: View {
 /// 🔍 の画面: 「エンブレムステータス：現在/最大レベル」（セットの 3 つの能力値）と「エンブレム天賦：」（付けている 3 つの説明）。
 struct EmblemDetailSheet: View {
     let page: EmblemLoadout
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.worldPanelDismiss) private var dismiss
 
     var body: some View {
         let def = EmblemCatalog.set(page.set)

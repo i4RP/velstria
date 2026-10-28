@@ -10,7 +10,18 @@ struct MagicChessSetupView: View {
 
     var body: some View {
         ScreenScaffold(title: L("マジックチェス", "Magic Chess")) {
-            VStack(spacing: 14) {
+            ScrollView(.vertical, showsIndicators: false) {
+                setupContent
+                    .padding(.horizontal, 20)
+                    .padding(.top, 4)
+                    .padding(.bottom, 10)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+    }
+
+    private var setupContent: some View {
+        VStack(spacing: 14) {
                 Panel(padding: 14) {
                     VStack(alignment: .leading, spacing: 8) {
                         Label(L("マジックチェス", "Magic Chess"), systemImage: "square.grid.3x3.fill")
@@ -48,10 +59,6 @@ struct MagicChessSetupView: View {
                         }
                     }
                 }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 10)
         }
     }
 

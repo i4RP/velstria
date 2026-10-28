@@ -44,15 +44,13 @@ struct HeroDetailView: View {
         if let hero = app.master.hero(heroID) {
             let skills = app.master.skills(forHero: hero.heroID)
             let current = HeroSkillSelection.resolved(selectedID: selectedSkillID, skills: skills)
-            GeometryReader { geometry in
-                ZStack {
-                    LinearGradient(colors: [.black.opacity(0.35), .clear, .black.opacity(0.4)],
-                                   startPoint: .leading, endPoint: .trailing).ignoresSafeArea()
+            ScreenScaffold(title: MasterText.hero(hero)) {
+                GeometryReader { geometry in
                     VStack(spacing: 0) {
-                        showcaseHeader
                         HStack(spacing: 0) {
                             showcaseInfo(hero, skills: skills)
-                                .frame(width: geometry.size.width * 0.28)
+                                .frame(width: geometry.size.width * 0.29)
+                                .worldShellCard()
                             HeroPreview3DView(heroID: hero.heroID, skinID: app.profile.equippedSkins[hero.heroID],
                                               allowsSkillPreview: true, skillPreview: skillPreview,
                                               isActive: !showsDetails)
@@ -63,21 +61,16 @@ struct HeroDetailView: View {
                                         .padding(.bottom, 8).allowsHitTesting(false)
                                 }
                             skinRail(hero, height: geometry.size.height)
-                                .frame(width: geometry.size.width * 0.23)
+                                .frame(width: geometry.size.width * 0.22)
+                                .worldShellCard()
                         }
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 10)
+                        .padding(.top, 8)
                         .padding(.bottom, 8)
                     }
                 }
             }
-            .background {
-                GeometryReader { background in
-                    Image("HomeBackdrop").resizable().scaledToFill()
-                        .frame(width: background.size.width, height: background.size.height).clipped()
-                }.ignoresSafeArea()
-            }
-            .toolbar(.hidden, for: .navigationBar)
-            .sheet(isPresented: $showsDetails) {
+            .worldPanel(isPresented: $showsDetails) {
                 VStack(spacing: 8) {
                     HStack {
                         Text(MasterText.hero(hero)).font(Theme.heading(18))
@@ -100,21 +93,21 @@ struct HeroDetailView: View {
                     }
                 }
                 .padding(16)
-                .background(Theme.panel)
+                .background(Color.clear)
                 .foregroundStyle(Theme.textPrimary)
-                .sheet(isPresented: $showsBattleSkills) {
-                    VStack(spacing: 10) {
-                        HStack {
-                            Text(L("バトルスキル", "Battle Skills")).font(Theme.heading(20))
-                            Spacer()
-                            Button(L("閉じる", "Close")) { showsBattleSkills = false }
-                        }
-                        BattleSkillPicker(current: SpellLoadoutRules.effective(heroID: heroID, profile: app.profile)[0]) { id in
-                            app.profile.heroSpells[heroID] = [id, SpellLoadoutRules.fixedSpellID]
-                            showsBattleSkills = false
-                        }
-                    }.padding(16).background(Theme.panel).foregroundStyle(Theme.textPrimary)
-                }
+            }
+            .worldPanel(isPresented: $showsBattleSkills) {
+                VStack(spacing: 10) {
+                    HStack {
+                        Text(L("バトルスキル", "Battle Skills")).font(Theme.heading(20))
+                        Spacer()
+                        Button(L("閉じる", "Close")) { showsBattleSkills = false }
+                    }
+                    BattleSkillPicker(current: SpellLoadoutRules.effective(heroID: heroID, profile: app.profile)[0]) { id in
+                        app.profile.heroSpells[heroID] = [id, SpellLoadoutRules.fixedSpellID]
+                        showsBattleSkills = false
+                    }
+                }.padding(16).background(Color.clear).foregroundStyle(Theme.textPrimary)
             }
             .storePurchaseFlow(sku: $pendingSKU)
             .onChange(of: app.router.path.count) { _, _ in showsDetails = false }
@@ -124,24 +117,6 @@ struct HeroDetailView: View {
                 EmptyStateView(symbol: "questionmark.circle", title: L("ヒーローが見つかりません", "Hero not found"))
             }
         }
-    }
-
-    private var showcaseHeader: some View {
-        HStack {
-            Button { app.router.pop() } label: {
-                Image(systemName: "arrow.uturn.backward")
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(Theme.cyan)
-                    .shadow(color: Theme.cyan.opacity(0.7), radius: 6)
-                    .frame(width: 60, height: 44)
-            }
-            .accessibilityLabel(L("戻る", "Back"))
-            .accessibilityIdentifier("nav_back")
-            Spacer()
-            CurrencyBadge(kind: .coin, amount: app.profile.starlightCoin)
-            CurrencyBadge(kind: .gem, amount: app.profile.totalGem)
-        }
-        .padding(.horizontal, 20).padding(.top, 4)
     }
 
     private func openDetails(_ selection: HeroDetailTab) {
@@ -272,7 +247,7 @@ struct HeroDetailView: View {
                 }.foregroundStyle(.white).padding(10)
             }
             .frame(width: cardHeight * 0.6, height: cardHeight)
-            .background(Theme.panel)
+            .background(Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 5))
             .overlay(RoundedRectangle(cornerRadius: 5).stroke(equipped ? Theme.cyan : .white.opacity(0.25), lineWidth: 1))
         }

@@ -19,20 +19,20 @@ struct CollectionFilterChip: View {
                 if let symbol {
                     Image(systemName: symbol)
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(isSelected ? Color.black.opacity(0.8) : color)
+                        .foregroundStyle(isSelected ? Theme.gold : Theme.cyan)
                 }
                 if showsTitle || isSelected || symbol == nil {
                     Text(title)
                         .font(Theme.body(13))
                         .lineLimit(1)
-                        .foregroundStyle(isSelected ? Color.black.opacity(0.85) : Theme.textPrimary)
+                        .foregroundStyle(isSelected ? Theme.gold : Theme.textPrimary)
                 }
             }
             .padding(.horizontal, 12)
             .frame(minWidth: 44)
             .frame(height: 32)
-            .background(Capsule().fill(isSelected ? AnyShapeStyle(color) : AnyShapeStyle(Color.white.opacity(0.08))))
-            .overlay(Capsule().stroke(isSelected ? Color.white.opacity(0.6) : color.opacity(0.35), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 4).fill(Theme.panel.opacity(isSelected ? 1 : 0.55)))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(isSelected ? Theme.gold : Theme.cyan.opacity(0.45), lineWidth: 1))
             .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
@@ -376,5 +376,81 @@ struct HeroAuraPortrait: View {
             }
         }
         .frame(width: size * 1.7, height: size * 1.7)
+    }
+}
+
+// In-world panels keep the lobby background, header and social rail mounted.
+private struct WorldPanelDismissKey: EnvironmentKey {
+    static let defaultValue: () -> Void = {}
+}
+
+extension EnvironmentValues {
+    var worldPanelDismiss: () -> Void {
+        get { self[WorldPanelDismissKey.self] }
+        set { self[WorldPanelDismissKey.self] = newValue }
+    }
+}
+
+private struct WorldPanelModifier<PanelContent: View>: ViewModifier {
+    @Binding var isPresented: Bool
+    let panel: () -> PanelContent
+
+    func body(content: Content) -> some View {
+        content.overlay {
+            if isPresented {
+                GeometryReader { geometry in
+                    ZStack {
+                        Theme.bgBottom.opacity(0.4)
+                            .contentShape(Rectangle())
+                            .onTapGesture { isPresented = false }
+                        panel()
+                            .environment(\.worldPanelDismiss, { isPresented = false })
+                            .padding(10)
+                            .frame(width: max(1, geometry.size.width - 16), height: max(1, geometry.size.height - 16))
+                            .background(Theme.bgTop.opacity(0.94))
+                            .worldShellCard(selected: true)
+                            .clipped()
+                            .overlay(alignment: .topTrailing) {
+                                Button { isPresented = false } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundStyle(Theme.cyan)
+                                        .frame(width: 30, height: 30)
+                                        .background(Theme.bgBottom, in: RoundedRectangle(cornerRadius: 4))
+                                }
+                                .buttonStyle(.plain)
+                                .padding(6)
+                                .accessibilityLabel(L("閉じる", "Close"))
+                                .accessibilityIdentifier("world_panel_close")
+                            }
+                            .accessibilityAddTraits(.isModal)
+                    }
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                }
+                .transition(.opacity)
+            }
+        }
+    }
+}
+
+extension View {
+    /// Attach to the full screen content frame, never to the button that opens the panel.
+    /// Sibling panels share that frame so opening another panel does not shrink its bounds.
+    func worldPanel<PanelContent: View>(isPresented: Binding<Bool>, onDismiss: (() -> Void)? = nil,
+                                       @ViewBuilder content: @escaping () -> PanelContent) -> some View {
+        modifier(WorldPanelModifier(isPresented: isPresented, panel: content))
+            .onChange(of: isPresented.wrappedValue) { old, new in
+                if old && !new { onDismiss?() }
+            }
+    }
+
+    func worldPanel<Item: Identifiable, PanelContent: View>(item: Binding<Item?>, onDismiss: (() -> Void)? = nil,
+                                                           @ViewBuilder content: @escaping (Item) -> PanelContent) -> some View {
+        worldPanel(isPresented: Binding(get: { item.wrappedValue != nil }, set: { if !$0 { item.wrappedValue = nil } })) {
+            if let value = item.wrappedValue { content(value) }
+        }
+        .onChange(of: item.wrappedValue?.id) { old, new in
+            if old != nil && new == nil { onDismiss?() }
+        }
     }
 }

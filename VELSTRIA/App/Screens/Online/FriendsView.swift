@@ -11,7 +11,7 @@ import SwiftUI
 /// フレンド・申請・最近一緒に遊んだ人・近くの部屋・部屋コードのタブ、自分のコード・申請の入力は申請のタブ。
 struct FriendsView: View {
     @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.worldPanelDismiss) private var dismiss
     @State private var tab: PartySideTab = .friends
 
     var body: some View {

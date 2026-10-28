@@ -41,7 +41,7 @@ struct PrivacySettingsView: View {
                         }
                         .frame(maxWidth: .infinity)
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 10)
                     .padding(.bottom, 10)
                 }
                 .onChange(of: armed) { _, isArmed in
@@ -337,7 +337,7 @@ struct PrivacySettingsView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.danger.opacity(0.4), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(Theme.danger.opacity(0.4), lineWidth: 1))
     }
 
     /// 全データの削除: 中継サーバーの受信箱とクラウドのランクを先に消してから（繋いだ・預けたことがある時だけ）、端末のデータを消す。

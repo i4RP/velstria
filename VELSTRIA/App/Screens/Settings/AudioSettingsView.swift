@@ -53,7 +53,7 @@ struct AudioSettingsView: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 10)
                 .padding(.bottom, 10)
             }
         }

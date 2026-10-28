@@ -11,27 +11,27 @@ struct StoreModalContainer<Content: View>: View {
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.62)
-                .ignoresSafeArea()
-                .onTapGesture { onDismiss?() }
-                .accessibilityHidden(true)
-            content()
-                .padding(16)
-                .frame(maxWidth: maxWidth)
-                .background(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(LinearGradient(colors: [Color(red: 0.12, green: 0.13, blue: 0.27), Color(red: 0.07, green: 0.07, blue: 0.16)],
-                                             startPoint: .top, endPoint: .bottom))
-                )
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.gold.opacity(0.45), lineWidth: 1))
-                .shadow(color: .black.opacity(0.5), radius: 20)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
+        GeometryReader { geometry in
+            ZStack {
+                Theme.bgBottom.opacity(0.4)
+                    .contentShape(Rectangle())
+                    .onTapGesture { onDismiss?() }
+                    .accessibilityHidden(true)
+                ScrollView {
+                    content()
+                        .padding(14)
+                        .frame(maxWidth: .infinity)
+                }
+                .frame(width: min(maxWidth, max(1, geometry.size.width - 20)), height: max(1, geometry.size.height - 20))
+                .background(Theme.bgTop.opacity(0.96))
+                .worldShellCard(selected: true)
                 .accessibilityElement(children: .contain)
                 .accessibilityAddTraits(.isModal)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
     }
+
 }
 
 /// UI049 購入確認。残高の前後と、Gem の場合は無償/有償の消費内訳を表示する。
@@ -176,7 +176,7 @@ struct PurchaseCompleteOverlay: View {
     var body: some View {
         let equipTarget = equipCandidate
         ZStack {
-            Color.black.opacity(0.84).ignoresSafeArea()
+            Theme.bgBottom.opacity(0.45)
             StoreCelebrationBurst(color: rarityColor)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)

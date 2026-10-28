@@ -12,7 +12,7 @@ struct SettingsView: View {
         ScreenScaffold(title: L("設定", "Settings"), showsCurrencies: false) {
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 12) {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 112), spacing: 10)], spacing: 10) {
                         tile(L("操作", "Controls"), "\(SettingsText.joystick(s.joystickMode)) · \(SettingsText.castMode(s.skillCastMode))",
                              "gamecontroller.fill", id: "settings_controls", route: .controlSettings)
                         tile(L("グラフィック", "Graphics"), "\(SettingsText.quality(s.graphicsQuality)) · \(SettingsText.frameRate(s.frameRate))",
@@ -40,7 +40,8 @@ struct SettingsView: View {
                     TesterCodeSection()
                     #endif
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 10)
+                .padding(.top, 8)
                 .padding(.bottom, 12)
             }
         }

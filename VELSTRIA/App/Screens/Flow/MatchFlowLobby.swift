@@ -197,7 +197,7 @@ struct LaneSelectStep: View {
                 .padding(.bottom, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(RoundedRectangle(cornerRadius: 3).fill(Color(red: 0.10, green: 0.24, blue: 0.40).opacity(selected ? 0.85 : 0.55)))
+        .background(RoundedRectangle(cornerRadius: 3).fill(Color(red: 0.12, green: 0.34, blue: 0.63).opacity(selected ? 0.75 : 0.45)))
         .overlay(RoundedRectangle(cornerRadius: 3).stroke(selected ? Color(red: 0.45, green: 0.85, blue: 1) : Celestial.ice.opacity(0.25),
                                                           lineWidth: selected ? 2.5 : 1))
         .shadow(color: selected ? Color(red: 0.4, green: 0.8, blue: 1).opacity(0.6) : .clear, radius: 8)
@@ -312,10 +312,10 @@ struct MatchingStep: View {
             }
             .padding(.horizontal, 22)
             .padding(.vertical, 6)
-            .background(HomeChamfer(cut: 12).fill(LinearGradient(colors: [Color(red: 0.95, green: 0.45, blue: 0.20), Color(red: 0.80, green: 0.16, blue: 0.10)],
+            .background(HomeChamfer(cut: 12).fill(LinearGradient(colors: [Color(red: 0.15, green: 0.39, blue: 0.70), Color(red: 0.08, green: 0.23, blue: 0.48)],
                                                                  startPoint: .top, endPoint: .bottom)))
             .overlay(HomeChamfer(cut: 12).stroke(HomeStyle.goldLight, lineWidth: 1.5))
-            .shadow(color: Color.red.opacity(0.4), radius: 10)
+            .shadow(color: Theme.cyan.opacity(0.18), radius: 6)
             .frame(maxHeight: .infinity, alignment: .top)
             .padding(.top, 8)
         }

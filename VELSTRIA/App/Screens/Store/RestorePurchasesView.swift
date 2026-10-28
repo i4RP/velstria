@@ -35,7 +35,7 @@ struct RestorePurchasesView: View {
                         .padding(.bottom, 12)
                 }
                 .scrollIndicators(.hidden)
-                .frame(width: 290)
+                .frame(maxWidth: 205)
                 VStack(alignment: .leading, spacing: 6) {
                     SectionTitle(title: L("購入履歴", "Purchase History"), symbol: "clock.arrow.circlepath",
                                            trailing: L("\(ledger.count) 件", "\(ledger.count) records"))
@@ -57,7 +57,7 @@ struct RestorePurchasesView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
         }
     }
 

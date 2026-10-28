@@ -140,7 +140,7 @@ struct SpectateSetupView: View {
                 .animation(.easeInOut(duration: 0.25), value: seed)
                 controlBar(config)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 10)
         }
         .onAppear {
@@ -153,10 +153,10 @@ struct SpectateSetupView: View {
             guard didLoadPreference, app.profile.spectatePreferences != new else { return }
             app.profile.spectatePreferences = new
         }
-        .sheet(isPresented: $showsSettings) {
+        .worldPanel(isPresented: $showsSettings) {
             SpectateSettingsSheet(prefs: $prefs).environment(app)
         }
-        .sheet(isPresented: $showsRoster) {
+        .worldPanel(isPresented: $showsRoster) {
             SpectateRosterSheet(picks: $picks, options: options, seed: seed).environment(app)
         }
         .alert(L("シードを入力", "Enter Seed"), isPresented: $editingSeed) {
@@ -331,11 +331,11 @@ private struct SpectateTeamPanel: View {
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .fill(LinearGradient(colors: [color.opacity(0.20), Theme.panel], startPoint: team == .blue ? .leading : .trailing,
                                      endPoint: team == .blue ? .trailing : .leading))
         )
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(color.opacity(0.5), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(color.opacity(0.5), lineWidth: 1))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spectate_team_\(team == .blue ? "blue" : "red")")
     }
@@ -419,7 +419,7 @@ private struct SpectateTeamPanel: View {
 private struct SpectateSettingsSheet: View {
     @Binding var prefs: SpectatePreferences
     @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.worldPanelDismiss) private var dismiss
 
     var body: some View {
         ZStack {
@@ -436,10 +436,10 @@ private struct SpectateSettingsSheet: View {
                     ScrollView { settings.padding(.bottom, 8) }
                         .frame(maxWidth: .infinity)
                     ScrollView { SpectateWatchRecordPanel().padding(.bottom, 8) }
-                        .frame(width: 260)
+                        .frame(maxWidth: 195)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.vertical, 12)
         }
         .preferredColorScheme(.dark)
@@ -586,7 +586,7 @@ private struct SpectateRosterSheet: View {
     let options: SpectateMatchOptions
     let seed: UInt64
     @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.worldPanelDismiss) private var dismiss
     @State private var selectedTeam: Team = .blue
     @State private var selectedPosition: LanePosition = .top
     @State private var roleFilter: Role?
@@ -624,11 +624,11 @@ private struct SpectateRosterSheet: View {
                         slotColumn(.blue, config: config)
                         slotColumn(.red, config: config)
                     }
-                    .frame(width: 330)
+                    .frame(maxWidth: 200)
                     heroGrid(config: config)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.vertical, 10)
         }
         .preferredColorScheme(.dark)

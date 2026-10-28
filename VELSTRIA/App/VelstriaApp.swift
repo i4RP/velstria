@@ -42,13 +42,13 @@ struct VelstriaApp: App {
 
 struct RootView: View {
     @Environment(AppModel.self) private var app
-    @State private var showsBrandLaunch = !DebugLaunch.isUITesting
+    @State private var battleSession: WorldBattleSession?
 
     var body: some View {
-        @Bindable var router = app.router
         ZStack {
+            // アプリが開いている間、非バトルの世界はこの一枚を保つ。
+            PartyBackdrop()
             #if DEBUG || SCREENSHOTS
-            // 開発用のヒーロー 3D モデル一覧（出荷ビルドには含めない。DebugLaunch 参照）
             if DebugLaunch.args.contains("-heroGallery") {
                 HeroGalleryView()
             } else {
@@ -59,104 +59,66 @@ struct RootView: View {
             #endif
             PartyInviteOverlay()
             ToastOverlay()
-            if showsBrandLaunch {
-                BrandLaunchView {
-                    withAnimation(.easeOut(duration: 0.45)) { showsBrandLaunch = false }
-                }
-                .transition(.opacity)
-                .zIndex(100)
-            }
         }
-        .id(app.profile.settings.language)
-        .fullScreenCover(isPresented: $router.isMatchFlowPresented) {
-            MatchFlowView().environment(app)
-        }
-        .fullScreenCover(item: Binding(get: { app.activeBattle }, set: { app.activeBattle = $0 })) { launch in
-            BattleSessionView(launch: launch).environment(app)
-        }
-        .fullScreenCover(item: Binding(get: { app.activeMagicChess }, set: { app.activeMagicChess = $0 })) { launch in
-            MagicChessGameView(launch: launch).environment(app)
+        .onChange(of: app.activeBattle?.id, initial: true) { _, _ in
+            battleSession = app.activeBattle.map { WorldBattleSession(launch: $0) }
         }
         .preferredColorScheme(.dark)
         .statusBarHidden(true)
         .persistentSystemOverlays(.hidden)
     }
 
-    @ViewBuilder
     private var mainContent: some View {
-        @Bindable var router = app.router
-        if app.profile.onboardingCompleted {
-            NavigationStack(path: $router.path) {
-                HomeView()
-                    .navigationDestination(for: Route.self) { RouteDestination(route: $0) }
+        ZStack {
+            WorldShellView(battleSession: battleSession)
+                .opacity(isFighting || app.activeMagicChess != nil ? 0 : 1)
+                .allowsHitTesting(!isFighting && app.activeMagicChess == nil)
+            if let session = battleSession, case .battle = session.phase {
+                BattleContainerView(launch: session.launch) { outcome in
+                    session.finish(outcome, app: app)
+                }
+                .id(session.launch.id)
             }
-        } else {
-            OnboardingFlowView()
+            if let launch = app.activeMagicChess {
+                MagicChessGameView(launch: launch).id(launch.id)
+            }
         }
+    }
+
+    private var isFighting: Bool {
+        guard let battleSession else { return false }
+        if case .battle = battleSession.phase { return true }
+        return false
     }
 }
 
-/// ネイティブのシルエットロゴからキービジュアルへつなぐ起動シーケンス。
-private struct BrandLaunchView: View {
-    let onFinished: () -> Void
-    @State private var revealsWorld = false
-    @State private var progress = 0.0
+/// ロードと結果はワールドの枠内、実際の戦闘だけを画面いっぱいに表示する。
+@Observable
+@MainActor
+final class WorldBattleSession {
+    enum Phase {
+        case loading
+        case battle
+        case result(BattleOutcome, RewardReport)
+    }
+    let launch: BattleLaunch
+    var phase: Phase = .loading
 
-    var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                Color(red: 0.012, green: 0.016, blue: 0.055).ignoresSafeArea()
+    init(launch: BattleLaunch) { self.launch = launch }
 
-                if revealsWorld {
-                    Image("LoadingKeyArt")
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: geo.size.width, height: geo.size.height)
-                        .clipped()
-                        .transition(.opacity.combined(with: .scale(scale: 1.04)))
-                    LinearGradient(colors: [.black.opacity(0.08), .clear, .black.opacity(0.86)],
-                                   startPoint: .top, endPoint: .bottom)
-                        .ignoresSafeArea()
-                    VStack {
-                        Image("BrandLogo")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: min(620, geo.size.width * 0.52))
-                            .shadow(color: Theme.cyan.opacity(0.42), radius: 24)
-                        Spacer()
-                        VStack(spacing: 9) {
-                            Text(L("星環を再構築しています…", "REBUILDING THE STAR RING…"))
-                                .font(Theme.heading(12))
-                                .tracking(2)
-                                .foregroundStyle(.white.opacity(0.9))
-                            CelestialProgressBar(value: progress, tint: Theme.gold, height: 5)
-                                .frame(maxWidth: min(760, geo.size.width * 0.72))
-                        }
-                        .padding(.bottom, 30)
-                    }
-                    .padding(.top, 20)
-                    .transition(.opacity)
-                } else {
-                    Image("BrandMark")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: min(330, geo.size.height * 0.48), height: min(330, geo.size.height * 0.48))
-                        .foregroundStyle(.white)
-                        .shadow(color: Theme.cyan.opacity(0.7), radius: 28)
-                        .transition(.scale(scale: 0.86).combined(with: .opacity))
-                }
-            }
+    func finish(_ outcome: BattleOutcome, app: AppModel) {
+        guard case .battle = phase else { return }
+        let mode = launch.config.mode
+        if launch.isOnline {
+            app.online?.matchEnded(aborted: outcome.abandoned || outcome.summary.endReason == .aborted,
+                                   spectating: launch.onlineSpectator)
         }
-        .persistentSystemOverlays(.hidden)
-        .task {
-            try? await Task.sleep(for: .milliseconds(650))
-            withAnimation(.easeInOut(duration: 0.7)) { revealsWorld = true }
-            withAnimation(.easeInOut(duration: 1.55)) { progress = 1 }
-            try? await Task.sleep(for: .milliseconds(1850))
-            onFinished()
+        if outcome.abandoned && (mode == .practice || mode == .tutorial) {
+            if mode == .tutorial { app.profile.tutorialCompleted = true }
+            app.dismissBattle()
+            return
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(L("VELSIA を起動しています", "Launching VELSIA"))
+        phase = .result(outcome, app.completeBattle(outcome))
     }
 }
 
@@ -186,47 +148,5 @@ struct ToastOverlay: View {
         .padding(.top, 12)
         .animation(.spring(duration: 0.3), value: app.toast)
         .allowsHitTesting(false)
-    }
-}
-
-/// ロード → 戦闘 → リザルトの 1 セッション。
-struct BattleSessionView: View {
-    let launch: BattleLaunch
-    @Environment(AppModel.self) private var app
-
-    private enum Phase {
-        case loading
-        case battle
-        case result(BattleOutcome, RewardReport)
-    }
-
-    @State private var phase: Phase = .loading
-
-    var body: some View {
-        switch phase {
-        case .loading:
-            LoadingScreenView(launch: launch) { phase = .battle }
-        case .battle:
-            BattleContainerView(launch: launch) { outcome in
-                let mode = launch.config.mode
-                if launch.isOnline {
-                    app.online?.matchEnded(aborted: outcome.abandoned || outcome.summary.endReason == .aborted,
-                                           spectating: launch.onlineSpectator)
-                }
-                if outcome.abandoned && (mode == .practice || mode == .tutorial) {
-                    if mode == .tutorial { app.profile.tutorialCompleted = true }
-                    app.dismissBattle()
-                    return
-                }
-                let report = app.completeBattle(outcome)
-                phase = .result(outcome, report)
-            }
-        case .result(let outcome, let report):
-            if outcome.launch.config.mode == .ranked, report.rankAfter != nil, outcome.launch.replay == nil {
-                RankedResultFlowView(outcome: outcome, report: report) { app.dismissBattle() }
-            } else {
-                MatchResultView(outcome: outcome, report: report) { app.dismissBattle() }
-            }
-        }
     }
 }

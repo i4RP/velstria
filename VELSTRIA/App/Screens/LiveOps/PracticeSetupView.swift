@@ -62,9 +62,9 @@ struct PracticeSetupView: View {
                 heroPicker(selected: selected)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 optionsPanel(selected: selected)
-                    .frame(width: 300)
+                    .frame(maxWidth: 215)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 10)
         }
     }

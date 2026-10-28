@@ -9,11 +9,13 @@ import VelstriaCore
 struct DraftStep: View {
     @Bindable var model: MatchFlowModel
     @Environment(AppModel.self) private var app
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     @State private var remaining = FlowTiming.pickSeconds
     @State private var aiHover: String?
     @State private var confirmLeave = false
     @State private var lane: LanePosition?
     @State private var tab: Tab = .heroes
+    @State private var showsTeams = false
 
     enum Tab: Hashable { case heroes, prep }
 
@@ -26,13 +28,21 @@ struct DraftStep: View {
             PickPhaseHeader(phase: phaseText(draft), seconds: remaining, urgent: remaining <= 5) {
                 HStack(spacing: 10) {
                     FlowCloseButton(identifier: "flow_close") { confirmLeave = true }
+                    if isEmbedded {
+                        Button { showsTeams = true } label: {
+                            Image(systemName: "person.3.fill").foregroundStyle(Theme.cyan).frame(width: 32, height: 40)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(L("チームとレーン交換", "Teams and lane swaps"))
+                    }
                     // 先にピックする側（青 = 味方）の印
-                    Text("1st")
+                    if !isEmbedded { Text("1st")
                         .font(.system(size: 22, weight: .heavy, design: .serif))
                         .italic()
                         .foregroundStyle(Celestial.ice)
                         .shadow(color: Celestial.ice.opacity(0.7), radius: 4)
                         .accessibilityLabel(L("先手", "First pick"))
+                    }
                 }
             } trailing: {
                 if model.adjusting {
@@ -44,17 +54,28 @@ struct DraftStep: View {
                 }
             }
             HStack(alignment: .top, spacing: 8) {
-                DraftAllyColumn(model: model, draft: draft, hover: hover(for: .blue, draft), onSwap: requestSwap)
-                    .frame(width: 186)
+                if !isEmbedded {
+                    DraftAllyColumn(model: model, draft: draft, hover: hover(for: .blue, draft), onSwap: requestSwap)
+                        .frame(width: 186)
+                }
                 center(draft)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                DraftEnemyColumn(draft: draft, hover: hover(for: .red, draft))
-                    .frame(width: 150)
+                if !isEmbedded {
+                    DraftEnemyColumn(draft: draft, hover: hover(for: .red, draft))
+                        .frame(width: 150)
+                }
             }
             QuickChatBar(model: model)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
+        .worldPanel(isPresented: $showsTeams) {
+            HStack(alignment: .top, spacing: 12) {
+                DraftAllyColumn(model: model, draft: draft, hover: hover(for: .blue, draft), onSwap: requestSwap)
+                DraftEnemyColumn(draft: draft, hover: hover(for: .red, draft))
+            }
+            .padding(12)
+        }
         .task(id: "\(draft.turnIndex)-\(draft.playerSlot)") { await runTurn() }
         .task(id: model.adjusting) { await runAdjust() }
         .alert(L("ドラフトを抜けますか？", "Leave the draft?"), isPresented: $confirmLeave) {

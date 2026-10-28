@@ -10,6 +10,7 @@ import SwiftUI
 
 struct OnlineRulesConsentView: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     @State private var agreed = false
 
     private struct Rule: Identifiable {
@@ -40,7 +41,10 @@ struct OnlineRulesConsentView: View {
 
     var body: some View {
         ScreenScaffold(title: L("オンライン", "Online"), showsCurrencies: false) {
-            HStack(alignment: .top, spacing: 16) {
+            ScrollView {
+            let layout = isEmbedded ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+                                    : AnyLayout(HStackLayout(alignment: .top, spacing: 16))
+            layout {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(sections) { s in
@@ -59,6 +63,7 @@ struct OnlineRulesConsentView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .scrollIndicators(.visible)
+                .frame(height: isEmbedded ? 180 : 260)
                 .glass(cornerRadius: 16)
                 .accessibilityIdentifier("online_rules_scroll")
 
@@ -103,10 +108,11 @@ struct OnlineRulesConsentView: View {
                     .opacity(agreed ? 1 : 0.5)
                     .accessibilityIdentifier("online_rules_accept")
                 }
-                .frame(width: 280)
+                .frame(width: isEmbedded ? nil : 280)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 10)
+            }
         }
     }
 }
@@ -218,7 +224,7 @@ private struct ModerationPromptsModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .sheet(item: $prompt.report) { target in
+            .worldPanel(item: $prompt.report) { target in
                 PlayerReportSheet(target: target).environment(app)
             }
             .confirmationDialog(title, isPresented: Binding(get: { prompt.confirm != nil }, set: { if !$0 { prompt.confirm = nil } }),
@@ -320,7 +326,7 @@ struct PlayerActionsMenu: View {
 struct PlayerReportSheet: View {
     let target: PlayerReportTarget
     @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.worldPanelDismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var reason: PlayerReportReason = .inappropriateName
     @State private var message = ""
@@ -342,6 +348,7 @@ struct PlayerReportSheet: View {
     var body: some View {
         ZStack {
             CelestialBackdrop()
+            ScrollView {
             VStack(spacing: 10) {
                 HStack(spacing: 10) {
                     Label(L("プレイヤーを通報", "Report a Player"), systemImage: "exclamationmark.bubble.fill")
@@ -356,7 +363,7 @@ struct PlayerReportSheet: View {
                     Spacer()
                     FlowCloseButton(identifier: "player_report_close") { dismiss() }
                 }
-                HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 6) {
                         SectionTitle(title: L("理由", "Reason"))
                         ScrollView {
@@ -365,7 +372,7 @@ struct PlayerReportSheet: View {
                             }
                         }
                     }
-                    .frame(width: 210)
+                    .frame(height: 160)
 
                     VStack(alignment: .leading, spacing: 8) {
                         SectionTitle(title: L("内容（任意）", "Details (optional)"), trailing: "\(message.count)/\(PlayerReportMail.maxLength)")
@@ -413,7 +420,7 @@ struct PlayerReportSheet: View {
                             .font(Theme.body(10))
                             .foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
-                        HStack {
+                        VStack(alignment: .leading, spacing: 8) {
                             Link(destination: FeatureFlags.communityGuidelinesURL) {
                                 Label(L("コミュニティガイドライン", "Community Guidelines"), systemImage: "arrow.up.right.square")
                                     .font(Theme.body(12))
@@ -433,6 +440,7 @@ struct PlayerReportSheet: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
+            }
             ToastOverlay()
         }
         .preferredColorScheme(.dark)

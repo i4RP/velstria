@@ -55,7 +55,7 @@ struct AccountPane: View {
         .fileImporter(isPresented: $importing, allowedContentTypes: [.json, .data], allowsMultipleSelection: false) { result in
             handleImport(result)
         }
-        .sheet(item: $sheet, onDismiss: takeDownloaded) { s in
+        .worldPanel(item: $sheet, onDismiss: takeDownloaded) { s in
             switch s {
             case .password:
                 AccountPasswordSheet().environment(app)
@@ -571,7 +571,7 @@ extension AccountScore.Item {
 
 private struct AccountPasswordSheet: View {
     @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.worldPanelDismiss) private var dismiss
     @State private var password = ""
     @State private var confirm = ""
     @State private var error: String?
@@ -665,7 +665,7 @@ private struct AccountLoginSheet: View {
     /// 取り出せたアカウント（切り替えの確認は呼び出し側がシートを閉じた後に出す）。
     let onDownloaded: (CloudAccountDownload) -> Void
     @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.worldPanelDismiss) private var dismiss
     @State private var idText = ""
     @State private var password = ""
     @State private var error: String?

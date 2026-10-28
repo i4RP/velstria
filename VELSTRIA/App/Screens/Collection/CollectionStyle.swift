@@ -299,6 +299,6 @@ enum CollectionStyle {
         c == .astralGem ? Theme.cyan : Theme.gold
     }
 
-    /// 戦闘内 Gold（装備価格）の色。
-    static let goldColor = Color(red: 1.0, green: 0.76, blue: 0.28)
+    /// 価格の金もロビーの主操作と同じ色に揃える。
+    static let goldColor = Theme.gold
 }

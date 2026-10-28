@@ -152,7 +152,7 @@ struct FAQView: View {
                                          selection: $category, axis: .vertical, onChange: { _ in app.audio.play(.uiTap) })
                     }
                 }
-                .frame(width: 200)
+                .frame(maxWidth: 145)
                 ScrollView(.vertical, showsIndicators: true) {
                     LazyVStack(spacing: 8) {
                         ForEach(entries) { entry in
@@ -163,7 +163,7 @@ struct FAQView: View {
                     .padding(.bottom, 10)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 8)
         }
     }

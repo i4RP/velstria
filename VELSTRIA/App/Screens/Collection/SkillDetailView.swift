@@ -30,7 +30,7 @@ struct SkillDetailView: View {
                 .id(skill.skillID)
                 .transition(.opacity)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 10)
         .padding(.top, 2)
         .padding(.bottom, 6)
         .animation(.easeInOut(duration: 0.2), value: skill.skillID)
@@ -61,7 +61,7 @@ struct SkillShapeDiagram: View {
             }
         }
         .background(
-            LinearGradient(colors: [Color(red: 0.06, green: 0.10, blue: 0.16), Color(red: 0.04, green: 0.05, blue: 0.10)],
+            LinearGradient(colors: [Theme.panel, Theme.bgBottom.opacity(0.45)],
                            startPoint: .top, endPoint: .bottom)
         )
     }

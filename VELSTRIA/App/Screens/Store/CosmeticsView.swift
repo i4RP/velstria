@@ -26,7 +26,7 @@ struct CosmeticsView: View {
                 .id(type)
                 .transition(.opacity)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .animation(.easeInOut(duration: 0.2), value: type)
         }
         .onAppear {

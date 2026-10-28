@@ -16,14 +16,14 @@ struct ItemDetailView: View {
                             .padding(.bottom, 12)
                     }
                     .scrollIndicators(.hidden)
-                    .frame(width: 300)
+                    .frame(maxWidth: 220)
                     ScrollView {
                         ItemBuildTreePanel(item: item)
                             .padding(.bottom, 12)
                     }
                     .scrollIndicators(.hidden)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 10)
             } else {
                 EmptyStateView(symbol: "questionmark.circle", title: L("装備が見つかりません", "Item not found"))
             }

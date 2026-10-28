@@ -12,22 +12,38 @@ struct StoreHomeView: View {
     var body: some View {
         ScreenScaffold(title: L("ストア", "Store")) {
             ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(alignment: .top, spacing: 12) {
-                            StoreFeaturedCarousel()
-                                .frame(height: 188)
-                            StoreWalletPanel()
-                                .frame(width: 200, height: 188)
-                        }
-                        categoryTiles(proxy: proxy)
-                        categorySection
-                            .id("category_section")
+                VStack(spacing: 6) {
+                    HStack(spacing: 8) {
+                        CurrencyBadge(kind: .coin, amount: app.profile.starlightCoin)
+                        CurrencyBadge(kind: .gem, amount: app.profile.totalGem)
+                        Spacer(minLength: 0)
+                        Button { app.router.push(.inventory) } label: { Image(systemName: "shippingbox") }
+                            .accessibilityLabel(L("所持品", "Inventory"))
+                            .accessibilityIdentifier("store_inventory")
+                        Button { app.router.push(.restorePurchases) } label: { Image(systemName: "arrow.clockwise") }
+                            .accessibilityLabel(L("購入を復元", "Restore purchases"))
+                            .accessibilityIdentifier("store_restore")
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 16)
+                    .font(Theme.body(14)).foregroundStyle(Theme.cyan)
+                    .frame(minHeight: 32)
+                    categoryTiles(proxy: proxy)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 12) {
+                            categorySection.id("category_section")
+                            SectionTitle(title: L("注目バンドル", "Featured bundles"), symbol: "sparkles")
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 108), spacing: 10)], spacing: 12) {
+                                ForEach(StoreCatalog.featuredBundles(master: app.master, day: StoreCatalog.dayNumber(Date()))) { item in
+                                    StoreProductCard(item: item)
+                                }
+                            }
+                            .accessibilityIdentifier("store_featured")
+                        }
+                        .padding(.top, 6)
+                        .padding(.bottom, 12)
+                    }
+                    .scrollIndicators(.hidden)
                 }
-                .scrollIndicators(.hidden)
+                .padding(.horizontal, 10)
             }
         }
     }
@@ -35,21 +51,22 @@ struct StoreHomeView: View {
     private func categoryTiles(proxy: ScrollViewProxy) -> some View {
         // 商品の無いカテゴリ（今はスキン）は出さず、出すタイルで 1 行を埋める
         let categories = StoreCatalog.homeCategories(master: app.master)
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: max(1, categories.count)), spacing: 8) {
-            ForEach(categories) { c in
-                StoreCategoryTile(category: c, selected: c == category && c != .skins && c != .gems,
-                                  count: StoreCatalog.items(in: c, master: app.master).count) {
-                    app.haptics.tap()
-                    switch c {
-                    case .skins: app.router.push(.skinStore)
-                    case .gems: app.router.push(.currencyStore)
-                    default:
-                        withAnimation(.easeInOut(duration: 0.25)) {
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(categories) { c in
+                    CollectionFilterChip(title: c.title, symbol: c.symbol, color: Theme.cyan,
+                                         isSelected: c == category && c != .skins && c != .gems) {
+                        app.haptics.tap()
+                        switch c {
+                        case .skins: app.router.push(.skinStore)
+                        case .gems: app.router.push(.currencyStore)
+                        default:
                             category = c
                             effectFilter = nil
+                            proxy.scrollTo("category_section", anchor: .top)
                         }
-                        withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo("category_section", anchor: .top) }
                     }
+                    .accessibilityIdentifier("store_cat_\(c.rawValue)")
                 }
             }
         }
@@ -65,259 +82,25 @@ struct StoreHomeView: View {
             SectionTitle(title: category.title, symbol: category.symbol,
                                    trailing: L("\(items.count) 件", "\(items.count) items"))
             if category == .effects {
-                HStack(spacing: 6) {
-                    CollectionFilterChip(title: L("すべて", "All"), color: category.color, isSelected: effectFilter == nil) { effectFilter = nil }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                    CollectionFilterChip(title: L("すべて", "All"), color: Theme.cyan, isSelected: effectFilter == nil) { effectFilter = nil }
                         .accessibilityIdentifier("store_effect_all")
                     ForEach(category.cosmeticTypes, id: \.self) { t in
                         CollectionFilterChip(title: CollectionStyle.cosmeticTypeName(t), symbol: CollectionStyle.cosmeticTypeSymbol(t),
                                              color: category.color, isSelected: effectFilter == t) { effectFilter = t }
                             .accessibilityIdentifier("store_effect_\(t.rawValue)")
                     }
+                    }
                 }
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 10)], spacing: 10) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 108), spacing: 10)], spacing: 10) {
                 ForEach(items) { item in
                     StoreProductCard(item: item)
                 }
             }
         }
         .animation(.easeInOut(duration: 0.2), value: effectFilter)
-    }
-}
-
-// MARK: - 注目バンドル
-
-struct StoreFeaturedCarousel: View {
-    @Environment(AppModel.self) private var app
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var page = 0
-
-    var body: some View {
-        let featured = StoreCatalog.featuredBundles(master: app.master, day: StoreCatalog.dayNumber(Date()))
-        TabView(selection: $page) {
-            ForEach(Array(featured.enumerated()), id: \.element.sku) { i, item in
-                // 表示中のページだけ動かす（隣接ページも描画されるため）
-                StoreFeaturedBanner(item: item, animated: i == page && !reduceMotion)
-                    .tag(i)
-            }
-        }
-        .tabViewStyle(.page(indexDisplayMode: .always))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.gold.opacity(0.35), lineWidth: 1))
-        .task(id: featured.count) {
-            // 5 秒毎に自動送り
-            guard !reduceMotion, featured.count > 1 else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(5))
-                guard !Task.isCancelled else { return }
-                withAnimation(.easeInOut(duration: 0.5)) { page = (page + 1) % featured.count }
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("store_featured")
-    }
-}
-
-struct StoreFeaturedBanner: View {
-    let item: StoreItemDef
-    var animated = true
-    @Environment(AppModel.self) private var app
-
-    var body: some View {
-        let n = Int(item.grantID.suffix(2)) ?? 1
-        let hue = (0.08 + 0.137 * Double(n)).truncatingRemainder(dividingBy: 1)
-        let count = StoreCatalog.purchaseCount(sku: item.sku, profile: app.profile)
-        let contents = EconomyService.bundleContents(item.grantID, master: app.master)
-        Button {
-            app.haptics.tap()
-            app.router.push(.productDetail(item.sku))
-        } label: {
-            ZStack {
-                LinearGradient(colors: [Color(hue: hue, saturation: 0.7, brightness: 0.45), Color(red: 0.06, green: 0.05, blue: 0.16)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-                Canvas { ctx, size in
-                    // 背景の星環
-                    let c = CGPoint(x: size.width * 0.78, y: size.height * 0.5)
-                    for k in 1...4 {
-                        let r = Double(k) * 34
-                        ctx.stroke(Path(ellipseIn: CGRect(x: c.x - r * 1.4, y: c.y - r * 0.5, width: r * 2.8, height: r)),
-                                   with: .color(.white.opacity(0.06)), lineWidth: 1)
-                    }
-                }
-                HStack(spacing: 14) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "sparkles")
-                            Text(L("注目", "FEATURED"))
-                        }
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
-                        .foregroundStyle(Theme.gold)
-                        Text(MasterText.storeItem(item))
-                            .font(Theme.title(22))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                        // 単品でも販売しているため「限定」等の根拠の無い訴求はしない
-                        Text(contents.isEmpty ? L("コスメのセット", "A set of cosmetics")
-                                              : L("コスメ \(contents.count) 点のセット", "\(contents.count) cosmetics"))
-                            .font(Theme.body(12))
-                            .foregroundStyle(Theme.textSecondary)
-                        Spacer(minLength: 0)
-                        HStack(spacing: 10) {
-                            Group {
-                                if EconomyService.isOwned(item, profile: app.profile) {
-                                    Label(L("所持済み", "Owned"), systemImage: "checkmark.circle.fill")
-                                        .font(Theme.body(13))
-                                        .foregroundStyle(Theme.success)
-                                } else if StoreCatalog.isUnavailable(item, profile: app.profile) {
-                                    Text(L("上限到達", "Limit reached"))
-                                        .font(Theme.body(13))
-                                        .foregroundStyle(Theme.textSecondary)
-                                } else {
-                                    PriceTag(currency: item.currency, amount: EconomyService.price(of: item), size: 16,
-                                             insufficient: !StoreCatalog.canAfford(item, profile: app.profile))
-                                }
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Capsule().fill(Color.black.opacity(0.4)))
-                            if item.purchaseLimit > 1 {
-                                Text(L("購入 \(count)/\(item.purchaseLimit)", "Bought \(count)/\(item.purchaseLimit)"))
-                                    .font(Theme.body(11))
-                                    .foregroundStyle(Theme.textSecondary)
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    BundlePreviewView(item: item, size: 120, animated: animated)
-                }
-                .padding(.horizontal, 18)
-                .padding(.top, 14)
-                .padding(.bottom, 26)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(CollectionPressStyle())
-        .accessibilityLabel(L("注目: ", "Featured: ") + MasterText.storeItem(item))
-        .accessibilityIdentifier("store_featured_\(item.sku)")
-    }
-}
-
-// MARK: - 財布
-
-struct StoreWalletPanel: View {
-    @Environment(AppModel.self) private var app
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            walletRow(.coin, label: L("コイン", "Coin"), amount: app.profile.starlightCoin)
-            walletRow(.gem, label: L("無償 Gem", "Free Gem"), amount: app.profile.freeGem)
-            walletRow(.paidGem, label: L("有償 Gem", "Paid Gem"),
-                      amount: app.profile.paidGem)
-            Spacer(minLength: 0)
-            Button {
-                app.haptics.tap()
-                app.router.push(.currencyStore)
-            } label: {
-                Label(L("Gem を購入", "Get Gems"), systemImage: "plus.circle.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(PrimaryButtonStyle(color: Theme.cyan))
-            .frame(minHeight: 44)
-            .accessibilityIdentifier("store_get_gems")
-            HStack(spacing: 0) {
-                smallLink(L("所持品", "Inventory"), symbol: "shippingbox.fill", id: "store_inventory") { app.router.push(.inventory) }
-                smallLink(L("復元", "Restore"), symbol: "arrow.clockwise", id: "store_restore") { app.router.push(.restorePurchases) }
-            }
-        }
-        .padding(12)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.panel))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
-    }
-
-    private func walletRow(_ kind: CurrencyIcon.Kind, label: String, amount: Int) -> some View {
-        HStack(spacing: 6) {
-            CurrencyIcon(kind: kind, size: 14).frame(width: 16)
-            Text(label).font(Theme.body(12)).foregroundStyle(Theme.textSecondary)
-            Spacer()
-            Text(amount.formatted()).font(Theme.mono(13)).foregroundStyle(Theme.textPrimary).monospacedDigit()
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private func smallLink(_ title: String, symbol: String, id: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: symbol)
-                .font(Theme.body(11))
-                .foregroundStyle(Theme.cyan)
-                .frame(maxWidth: .infinity, minHeight: 34)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(id)
-    }
-}
-
-// MARK: - カテゴリタイル・商品カード
-
-struct StoreCategoryTile: View {
-    let category: StoreCategory
-    let selected: Bool
-    let count: Int
-    let action: () -> Void
-
-    var body: some View {
-        let navigates = category == .skins || category == .gems
-        Button(action: action) {
-            VStack(spacing: 4) {
-                ZStack {
-                    Circle().fill(category.color.opacity(0.18)).frame(width: 36, height: 36)
-                    Image(systemName: category.symbol)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(category.color)
-                }
-                Text(category.title)
-                    .font(Theme.heading(12))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                Text(category.subtitle)
-                    .font(Theme.body(9))
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 4)
-            .frame(maxWidth: .infinity, minHeight: 88)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(LinearGradient(colors: [category.color.opacity(selected ? 0.35 : 0.14), Theme.panel],
-                                         startPoint: .top, endPoint: .bottom))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(selected ? category.color : category.color.opacity(0.3), lineWidth: selected ? 2 : 1)
-            )
-            .overlay(alignment: .topTrailing) {
-                if navigates {
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(category.color)
-                        .padding(7)
-                } else if count > 0 {
-                    Text("\(count)")
-                        .font(Theme.mono(9))
-                        .foregroundStyle(Theme.textSecondary)
-                        .padding(7)
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(CollectionPressStyle())
-        .accessibilityLabel(category.title)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("store_cat_\(category.rawValue)")
     }
 }
 
@@ -339,7 +122,7 @@ struct StoreProductCard: View {
             VStack(spacing: 5) {
                 StoreItemPreview(item: item, size: previewSize, animated: false)
                     .frame(height: previewSize + 4)
-                    .padding(.top, 6)
+                    .padding(.top, 16)
                 Text(MasterText.storeItem(item))
                     .font(Theme.body(11))
                     .foregroundStyle(Theme.textPrimary)
@@ -367,12 +150,8 @@ struct StoreProductCard: View {
             }
             .padding(.horizontal, 6)
             .padding(.bottom, 8)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(LinearGradient(colors: [tint.opacity(0.14), Theme.panel], startPoint: .top, endPoint: .bottom))
-            )
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(tint.opacity(owned ? 0.7 : 0.35), lineWidth: 1))
+            .frame(maxWidth: .infinity, minHeight: 206, alignment: .top)
+            .worldShellCard(selected: owned)
             .opacity(unavailable && !owned ? 0.6 : 1)
             .contentShape(Rectangle())
         }

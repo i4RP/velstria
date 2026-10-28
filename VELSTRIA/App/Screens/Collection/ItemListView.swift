@@ -63,7 +63,7 @@ struct ItemListView: View {
                     .animation(.easeInOut(duration: 0.2), value: tier)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
         }
     }
 }
@@ -134,8 +134,9 @@ struct ItemTierPicker: View {
                 Text("T\(t)").tag(Int?.some(t))
             }
         }
-        .pickerStyle(.segmented)
-        .frame(width: 200)
+        .pickerStyle(.menu)
+        .tint(Theme.cyan)
+        .frame(maxWidth: 94)
         .accessibilityIdentifier("items_tier_filter")
     }
 }

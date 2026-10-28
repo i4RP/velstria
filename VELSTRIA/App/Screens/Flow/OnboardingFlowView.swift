@@ -5,19 +5,28 @@ import VelstriaCore
 // 途中で終了しても、保存済みの項目は飛ばして未完了のステップから再開する。
 
 struct OnboardingFlowView: View {
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     @Environment(AppModel.self) private var app
     @State private var step: OnboardingStep = .splash
 
     var body: some View {
         ZStack {
             CelestialBackdrop()
-            content
+            GeometryReader { geometry in
+                ScrollView {
+                    content.frame(minHeight: geometry.size.height)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+            }
                 .id(step)
                 .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
                                         removal: .move(edge: .leading).combined(with: .opacity)))
             if step != .splash {
                 VStack {
-                    OnboardingStepHeader(step: step)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        OnboardingStepHeader(step: step)
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
                     Spacer()
                 }
                 .padding(.horizontal, 20)
@@ -26,7 +35,10 @@ struct OnboardingFlowView: View {
             }
         }
         .animation(.spring(duration: 0.55, bounce: 0.12), value: step)
-        .onAppear { app.audio.playMusic(.menu) }
+        .onAppear {
+            app.audio.playMusic(.menu)
+            if isEmbedded && step == .splash { step = OnboardingStep.firstPending(for: app.profile) }
+        }
     }
 
     @ViewBuilder private var content: some View {
@@ -144,6 +156,7 @@ private struct OnboardingSplashStep: View {
 // MARK: - UI002 年齢確認
 
 private struct OnboardingAgeStep: View {
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     let onNext: () -> Void
     @Environment(AppModel.self) private var app
     @State private var selection: AgeBracket?
@@ -163,7 +176,9 @@ private struct OnboardingAgeStep: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 24) {
+        let layout = isEmbedded ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16))
+                                : AnyLayout(HStackLayout(alignment: .center, spacing: 24))
+        layout {
             VStack(alignment: .leading, spacing: 12) {
                 Text(L("年齢の確認", "Confirm Your Age"))
                     .font(Theme.title(26))
@@ -257,6 +272,7 @@ private struct OnboardingAgeStep: View {
 // MARK: - UI003 利用規約（初回・改定時の再同意で共用）
 
 struct TermsAgreementView: View {
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     var isUpdate: Bool
     let onAccept: () -> Void
     @Environment(AppModel.self) private var app
@@ -298,7 +314,9 @@ struct TermsAgreementView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 18) {
+        let layout = isEmbedded ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+                                : AnyLayout(HStackLayout(alignment: .top, spacing: 18))
+        layout {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(sections) { s in
@@ -320,6 +338,7 @@ struct TermsAgreementView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .scrollIndicators(.visible)
+            .frame(height: isEmbedded ? 180 : nil)
             .glass(cornerRadius: 16)
             .accessibilityIdentifier("onb_terms_scroll")
 
@@ -373,7 +392,7 @@ struct TermsAgreementView: View {
                 .opacity(agreed ? 1 : 0.5)
                 .accessibilityIdentifier("onb_terms_next")
             }
-            .frame(width: 290)
+            .frame(width: isEmbedded ? nil : 290)
         }
     }
 
@@ -633,6 +652,7 @@ private struct OnboardingPrepareStep: View {
 // MARK: - チュートリアル案内
 
 private struct OnboardingTutorialStep: View {
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     @Environment(AppModel.self) private var app
     @State private var heroID = TutorialCatalog.heroID
 
@@ -644,7 +664,9 @@ private struct OnboardingTutorialStep: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 24) {
+        let layout = isEmbedded ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16))
+                                : AnyLayout(HStackLayout(alignment: .center, spacing: 24))
+        layout {
             VStack(alignment: .leading, spacing: 10) {
                 Text(L("チュートリアルに挑戦", "Try the Tutorial"))
                     .font(Theme.title(26))
@@ -682,7 +704,7 @@ private struct OnboardingTutorialStep: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 SectionTitle(title: L("使用するヒーロー", "Choose a Hero"), symbol: "person.fill")
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(78), spacing: 8), count: 3), spacing: 8) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 78), spacing: 8)], spacing: 8) {
                     ForEach(candidates) { h in
                         Button {
                             FlowFX.tap(app)

@@ -19,7 +19,7 @@ struct SpellLoadoutView: View {
                     else { app.profile.defaultSpells = value }
                     app.showToast(L("バトルスキルを設定しました", "Battle skill equipped"))
                 }
-            }.padding(.horizontal, 20)
+            }.padding(.horizontal, 10)
         }
     }
 }
@@ -75,7 +75,7 @@ struct BattleSkillPicker: View {
                 .accessibilityIdentifier("battle_skill_confirm")
             }
             .padding(14)
-            .frame(width: 225)
+            .frame(maxWidth: 190)
             .background(HomeChamfer(cut: 9).fill(Celestial.inkRaised.opacity(0.92)))
             .overlay(HomeChamfer(cut: 9).stroke(Celestial.ice.opacity(0.4), lineWidth: 0.6))
         }

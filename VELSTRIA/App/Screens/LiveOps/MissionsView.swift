@@ -224,11 +224,11 @@ struct MissionsView: View {
         ScreenScaffold(title: L("ミッション", "Missions")) {
             HStack(alignment: .top, spacing: 14) {
                 sidePanel(daily: daily, weekly: weekly, current: current)
-                    .frame(width: 230)
+                    .frame(maxWidth: 180)
                 missionList(current)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 10)
         }
         .rewardClaimPopup($reward)

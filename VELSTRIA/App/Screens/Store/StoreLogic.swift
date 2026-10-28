@@ -41,16 +41,7 @@ enum StoreCategory: String, CaseIterable, Identifiable {
         }
     }
 
-    var color: Color {
-        switch self {
-        case .skins: return Color(red: 1.0, green: 0.55, blue: 0.70)
-        case .effects: return Color(red: 0.72, green: 0.52, blue: 1.0)
-        case .emotes: return Color(red: 0.45, green: 0.92, blue: 0.75)
-        case .frames: return Theme.gold
-        case .heroes: return Color(red: 0.45, green: 0.72, blue: 1.0)
-        case .gems: return Theme.cyan
-        }
-    }
+    var color: Color { Theme.cyan }
 
     var cosmeticTypes: [CosmeticType] {
         switch self {

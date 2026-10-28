@@ -8,10 +8,10 @@ import VelstriaCore
 
 /// プロフィールの画面群の色（MLBB の青灰の面・淡い青の文字）。
 enum HubStyle {
-    static let panel = Color(red: 0.23, green: 0.33, blue: 0.49).opacity(0.55)
-    static let panelDeep = Color(red: 0.08, green: 0.13, blue: 0.23).opacity(0.85)
+    static let panel = Color(red: 0.12, green: 0.34, blue: 0.63).opacity(0.55)
+    static let panelDeep = Color(red: 0.06, green: 0.19, blue: 0.40).opacity(0.85)
     /// 画面の上に重ねる面（下が透けない）。
-    static let panelSolid = Color(red: 0.07, green: 0.11, blue: 0.20)
+    static let panelSolid = Color(red: 0.07, green: 0.23, blue: 0.46)
     static let row = Color(red: 0.32, green: 0.43, blue: 0.59).opacity(0.62)
     static let stroke = Color(red: 0.62, green: 0.78, blue: 0.96).opacity(0.32)
     static let text = Color(red: 0.88, green: 0.93, blue: 1.0)
@@ -80,6 +80,7 @@ enum RecordsFilter: String, CaseIterable, Hashable {
 
 struct ProfileHubView: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     @State private var section: ProfileHubSection
     @State private var overlay: HubOverlay?
     @State private var showsNameCard = false
@@ -94,9 +95,29 @@ struct ProfileHubView: View {
         GeometryReader { geo in
             let sidebar = min(158, max(112, geo.size.width * 0.17))
             VStack(spacing: 0) {
-                topBar(sidebar: sidebar, compact: geo.size.width < 720)
+                if isEmbedded {
+                    HStack(spacing: 6) {
+                        ForEach(ProfileHubSection.allCases, id: \.self) { section in
+                            Button {
+                                app.audio.play(.uiTab)
+                                self.section = section
+                            } label: {
+                                Text(section.title).font(Theme.heading(12)).lineLimit(1).minimumScaleFactor(0.7)
+                                    .foregroundStyle(self.section == section ? Theme.gold : Theme.textSecondary)
+                                    .frame(maxWidth: .infinity, minHeight: 38)
+                                    .worldShellCard(selected: self.section == section)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier(section.identifier)
+                        }
+                        tools(compact: true)
+                    }
+                    .padding(8)
+                } else {
+                    topBar(sidebar: sidebar, compact: geo.size.width < 720)
+                }
                 HStack(alignment: .top, spacing: 10) {
-                    menu.frame(width: sidebar)
+                    if !isEmbedded { menu.frame(width: sidebar) }
                     content
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
@@ -107,7 +128,7 @@ struct ProfileHubView: View {
         .background(HubBackdrop())
         .overlay { overlayContent }
         .animation(.easeInOut(duration: 0.2), value: overlay)
-        .sheet(isPresented: $showsNameCard) {
+        .worldPanel(isPresented: $showsNameCard) {
             PublicNameCardView(profile: ownCard).environment(app)
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -268,14 +289,17 @@ struct ProfileHubView: View {
 
 /// 青い霧の地（MLBB のプロフィールの空の色）。季節のキービジュアルをぼかした上に青を重ねる。
 struct HubBackdrop: View {
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     var body: some View {
         ZStack {
+            if !isEmbedded {
             CelestialBackdrop()
             LinearGradient(colors: [Color(red: 0.22, green: 0.36, blue: 0.58).opacity(0.62),
                                     Color(red: 0.10, green: 0.18, blue: 0.34).opacity(0.70),
                                     Color(red: 0.05, green: 0.09, blue: 0.18).opacity(0.80)],
                            startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
+            }
         }
         .accessibilityHidden(true)
     }
@@ -1127,7 +1151,7 @@ struct RecordsPane: View {
                 cards(list)
             }
         }
-        .sheet(item: $selected, onDismiss: startPendingReplay) { r in
+        .worldPanel(item: $selected, onDismiss: startPendingReplay) { r in
             RecordDetailSheet(record: r, replay: replayMeta(for: r)) { launch in
                 pendingLaunch = launch
                 selected = nil
@@ -1478,7 +1502,7 @@ private struct RecordDetailSheet: View {
     let replay: ReplayMeta?
     let onWatch: (BattleLaunch) -> Void
     @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.worldPanelDismiss) private var dismiss
     /// リプレイの読み込み中（メインスレッドの外で復号する。二重に開始しない）。
     @State private var loadingReplay = false
     /// 読み込み（シートを閉じたら取り消す。閉じた後に読み終わっても再生を始めない）。

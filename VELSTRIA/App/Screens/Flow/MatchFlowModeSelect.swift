@@ -1,10 +1,8 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: ui-flow。UI021 モード選択（MLBB 2.2.16 の作り。docs/OUTGAME_GAP.md 2 章・「委員会の調べ」）。
-// 左半分はロビーのキービジュアルのまま、右半分に菱形のタイルを斜めに組む: ランキング（いちばん大きい金。段位名の帯・段位章・星）・
-// マッチング（大きい青）・乱闘・アーケード・宣伝の枠（GO! マジックチェス）・ライジング（赤い点と札）・AI対戦とカスタム。右上に「ルームIDを入力」。
-// 選んだモードはロビーの大ボタンの文字になる（Profile.lastMatchMode）。タイルの位置は MLBB の画面（右半分 960 × 864）から取った。
+// 対戦モードはパーティと同じ青いカードで、固定ワールド枠の中に表示する。
+// 選んだモードはロビーの大ボタンの文字になる（Profile.lastMatchMode）。
 
 /// モード選択のタイル。
 enum MatchModeCategory: String, CaseIterable, Identifiable {
@@ -127,229 +125,95 @@ struct MatchModeStep: View {
     @State private var showsVSAI = false
 
     var body: some View {
-        GeometryReader { geo in
-            let artWidth = geo.size.width * ModeTileLayout.artFraction
-            let area = CGSize(width: geo.size.width - artWidth, height: geo.size.height)
-            let scale = ModeTileLayout.scale(for: area)
-            ZStack(alignment: .topLeading) {
-                ModeSelectArt()
-                    .frame(width: artWidth + 80, height: geo.size.height)
-                    .allowsHitTesting(false)
-                tileCanvas
-                    .frame(width: ModeTileLayout.canvas.width, height: ModeTileLayout.canvas.height)
-                    .scaleEffect(scale, anchor: .topLeading)
-                    .frame(width: ModeTileLayout.canvas.width * scale, height: ModeTileLayout.canvas.height * scale, alignment: .topLeading)
-                    .offset(x: artWidth + max(0, area.width - ModeTileLayout.canvas.width * scale) / 2,
-                            y: max(0, area.height - ModeTileLayout.canvas.height * scale) / 2)
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
                 backButton
-                    .padding(.leading, 14)
-                    .padding(.top, 8)
-                difficultyRow
-                    .frame(width: max(200, artWidth - 24), alignment: .leading)
-                    .padding(.leading, 14)
-                    .frame(maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, 10)
+                Text(L("対戦モード", "Match Mode"))
+                    .font(Theme.heading(18)).foregroundStyle(Theme.gold)
+                Spacer(minLength: 0)
+                Button { openMode(.onlineLobby) } label: {
+                    Label(L("パーティ", "Party"), systemImage: "person.2.fill")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("flow_mode_roomID")
+            }
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 138), spacing: 10)], spacing: 12) {
+                    ForEach(MatchModeCategory.allCases) { category in
+                        modeCard(category)
+                    }
+                }
+                .padding(.top, 7)
+                .padding(.bottom, 4)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            difficultyRow
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(10)
+        .overlay {
+            if showsVSAI {
+                ZStack {
+                    Theme.panel.opacity(0.6).onTapGesture { showsVSAI = false }
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text(MatchModeCategory.vsAI.title).font(Theme.heading(16)).foregroundStyle(Theme.gold)
+                            Spacer()
+                            Button { showsVSAI = false } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                                .buttonStyle(.plain)
+                        }
+                        ForEach(MatchModeCategory.vsAI.destinations) { destination in
+                            Button {
+                                showsVSAI = false
+                                openMode(destination.route)
+                            } label: {
+                                Label(destination.title, systemImage: destination.symbol).frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(SecondaryButtonStyle())
+                            .accessibilityIdentifier(destination.id)
+                        }
+                    }
+                    .padding(16)
+                    .frame(maxWidth: 360)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(Theme.panel))
+                    .overlay(RoundedRectangle(cornerRadius: 5).stroke(Theme.cyan.opacity(0.6)))
+                    .padding(16)
+                }
             }
         }
     }
 
-    // MARK: タイル
-
-    private var tileCanvas: some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(MatchModeCategory.allCases) { c in
-                tile(c)
-                    .frame(width: c.spot.radius * 2, height: c.spot.radius * 2)
-                    .position(c.spot.center)
+    private func modeCard(_ category: MatchModeCategory) -> some View {
+        Button { start(category) } label: {
+            VStack(spacing: 10) {
+                Image(systemName: category.symbol)
+                    .font(.system(size: 27, weight: .semibold))
+                    .foregroundStyle(category == .ranked ? Theme.gold : Theme.cyan)
+                    .frame(height: 34)
+                Text(category.title)
+                    .font(Theme.heading(15))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                if category == .ranked {
+                    Text(RankService.shortName(app.profile.rank))
+                        .font(Theme.body(10)).foregroundStyle(Theme.gold)
+                } else {
+                    Text(category == .classic ? L("5 対 5", "5 vs 5") : L("選択する", "Select"))
+                        .font(Theme.body(10)).foregroundStyle(Theme.textSecondary)
+                }
             }
-            label(MatchModeCategory.rising.title, at: CGPoint(x: 868, y: 742), size: 30)
-            label(MatchModeCategory.vsAI.title, at: CGPoint(x: 710, y: 846), size: 30)
-            roomIDButton
-                .position(ModeTileLayout.roomID)
-        }
-    }
-
-    private func tile(_ c: MatchModeCategory) -> some View {
-        Button { start(c) } label: {
-            ZStack {
-                DiamondShape().fill(fill(c))
-                DiamondShape().stroke(stroke(c), lineWidth: c == .ranked || c == .classic ? 5 : 3)
-                DiamondShape().stroke(Color.white.opacity(0.18), lineWidth: 1.5).padding(10)
-                content(c)
+            .frame(maxWidth: .infinity, minHeight: 102)
+            .padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: 4).fill(Color(red: 0.12, green: 0.34, blue: 0.63).opacity(0.58)))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(category == .ranked ? Theme.gold.opacity(0.8) : Theme.cyan.opacity(0.5)))
+            .overlay(alignment: .top) {
+                Rectangle().fill(Theme.cyan.opacity(0.8)).frame(height: 2)
+                DiamondShape().fill(Theme.cyan).frame(width: 11, height: 15).offset(y: -6)
             }
-            .shadow(color: (c == .ranked ? Theme.gold : Celestial.ice).opacity(c == .ranked ? 0.5 : 0.25), radius: c == .ranked ? 18 : 8)
-            .contentShape(DiamondShape())
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .overlay(alignment: .topTrailing) {
-            if c == .rising && !RisingService.isComplete(app.profile.rising) {
-                Circle().fill(Color.red).frame(width: 22, height: 22)
-                    .overlay(Circle().stroke(.white, lineWidth: 2))
-                    .offset(x: -36, y: 36)
-                    .accessibilityHidden(true)
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(c.title)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityIdentifier(c.identifier)
-        .popover(isPresented: c == .vsAI ? $showsVSAI : .constant(false)) {
-            vsAIMenu.presentationCompactAdaptation(.popover)
-        }
-    }
-
-    private func fill(_ c: MatchModeCategory) -> LinearGradient {
-        switch c {
-        case .ranked:
-            return LinearGradient(colors: [Color(red: 0.98, green: 0.84, blue: 0.47), Color(red: 0.62, green: 0.43, blue: 0.13),
-                                           Color(red: 0.33, green: 0.21, blue: 0.05)], startPoint: .topTrailing, endPoint: .bottomLeading)
-        case .classic:
-            return LinearGradient(colors: [Color(red: 0.42, green: 0.66, blue: 0.98), Color(red: 0.12, green: 0.30, blue: 0.62),
-                                           Color(red: 0.04, green: 0.12, blue: 0.30)], startPoint: .topTrailing, endPoint: .bottomLeading)
-        case .rising:
-            return LinearGradient(colors: [Color(red: 0.78, green: 0.20, blue: 0.40), Celestial.inkRaised], startPoint: .top, endPoint: .bottom)
-        case .magicChess:
-            return LinearGradient(colors: [Color(red: 0.42, green: 0.30, blue: 0.70), Celestial.inkRaised], startPoint: .top, endPoint: .bottom)
-        default:
-            return LinearGradient(colors: [Color(red: 0.20, green: 0.32, blue: 0.52), Celestial.inkRaised], startPoint: .top, endPoint: .bottom)
-        }
-    }
-
-    private func stroke(_ c: MatchModeCategory) -> Color {
-        switch c {
-        case .ranked: return HomeStyle.goldLight
-        case .classic: return Color(red: 0.70, green: 0.88, blue: 1)
-        default: return Celestial.ice.opacity(0.75)
-        }
-    }
-
-    @ViewBuilder
-    private func content(_ c: MatchModeCategory) -> some View {
-        switch c {
-        case .ranked: rankedContent
-        case .classic:
-            VStack(spacing: 8) {
-                Image(systemName: c.symbol).font(.system(size: 78, weight: .light)).foregroundStyle(.white.opacity(0.9))
-                    .shadow(color: Celestial.ice, radius: 14)
-                Text(c.title).font(Celestial.title(44)).foregroundStyle(.white).shadow(color: .black.opacity(0.6), radius: 4)
-                    .lineLimit(1).minimumScaleFactor(0.6)
-            }
-            // 菱形の幅の広い中ほどに収める（上下の角に寄ると文字がはみ出す）
-            .frame(width: 280)
-            .offset(y: 14)
-        case .magicChess:
-            VStack(spacing: 2) {
-                Text("GO!").font(.system(size: 54, weight: .black, design: .rounded)).italic()
-                    .foregroundStyle(LinearGradient(colors: [HomeStyle.goldLight, Theme.gold], startPoint: .top, endPoint: .bottom))
-                    .shadow(color: .black.opacity(0.6), radius: 3)
-                Text(c.title).font(Celestial.heading(20)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.6)
-            }
-            .frame(width: 150)
-            .offset(y: 4)
-        case .rising, .vsAI:
-            Image(systemName: c.symbol).font(.system(size: 52, weight: .regular)).foregroundStyle(.white)
-                .shadow(color: Celestial.ice.opacity(0.8), radius: 6)
-        default:
-            VStack(spacing: 6) {
-                Image(systemName: c.symbol).font(.system(size: 52, weight: .light)).foregroundStyle(.white.opacity(0.9))
-                    .shadow(color: Celestial.ice.opacity(0.8), radius: 8)
-                Text(c.title).font(Celestial.title(30)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.5)
-                    .shadow(color: .black.opacity(0.6), radius: 3)
-            }
-            .frame(width: 160)
-            .offset(y: 8)
-        }
-    }
-
-    /// ランキング: 題名・段位名の帯・大きな段位章・星（ミシックは紫の星と「36/50」）。
-    private var rankedContent: some View {
-        let rank = app.profile.rank
-        return VStack(spacing: 8) {
-            Text(MatchModeCategory.ranked.title)
-                .font(Celestial.title(50))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .shadow(color: .black.opacity(0.55), radius: 4)
-            Text(RankService.shortName(rank) + (rank.tier == .mythic ? "" : " " + RankService.roman(rank.division)))
-                .font(Celestial.heading(34))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 36)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(Color.black.opacity(0.32)))
-            RankCrest(tier: rank.tier, size: 150)
-            if rank.tier == .mythic {
-                HStack(spacing: 6) {
-                    Image(systemName: "star.fill").foregroundStyle(Color(red: 0.86, green: 0.55, blue: 1))
-                    Text(ModeTileLayout.mythicNext(rank.stars).map { "\(rank.stars)/\($0)" } ?? "\(rank.stars)")
-                        .foregroundStyle(.white)
-                }
-                .font(.system(size: 36, weight: .bold, design: .rounded))
-            } else {
-                RankStarsView(stars: rank.stars, maxStars: RankService.maxStars(rank.tier), size: 28)
-            }
-        }
-        // 菱形の幅の広い中ほどに収める（題名が上の角へ寄ると隣のタイルへはみ出す）
-        .frame(width: 330)
-        .offset(y: 24)
-    }
-
-    private func label(_ text: String, at point: CGPoint, size: CGFloat) -> some View {
-        Text(text)
-            .font(Celestial.heading(size))
-            .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.7), radius: 3)
-            .fixedSize()
-            .position(point)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-    }
-
-    /// 右上: 「ルームIDを入力」（オンラインの部屋コードで入る）。
-    private var roomIDButton: some View {
-        Button {
-            openMode(.onlineLobby)
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "house.circle.fill").font(.system(size: 40))
-                Text(L("ルームIDを入力", "Enter Room ID")).font(Celestial.heading(30))
-            }
-            .foregroundStyle(.white.opacity(0.92))
-            .padding(.horizontal, 18)
-            .padding(.vertical, 8)
-            .background(Capsule().fill(Color.black.opacity(0.28)))
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("flow_mode_roomID")
-    }
-
-    /// AI対戦とカスタムの中身（カスタム・練習場・チュートリアル）。
-    private var vsAIMenu: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(MatchModeCategory.vsAI.title)
-                .font(Celestial.heading(13))
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.horizontal, 14)
-                .padding(.top, 10)
-            ForEach(MatchModeCategory.vsAI.destinations) { d in
-                Button {
-                    showsVSAI = false
-                    openMode(d.route)
-                } label: {
-                    Label(d.title, systemImage: d.symbol)
-                        .font(Theme.heading(14))
-                        .foregroundStyle(Theme.textPrimary)
-                        .padding(.horizontal, 14)
-                        .frame(minWidth: 200, minHeight: 44, alignment: .leading)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier(d.id)
-            }
-        }
-        .padding(.bottom, 6)
-        .presentationBackground(Celestial.ink)
+        .accessibilityIdentifier(category.identifier)
     }
 
     // MARK: 左
@@ -446,23 +310,5 @@ struct MatchModeStep: View {
         FlowFX.tap(app)
         app.router.isMatchFlowPresented = false
         app.router.push(route)
-    }
-}
-
-/// 左半分: ロビーのキービジュアル（MLBB のモード選択も左はロビーの絵のまま）。右へ向かって背景に溶かす。
-private struct ModeSelectArt: View {
-    var body: some View {
-        GeometryReader { geo in
-            let kv = HomeLobbySlot.keyVisual
-            let scale = geo.size.height / kv.height
-            Image("CelestialLobby").resizable()
-                .frame(width: HomeLayout.board.width * scale, height: HomeLayout.board.height * scale)
-                .offset(x: -(kv.midX * scale - geo.size.width * 0.45), y: -kv.minY * scale)
-                .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
-                .clipped()
-        }
-        .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.72),
-                                     .init(color: .clear, location: 1)], startPoint: .leading, endPoint: .trailing))
-        .accessibilityHidden(true)
     }
 }

@@ -35,7 +35,7 @@ struct OnlineLobbyView: View {
                 PartyLobbyView()
             }
         }
-        .sheet(isPresented: $showsFriends) {
+        .worldPanel(isPresented: $showsFriends) {
             FriendsView().environment(app)
         }
         .onAppear { app.audio.playMusic(.lobby) }
@@ -316,6 +316,7 @@ struct OnlineRoomView: View {
     /// フレンドの画面を開く（部屋の上の帯の「招待」）。
     var onShowFriends: (() -> Void)?
     @Environment(AppModel.self) private var app
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     @State private var roleFilter: Role?
     @State private var autoStarted = false
     @State private var showsMembers = false
@@ -326,6 +327,7 @@ struct OnlineRoomView: View {
     @State private var showsRoomControls = false
     @State private var inviteAfterControls = false
     @State private var showsSpells = false
+    @State private var showsTeams = false
 
     private var room: OnlineRoom { session.room }
     private var mySeat: OnlineSeat? { session.localSeat }
@@ -342,8 +344,10 @@ struct OnlineRoomView: View {
                         inProgressView
                     } else {
                         HStack(spacing: 12) {
-                            draftTeam(mySeat?.team ?? .blue)
-                                .frame(width: geometry.size.width * 0.18)
+                            if !isEmbedded {
+                                draftTeam(mySeat?.team ?? .blue)
+                                    .frame(width: geometry.size.width * 0.18)
+                            }
                             VStack(spacing: 6) {
                                 if mySeat == nil {
                                     unseatedPanel
@@ -355,8 +359,10 @@ struct OnlineRoomView: View {
                                 draftFooter
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            draftTeam(mySeat?.team == .red ? .blue : .red)
-                                .frame(width: geometry.size.width * 0.18)
+                            if !isEmbedded {
+                                draftTeam(mySeat?.team == .red ? .blue : .red)
+                                    .frame(width: geometry.size.width * 0.18)
+                            }
                         }
                     }
                 }
@@ -371,15 +377,24 @@ struct OnlineRoomView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background {
-            GeometryReader { geometry in
-                Image("HomeBackdrop").resizable().scaledToFill()
-                    .frame(width: geometry.size.width, height: geometry.size.height).clipped()
-                    .overlay(Color(red: 0.01, green: 0.04, blue: 0.12).opacity(0.55))
-            }.ignoresSafeArea()
+            if !isEmbedded { PartyBackdrop() }
         }
         .foregroundStyle(Theme.textPrimary)
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showsRoomControls, onDismiss: {
+        .worldPanel(isPresented: $showsMembers) {
+            OnlineMembersView(session: session, source: .room)
+        }
+        .worldPanel(isPresented: $showsSpectateSettings) {
+            OnlineSpectateSettingsView(session: session)
+        }
+        .worldPanel(isPresented: $showsTeams) {
+            HStack(spacing: 12) {
+                draftTeam(mySeat?.team ?? .blue)
+                draftTeam(mySeat?.team == .red ? .blue : .red)
+            }
+            .padding(12)
+        }
+        .worldPanel(isPresented: $showsRoomControls, onDismiss: {
             if inviteAfterControls {
                 inviteAfterControls = false
                 onShowFriends?()
@@ -396,7 +411,7 @@ struct OnlineRoomView: View {
                 sidePanel
             }.padding(16).background(Theme.panel)
         }
-        .sheet(isPresented: $showsSpells) {
+        .worldPanel(isPresented: $showsSpells) {
             VStack {
                 HStack {
                     Text(L("バトルスキル", "Battle Skill"))
@@ -490,6 +505,7 @@ struct OnlineRoomView: View {
             Button {
                 FlowFX.tap(app)
                 showsMembers = true
+                showsRoomControls = false
             } label: {
                 HStack(spacing: 8) {
                     Label("\(room.players.count)", systemImage: "person.fill")
@@ -508,10 +524,6 @@ struct OnlineRoomView: View {
             .accessibilityHint(L("参加者の一覧を開きます", "Shows everyone in the room"))
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("online_counts")
-            .popover(isPresented: $showsMembers) {
-                OnlineMembersView(session: session)
-                    .presentationCompactAdaptation(.popover)
-            }
             if session.resyncCount > 0 {
                 Text(L("再同期 \(session.resyncCount)", "resync \(session.resyncCount)"))
                     .font(Theme.body(11))
@@ -871,6 +883,7 @@ struct OnlineRoomView: View {
         Button {
             FlowFX.tap(app)
             showsSpectateSettings = true
+            showsRoomControls = false
         } label: {
             Label(room.allowsSpectators ? L("観戦: \(Int(room.spectatorDelaySeconds.rounded())) 秒遅れ", "Watch: \(Int(room.spectatorDelaySeconds.rounded()))s delay")
                                         : L("観戦: 不可", "Watch: Off"),
@@ -881,10 +894,6 @@ struct OnlineRoomView: View {
         .buttonStyle(SecondaryButtonStyle())
         .disabled(room.phase != .lobby)
         .accessibilityIdentifier("online_spectate_settings")
-        .popover(isPresented: $showsSpectateSettings) {
-            OnlineSpectateSettingsView(session: session)
-                .presentationCompactAdaptation(.popover)
-        }
     }
 
     // MARK: 自動操作（-onlineAuto: 2 台のシミュレータでの検証用）
@@ -950,6 +959,12 @@ private extension OnlineRoomView {
                 Label(L("ルーム", "Room"), systemImage: "slider.horizontal.3")
                     .font(Theme.body(12)).frame(minWidth: 72, minHeight: 44)
             }.accessibilityIdentifier("online_room_controls")
+            if isEmbedded {
+                Button { showsTeams = true } label: {
+                    Image(systemName: "person.3.fill").frame(width: 38, height: 44)
+                }
+                .accessibilityLabel(L("チームと座席", "Teams and seats"))
+            }
             Spacer()
             VStack(spacing: 0) {
                 Text(pickPhaseText)
@@ -1042,7 +1057,7 @@ private extension OnlineRoomView {
         return VStack(spacing: 4) {
             RoleFilterBar(selection: $roleFilter)
             GeometryReader { geometry in
-                let columns = geometry.size.width > 480 ? 7 : 5
+                let columns = max(2, min(7, Int(geometry.size.width / 62)))
                 let size = min(54.0, max(32.0, (geometry.size.width - CGFloat(columns - 1) * 8) / CGFloat(columns)))
                 ScrollView {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: columns), spacing: 10) {
@@ -1614,7 +1629,7 @@ struct OnlineMembersView: View {
             }
             .padding(14)
         }
-        .frame(width: 320)
+        .frame(maxWidth: .infinity)
         .frame(maxHeight: 280)
         .background(Theme.panel)
         .moderationPrompts(moderation)

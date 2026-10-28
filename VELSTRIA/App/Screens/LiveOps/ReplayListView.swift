@@ -231,12 +231,12 @@ struct ReplayListView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 10)
         }
         .overlay { if loadingID != nil || importing { loadingOverlay } }
         .allowsHitTesting(loadingID == nil && !importing)
-        .sheet(item: $detail, onDismiss: runPendingDetailAction) { meta in
+        .worldPanel(item: $detail, onDismiss: runPendingDetailAction) { meta in
             ReplayDetailSheet(metaID: meta.id,
                               onPlay: { m in pendingDetailAction = .play(m); detail = nil },
                               onRename: { m in pendingDetailAction = .rename(m); detail = nil },
@@ -305,7 +305,7 @@ struct ReplayListView: View {
 
     private var loadingOverlay: some View {
         ZStack {
-            Color.black.opacity(0.45).ignoresSafeArea()
+            Theme.bgBottom.opacity(0.4)
             VStack(spacing: 10) {
                 ProgressView().tint(Theme.gold).controlSize(.large)
                 Text(importing ? L("取り込み中…", "Importing…") : L("リプレイを読み込み中…", "Loading replay…"))
@@ -313,8 +313,8 @@ struct ReplayListView: View {
                     .foregroundStyle(Theme.textPrimary)
             }
             .padding(22)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.panelStroke))
+            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(Theme.panelStroke))
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("replays_loading")
         }
@@ -783,7 +783,7 @@ struct ReplayDetailSheet: View {
     let onRename: (ReplayMeta) -> Void
     let onDelete: (ReplayMeta) -> Void
     @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.worldPanelDismiss) private var dismiss
     @State private var loaded: ReplayData?
     @State private var loadFailed = false
 
@@ -814,7 +814,7 @@ struct ReplayDetailSheet: View {
                         .padding(.bottom, 10)
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 10)
                 .padding(.vertical, 12)
                 .task(id: meta.fileName) {
                     guard ReplayLibrary.record(for: meta, in: app.profile)?.summary == nil else { return }

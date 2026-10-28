@@ -21,11 +21,11 @@ struct BuildEditorView: View {
             if let hero = app.master.hero(heroID) {
                 HStack(alignment: .top, spacing: 12) {
                     editorPanel(hero)
-                        .frame(width: 272)
+                        .frame(maxWidth: 210)
                         .padding(.bottom, 8)
                     catalog
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 10)
                 .onAppear(perform: load)
                 .confirmationDialog(L("保存済みのカスタムビルドを削除して、おすすめビルドに戻しますか？",
                                       "Delete your saved custom build and go back to the recommended build?"),
@@ -116,8 +116,8 @@ struct BuildEditorView: View {
             }
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.panel))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
     }
 
     private static let slotSize: CGFloat = 56

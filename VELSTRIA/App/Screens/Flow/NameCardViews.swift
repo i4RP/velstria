@@ -35,7 +35,7 @@ enum LastSeenText {
 struct PublicNameCardView: View {
     let profile: PublicProfile
     @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.worldPanelDismiss) private var dismiss
     @State private var page = 0
 
     var body: some View {
@@ -44,12 +44,31 @@ struct PublicNameCardView: View {
             let h = min(geo.size.height - 24, w * 0.52)
             ZStack {
                 Color.black.opacity(0.001)
-                card
-                    .frame(width: w, height: h)
-                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                if geo.size.width < 600 {
+                    ScrollView {
+                        VStack(spacing: 12) {
+                            left
+                            HStack {
+                                roundButton("person.badge.plus", L("フレンド追加", "Add friend"), id: "namecard_add_friend", enabled: canRequest) {
+                                    FlowFX.confirm(app)
+                                    _ = app.friends.requestFriend(code: profile.code)
+                                }
+                                Spacer()
+                                roundButton("xmark", L("閉じる", "Close"), id: "namecard_close", enabled: true) { dismiss() }
+                            }
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .worldShellCard(selected: true)
+                    }
+                } else {
+                    card
+                        .frame(width: w, height: h)
+                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                }
             }
         }
-        .background(Celestial.ink.opacity(0.92).ignoresSafeArea())
+        .background(Color.clear)
         .presentationBackground(.clear)
         .accessibilityIdentifier("namecard")
     }
@@ -57,7 +76,7 @@ struct PublicNameCardView: View {
     private var card: some View {
         ZStack {
             HomeChamfer(cut: 16)
-                .fill(LinearGradient(colors: [Color(red: 0.16, green: 0.10, blue: 0.32), Celestial.inkRaised], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .fill(LinearGradient(colors: [Color(red: 0.12, green: 0.34, blue: 0.63), Celestial.inkRaised], startPoint: .topLeading, endPoint: .bottomTrailing))
             HStack(spacing: 0) {
                 left
                     .padding(14)

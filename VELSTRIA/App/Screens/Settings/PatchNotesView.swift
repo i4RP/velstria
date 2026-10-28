@@ -109,7 +109,7 @@ struct PatchNotesView: View {
                         }
                     }
                 }
-                .frame(width: 200)
+                .frame(maxWidth: 145)
                 if let note {
                     ScrollView(.vertical, showsIndicators: true) {
                         VStack(alignment: .leading, spacing: 10) {
@@ -136,7 +136,7 @@ struct PatchNotesView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 8)
         }
     }

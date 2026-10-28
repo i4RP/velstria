@@ -54,7 +54,7 @@ struct SkinStoreView: View {
                 .animation(.easeInOut(duration: 0.2), value: heroID)
                 .animation(.easeInOut(duration: 0.2), value: hideOwned)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
         }
     }
 

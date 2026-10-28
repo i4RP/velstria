@@ -1,43 +1,37 @@
 import SwiftUI
 import VelstriaCore
 
-// 試合の外の共通部品（採用案 Celestial Saber の質感: 藍の地・氷青の細い縁・面取りの角・明朝の見出し）。
+// 試合の外の共通部品。パーティロビーの青・シアン・金と丸ゴシックをすべての内容に使う。
 // 同じ役割の部品はここの 1 つだけを使う: 空の状態（EmptyStateView）・見出し（SectionTitle）・進み具合（CelestialProgressBar）・
 // 報酬のチップ（RewardChip）・タブ（CelestialTabs）。試合の中（App/Battle）では使わない。
 
 /// 採用案の色と文字。
 enum Celestial {
-    /// 地の藍。
-    static let ink = Color(red: 0.015, green: 0.045, blue: 0.09)
-    static let inkRaised = Color(red: 0.05, green: 0.10, blue: 0.19)
+    /// ロビーの青いパネル。
+    static let ink = Color(red: 0.07, green: 0.20, blue: 0.42)
+    static let inkRaised = Color(red: 0.10, green: 0.30, blue: 0.60)
     /// 縁と記号の氷青。
-    static let ice = Color(red: 0.65, green: 0.84, blue: 1)
+    static let ice = Theme.cyan
 
-    /// 画面の題名・カードの名前（明朝）。
-    static func title(_ size: CGFloat) -> Font { .system(size: size, weight: .semibold, design: .serif) }
-    /// 見出し（明朝）。
-    static func heading(_ size: CGFloat) -> Font { .system(size: size, weight: .semibold, design: .serif) }
+    /// 画面の題名・カードの名前。
+    static func title(_ size: CGFloat) -> Font { Theme.title(size) }
+    static func heading(_ size: CGFloat) -> Font { Theme.heading(size) }
 }
 
-/// 試合の外の画面の背景: 季節のキービジュアルをぼかして暗くした上に、上下の藍の帯（ホームの外側と同じ）。
+/// 親の世界に組み込まれた画面では背景を重ねない。
 struct CelestialBackdrop: View {
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
+
     var body: some View {
-        // 絵は画面の大きさで切り抜く（scaledToFill の絵は縦横比で画面より大きくなり、そのままだと親を押し広げて中身がずれる。
-        // SE では横に約 80pt 広がり「戻る」が画面の外へ出ていた）
-        GeometryReader { geo in
-            ZStack {
-                Celestial.ink
-                Image("CelestialLobby").resizable().scaledToFill()
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .clipped()
-                    .blur(radius: 22)
-                    .overlay(Color.black.opacity(0.66))
-                LinearGradient(colors: [Celestial.ink.opacity(0.85), .clear, Celestial.ink.opacity(0.9)], startPoint: .top, endPoint: .bottom)
+        Group {
+            if isEmbedded {
+                Color.clear
+            } else {
+                PartyBackdrop()
             }
-            .frame(width: geo.size.width, height: geo.size.height)
         }
-        .ignoresSafeArea()
         .accessibilityHidden(true)
+        .allowsHitTesting(false)
     }
 }
 
@@ -115,8 +109,8 @@ struct CelestialProgressBar: View {
         let v = value.isFinite ? min(1, max(0, value)) : 0
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(track)
-                Capsule()
+                Rectangle().fill(track)
+                Rectangle()
                     .fill(LinearGradient(colors: [tint.opacity(0.65), tint], startPoint: .leading, endPoint: .trailing))
                     .frame(width: v > 0 ? max(geo.size.height, geo.size.width * v) : 0)
                     .shadow(color: tint.opacity(0.7), radius: 3)
@@ -150,8 +144,8 @@ struct RewardChip: View {
         .padding(.leading, 3)
         .padding(.trailing, 8)
         .padding(.vertical, 3)
-        .background(HomeChamfer(cut: 5).fill(Celestial.ink.opacity(0.85)))
-        .overlay(HomeChamfer(cut: 5).stroke(Celestial.ice.opacity(0.45), lineWidth: 0.6))
+        .background(RoundedRectangle(cornerRadius: 3).fill(Celestial.ink.opacity(0.65)))
+        .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.panelStroke, lineWidth: 1))
         .opacity(claimed ? 0.6 : 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(RewardClaimText.name(attachment) + (claimed ? L("（受取済み）", " (claimed)") : ""))
@@ -191,7 +185,6 @@ struct CelestialTabs<Value: Hashable>: View {
 
     private func tab(_ option: CelestialTab<Value>) -> some View {
         let selected = option.value == selection
-        let shape = HomeChamfer(cut: 7)
         return Button {
             guard selection != option.value else { return }
             withAnimation(.spring(duration: 0.25)) { selection = option.value }
@@ -214,14 +207,13 @@ struct CelestialTabs<Value: Hashable>: View {
                         .background(Capsule().fill(Theme.gold))
                 }
             }
-            .foregroundStyle(selected ? Color(red: 0.16, green: 0.10, blue: 0.03) : Theme.textPrimary)
+            .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
             .padding(.horizontal, 12)
             .frame(maxWidth: fills ? .infinity : nil, minHeight: 44)
-            .background(
-                shape.fill(selected ? AnyShapeStyle(LinearGradient(colors: [HomeStyle.goldLight, tint], startPoint: .top, endPoint: .bottom))
-                                    : AnyShapeStyle(Celestial.ink.opacity(0.8)))
-            )
-            .overlay(shape.stroke(selected ? HomeStyle.goldLight : Celestial.ice.opacity(0.4), lineWidth: selected ? 1 : 0.6))
+            .background(selected ? Color.white.opacity(0.14) : Celestial.ink.opacity(0.25))
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(selected ? Theme.cyan : Theme.cyan.opacity(0.18)).frame(height: selected ? 3 : 1)
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

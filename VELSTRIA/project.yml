@@ -87,8 +87,6 @@ targets:
         NSHumanReadableCopyright: "© 2026 VELSIA"
         UILaunchScreen:
           UIColorName: LaunchBackground
-          UIImageName: LaunchLogo
-          UIImageRespectsSafeAreaInsets: true
         UIUserInterfaceStyle: Dark
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationLandscapeRight

@@ -53,7 +53,10 @@ struct PartyMember: Identifiable, Equatable {
 }
 
 struct PartyLobbyView: View {
+    var onInvite: (() -> Void)?
+    var onStart: (() -> Void)?
     @Environment(AppModel.self) private var app
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     @State private var tab: PartySideTab = .friends
     @State private var showsTeamSetup = false
     @State private var confirmsLeave = false
@@ -69,13 +72,14 @@ struct PartyLobbyView: View {
             let sideWidth = min(340, max(250, geo.size.width * 0.34))
             HStack(spacing: 0) {
                 mainArea
-                    .padding(.leading, 12)
-                    .padding(.trailing, 14)
-                PartySidePanel(tab: $tab)
-                    .frame(width: sideWidth)
+                    .padding(.horizontal, isEmbedded ? 8 : 12)
+                if !isEmbedded {
+                    PartySidePanel(tab: $tab)
+                        .frame(width: sideWidth)
+                }
             }
         }
-        .background(PartyBackdrop())
+        .background { if !isEmbedded { PartyBackdrop() } }
         .overlay {
             if showsTeamSetup, let session {
                 TeamSetupOverlay(session: session, onClose: { showsTeamSetup = false })
@@ -83,6 +87,9 @@ struct PartyLobbyView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .worldPanel(isPresented: $showsMembers) {
+            if let session { OnlineMembersView(session: session, source: .party) }
+        }
         .onAppear {
             app.ensurePartyRoom()
             app.friends.start()
@@ -101,7 +108,7 @@ struct PartyLobbyView: View {
 
     private var mainArea: some View {
         VStack(spacing: 10) {
-            header
+            if !isEmbedded { header }
             slots
                 .frame(maxHeight: .infinity)
             if let session, session.room.players.count > 1 {
@@ -289,6 +296,7 @@ struct PartyLobbyView: View {
                       onInvite: {
                           FlowFX.tap(app)
                           tab = .friends
+                          onInvite?()
                       },
                       onAddFriend: { code in
                           FlowFX.confirm(app)
@@ -366,12 +374,6 @@ struct PartyLobbyView: View {
                 .disabled(session == nil)
                 .accessibilityLabel(L("参加者の一覧（\(members.count) 人）", "Members (\(members.count))"))
                 .accessibilityIdentifier("party_members")
-                .popover(isPresented: $showsMembers) {
-                    if let session {
-                        OnlineMembersView(session: session, source: .party)
-                            .presentationCompactAdaptation(.popover)
-                    }
-                }
             }
             startButton
         }
@@ -382,6 +384,10 @@ struct PartyLobbyView: View {
         let enabled = isHost && !isConnecting
         return Button {
             FlowFX.confirm(app)
+            if let onStart {
+                onStart()
+                return
+            }
             if session == nil { app.ensurePartyRoom() }
             withAnimation(.easeOut(duration: 0.15)) { showsTeamSetup = true }
         } label: {
@@ -754,7 +760,7 @@ struct PartyRecentTab: View {
             }
         }
         .task { await app.publicProfiles.load(list.map(\.code)) }
-        .sheet(item: $card) { p in PublicNameCardView(profile: p).environment(app) }
+        .worldPanel(item: $card) { p in PublicNameCardView(profile: p).environment(app) }
     }
 
     private func row(_ p: RecentPlayer) -> some View {
@@ -841,9 +847,9 @@ struct PartyFriendsTab: View {
                 }
             }
             .padding(.bottom, 10)
-            .moderationPrompts(moderation)
         }
         .scrollBounceBehavior(.basedOnSize)
+        .moderationPrompts(moderation)
         .refreshable { hub.refreshPresence() }
         // フレンドの名刺（Lv・段位・最終ログイン。同意していなければ何もしない）
         .task { await app.publicProfiles.load(hub.friends.map(\.code)) }
@@ -1088,9 +1094,9 @@ struct PartyRequestsTab: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 10)
-            .moderationPrompts(moderation)
         }
         .scrollBounceBehavior(.basedOnSize)
+        .moderationPrompts(moderation)
     }
 
     private var myCode: some View {

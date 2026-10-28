@@ -139,9 +139,9 @@ struct SupportView: View {
                     }
                     .frame(maxWidth: .infinity)
                     infoPanel
-                        .frame(width: 260)
+                        .frame(maxWidth: 190)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 10)
                 .padding(.bottom, 10)
             }
         }
@@ -219,7 +219,7 @@ struct ContactView: View {
                         }
                     }
                 }
-                .frame(width: 210)
+                .frame(maxWidth: 170)
                 ScrollView(.vertical, showsIndicators: true) {
                     VStack(spacing: 10) {
                         editorPanel
@@ -229,7 +229,7 @@ struct ContactView: View {
                 }
                 .scrollDismissesKeyboard(.interactively)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 8)
         }
     }
@@ -346,7 +346,7 @@ struct ContactView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(showsFallback ? Theme.gold.opacity(0.7) : .clear, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(showsFallback ? Theme.gold.opacity(0.7) : .clear, lineWidth: 1))
     }
 
     private func send() {

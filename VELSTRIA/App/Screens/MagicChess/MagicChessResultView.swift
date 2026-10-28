@@ -11,32 +11,35 @@ struct MagicChessResultView: View {
     var body: some View {
         let placement = controller.human?.placement ?? max(1, controller.state.aliveCount)
         let win = placement == 1
-        return VStack(spacing: 14) {
-            Spacer(minLength: 0)
-            Image(systemName: win ? "crown.fill" : "flag.checkered")
-                .font(.system(size: 46, weight: .bold))
-                .foregroundStyle(win ? Theme.gold : Theme.cyan)
-                .glowPulse(win ? Theme.gold : Theme.cyan, radius: 14)
-            Text(win ? L("優勝！", "Winner!") : L("ゲーム終了", "Game Over"))
-                .font(.system(size: 30, weight: .black, design: .rounded))
-                .foregroundStyle(Theme.textPrimary)
-            Text(MagicChessFormat.placement(placement))
-                .font(.system(size: 22, weight: .heavy, design: .rounded))
-                .foregroundStyle(Theme.gold)
+        return HStack(spacing: 14) {
+            VStack(spacing: 10) {
+                Spacer(minLength: 0)
+                Image(systemName: win ? "crown.fill" : "flag.checkered")
+                    .font(.system(size: 40, weight: .bold))
+                    .foregroundStyle(win ? Theme.gold : Theme.cyan)
+                Text(win ? L("優勝！", "Winner!") : L("ゲーム終了", "Game Over"))
+                    .font(Theme.title(26))
+                    .foregroundStyle(Theme.gold)
+                Text(MagicChessFormat.placement(placement))
+                    .font(Theme.heading(20))
+                    .foregroundStyle(Theme.textPrimary)
 
-            HStack(spacing: 14) {
-                reward("star.circle.fill", "\(MagicChessRewardService.coins(placement: placement))", Theme.gold)
-                reward("arrow.up.circle.fill", "+\(MagicChessRewardService.accountXP(placement: placement)) XP", Theme.cyan)
+                HStack(spacing: 10) {
+                    reward("star.circle.fill", "\(MagicChessRewardService.coins(placement: placement))", Theme.gold)
+                    reward("arrow.up.circle.fill", "+\(MagicChessRewardService.accountXP(placement: placement)) XP", Theme.cyan)
+                }
+                Button { onClose() } label: {
+                    Label(L("ロビーへ", "Back to Lobby"), systemImage: "house.fill").frame(maxWidth: 280, minHeight: 44)
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("mc_result_close")
+                Spacer(minLength: 0)
             }
-
+            .padding(14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .worldShellCard(selected: true)
             standings
-            Spacer(minLength: 0)
-            Button { onClose() } label: {
-                Label(L("ホームへ", "Back to Home"), systemImage: "house.fill").frame(maxWidth: 280, minHeight: 50)
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .accessibilityIdentifier("mc_result_close")
-            Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -50,12 +53,13 @@ struct MagicChessResultView: View {
             }
             Text(text).font(Theme.heading(15)).foregroundStyle(Theme.textPrimary)
         }
-        .padding(.horizontal, 12).frame(height: 40)
-        .background(Capsule().fill(Color.white.opacity(0.06)))
+        .padding(.horizontal, 10).frame(height: 32)
+        .background(RoundedRectangle(cornerRadius: 4).fill(Theme.panel))
     }
 
     private var standings: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 8) {
+            SectionTitle(title: L("最終順位", "Final standings"), symbol: "list.number")
             ForEach(Array(controller.state.standings.enumerated()), id: \.element.id) { i, p in
                 HStack(spacing: 8) {
                     Text("\(i + 1)").font(Theme.mono(12)).foregroundStyle(i == 0 ? Theme.gold : Theme.textSecondary).frame(width: 20)
@@ -70,6 +74,6 @@ struct MagicChessResultView: View {
             }
         }
         .padding(10)
-        .glass(cornerRadius: 12)
+        .worldShellCard()
     }
 }

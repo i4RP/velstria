@@ -41,17 +41,7 @@ struct LoadingScreenView: View {
 
     var body: some View {
         ZStack {
-            GeometryReader { geo in
-                // 試合前の背景（オーロラの夜空と遺跡の稜線。カードの邪魔をしない中間調。tools/portraits/cards.py と同じ Codex 生成）
-                Image("LoadingBackdrop")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .clipped()
-            }
-            .ignoresSafeArea()
-            LinearGradient(colors: [.clear, .clear, Color.black.opacity(0.45)], startPoint: .top, endPoint: .bottom)
-                .ignoresSafeArea()
+            CelestialBackdrop()
             GeometryReader { geo in
                 let rowHeight = max(96, min(170, (geo.size.height - 118) / 2))
                 let cardWidth = max(90, min(rowHeight * 0.72, (geo.size.width - 48) / 5))

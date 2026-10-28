@@ -29,7 +29,7 @@ struct LanguageSettingsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 10)
                 .padding(.bottom, 10)
             }
         }
@@ -60,10 +60,10 @@ struct LanguageSettingsView: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, minHeight: 150)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(selected ? Theme.gold.opacity(0.12) : Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(selected ? Theme.gold.opacity(0.12) : Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .stroke(selected ? Theme.gold : Theme.panelStroke, lineWidth: selected ? 2 : 1))
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(SettingsText.language(lang))

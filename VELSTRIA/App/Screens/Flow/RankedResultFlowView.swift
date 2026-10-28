@@ -53,7 +53,7 @@ struct RankedResultFlowView: View {
             ToastOverlay()
         }
         .animation(.easeInOut(duration: 0.35), value: step)
-        .fullScreenCover(isPresented: $showsDetail) {
+        .worldPanel(isPresented: $showsDetail) {
             MatchResultView(outcome: outcome, report: report) { showsDetail = false }
         }
         .onAppear {
@@ -122,24 +122,7 @@ struct RankedResultFlowView: View {
 
 /// 星空と雲の背景（ランク・評価・スコアボード）。
 private struct SkyBackdrop: View {
-    var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color(red: 0.05, green: 0.08, blue: 0.30), Color(red: 0.16, green: 0.24, blue: 0.55),
-                                    Color(red: 0.36, green: 0.42, blue: 0.70)],
-                           startPoint: .top, endPoint: .bottom)
-            RadialGradient(colors: [Color.white.opacity(0.25), .clear], center: .bottom, startRadius: 10, endRadius: 520)
-            Canvas { ctx, size in
-                var rng = SplitMix64(seed: 7)
-                for _ in 0..<90 {
-                    let x = Double(rng.nextInt(in: 0...1000)) / 1000 * size.width
-                    let y = Double(rng.nextInt(in: 0...1000)) / 1000 * size.height * 0.6
-                    let r = Double(rng.nextInt(in: 5...18)) / 10
-                    ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: r, height: r)), with: .color(.white.opacity(0.7)))
-                }
-            }
-        }
-        .ignoresSafeArea()
-    }
+    var body: some View { CelestialBackdrop() }
 }
 
 /// 中央の縦長の結晶（紋章の台座）。
@@ -742,7 +725,7 @@ private struct RankedScoreboardStep: View {
                 .padding(.leading, 24)
                 .padding(.bottom, 50)
         }
-        .sheet(item: $cardPlayer) { p in
+        .worldPanel(item: $cardPlayer) { p in
             ResultPlayerCard(player: p, summary: summary, showsLocalProfile: p.isHuman).environment(app)
         }
     }

@@ -16,7 +16,7 @@ struct EmoteLoadoutView: View {
         ScreenScaffold(title: L("エモート", "Emotes")) {
             HStack(alignment: .top, spacing: 14) {
                 wheel(slots)
-                    .frame(width: 250)
+                    .frame(maxWidth: 200)
                 VStack(alignment: .leading, spacing: 6) {
                     SectionTitle(title: L("所持エモート", "Owned Emotes"), symbol: "bubble.left.fill",
                                            trailing: "\(owned.count)")
@@ -47,7 +47,7 @@ struct EmoteLoadoutView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
         }
         .onAppear {
             // 所持していないエモートが残っていれば外す（空配列はそのまま）
@@ -66,10 +66,10 @@ struct EmoteLoadoutView: View {
             ZStack {
                 Circle()
                     .stroke(Theme.panelStroke, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .frame(width: 176, height: 176)
+                    .frame(width: 128, height: 128)
                 Circle()
                     .fill(RadialGradient(colors: [Theme.cyan.opacity(0.18), .clear], center: .center, startRadius: 4, endRadius: 90))
-                    .frame(width: 176, height: 176)
+                    .frame(width: 128, height: 128)
                 Image(systemName: "face.smiling")
                     .font(.system(size: 22))
                     .foregroundStyle(Theme.textSecondary)
@@ -77,10 +77,10 @@ struct EmoteLoadoutView: View {
                 ForEach(0..<EmoteSlots.count, id: \.self) { i in
                     let angle = -Double.pi / 2 + Double(i) * .pi / 2
                     slotButton(i, emoteID: EmoteSlots.emote(at: i, in: slots), slots: slots)
-                        .offset(x: cos(angle) * 84, y: sin(angle) * 84)
+                        .offset(x: cos(angle) * 58, y: sin(angle) * 58)
                 }
             }
-            .frame(width: 240, height: 240)
+            .frame(width: 190, height: 190)
             if EmoteSlots.emote(at: slot, in: slots) != nil {
                 Button {
                     app.profile.equippedEmotes = EmoteSlots.clearing(slot: slot, in: slots)

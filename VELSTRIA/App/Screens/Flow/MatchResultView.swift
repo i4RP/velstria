@@ -179,8 +179,6 @@ struct MatchResultView: View {
     var body: some View {
         ZStack {
             CelestialBackdrop()
-            RadialGradient(colors: [bannerKind.color.opacity(0.22), .clear], center: .init(x: 0.5, y: 0.1), startRadius: 10, endRadius: 420)
-                .ignoresSafeArea()
             VStack(spacing: 6) {
                 ResultBanner(kind: bannerKind, appeared: bannerIn)
                 HStack(alignment: .top, spacing: 12) {
@@ -233,10 +231,10 @@ struct MatchResultView: View {
             ToastOverlay()
         }
         .persistentSystemOverlays(.hidden)
-        .sheet(isPresented: $showReport) {
+        .worldPanel(isPresented: $showReport) {
             MatchReportSheet(outcome: outcome).environment(app)
         }
-        .sheet(item: $cardPlayer) { p in
+        .worldPanel(item: $cardPlayer) { p in
             ResultPlayerCard(player: p, summary: summary, showsLocalProfile: isLocalPlayer(p), friendCode: friendCode(of: p)).environment(app)
         }
         .onAppear {
@@ -1292,7 +1290,7 @@ struct ResultPlayerCard: View {
     /// オンラインの人間のフレンドコード（フレンド申請・名刺。AI・この端末の人は nil）。
     var friendCode: String?
     @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.worldPanelDismiss) private var dismiss
     @State private var card: PublicProfile?
 
     private var heroName: String {
@@ -1365,7 +1363,7 @@ struct ResultPlayerCard: View {
             .padding(.vertical, 14)
         }
         .preferredColorScheme(.dark)
-        .sheet(item: $card) { p in PublicNameCardView(profile: p).environment(app) }
+        .worldPanel(item: $card) { p in PublicNameCardView(profile: p).environment(app) }
     }
 
     /// オンラインの人: フレンド申請と名刺（MLBB: リザルトから申請・名刺を開ける）。
@@ -1407,7 +1405,7 @@ struct ResultPlayerCard: View {
 struct MatchReportSheet: View {
     let outcome: BattleOutcome
     @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.worldPanelDismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var category: SupportReportCategory = .bug
     @State private var message = ""

@@ -334,7 +334,7 @@ struct CreditsView: View {
                 }
                 .frame(maxWidth: 560)
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 10)
             }
         }
     }

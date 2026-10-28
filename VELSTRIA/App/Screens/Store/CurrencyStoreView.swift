@@ -67,9 +67,9 @@ struct CurrencyStoreView: View {
                         .padding(.bottom, 12)
                 }
                 .scrollIndicators(.hidden)
-                .frame(width: 252)
+                .frame(maxWidth: 190)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
         }
         .overlay {
             if let gems = receivedGems {
@@ -274,12 +274,12 @@ struct StoreGemPackCard: View {
             .padding(.bottom, 10)
             .frame(maxWidth: .infinity, minHeight: 150)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
                     .fill(LinearGradient(colors: [Theme.cyan.opacity(0.08 + 0.03 * Double(tierIndex)), Theme.panel],
                                          startPoint: .top, endPoint: .bottom))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
                     .stroke(tierIndex >= 4 ? Theme.gold.opacity(0.6) : Theme.cyan.opacity(0.3), lineWidth: 1)
             )
             .overlay(alignment: .topLeading) {
@@ -396,7 +396,7 @@ struct GemPurchaseCompleteOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.84).ignoresSafeArea()
+            Theme.bgBottom.opacity(0.45)
             StoreCelebrationBurst(color: Theme.cyan).ignoresSafeArea().allowsHitTesting(false)
             VStack(spacing: 10) {
                 Text(L("購入完了！", "Purchased!"))

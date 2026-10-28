@@ -6,6 +6,7 @@ import VelstriaCore
 // MARK: - UI008 お知らせ
 
 struct NoticesView: View {
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     @Environment(AppModel.self) private var app
     @State private var selectedID: String?
     /// 開いた時点で既読だったお知らせ（並べ替えに使う。読んだ物が開いている間に下へ跳ばないように）。
@@ -51,7 +52,7 @@ struct NoticesView: View {
                         }
                         patchNotesButton
                     }
-                    .frame(width: 270)
+                    .frame(width: isEmbedded ? 168 : 270)
 
                     detail(list.first { $0.id == selectedID } ?? list[0])
                 }
@@ -195,6 +196,7 @@ enum MailBox {
 }
 
 struct MailView: View {
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     @Environment(AppModel.self) private var app
     @State private var tab: MailCategory = .important
     @State private var openedID: UUID?
@@ -210,7 +212,7 @@ struct MailView: View {
     var body: some View {
         ScreenScaffold(title: L("メール", "Mail")) {
             HStack(alignment: .top, spacing: 12) {
-                tabs.frame(width: 150)
+                tabs.frame(width: isEmbedded ? 112 : 150)
                 VStack(spacing: 8) {
                     let items = list(tab)
                     if items.isEmpty {

@@ -31,14 +31,14 @@ enum SkillShowcaseStyle {
     }
 
     /// 暗い紺のガラス調パネルの地色。
-    static let glass = Color(red: 0.04, green: 0.07, blue: 0.16)
+    static let glass = Theme.panel
 
     /// 左パネルの幅。
-    static let infoPanelWidth: CGFloat = 262
+    static let infoPanelWidth: CGFloat = 205
 
     static func panelBackground(_ tint: Color = Theme.cyan) -> some View {
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(LinearGradient(colors: [tint.opacity(0.20), glass.opacity(0.92)], startPoint: .top, endPoint: .bottom))
+        RoundedRectangle(cornerRadius: 5, style: .continuous)
+            .fill(LinearGradient(colors: [Theme.cyan.opacity(0.12), glass], startPoint: .top, endPoint: .bottom))
     }
 }
 
@@ -192,8 +192,8 @@ struct HeroInfoPanel: View {
         .frame(width: SkillShowcaseStyle.infoPanelWidth)
         .frame(maxHeight: .infinity)
         .background(SkillShowcaseStyle.panelBackground(roleColor))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(roleColor.opacity(0.4), lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(roleColor.opacity(0.4), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
     }
 
     // 名前・ロール（左）と 3D プレビュー（右）
@@ -390,8 +390,8 @@ struct SkillShowcasePanel: View {
         .padding(.top, 10)
         .padding(.bottom, 2)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(SkillShowcaseStyle.glass.opacity(0.86)))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(SkillShowcaseStyle.glass.opacity(0.86)))
+        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
     }
 
     // MARK: ヘッダ

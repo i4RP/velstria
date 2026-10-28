@@ -48,7 +48,7 @@ struct InventoryView: View {
                 .scrollIndicators(.hidden)
                 .animation(.easeInOut(duration: 0.2), value: tab)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
         }
     }
 

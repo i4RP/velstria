@@ -60,7 +60,7 @@ enum StarPassTrack {
         return seasonID
     }
 
-    static let premiumTint = Color(red: 0.80, green: 0.55, blue: 1.0)
+    static let premiumTint = Theme.gold
 }
 
 // MARK: - UI055
@@ -100,10 +100,13 @@ struct StarPassView: View {
                     track(rewards)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 8)
         }
         .rewardClaimPopup($reward)
+        .worldPanel(isPresented: $showsPremiumInfo) {
+            ScrollView { premiumInfo }
+        }
         .alert(alertTitle, isPresented: Binding(get: { alert != nil }, set: { if !$0 { alert = nil } }), presenting: alert) { _ in
             Button(L("OK", "OK"), role: .cancel) {}
         } message: { a in
@@ -213,11 +216,6 @@ struct StarPassView: View {
             LiveOpsIconButton(symbol: "info.circle", label: L("プレミアムについて", "About Premium"), identifier: "starpass_premium_info") {
                 showsPremiumInfo = true
             }
-            .popover(isPresented: $showsPremiumInfo) {
-                premiumInfo
-                    .presentationCompactAdaptation(.popover)
-                    .presentationBackground(Theme.bgTop)
-            }
         }
     }
 
@@ -245,7 +243,7 @@ struct StarPassView: View {
         .font(Theme.body(13))
         .foregroundStyle(Theme.textPrimary)
         .padding(16)
-        .frame(width: 320)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: トラック

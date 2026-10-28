@@ -13,14 +13,14 @@ struct ProductDetailView: View {
             if let item = app.master.storeItem(sku) {
                 HStack(alignment: .top, spacing: 16) {
                     showcase(item)
-                        .frame(width: 280)
+                        .frame(maxWidth: 180)
                     ScrollView {
                         info(item)
                             .padding(.bottom, 12)
                     }
                     .scrollIndicators(.hidden)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 10)
             } else {
                 EmptyStateView(symbol: "questionmark.circle", title: L("商品が見つかりません", "Product not found"))
             }
@@ -31,8 +31,8 @@ struct ProductDetailView: View {
     private func showcase(_ item: StoreItemDef) -> some View {
         let tint = StoreCatalog.rarity(of: item, master: app.master).map(Theme.rarityColor) ?? Theme.cyan
         return ZStack {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(RadialGradient(colors: [tint.opacity(0.35), Theme.panel], center: .center, startRadius: 10, endRadius: 220))
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(RadialGradient(colors: [Theme.cyan.opacity(0.16), Theme.panel], center: .center, startRadius: 10, endRadius: 220))
             Canvas { ctx, size in
                 // 台座
                 let c = CGPoint(x: size.width / 2, y: size.height * 0.84)
@@ -42,10 +42,10 @@ struct ProductDetailView: View {
                                with: .color(tint.opacity(0.5 - 0.12 * Double(k))), lineWidth: 1.5)
                 }
             }
-            StoreItemPreview(item: item, size: 160, animated: true)
+            StoreItemPreview(item: item, size: 120, animated: true)
                 .offset(y: -10)
         }
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(tint.opacity(0.5), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(tint.opacity(0.5), lineWidth: 1))
         .frame(maxHeight: .infinity)
         .padding(.bottom, 12)
     }

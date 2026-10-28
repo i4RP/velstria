@@ -17,7 +17,7 @@ struct RisingBracketView: View {
                 ladderPanel
                 controlBar(selected: selected)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 10)
             .padding(.bottom, 10)
         }
         .onAppear { processResultIfNeeded() }

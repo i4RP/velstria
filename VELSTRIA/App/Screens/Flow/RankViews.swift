@@ -7,6 +7,7 @@ import VelstriaCore
 // 下に自分の行。Velstria のサーバーは国。左のメニューは中身のある物だけ: ランキングと、架空の AI 50 人の AI ラダー）
 
 struct RankingView: View {
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     @Environment(AppModel.self) private var app
     @State private var menu: Menu = .ranking
     @State private var scope: Scope = .global
@@ -18,7 +19,7 @@ struct RankingView: View {
     var body: some View {
         ScreenScaffold(title: L("リーダーボード", "Leaderboard")) {
             HStack(alignment: .top, spacing: 12) {
-                leftMenu.frame(width: 136)
+                leftMenu.frame(width: isEmbedded ? 102 : 136)
                 Group {
                     switch menu {
                     case .ranking: rankingPane
@@ -30,7 +31,7 @@ struct RankingView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
         }
-        .sheet(item: $card) { p in
+        .worldPanel(item: $card) { p in
             PublicNameCardView(profile: p).environment(app)
         }
     }
@@ -360,6 +361,7 @@ struct RankingView: View {
 // 右下に勝率・総試合数・最高ランク・保護ポイント、下のタブ（シーズン情報／シーズンの道のり／ミシックへの道））
 
 struct RankOverviewView: View {
+    @Environment(\.isWorldShellEmbedded) private var isEmbedded
     @Environment(AppModel.self) private var app
     @State private var panel: Panel?
 
@@ -390,6 +392,25 @@ struct RankOverviewView: View {
     var body: some View {
         ScreenScaffold(title: L("ランク", "Rank")) {
             VStack(spacing: 6) {
+                if isEmbedded {
+                    ScrollView {
+                        VStack(spacing: 12) {
+                            HStack {
+                                seasonBadge
+                                Spacer()
+                                previousSeason
+                            }
+                            VStack(spacing: 12) {
+                                crestBlock
+                                statsGrid
+                            }
+                            actions
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity)
+                        .worldShellCard()
+                    }
+                } else {
                 ZStack {
                     crestBlock
                     seasonBadge
@@ -403,12 +424,13 @@ struct RankOverviewView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
                 .frame(maxHeight: .infinity)
+                }
                 tabsRow
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
         }
-        .sheet(item: $panel) { p in
+        .worldPanel(item: $panel) { p in
             NavigationStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {

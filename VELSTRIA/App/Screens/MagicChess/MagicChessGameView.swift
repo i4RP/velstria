@@ -1,7 +1,7 @@
 import SwiftUI
 import VelstriaCore
 
-// 担当: ui（マジックチェス）。盤面画面（全画面カバー）。ショップ→戦闘再生→精算→次ラウンド→結果。
+// ショップ・精算・結果は常設ワールド内、戦闘再生だけを全画面で表示する。
 
 struct MagicChessGameView: View {
     @Environment(AppModel.self) private var app
@@ -11,16 +11,29 @@ struct MagicChessGameView: View {
     @State private var stage: Stage = .shop
     @State private var playToken = 0
     @State private var rewardGranted = false
+    @State private var sideTab: PartySideTab = .friends
 
     enum Stage { case shop, playing, aftermath, result }
 
     var body: some View {
-        ZStack {
-            CelestialBackdrop().ignoresSafeArea()
-            if let controller {
+        Group {
+            if stage == .playing, let controller {
                 content(controller)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
+                    .background(Celestial.ink.ignoresSafeArea())
+            } else {
+                WorldShellFrame(title: L("マジックチェス", "Magic Chess"), sideTab: $sideTab, onBack: close) {
+                    WorldPanelViewport(minimumWidth: 740, minimumHeight: 380) {
+                        if let controller {
+                            content(controller)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                        } else {
+                            ProgressView().tint(Theme.cyan)
+                        }
+                    }
+                }
             }
         }
         .preferredColorScheme(.dark)
@@ -58,12 +71,14 @@ struct MagicChessGameView: View {
 
     private func topBar(_ c: MagicChessController) -> some View {
         HStack(spacing: 10) {
-            Button { close() } label: {
-                Image(systemName: "xmark").font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary).frame(width: 36, height: 36)
-                    .background(Circle().fill(Color.white.opacity(0.1)))
+            if stage == .playing {
+                Button { close() } label: {
+                    Image(systemName: "xmark").font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Theme.gold).frame(width: 44, height: 36)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(Theme.panel))
+                }
+                .buttonStyle(.plain).accessibilityIdentifier("mc_close")
             }
-            .buttonStyle(.plain).accessibilityIdentifier("mc_close")
             stat(symbol: "flag.checkered", text: L("R\(c.round)", "R\(c.round)"), tint: Theme.textPrimary)
             stat(symbol: "heart.fill", text: "\(c.human?.hp ?? 0)", tint: .red)
             stat(symbol: "star.circle.fill", text: "\(c.human?.gold ?? 0)", tint: Theme.gold)
@@ -79,7 +94,7 @@ struct MagicChessGameView: View {
             Text(text).font(Theme.mono(13)).foregroundStyle(Theme.textPrimary)
         }
         .padding(.horizontal, 8).frame(height: 32)
-        .background(Capsule().fill(Color.white.opacity(0.06)))
+        .background(RoundedRectangle(cornerRadius: 4).fill(Theme.panel))
     }
 
     private func synergyStrip(_ c: MagicChessController) -> some View {
@@ -91,7 +106,7 @@ struct MagicChessGameView: View {
                 }
                 .foregroundStyle(s.tier > 0 ? Color.black.opacity(0.85) : Theme.textSecondary)
                 .padding(.horizontal, 7).frame(height: 26)
-                .background(Capsule().fill(s.tier > 0 ? Theme.roleColor(s.role) : Color.white.opacity(0.06)))
+                .background(RoundedRectangle(cornerRadius: 4).fill(s.tier > 0 ? Theme.roleColor(s.role) : Theme.panel))
                 .accessibilityLabel("\(MasterText.role(s.role)) \(s.count)")
             }
         }
@@ -100,17 +115,21 @@ struct MagicChessGameView: View {
     // MARK: ショップ
 
     private func shopStage(_ c: MagicChessController) -> some View {
-        VStack(spacing: 8) {
-            HStack(alignment: .top, spacing: 10) {
-                Panel(padding: 8) { MCBoardGrid(controller: c) }
-                    .frame(maxWidth: .infinity)
-                controlColumn(c).frame(width: 150)
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 8) {
+                HStack(alignment: .top, spacing: 10) {
+                    Panel(padding: 8) { MCBoardGrid(controller: c) }
+                        .frame(maxWidth: .infinity)
+                    controlColumn(c).frame(width: 150, height: 190)
+                }
+                benchRow(c)
+                if c.selected != nil { selectionBar(c) }
+                shopRow(c)
             }
-            .frame(maxHeight: .infinity)
-            benchRow(c)
-            if c.selected != nil { selectionBar(c) }
-            shopRow(c)
+            .padding(.top, 4)
+            .padding(.bottom, 6)
         }
+        .scrollBounceBehavior(.basedOnSize)
     }
 
     private func controlColumn(_ c: MagicChessController) -> some View {
@@ -122,7 +141,7 @@ struct MagicChessGameView: View {
                     .font(Theme.body(12)).frame(maxWidth: .infinity, minHeight: 40)
             }
             .buttonStyle(.plain)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.08)))
+            .worldShellCard()
             .accessibilityIdentifier("mc_autoarrange")
             Spacer(minLength: 0)
             Button {
@@ -183,7 +202,7 @@ struct MagicChessGameView: View {
             .accessibilityIdentifier("mc_sell")
         }
         .padding(.horizontal, 10).frame(height: 36)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.06)))
+        .worldShellCard()
     }
 
     private func shopRow(_ c: MagicChessController) -> some View {
@@ -195,7 +214,7 @@ struct MagicChessGameView: View {
                     Text("\(MagicChessData.rerollCost)").font(.system(size: 10, weight: .heavy, design: .rounded))
                 }
                 .foregroundStyle(Theme.cyan).frame(width: 52, height: 58)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.08)))
+                .worldShellCard()
             }
             .buttonStyle(.plain).accessibilityIdentifier("mc_reroll")
             ForEach(shop) { s in
@@ -210,7 +229,8 @@ struct MagicChessGameView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, minHeight: 58)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(s.sold ? 0.02 : 0.06)))
+                    .worldShellCard()
+                    .opacity(s.sold ? 0.35 : 1)
                 }
                 .buttonStyle(.plain).disabled(s.sold)
                 .accessibilityIdentifier("mc_shop_\(s.slot)")
@@ -245,25 +265,30 @@ struct MagicChessGameView: View {
     private func aftermathStage(_ c: MagicChessController) -> some View {
         let human = c.human
         let dmg = human?.lastDamageTaken ?? 0
-        return VStack(spacing: 14) {
-            Spacer()
-            Image(systemName: dmg > 0 ? "xmark.shield.fill" : "checkmark.seal.fill")
-                .font(.system(size: 44, weight: .bold))
-                .foregroundStyle(dmg > 0 ? Color.red : Theme.success)
-            Text(dmg > 0 ? L("ラウンド敗北", "Round Lost") : L("ラウンド勝利", "Round Won"))
-                .font(Theme.title(24)).foregroundStyle(Theme.textPrimary)
-            if dmg > 0 {
-                Text(L("HP -\(dmg)", "HP -\(dmg)")).font(Theme.heading(16)).foregroundStyle(.red)
+        return HStack(spacing: 14) {
+            VStack(spacing: 14) {
+                Spacer(minLength: 0)
+                Image(systemName: dmg > 0 ? "xmark.shield.fill" : "checkmark.seal.fill")
+                    .font(.system(size: 44, weight: .bold))
+                    .foregroundStyle(dmg > 0 ? Color.red : Theme.success)
+                Text(dmg > 0 ? L("ラウンド敗北", "Round Lost") : L("ラウンド勝利", "Round Won"))
+                    .font(Theme.title(24)).foregroundStyle(Theme.gold)
+                if dmg > 0 {
+                    Text(L("HP -\(dmg)", "HP -\(dmg)")).font(Theme.heading(16)).foregroundStyle(.red)
+                }
+                Button { c.nextRound(); stage = .shop } label: {
+                    Label(L("次のラウンドへ", "Next Round"), systemImage: "chevron.right.2")
+                        .frame(maxWidth: 280, minHeight: 44)
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("mc_next_round")
+                Spacer(minLength: 0)
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .worldShellCard(selected: true)
             standings(c)
-            Spacer()
-            Button { c.nextRound(); stage = .shop } label: {
-                Label(L("次のラウンドへ", "Next Round"), systemImage: "chevron.right.2")
-                    .frame(maxWidth: 280, minHeight: 50)
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .accessibilityIdentifier("mc_next_round")
-            Spacer()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -285,7 +310,7 @@ struct MagicChessGameView: View {
             }
         }
         .padding(10)
-        .glass(cornerRadius: 12)
+        .worldShellCard()
     }
 
     private func close() {

@@ -203,24 +203,7 @@ struct RewardClaimSheet: View {
         }
         .padding(.horizontal, 26)
         .padding(.vertical, 20)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(LinearGradient(colors: [Theme.bgTop, Theme.bgBottom], startPoint: .top, endPoint: .bottom))
-        )
-        .background(
-            // 背面の光条
-            Circle()
-                .fill(RadialGradient(colors: [Theme.gold.opacity(0.35), .clear], center: .center, startRadius: 10, endRadius: 260))
-                .frame(width: 520, height: 520)
-                .scaleEffect(appeared ? 1 : 0.3)
-                .allowsHitTesting(false)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(LinearGradient(colors: [Theme.gold.opacity(0.9), Theme.cyan.opacity(0.5)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                        lineWidth: 1.5)
-        )
-        .shadow(color: .black.opacity(0.5), radius: 20)
+        .worldShellCard(selected: true)
         .scaleEffect(appeared ? 1 : 0.85)
         .onAppear {
             withAnimation(.spring(duration: 0.45, bounce: 0.35)) { appeared = true }
@@ -245,8 +228,8 @@ struct RewardClaimSheet: View {
         VStack(spacing: 6) {
             RewardClaimIcon(attachment: a, size: 60)
                 .frame(width: 84, height: 84)
-                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.06)))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.white.opacity(0.06)))
+                .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(Theme.panelStroke, lineWidth: 1))
             Text(RewardClaimText.shortName(a))
                 .font(Theme.body(12))
                 .foregroundStyle(Theme.textSecondary)
@@ -271,22 +254,11 @@ private struct RewardClaimPopupModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .overlay {
-                ZStack {
-                    if let current = item {
-                        Color.black.opacity(0.6)
-                            .ignoresSafeArea()
-                            .onTapGesture { dismiss() }
-                            .accessibilityHidden(true)
-                            .transition(.opacity)
-                        RewardClaimSheet(content: current) { dismiss() }
-                            .padding(20)
-                            .id(current.id)
-                            .transition(.scale(scale: 0.9).combined(with: .opacity))
-                            .accessibilityAddTraits(.isModal)
-                    }
+            .worldPanel(item: $item) { current in
+                ScrollView {
+                    RewardClaimSheet(content: current) { dismiss() }
+                        .id(current.id)
                 }
-                .animation(.easeOut(duration: 0.2), value: item?.id)
             }
             .onChange(of: item?.id) { _, newValue in
                 guard newValue != nil else { return }

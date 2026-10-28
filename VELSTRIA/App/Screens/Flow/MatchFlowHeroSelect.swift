@@ -14,6 +14,7 @@ struct HeroSelectStep: View {
     @State private var confirmLeave = false
 
     var body: some View {
+        GeometryReader { geometry in
         VStack(spacing: 6) {
             PickPhaseHeader(phase: phaseText, seconds: remaining, urgent: remaining <= 5) {
                 FlowCloseButton(identifier: "flow_close") { confirmLeave = true }
@@ -44,7 +45,7 @@ struct HeroSelectStep: View {
                         .accessibilityIdentifier("flow_next")
                     }
                 }
-                .frame(width: model.adjusting ? nil : 292)
+                .frame(width: model.adjusting ? nil : min(292, max(210, geometry.size.width * 0.46)))
                 .frame(maxWidth: model.adjusting ? 520 : nil)
                 .overlay(alignment: .topTrailing) {
                     if let emote = model.myEmote { EmoteBubble(cosmeticID: emote, size: 48).offset(x: 6, y: -6) }
@@ -54,6 +55,7 @@ struct HeroSelectStep: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 6)
+        }
         .task(id: model.adjusting) { await runClock() }
         .alert(L("ヒーロー選択を抜けますか？", "Leave hero selection?"), isPresented: $confirmLeave) {
             Button(L("抜ける", "Leave"), role: .destructive) {
@@ -158,10 +160,11 @@ struct HeroPickerGrid: View {
     var body: some View {
         GeometryReader { geo in
             let spacing: CGFloat = 4
-            let width = (geo.size.width - 8 - spacing * CGFloat(Self.columns - 1)) / CGFloat(Self.columns)
+            let columns = max(2, min(Self.columns, Int(geo.size.width / 60)))
+            let width = (geo.size.width - 8 - spacing * CGFloat(columns - 1)) / CGFloat(columns)
             let size = max(28, min(58, width - 6))
             ScrollView {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: spacing), count: Self.columns), spacing: 6) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: spacing), count: columns), spacing: 6) {
                     ForEach(heroes) { h in
                         Button {
                             onTap(h)
@@ -240,7 +243,7 @@ struct LoadoutPanel<Footer: View>: View {
                 Spacer(minLength: 0)
                 // このヒーローの通算（MLBB: 「267 試合数 59% 勝率」）
                 let career = app.profile.career.perHero[id] ?? HeroCareer()
-                HStack(spacing: 12) {
+                VStack(spacing: 5) {
                     statColumn("\(career.matches)", L("試合数", "Matches"))
                     statColumn(career.matches > 0 ? "\(Int((Double(career.wins) / Double(career.matches) * 100).rounded()))%" : "—",
                                L("勝率", "Win rate"))
