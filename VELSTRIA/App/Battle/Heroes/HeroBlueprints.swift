@@ -314,11 +314,12 @@ enum HeroBlueprints {
                       accent: HSB(0.99, 0.85, 0.88), glow: HSB(0.0, 0.82, 1.0), scale: 1.02),
         // H029 聖槌のボルグ（Support）: 巨大な聖槌と金の大盾・青い板金に金の縁取り・赤いマント・金髪に金の額冠（兜は被らない）。
         // 基調色 = Theme.heroHue（青 0.60）、metal = 金（縁・聖印・槌の打撃面）、accent = 赤（マント）。
-        // scale 1.32: overheadHeight = (headTop 1.55 + 0.38) * 1.32 = 2.55（上限 2.7）、頭頂 1.593 * 1.32 = 2.10（上限 2.2）。
+        // scale 1.0（2026-11-05 に 1.32 から下げた）: 出荷のカメラで撮った画の身長（画面の高さの 15.4%）を MLBB のティグラル（15.6%）に
+        // 合わせた（docs/H029_QUALITY.md「体の大きさ」）。巨漢の体格は build .titan の胴の幅・肩幅で出す。
         HeroBlueprint(build: .titan, armor: .knight, pauldron: .big, skirt: .tassets, hair: .short,
                       gear: [.circlet], weapon: .holyMaul, offhand: .heaterShield, back: .cape, float: .none,
                       attack: .slash, metal: .gold, skin: .fair, hairColor: HSB(0.13, 0.45, 1.0),
-                      accent: HSB(0.99, 0.78, 0.85), glow: HSB(0.13, 0.5, 1.0), scale: 1.32),
+                      accent: HSB(0.99, 0.78, 0.85), glow: HSB(0.13, 0.5, 1.0), scale: 1.0),
         // H030 星砲のライナ（Ranger = MLBB の Layla）: 背丈を超える魔砲（白い砲身・金の枠と 2 本の砲角・水色の動力球）を腰だめに構える。
         // 腰まで届く金髪の長いツインテール・茶革の髪留めと水色の宝石、白い上着・茶革の胴着・紺のネクタイ・青いスカート・黒い長靴下。
         // 基調色 = Theme.heroHue（青 0.63 = スカート）、cloth = 白い上着、accent = 茶革、metal = 金（砲の枠・肩章）、glow = 水色。

@@ -280,8 +280,8 @@ final class HeroModelTests: XCTestCase {
         XCTAssertEqual(p.metalKind, .gold)
         XCTAssertTrue((0.08...0.16).contains(p.metal.h), "金 \(p.metal.h)")
         XCTAssertTrue(p.accent.h > 0.95 || p.accent.h < 0.03, "赤いマント \(p.accent.h)")
-        // 大きさ: 他の重装（H001・H019 は 1.06〜1.12）より明らかに大きく、肩幅・胸板も heavy より広い
-        XCTAssertGreaterThanOrEqual(bp.scale, 1.25)
+        // 大きさ: 画面の上の身長を MLBB のティグラルに合わせた scale 1.0（docs/H029_QUALITY.md「体の大きさ」）。肩幅・胸板は heavy より広い
+        XCTAssertEqual(bp.scale, 1.0, accuracy: 0.05)
         let titan = BodyMetrics.make(.titan), heavy = BodyMetrics.make(.heavy)
         XCTAssertGreaterThan(titan.torsoW, heavy.torsoW)
         XCTAssertGreaterThan(titan.shoulderX, heavy.shoulderX)
@@ -298,7 +298,9 @@ final class HeroModelTests: XCTestCase {
         XCTAssertNotNil(torso)
         XCTAssertNotNil(rivalTorso)
         if let torso, let rivalTorso {
-            XCTAssertGreaterThan(torso.extents.x, rivalTorso.extents.x * 1.15, "H029 の胴は H019 より 15% 以上広い")
+            // 体格（大きさの倍率を除いた胴の幅）は H019 より 10% 以上広い（titan 0.70 / heavy 0.62）
+            let rivalScale = HeroBlueprints.blueprint(heroID: "H019", role: nil).scale
+            XCTAssertGreaterThan(torso.extents.x / bp.scale, rivalTorso.extents.x / rivalScale * 1.10, "H029 の胴は H019 より広い")
         }
     }
 

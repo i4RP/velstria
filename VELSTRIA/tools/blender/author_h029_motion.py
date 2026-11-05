@@ -24,7 +24,7 @@ import preview_clip as preview
 from author_h025_motion import bind_usd_axes, ik, local_delta, pack, solve
 
 FPS = 30
-SCALE = 1.32  # HeroBlueprints の H029（motion.scale）。groundSpeed はゲームの m/s
+SCALE = 1.0   # HeroBlueprints の H029（motion.scale。2026-11-05 に 1.32 → 1.0）。groundSpeed はゲームの m/s
 # Blender 4.5 は揺れ物の骨（finish_h029_cape.py）を足した USD の取り込みで落ちるので、骨を足す前の元（finish が書き出す）を使う。
 # クリップが動かす骨は同じ（揺れ物の骨は実行時の HeroSecondaryMotion だけが動かす）
 _BASE = 'build/h029-motion/Hero_H029_base.usdz'
@@ -434,9 +434,9 @@ def idle(rest, prime, u):
 # Velstria のヒーローは mapScale 1.35 倍速く動く（260 × 1.35 = 毎秒 3.51 m）ので、歩調（コマ数）を MLBB に合わせ、
 # 歩幅を 1.35 倍（1.64 m = ヒーロー空間 1.24）にした。減速中など遅い時は walk（1 周 0.733 秒）。
 GAITS = {
-    'run': dict(frames=14, speed=3.51, contact=0.48, lift=0.17, lean=10, bob=0.045, drop=0.045, width=0.21, knee=0.24,
+    'run': dict(frames=14, speed=3.51, contact=0.44, lift=0.17, lean=10, bob=0.045, drop=0.075, width=0.21, knee=0.24,
                 twist=9, hammer=0.03, shield=0.09),
-    'walk': dict(frames=22, speed=1.80, contact=0.62, lift=0.10, lean=4, bob=0.022, drop=0.04, width=0.22, knee=0.24,
+    'walk': dict(frames=18, speed=1.80, contact=0.62, lift=0.10, lean=4, bob=0.022, drop=0.06, width=0.22, knee=0.24,
                  twist=6, hammer=0.018, shield=0.06),
 }
 
@@ -681,8 +681,8 @@ def skill_base(rest, t, hips_yaw, torso_yaw, lean, drop, step, back=None, forwar
     return p, yaw
 
 
-# S1 の槌頭が地を打つ所（ヒーロー空間の前 -Z。× 1.32 = 世界 1.87 m）。MLBB は足元から 1.83〜1.88 単位（docs/H029_QUALITY.md 二周目）
-S1_HIT = -1.42
+# S1 の槌頭が地を打つ所の目標（ヒーロー空間の前 -Z）。MLBB は足元から 1.83〜1.88 単位。腕と柄の届く所で 1.77 m に止まる（docs/H029_QUALITY.md）
+S1_HIT = -1.87 / SCALE
 
 
 def skill_wave(rest, prime, t):
@@ -691,12 +691,12 @@ def skill_wave(rest, prime, t):
     p, yaw = skill_base(rest, t,
                         [(0, 0), (0.06, -10, 'o2'), (0.2, -4), (s, 4, 'i'), (0.95, 4), (1.2, 0, 'io')],
                         [(0, 0), (0.06, -18, 'o2'), (0.2, -6), (s, 6, 'i'), (0.95, 4), (1.2, 0, 'io')],
-                        [(0, 0), (0.06, 4, 'o2'), (0.17, -12, 'io'), (s, 40, 'i'), (0.4, 44, 'o'), (0.95, 42), (1.12, 14, 'io'), (1.3, 0, 'io')],
+                        [(0, 0), (0.06, 4, 'o2'), (0.17, -12, 'io'), (s, 46, 'i'), (0.4, 50, 'o'), (0.95, 48), (1.12, 14, 'io'), (1.3, 0, 'io')],
                         [(0, 0), (0.06, 0.02), (0.17, -0.01), (s, 0.17, 'i'), (0.4, 0.19, 'o'), (0.95, 0.18), (1.12, 0.06, 'io'), (1.3, 0, 'io')],
-                        [(0, (0, 0)), (0.10, (-0.10, 0.08), 'o2'), (s, (-0.52, 0.0), 'i2'), (0.97, (-0.52, 0.0)), (1.14, (-0.22, 0.06), 'io'),
+                        [(0, (0, 0)), (0.10, (-0.10, 0.08), 'o2'), (s, (-0.60, 0.0), 'i2'), (0.97, (-0.60, 0.0)), (1.14, (-0.22, 0.06), 'io'),
                          (1.3, (0, 0), 'o')],
                         back=[(0, 0), (0.12, 0.0), (s, 0.14, 'i2'), (0.97, 0.14), (1.2, 0, 'io')],
-                        forward=[(0, 0), (0.17, -0.02), (s, 0.16, 'i'), (0.97, 0.16), (1.2, 0, 'io')])
+                        forward=[(0, 0), (0.17, -0.02), (s, 0.28, 'i'), (0.97, 0.28), (1.2, 0, 'io')])
     # 槌: 肩 → 真後ろの下（腕を後ろへ伸ばす）→ 後ろから頭上 → 前の地面。戻りは体の右前に立ててから肩へ
     p.hand_r = arc([(0, CARRY['hand_r']), (0.05, V((0.12, -0.42, 0.20)), 'o2'), (0.97, V((0.0, -0.40, -0.30))),
                     (1.12, V((0.02, -0.30, -0.32)), 'io'), (1.35, CARRY['hand_r'], 'io')], t)
