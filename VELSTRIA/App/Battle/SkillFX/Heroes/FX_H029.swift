@@ -158,6 +158,9 @@ enum FX_H029: HeroFXSet {
 
     // MARK: - スキル1 聖槌波
 
+    /// S1 の槌頭が地を打つ前の距離（m）。モーション（tools/blender/author_h029_motion.py の S1_HIT −1.42 × scale 1.32）と同じ。
+    static let waveHammerHit: Float = 1.87
+
     /// 0.25 秒で槌が地を打つ → 台形に 3 回、前へ進みながらはじける（R = 台形の奥行き 6.1m = 射程）。
     /// MLBB の画面収録（docs/vfx/H029.md）: 振り下ろす金の軌跡と地を前へ走るぎざぎざの金の筋 → 回ごとに白金の芯から放射状の
     /// 黄の光の棘（約 3.5m）、黄に光る S 字の太い地割れ（約 2.4m）→ 0.13 秒で橙の雲 → 0.2 秒で暗い朱のひびに橙の縁 → 焦げて消える。
@@ -171,10 +174,11 @@ enum FX_H029: HeroFXSet {
             // 槌頭は 0.19 秒に後ろの上 [0, 3.0, -1.9]、t0（0.25）に前の地面 [0, 0.1, 2.8]。弧は中心 [0, 1.5, 0.5]・半径 2.75 で両方を通る
             .ribbon(.swing(radius: 2.75, from: 148, to: -31, height: 1.5, roll: 90, duration: 0.08, life: 0.16, width: 0.8,
                            .primary).with { $0.ease = .inOut }, at: max(0, t0 - 0.08), offset: [0, 0, 0.5]),
-            // 槌の頭が地を打つ点（前 2.75m）: 白金の閃光と小さな衝撃の輪・土煙
-            .emit(.flare(1.6, .core, life: 0.14, tex: .flare6), at: t0, offset: [0, 0.4, 2.75]),
-            .mesh(ring(0.9, .accent, life: 0.28, refract: 0.004), at: t0, offset: [0, 0, 2.75]),
-            .emit(.smoke(4, radius: 0.5, dust, life: 0.5, size: 0.8), at: t0, offset: [0, 0.1, 2.75], quality: 1),
+            // 槌の頭が地を打つ点（前 1.87m = MLBB の足元から 1.85。docs/H029_QUALITY.md 二周目）: 白金の閃光と小さな衝撃の輪・土煙。
+            // 見た目だけ（範囲の部品・衝撃波の位置は判定のまま）
+            .emit(.flare(1.6, .core, life: 0.14, tex: .flare6), at: t0, offset: [0, 0.4, waveHammerHit]),
+            .mesh(ring(0.9, .accent, life: 0.28, refract: 0.004), at: t0, offset: [0, 0, waveHammerHit]),
+            .emit(.smoke(4, radius: 0.5, dust, life: 0.5, size: 0.8), at: t0, offset: [0, 0.1, waveHammerHit], quality: 1),
             // 地を前へ走る金のぎざぎざの筋（衝撃波の通り道。2 本を少し開いて）
             // （範囲の飾り: 1 回目の帯の奥の辺より手前で止め、帯の奥行きの半分より短い）
             .mesh(FXMesh.ray(.bolt, length: R * 0.38, width: 0.55, hot, life: 0.34).glowing().with { $0.yaw = 90 + 5 },
