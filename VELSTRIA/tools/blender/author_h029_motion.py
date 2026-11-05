@@ -806,7 +806,7 @@ def author(rig, prime, out):
              blend=0.06, rootXZ=1, local='H029-mlbb-skill'),
         dict(name='shield_charge_h029', frames=35, loop=False, events=dict(impact=20.1, end=34), make=lambda t: skill_charge(rest, prime, t),
              blend=0.06, rootXZ=1, local='H029-mlbb-skill'),
-        dict(name='maul_upswing_h029', frames=28, loop=False, events=dict(impact=6, end=27), make=lambda t: skill_upswing(rest, prime, t),
+        dict(name='maul_upswing_h029', frames=30, loop=False, events=dict(impact=6, end=29), make=lambda t: skill_upswing(rest, prime, t),
              blend=0.06, rootXZ=1, local='H029-mlbb-skill'),
         dict(name='maul_sanctuary_h029', frames=62, loop=False, events=dict(impact=30, end=61), make=lambda t: skill_sanctuary(rest, prime, t),
              blend=0.08, rootXZ=1, local='H029-mlbb-skill'),
@@ -816,8 +816,9 @@ def author(rig, prime, out):
     clips, report = [], {}
     for sp in specs:
         loop, n = sp['loop'], sp['frames']
-        base = before.get(sp['name'], 'local').split('+local:')[0]
-        c = dict(name=sp['name'], source=f"{base}+local:{sp.get('local', 'H029-contact-finish')}",
+        base = before.get(sp['name'], '').split('+local:')[0]
+        base = '' if base.startswith('local') else base
+        c = dict(name=sp['name'], source=(f"{base}+" if base else '') + f"local:{sp.get('local', 'H029-contact-finish')}",
                  frames=n, loop=loop, rootXZ=sp.get('rootXZ', 0), melee=not loop, events=sp.get('events', {}), rot=[], root=[],
                  detailJoints=[r for r in DETAILS if r in rig.index], detailRot=[], blend=sp['blend'])
         if 'groundSpeed' in sp:
