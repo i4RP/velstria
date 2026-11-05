@@ -157,7 +157,7 @@ def shots(a):
 
 
 FPS = 30
-SCALE = 1.36   # HeroBlueprints の H034（motion.scale）
+SCALE = 1.12   # HeroBlueprints の H034（motion.scale。2026-11-05 に 1.36 → 1.12）
 
 
 def main():

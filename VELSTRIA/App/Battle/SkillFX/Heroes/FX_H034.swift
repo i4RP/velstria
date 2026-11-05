@@ -37,8 +37,11 @@ enum FX_H034: HeroFXSet {
     private static let swingGold = FXTint.rgb(0.89, 0.75, 0.29)
 
     /// 鉤の手（右）と盾・鎚の手（左）の位置（術者の足元から。闘気の光）。
-    private static let hookHand: SIMD3<Float> = [0.5, 1.0, 0.25]
-    private static let shieldHand: SIMD3<Float> = [-0.5, 1.1, 0.25]
+    /// 体の大きさ（HeroBlueprints の H034 の scale 1.12 / 演出を作った時の 1.36）。体に付いた演出の位置・振りの帯はこの比で縮める
+    private static let body: Float = 1.12 / 1.36
+    /// 構えの右の拳・左の拳（MLBB の構え: 鎖鉤を下げた右腕を体の外へ張り、左の拳は腰の横。H034MotionClips の idle_h034・run_h034）
+    private static let hookHand: SIMD3<Float> = [0.6, 1.22, 0.08]
+    private static let shieldHand: SIMD3<Float> = [-0.53, 1.13, 0.1]
 
     /// Effekseer の効果（Effects/Effekseer/Kit/）。s2_slam は判定の半径 2.57 m で作った（倍率 = 半径 / 2.57）。
     private static let efkHitSpark = "H034_hit_spark"
@@ -245,9 +248,9 @@ enum FX_H034: HeroFXSet {
         let sweep: Float = 0.09
         for (n, w) in swings.prefix(hits - 1).enumerated() {
             let lands = n == hits - 2 ? last - 0.17 : G + gap * Float(n + 1)
-            impact.append(.ribbon(.swing(radius: w.radius, from: w.from, to: w.to, height: w.height, roll: w.roll,
+            impact.append(.ribbon(.swing(radius: w.radius * body, from: w.from, to: w.to, height: w.height * body, roll: w.roll,
                                          duration: sweep, life: 0.13, width: 0.4, swingGold),
-                                  at: lands - sweep, .along(0), offset: [w.x, 0, 0.1]))
+                                  at: lands - sweep, .along(0), offset: [w.x * body, 0, 0.1]))
         }
         // 6 撃目（録画 C+48〜C+70）: 術者と対象の間（0.6）の淡い黄緑の円・対象から立ちのぼる黄の光の棘・暗いひび・最後の撃の閃光
         // （Effekseer。3D に隠れる。効果の前 = 術者 → 対象）

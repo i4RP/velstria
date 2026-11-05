@@ -626,6 +626,270 @@
     "at": 2.06,
     "heading": 60
    }
+  ],
+  "sweep_frames": [
+   {
+    "label": "① 1 コマずつ -0.20s",
+    "mlbb": [
+     "a",
+     9.57
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.0,
+    "heading": 60
+   },
+   {
+    "label": "① 1 コマずつ -0.17s",
+    "mlbb": [
+     "a",
+     9.603
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.033,
+    "heading": 60
+   },
+   {
+    "label": "① 1 コマずつ -0.13s",
+    "mlbb": [
+     "a",
+     9.637
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.067,
+    "heading": 60
+   },
+   {
+    "label": "① 1 コマずつ -0.10s",
+    "mlbb": [
+     "a",
+     9.67
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.1,
+    "heading": 60
+   },
+   {
+    "label": "① 1 コマずつ -0.07s",
+    "mlbb": [
+     "a",
+     9.703
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.133,
+    "heading": 60
+   },
+   {
+    "label": "① 1 コマずつ -0.03s",
+    "mlbb": [
+     "a",
+     9.737
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.167,
+    "heading": 60
+   },
+   {
+    "label": "① 1 コマずつ +0.00s",
+    "mlbb": [
+     "a",
+     9.77
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.2,
+    "heading": 60
+   },
+   {
+    "label": "① 1 コマずつ +0.03s",
+    "mlbb": [
+     "a",
+     9.803
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.233,
+    "heading": 60
+   },
+   {
+    "label": "① 1 コマずつ +0.07s",
+    "mlbb": [
+     "a",
+     9.837
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.267,
+    "heading": 60
+   },
+   {
+    "label": "① 1 コマずつ +0.10s",
+    "mlbb": [
+     "a",
+     9.87
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.3,
+    "heading": 60
+   },
+   {
+    "label": "① 1 コマずつ +0.13s",
+    "mlbb": [
+     "a",
+     9.903
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.333,
+    "heading": 60
+   },
+   {
+    "label": "① 1 コマずつ +0.17s",
+    "mlbb": [
+     "a",
+     9.937
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.367,
+    "heading": 60
+   },
+   {
+    "label": "① 1 コマずつ +0.20s",
+    "mlbb": [
+     "a",
+     9.97
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.4,
+    "heading": 60
+   },
+   {
+    "label": "① 1 コマずつ +0.23s",
+    "mlbb": [
+     "a",
+     10.003
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.433,
+    "heading": 60
+   }
+  ],
+  "s1_frames": [
+   {
+    "label": "S1 1 コマずつ +0.03s",
+    "mlbb": [
+     "a",
+     3.203
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.033,
+    "heading": 60
+   },
+   {
+    "label": "S1 1 コマずつ +0.07s",
+    "mlbb": [
+     "a",
+     3.237
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.067,
+    "heading": 60
+   },
+   {
+    "label": "S1 1 コマずつ +0.10s",
+    "mlbb": [
+     "a",
+     3.27
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.1,
+    "heading": 60
+   },
+   {
+    "label": "S1 1 コマずつ +0.13s",
+    "mlbb": [
+     "a",
+     3.303
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.133,
+    "heading": 60
+   },
+   {
+    "label": "S1 1 コマずつ +0.17s",
+    "mlbb": [
+     "a",
+     3.337
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.167,
+    "heading": 60
+   },
+   {
+    "label": "S1 1 コマずつ +0.20s",
+    "mlbb": [
+     "a",
+     3.37
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.2,
+    "heading": 60
+   },
+   {
+    "label": "S1 1 コマずつ +0.23s",
+    "mlbb": [
+     "a",
+     3.403
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.233,
+    "heading": 60
+   },
+   {
+    "label": "S1 1 コマずつ +0.27s",
+    "mlbb": [
+     "a",
+     3.437
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.267,
+    "heading": 60
+   },
+   {
+    "label": "S1 1 コマずつ +0.30s",
+    "mlbb": [
+     "a",
+     3.47
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.3,
+    "heading": 60
+   },
+   {
+    "label": "S1 1 コマずつ +0.33s",
+    "mlbb": [
+     "a",
+     3.503
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.333,
+    "heading": 60
+   },
+   {
+    "label": "S1 1 コマずつ +0.37s",
+    "mlbb": [
+     "a",
+     3.537
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.367,
+    "heading": 60
+   },
+   {
+    "label": "S1 1 コマずつ +0.40s",
+    "mlbb": [
+     "a",
+     3.57
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.4,
+    "heading": 60
+   }
   ]
  }
 }

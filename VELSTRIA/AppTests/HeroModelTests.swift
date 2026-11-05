@@ -503,7 +503,9 @@ final class HeroModelTests: XCTestCase {
         XCTAssertTrue((0.5...0.62).contains(r[32].glow.h), "青い光 \(r[32].glow.h)")
         // H034 ゴルム（フランコ）: 脚の短い巨漢。角の鉄兜・赤い大髭・円盤の肩当て・鉄の鉤（片手）・背に掛けた鎖・緑の上衣
         XCTAssertEqual(r[33].build, .brute)
-        XCTAssertGreaterThanOrEqual(r[33].scale, 1.3)
+        // MLBB の画面の上の身長に合わせて 1.36 → 1.12（docs/H034_QUALITY.md「体の大きさ」）。H029（1.0）より大きいまま
+        XCTAssertEqual(r[33].scale, 1.12, accuracy: 0.005)
+        XCTAssertGreaterThan(r[33].scale, r[28].scale)
         XCTAssertEqual(r[33].weapon, .hookChain)
         XCTAssertEqual(r[33].back, .chainSash)
         XCTAssertFalse(r[33].twoHanded)

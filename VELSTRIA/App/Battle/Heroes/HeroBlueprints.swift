@@ -356,7 +356,8 @@ enum HeroBlueprints {
         HeroBlueprint(build: .brute, armor: .viking, pauldron: .disc, skirt: .loincloth, hair: .mane,
                       gear: [.raiderHelm, .fullBeard], weapon: .hookChain, offhand: .none, back: .chainSash, float: .none,
                       attack: .slash, metal: .iron, skin: .tan, hairColor: HSB(0.03, 0.72, 0.8),
-                      accent: HSB(0.25, 0.45, 0.45), glow: HSB(0.05, 0.75, 1.0), scale: 1.36),
+                      // 大きさは MLBB の画面の上の身長に合わせた（出荷のカメラで 1.36 は 1.21 倍。docs/H034_QUALITY.md「体の大きさ」）
+                      accent: HSB(0.25, 0.45, 0.45), glow: HSB(0.05, 0.75, 1.0), scale: 1.12),
     ]
 
     /// heroID の設計図。未知の ID はロールから近いものを選ぶ。

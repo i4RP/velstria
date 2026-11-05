@@ -25,7 +25,7 @@ import preview_clip as preview
 from author_h025_motion import bind_usd_axes, ik, local_delta, pack, solve
 
 FPS = 30
-SCALE = 1.36   # HeroBlueprints の H034（motion.scale）。groundSpeed はゲームの m/s
+SCALE = 1.12   # HeroBlueprints の H034（motion.scale。2026-11-05 に 1.36 → 1.12）。groundSpeed はゲームの m/s
 # Blender 4.5 は揺れ物の骨（finish_h034_mane.py）を足した USD の取り込みで落ちるので、骨を足す前の元（finish が書き出す）を使う。
 # クリップが動かす骨は同じ（揺れ物の骨は実行時の HeroSecondaryMotion だけが動かす）
 _BASE = 'build/h034-motion/Hero_H034_base.usdz'
@@ -249,10 +249,55 @@ class Pose:
         self.knee_out = 0.55
         # 打撃の間だけ、鉤の頭（ヒーロー空間）と柄の向きで右手を決める: (頭, 柄, 重み)
         self.strike = None
+        # 打撃の間の手の出る側（胴の向き。肩 → 頭の線に直交する成分だけ使う）: 既定は下・外（拳を頭より低く、柄を斜め上へ）
+        self.bend = V((0.3, -1.0, 0.2))
 
 
+# 打撃の間の手首の範囲（柄と前腕の角度）。構えの 55〜130° より広げて、振りの途中・地を打つ所で柄を腕の延長に近づける
+# （MLBB は鎖の先の錘なので腕と一直線に振れる。拳の握りのままでは鉤の頭が 0.2〜0.6 m 届かなかった）
+STRIKE_WRIST = (40, 140)
+STRIKE_ARM = 0.37  # 打撃の間の肩 → 手の長さ（腕をほぼ伸ばす）。柄と腕の角度はここから決まる（40〜140°）
 HOOK_HEAD = 0.68   # 握りから鉤の頭まで（手続きの hookChain の鉤の中心 0.62 × weaponScale 1.1。Prop はこの高さに合わせて拡縮）
 HEAD_R = 0.22      # 鉤の頭の半分の大きさ（地面より下へ入れない）
+
+
+def strike_hand(rig, S, H, bend):
+    """鉤の頭の目標 H へ届く右手の位置と柄の向き。肩 S・手 X・頭 H の三角形を、腕（S → X）を STRIKE_ARM に伸ばして解く
+    （柄と腕の角度が 40〜140° に収まらなければ角度を端に止めて腕の長さを解き直す。遠すぎれば腕を伸ばし切って頭は手前で止まる）。
+    手は bend（S → H に直交する成分）の側へ出る。"""
+    a0, b0, c0 = [rig.index['right' + r] for r in ('arm', 'forearm', 'hand')]
+    L = (rig.P0[b0] - rig.P0[a0]).length + (rig.P0[c0] - rig.P0[b0]).length - 0.01
+    j = rig.index['righthand']
+    r = HOOK_HEAD + (0.6 * (rig.P0[rig.index['righthandindex1']] - rig.P0[j]).length if 'righthandindex1' in rig.index else 0.06)
+    toward = H - S
+    D = max(1e-3, toward.length)
+    d = toward / D
+    side = bend - d * bend.dot(d)
+    if side.length < 1e-3:
+        side = V((0, -1, 0)) - d * (-d.y)
+        if side.length < 1e-3:
+            side = V((1, 0, 0))
+    side.normalize()
+
+    # 腕（肩 → 手）を a_pref に伸ばした時の柄と腕の角度（余弦定理 D² = a² + r² + 2ar cos α）。40〜140° に収め、収まらなければ a を解き直す
+    a_pref = min(L, STRIKE_ARM)
+
+    def arm_len(alpha):
+        c = math.cos(math.radians(alpha))
+        return -r * c + math.sqrt(max(0.0, r * r * c * c - r * r + D * D))
+    c = (D * D - a_pref * a_pref - r * r) / (2 * a_pref * r)
+    alpha = math.degrees(math.acos(max(-1.0, min(1.0, c))))
+    if 40 <= alpha <= 140:
+        a = a_pref
+    else:
+        alpha = max(40.0, min(140.0, alpha))
+        a = max(0.12, min(L, arm_len(alpha)))
+    # 肩での角度（正弦定理）。届かない時は腕と柄の角度 alpha のまま腕を伸ばし切る
+    sb = max(-1.0, min(1.0, r * math.sin(math.radians(alpha)) / max(D, a)))
+    beta = math.asin(sb)
+    X = S + (d * math.cos(beta) + side * math.sin(beta)) * a
+    u = (H - X).normalized()
+    return X, u
 
 
 def hook_head(rig, qs, P):
@@ -281,21 +326,25 @@ def build(rig, p):
     sr, sl = P[rig.index['rightarm']], P[rig.index['leftarm']]
     target, shaft = sr + qt @ p.hand_r, qt @ p.shaft
     if p.strike and p.strike[2] > 0:
-        head, sw, w = V(p.strike[0]), V(p.strike[1]).normalized(), p.strike[2]
-        shaft = cm.slerp(Quaternion(), cm.rotation_between(shaft.normalized(), sw), w) @ shaft.normalized()
-        target = target.lerp(head - shaft * HOOK_HEAD, w)
-        # 手首の曲がりの制限と握りの分で鉤の頭がずれるので、頭が目標へ来るまで手の目標を寄せ直す
-        for _ in range(6):
-            arm_ik(rig, qs, offset, details, 'right', target, qt @ p.pole_r, shaft)
+        head, w = V(p.strike[0]), p.strike[2]
+        if len(p.strike) > 3:
+            # 肩からの向きで書いた軌道は、見積もりの肩（swing）でなく実際の肩（前傾・沈み・ひねりの後）から置き直す
+            head = head + (sr - V(p.strike[3])) * p.strike[4]
+            p.strike = (head, p.strike[1], w)
+        X, u = strike_hand(rig, sr, head, qt @ p.bend)
+        target = target.lerp(X, w)
+        shaft = cm.slerp(Quaternion(), cm.rotation_between(shaft.normalized(), u), w) @ shaft.normalized()
+    err = arm_ik(rig, qs, offset, details, 'right', target, qt @ p.pole_r, shaft,
+                 dev=STRIKE_WRIST if p.strike and p.strike[2] > 0 else (55, 130))
+    if p.strike and p.strike[2] > 0.5:
+        # 肘の曲がりで前腕の向きが変わった分、頭が目標からずれる。手の目標を 3 回寄せ直す（柄の向きは保つ）
+        for _ in range(3):
             _, P1 = solve(rig, qs, offset, details)
-            miss = head - hook_head(rig, qs, P1)
-            if miss.length < 0.004:
+            miss = V(p.strike[0]) - hook_head(rig, qs, P1)
+            if miss.length < 0.01:
                 break
-            target = target + miss * w
-            want = head - P1[rig.index['righthand']]
-            if want.length > 1e-3:
-                shaft = cm.slerp(Quaternion(), cm.rotation_between(shaft, want.normalized()), w) @ shaft
-    err = arm_ik(rig, qs, offset, details, 'right', target, qt @ p.pole_r, shaft)
+            target = target + miss * p.strike[2]
+            err = arm_ik(rig, qs, offset, details, 'right', target, qt @ p.pole_r, shaft, dev=STRIKE_WRIST)
     # 鉤の頭を地面より下へ入れない（握りを支点に柄を起こす）
     _, P1 = solve(rig, qs, offset, details)
     head = hook_head(rig, qs, P1)
@@ -431,6 +480,11 @@ def swing(keys, t, yaw, drop=0.0):
     return sh + d * (ext + HOOK_HEAD), d
 
 
+def shoulder_est(yaw, drop=0.0):
+    """swing が軌道の基準にする右肩（胴の向き yaw で回し、腰の沈み drop で下げただけの見積もり）。"""
+    return ry(D(yaw)) @ SHOULDER_R - V((0, drop, 0))
+
+
 def hook_strike(head, yaw, drop=0.0):
     """鉤の頭の位置から (頭, 柄の向き)。柄は右肩から頭への向き。"""
     sh = ry(D(yaw)) @ SHOULDER_R - V((0, drop, 0))
@@ -488,10 +542,10 @@ def attack_sweep(rest, t):
                                     (0.50, (-0.06, -0.08)), (end, (0, 0), 'io')])
     # 鉤: 右の腰（構え）→ 右の後ろの肩の高さ（0.05〜0.09 秒 = MLBB の命中の 0.13〜0.10 秒前）→ 右（0.15）→ 前（命中）→ 左 →
     # 左の後ろの低い所（地面）。上から見て左回りの一続きの弧
-    p.strike = (*swing([(0.01, -95, -60, 0.30), (0.045, -125, 0, 0.32, 'o2'), (0.075, -140, 18, 0.36, 'o'), (0.10, -136, 16, 0.37),
-                        (0.15, -70, 4, 0.40, 'i2'), (imp, -5, -14, 0.41, 'l'), (0.24, 55, -30, 0.38, 'o'), (0.32, 110, -48, 0.32, 'o'),
-                        (0.46, 128, -58, 0.28)], t, yaw, dr),
-                strike_weight(t, 0.0, 0.035, 0.46, 0.62))
+    p.strike = (*swing([(0.01, -95, -60, 0.30), (0.045, -125, 0, 0.32, 'o2'), (0.075, -140, 18, 0.36, 'o'), (0.095, -136, 16, 0.37),
+                        (0.14, -62, 4, 0.38, 'i2'), (imp, 0, -16, 0.36, 'l'), (0.24, 55, -36, 0.26, 'o'), (0.32, 105, -50, 0.18, 'o'),
+                        (0.46, 125, -58, 0.16)], t, yaw, dr),
+                strike_weight(t, 0.0, 0.035, 0.46, 0.62), shoulder_est(yaw, dr), 1.0)
     p.hand_r = arc([(0, CARRY['hand_r']), (0.5, V((-0.30, -0.30, -0.10))), (0.62, V((-0.10, -0.25, -0.30)), 'io'), (end, CARRY['hand_r'], 'io')], t)
     p.shaft = dirs([(0, CARRY['shaft']), (0.5, V((-0.5, -0.8, 0.4))), (0.62, V((0.0, -1.0, -0.2)), 'io'), (end, CARRY['shaft'], 'io')], t)
     p.pole_r = dirs([(0, CARRY['pole_r']), (0.10, V((0.3, -1.0, 0.8))), (imp, V((0.6, -1.0, 0.0))), (0.4, V((0.2, -1.0, -0.4))),
@@ -518,9 +572,9 @@ def attack_backhand(rest, t):
                                     (0.50, (0.05, -0.07)), (end, (0, 0), 'io')])
     # 鉤: 構え → 左の後ろの低い所（① の振り抜きと同じ所）→ 頭の上（左前の高い所）→ 前を左上から右下へ → 右の後ろの低い所
     p.strike = (*swing([(0.01, -95, -60, 0.30), (0.035, 70, -40, 0.24, 'o2'), (0.07, 100, 50, 0.24, 'io'), (0.11, 50, 70, 0.30, 'io'),
-                        (0.16, 20, 25, 0.38, 'i2'), (imp, -10, -10, 0.41, 'l'), (0.24, -60, -32, 0.38, 'o'), (0.32, -105, -48, 0.32, 'o'),
-                        (0.46, -116, -56, 0.28)], t, yaw, dr),
-                strike_weight(t, 0.0, 0.03, 0.46, 0.62))
+                        (0.16, 20, 25, 0.36, 'i2'), (imp, -10, -12, 0.36, 'l'), (0.24, -60, -34, 0.28, 'o'), (0.32, -105, -48, 0.22, 'o'),
+                        (0.46, -116, -56, 0.20)], t, yaw, dr),
+                strike_weight(t, 0.0, 0.03, 0.46, 0.62), shoulder_est(yaw, dr), 1.0)
     p.hand_r = arc([(0, CARRY['hand_r']), (0.5, V((0.24, -0.30, 0.06))), (end, CARRY['hand_r'], 'io')], t)
     p.shaft = dirs([(0, CARRY['shaft']), (0.5, V((0.4, -0.8, 0.45))), (end, CARRY['shaft'], 'io')], t)
     p.pole_r = dirs([(0, CARRY['pole_r']), (0.07, V((0.2, 0.2, -1.0))), (0.12, V((1.0, 0.4, 0.2))), (imp, V((0.8, -1.0, 0.0))),
@@ -546,11 +600,12 @@ def attack_chop(rest, t):
     # 振りかぶり（① と同じ右の後ろの肩の高さ）→ 右の後ろの高い所 → 頭の上 → 前の地面
     up, _ = swing([(0.01, -95, -60, 0.30), (0.045, -125, 0, 0.32, 'o2'), (0.08, -140, 18, 0.36, 'o'), (0.13, -150, 58, 0.30, 'io'),
                    (0.165, -60, 84, 0.32, 'i2'), (0.185, -10, 50, 0.38, 'l')], t, yaw, dr)
-    down = val([(0.175, V((0.20, 2.10, -0.40))), (0.185, V((0.24, 1.55, -0.95)), 'l'), (imp, V((0.24, HEAD_R, -0.98)), 'i2'),
-                (0.28, V((0.24, HEAD_R + 0.05, -0.96)), 'o'), (0.46, V((0.24, HEAD_R + 0.01, -0.95)))], t)
-    head = up.lerp(down, smooth((t - 0.175) / 0.015))
+    down = val([(0.175, V((0.20, 2.10, -0.40))), (0.185, V((0.24, 1.50, -0.85)), 'l'), (imp, V((0.24, HEAD_R, -0.88)), 'i2'),
+                (0.28, V((0.24, HEAD_R + 0.05, -0.86)), 'o'), (0.46, V((0.24, HEAD_R + 0.01, -0.85)))], t)
+    k = smooth((t - 0.175) / 0.015)
+    head = up.lerp(down, k)
     _, sw = hook_strike(head, yaw, dr)
-    p.strike = (head, sw, strike_weight(t, 0.0, 0.035, 0.48, 0.62))
+    p.strike = (head, sw, strike_weight(t, 0.0, 0.035, 0.48, 0.62), shoulder_est(yaw, dr), 1 - k)
     p.hand_r = arc([(0, CARRY['hand_r']), (0.5, V((-0.02, -0.32, -0.32))), (0.62, V((0.08, -0.26, -0.30)), 'io'), (end, CARRY['hand_r'], 'io')], t)
     p.shaft = dirs([(0, CARRY['shaft']), (0.5, V((0.05, -0.6, -0.8))), (0.62, V((0.05, -1.0, -0.3)), 'io'), (end, CARRY['shaft'], 'io')], t)
     p.pole_r = dirs([(0, CARRY['pole_r']), (0.15, V((1.0, 0.3, 0.3))), (imp, V((1.0, -0.8, 0.3))), (end, CARRY['pole_r'])], t)
@@ -596,15 +651,15 @@ def skill_hook(rest, t):
     p, yaw, dr = skill_base(rest, t,
                             [(0, 0), (0.10, 26, 'o2'), (0.24, 28), (s, -12, 'i2'), (0.95, -10), (1.3, 0, 'io')],
                             [(0, 0), (0.10, 40, 'o2'), (0.24, 44), (s, -16, 'i2'), (0.95, -12), (1.3, 0, 'io')],
-                            [(0, 0), (0.10, 60, 'o2'), (0.24, 62), (s, 22, 'o'), (0.5, 10), (0.95, 8), (1.3, 0, 'io')],
-                            [(0, 0), (0.10, 0.24, 'o2'), (0.24, 0.25), (s, 0.10, 'o'), (0.5, 0.05), (0.95, 0.05), (1.3, 0, 'io')],
+                            [(0, 0), (0.09, 68, 'o2'), (0.24, 70), (s, 22, 'o'), (0.5, 10), (0.95, 8), (1.3, 0, 'io')],
+                            [(0, 0), (0.09, 0.27, 'o2'), (0.24, 0.28), (s, 0.10, 'o'), (0.5, 0.05), (0.95, 0.05), (1.3, 0, 'io')],
                             [(0, (0, 0)), (0.12, (0.0, 0.0)), (0.26, (-0.12, 0.07), 'o2'), (s, (-0.32, 0.0), 'i2'), (0.95, (-0.32, 0.0)),
                              (1.15, (-0.10, 0.04), 'io'), (1.3, (0, 0), 'o')],
                             back=[(0, 0), (0.12, 0.04), (s, 0.12, 'i2'), (0.95, 0.12), (1.3, 0, 'io')])
     # 鉤: 構え → 右の後ろの高い所（溜め）→ 頭の右を前へ振り抜く → 狙いへ腕を伸ばして止まる（鎖を張る）
-    p.strike = (*swing([(0.02, -95, -60, 0.30), (0.10, -112, 42, 0.38, 'o2'), (0.24, -118, 48, 0.39), (0.29, -60, 36, 0.40, 'i2'),
+    p.strike = (*swing([(0.02, -95, -60, 0.30), (0.10, -112, 42, 0.30, 'o2'), (0.24, -118, 48, 0.31), (0.29, -60, 36, 0.36, 'i2'),
                         (s, -4, 8, 0.42, 'l'), (0.42, 0, 2, 0.42, 'o'), (0.95, 0, 0, 0.42)], t, yaw, dr),
-                strike_weight(t, 0.0, 0.06, 0.95, 1.12))
+                strike_weight(t, 0.0, 0.06, 0.95, 1.12), shoulder_est(yaw, dr), 1.0)
     # 外れ: 鎖を手繰って（手を 2 回引く）構えへ
     tug = 0.05 * math.sin(math.pi * smooth((t - 0.95) / 0.18)) + 0.05 * math.sin(math.pi * smooth((t - 1.13) / 0.18))
     p.hand_r = arc([(0, CARRY['hand_r']), (0.95, V((-0.02, -0.06, -0.40))), (1.12, V((0.08, -0.14, -0.30)), 'io'),
@@ -637,7 +692,7 @@ def skill_pull(rest, t):
     hold = 0.012 * math.sin(t * 40) * (1 if t < a else 0)
     head, sw = swing([(0, 0, 0, 0.42), (a, 2, 4, 0.40), (0.56, -40, -10, 0.34, 'i2'), (b, -120, -40, 0.30, 'o'), (0.9, -130, -50, 0.28),
                       (1.0, -110, -55, 0.28)], t, yaw, dr)
-    p.strike = (head + V((0, hold, 0)), sw, val([(0, 1.0), (0.9, 1.0), (1.05, 0.0, 'io')], t))
+    p.strike = (head + V((0, hold, 0)), sw, val([(0, 1.0), (0.9, 1.0), (1.05, 0.0, 'io')], t), shoulder_est(yaw, dr), 1.0)
     p.hand_r = arc([(0, V((-0.02, -0.06, -0.40))), (0.9, V((0.12, -0.36, 0.10))), (1.12, CARRY['hand_r'], 'io')], t)
     p.shaft = dirs([(0, V((0.0, 0.1, -1.0))), (0.9, V((0.3, -0.9, 0.3))), (1.12, CARRY['shaft'], 'io')], t)
     p.pole_r = dirs([(0, V((1.0, -0.8, 0.1))), (b, V((0.6, -1.0, -0.2))), (1.12, CARRY['pole_r'])], t)
@@ -668,11 +723,12 @@ def skill_shock(rest, t):
                             forward=[(0, 0), (0.18, -0.02), (s, 0.10, 'i'), (0.62, 0.10), (0.95, 0, 'io')])
     up, _ = swing([(0.02, -95, -60, 0.30), (0.08, -130, 20, 0.30, 'o2'), (0.14, -150, 70, 0.30, 'io'), (0.21, -90, 86, 0.34),
                    (0.235, -20, 60, 0.38, 'i2')], t, yaw, dr)
-    down = val([(0.235, V((0.25, 2.15, -0.45))), (0.25, V((0.32, 1.55, -0.92)), 'l'), (s, V((0.34, HEAD_R, -1.0)), 'i2'),
-                (0.34, V((0.34, HEAD_R + 0.07, -0.98)), 'o'), (0.46, V((0.34, HEAD_R + 0.01, -0.97))), (0.62, V((0.34, HEAD_R + 0.01, -0.97)))], t)
-    head = up.lerp(down, smooth((t - 0.235) / 0.015))
+    down = val([(0.235, V((0.25, 2.15, -0.45))), (0.25, V((0.32, 1.50, -0.82)), 'l'), (s, V((0.34, HEAD_R, -0.88)), 'i2'),
+                (0.34, V((0.34, HEAD_R + 0.07, -0.86)), 'o'), (0.46, V((0.34, HEAD_R + 0.01, -0.85))), (0.62, V((0.34, HEAD_R + 0.01, -0.85)))], t)
+    k = smooth((t - 0.235) / 0.015)
+    head = up.lerp(down, k)
     _, sw = hook_strike(head, yaw, dr)
-    p.strike = (head, sw, strike_weight(t, 0.0, 0.05, 0.62, 0.80))
+    p.strike = (head, sw, strike_weight(t, 0.0, 0.05, 0.62, 0.80), shoulder_est(yaw, dr), 1 - k)
     p.hand_r = arc([(0, CARRY['hand_r']), (0.62, V((0.02, -0.34, -0.30))), (0.80, V((0.10, -0.28, -0.26)), 'io'), (0.97, CARRY['hand_r'], 'io')], t)
     p.shaft = dirs([(0, CARRY['shaft']), (0.62, V((0.1, -0.7, -0.7))), (0.80, V((0.1, -1.0, -0.2)), 'io'), (0.97, CARRY['shaft'], 'io')], t)
     p.pole_r = dirs([(0, CARRY['pole_r']), (0.14, V((1.0, 0.4, 0.4))), (s, V((1.0, -0.8, 0.3))), (0.97, CARRY['pole_r'])], t)
@@ -729,14 +785,15 @@ def skill_hunt(rest, t):
                               forward=[(0, 0), (0.14, 0.14, 'o'), (g, 0.10), (ULT_SLAM - 0.1, 0.06), (ULT_SLAM, 0.14, 'i'), (ULT_END, 0.14),
                                        (2.3, 0, 'io')])
     up, _ = swing(keys, t, yaw, drop)
-    down = val([(ULT_SLAM - 0.025, V((0.20, 2.10, -0.40))), (ULT_SLAM - 0.01, V((0.26, 1.50, -0.95)), 'l'),
-                (ULT_SLAM, V((0.28, HEAD_R, -1.0)), 'i2'), (ULT_SLAM + 0.08, V((0.28, HEAD_R + 0.06, -0.98)), 'o'),
-                (last, V((0.28, HEAD_R + 0.01, -0.96))), (ULT_END, V((0.28, HEAD_R + 0.01, -0.96)))], t)
-    head = up.lerp(down, smooth((t - (ULT_SLAM - 0.025)) / 0.015))
+    down = val([(ULT_SLAM - 0.025, V((0.20, 2.10, -0.40))), (ULT_SLAM - 0.01, V((0.26, 1.45, -0.85)), 'l'),
+                (ULT_SLAM, V((0.28, HEAD_R, -0.90)), 'i2'), (ULT_SLAM + 0.08, V((0.28, HEAD_R + 0.06, -0.88)), 'o'),
+                (last, V((0.28, HEAD_R + 0.01, -0.87))), (ULT_END, V((0.28, HEAD_R + 0.01, -0.87)))], t)
+    k = smooth((t - (ULT_SLAM - 0.025)) / 0.015)
+    head = up.lerp(down, k)
     _, sw = hook_strike(head, yaw, drop)
     if t < ULT_SLAM - 0.03:
         sw = swing(keys, t, yaw, drop)[1]
-    p.strike = (head, sw, val([(0, 0.0), (0.05, 1.0, 'o2'), (ULT_END, 1.0), (2.22, 0.0, 'io')], t))
+    p.strike = (head, sw, val([(0, 0.0), (0.05, 1.0, 'o2'), (ULT_END, 1.0), (2.22, 0.0, 'io')], t), shoulder_est(yaw, drop), 1 - k)
     p.hand_r = arc([(0, CARRY['hand_r']), (ULT_END, V((0.0, -0.34, -0.32))), (2.33, CARRY['hand_r'], 'io')], t)
     p.shaft = dirs([(0, CARRY['shaft']), (ULT_END, V((0.1, -0.6, -0.8))), (2.33, CARRY['shaft'], 'io')], t)
     p.pole_r = dirs([(0, CARRY['pole_r']), (0.12, V((1.0, -0.6, 0.4))), (ULT_SLAM - 0.1, V((1.0, -0.2, 0.3))), (ULT_SLAM, V((1.0, -0.8, 0.3))),
