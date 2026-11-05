@@ -93,7 +93,7 @@ jobs:
             -only-testing:VELSTRIATests/EffekseerKitStackTests -only-testing:VELSTRIATests/HeroFullBodyMotionTests \
             -only-testing:VELSTRIATests/HeroGripTests -only-testing:VELSTRIATests/HeroMotionClipTests \
             -only-testing:VELSTRIATests/HeroWeaponTrailTests -only-testing:VELSTRIATests/EmpoweredAttackFXTests \
-            -only-testing:VELSTRIATests/BattleFeelTests -only-testing:VELSTRIATests/AudioFilesTests > build/fxcapture/apptests.log 2>&1 || echo "アプリのテストが落ちた（apptests.log）"
+            -only-testing:VELSTRIATests/BattleFeelTests -only-testing:VELSTRIATests/AudioFilesTests             -only-testing:VELSTRIATests/H029MotionClipTests -only-testing:VELSTRIATests/HeroModelTests             -only-testing:VELSTRIATests/HeroSecondaryMotionTests > build/fxcapture/apptests.log 2>&1 || echo "アプリのテストが落ちた（apptests.log）"
           grep -E "error:|Test Case .*(passed|failed)|Executed|TEST (SUCCEEDED|FAILED)" build/fxcapture/apptests.log | tail -120 || true
           # テストの後のシミュレータを止める（撮影は起動し直したシミュレータで。テストの残りで画面の撮影が遅くならないように）
           xcrun simctl shutdown all || true
