@@ -979,7 +979,7 @@ final class HeroMotionClipTests: XCTestCase {
         let leg = max(0.1, rig.restPosition[hips].y - feet.map { rig.restPosition[$0].y }.reduce(0, +) / 2)
         let restLowest = try XCTUnwrap(contacts.map { rig.restPosition[$0].y }.min())
         var poser = HeroSkeletonPoser(rig: rig)
-        for name in ["idle_h032", "walk_h032", "run_h032", "punch_jab_l_h032", "punch_cross_r_h032", "punch_ult_h032"] {
+        for name in ["idle_h032", "walk_h032", "run_h032", "slash_l_h032", "slash_r_h032", "slash_circle_h032", "punch_ult_h032"] {
             let c = try XCTUnwrap(lib.index(of: name), name)
             let clip = lib.clips[c]
             var lowest = Float.infinity
@@ -997,6 +997,12 @@ final class HeroMotionClipTests: XCTestCase {
         let set = try XCTUnwrap(HeroMotionSets.set(heroID: "H032"))
         let binding = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))
         XCTAssertTrue(binding.dedicatedIdle, "HeroIdle の手続きの待機で上書きしない")
+        // 通常攻撃は刃の輪の斬撃 2 種を交互に、3 発目の円撃は専用のクリップ（MLBB: 命中 8 コマ前に振り上げ始める）
+        XCTAssertEqual(binding.attacks.map { lib.clips[$0].name }, ["slash_l_h032", "slash_r_h032"])
+        XCTAssertEqual(binding.empowered, lib.index(of: "slash_circle_h032"))
+        for c in binding.attacks + [try XCTUnwrap(binding.empowered)] {
+            XCTAssertEqual(lib.clips[c].impactTime, 8.0 / 30, accuracy: 0.01)
+        }
         XCTAssertTrue(binding.castsFromStart)
         XCTAssertTrue(binding.locksLegs(1), "S2 の突進・飛びかかりは脚もクリップ")
         let bp = HeroBlueprints.blueprint(heroID: "H032", role: nil)

@@ -221,6 +221,106 @@ def idle_pose(rig, clip, f):
     return qs, off, err
 
 
+# ---------------------------------------------------------------- キー姿勢（通常攻撃・スキル）
+# 姿勢は待機（段 1）の 0 フレームの脚・腰から作り、胴のひねり（twist、正 = 左へ回す）・前傾（lean）・腰（drop・fwd）と
+# 両腕の上腕・前腕の向き（胴のひねった水平の向きで: f = 前、o = 外（右腕は右・左腕は左）、u = 上）をキーで置く。
+# キーの間は区間ごとの slerp。足は毎フレーム待機の位置へ IK（plant=False のキーの間は元の足の位置を補間して置く）。
+
+GUARD = {'R': ((.3, .5, -.8), (.8, -.1, .55)), 'L': ((.3, .5, -.8), (.8, -.1, .55))}
+
+
+class Base:
+    def __init__(self, rig, clips):
+        qs, off, _ = idle_pose(rig, clips['idle_h032'], 0)
+        self.qs, self.off = qs, off
+        self.feet = foot_targets(rig, qs, off)
+
+
+def key_pose(rig, base, k):
+    qs = [q.copy() for q in base.qs]
+    tw = k.get('twist', 0.0)
+    rotate_upper(qs, axis(UP, tw), hips_too=k.get('hipsTwist', .35))
+    if k.get('yaw'):
+        # 体ごと回す（脚も。円撃の踏み込みの向き）
+        for i in range(15):
+            qs[i] = (axis(UP, k['yaw']) @ qs[i]).normalized()
+    add_lean(qs, k.get('lean', 0.0), .35, k.get('headFollow', .45))
+    fwd = axis(UP, tw+k.get('yaw', 0.0)) @ FWD
+    right = fwd.cross(UP)
+    for side, sgn in (('R', 1), ('L', -1)):
+        ua, fa = k.get(side, GUARD[side])
+        u = (fwd*ua[0] + right*sgn*ua[1] + UP*ua[2])
+        f = (fwd*fa[0] + right*sgn*fa[1] + UP*fa[2])
+        aim_limb(qs, side, u, f)
+    off = base.off + axis(UP, k.get('yaw', 0.0)) @ FWD*k.get('fwd', 0.0) + V((0, -k.get('drop', 0.0), 0)) \
+        + V((0, k.get('lift', 0.0), 0))
+    return qs, off
+
+
+def keyed(rig, base, keys, frames, feet_fn=None):
+    """keys: [(frame, key)]。フレームごとの (qs, off, IK の誤差) を返す関数。"""
+    poses = [(f, *key_pose(rig, base, k), k) for f, k in keys]
+
+    def at(fr):
+        for (fa, qa, oa, ka), (fb, qb, ob, kb) in zip(poses, poses[1:]):
+            if fr <= fb:
+                t = (fr-fa)/max(1e-6, fb-fa)
+                e = kb.get('ease', 'smooth')
+                w = t if e == 'linear' else (1-(1-t)**2 if e == 'out' else (t*t if e == 'in' else smooth(t)))
+                qs = [cm.slerp(a, b, w) for a, b in zip(qa, qb)]
+                off = oa.lerp(ob, w)
+                break
+        else:
+            qs, off = [q.copy() for q in poses[-1][1]], poses[-1][2].copy()
+        feet = feet_fn(fr) if feet_fn else base.feet
+        err = plant(rig, qs, off, feet)
+        return qs, off, err
+    return at
+
+
+# 段 2: 通常攻撃（MLBB vid12 コマ 245〜253・269〜278・vid6 コマ 72〜98）。どちらも刃の輪で大きな弧を描く斬撃で、腕を振り上げて
+# 引く 4 コマ → 振り抜き 4 コマ → 命中（1 撃目は上から斜めに振り下ろす、2 撃目は逆の腕で横から薙ぐ）→ 低い前傾で振り抜いたまま
+# 2〜3 コマ → 輪を胸の前に構えた立ち姿へ。命中はクリップの 8 フレーム（0.27 秒）。試合では sim の windup（攻撃間隔の 25%）へ伸縮する。
+# 3 回目の円撃（コマ 296〜302・112〜118）: 体を光らせて両腕を胸の前で交差して沈む（溜め 4 コマ）→ 踏み込みながら両腕を外へ
+# 大きく開いて周りを薙ぐ（2 コマ）→ 命中 → 腕を開いたまま起き上がる。360° の回転はしない。
+
+SLASH_L = [  # 左腕の大きな斬撃（左の後ろ・肩の高さ → 上を回って前の的へ → 右下へ振り抜く）
+    (0, {}),
+    (4, dict(twist=.4, lean=math.radians(-4), lift=.01, L=((-.45, .75, .4), (-.55, .5, .62)),
+             R=((.15, .55, -.8), (.75, .1, .4)), ease='out')),
+    (6, dict(twist=.15, lean=math.radians(6), L=((.35, .75, .45), (.8, .4, .45)), ease='in')),
+    (8, dict(twist=-.35, lean=math.radians(14), drop=.06, fwd=.1, L=((.92, 0, .1), (.88, -.35, .12)),
+             R=((-.2, .6, -.75), (.2, .3, -.9)), ease='linear')),
+    (11, dict(twist=-.5, lean=math.radians(18), drop=.07, fwd=.1, L=((.5, -.4, -.45), (.3, -.75, -.4)),
+              R=((-.25, .6, -.75), (.2, .35, -.88)), ease='out')),
+    (23, {}),
+]
+SLASH_R = [  # 右腕の横薙ぎ（右の後ろ → 前の左）
+    (0, {}),
+    (4, dict(twist=-.5, lean=math.radians(2), R=((-.35, .78, .3), (-.5, .6, .45)), L=((.35, .45, -.7), (.85, -.2, .35)),
+             ease='out')),
+    (6, dict(twist=-.12, lean=math.radians(10), R=((.35, .88, .1), (.8, .55, .05)), ease='in')),
+    (8, dict(twist=.42, lean=math.radians(22), drop=.07, fwd=.1, R=((.9, .1, -.1), (.75, -.6, -.05)),
+             L=((-.2, .6, -.7), (.2, .4, -.85)), ease='linear')),
+    (11, dict(twist=.55, lean=math.radians(24), drop=.08, fwd=.1, R=((.55, -.35, -.5), (.25, -.85, -.35)),
+              L=((-.25, .6, -.72), (.2, .4, -.85)), ease='out')),
+    (23, {}),
+]
+CIRCLE = [  # 円撃: 交差して溜め → 両腕を外へ開いて薙ぐ
+    (0, {}),
+    (4, dict(lean=math.radians(16), drop=.1, R=((.55, -.1, -.75), (.55, -.75, .1)), L=((.55, -.1, -.75), (.55, -.75, .1)),
+             ease='out')),
+    (6, dict(lean=math.radians(12), drop=.06, fwd=.08, twist=.15, R=((.75, .45, -.35), (.55, .8, .05)),
+             L=((.75, .45, -.35), (.55, .8, .05)), ease='in')),
+    (8, dict(lean=math.radians(18), drop=.08, fwd=.14, twist=-.2, R=((-.05, 1, -.2), (-.35, .9, -.1)),
+             L=((-.05, 1, -.2), (-.35, .9, -.1)), ease='linear')),
+    (12, dict(lean=math.radians(8), drop=.03, fwd=.12, twist=-.3, R=((-.25, .9, -.45), (-.45, .7, -.45)),
+              L=((-.25, .9, -.45), (-.45, .7, -.45)), ease='out')),
+    (25, {}),
+]
+ATTACKS = {'slash_l_h032': (SLASH_L, 24), 'slash_r_h032': (SLASH_R, 24), 'slash_circle_h032': (CIRCLE, 26)}
+
+
 # ---------------------------------------------------------------- 書き出し
 
 def emit(rig, src, name, frames, fn, extra=None):
@@ -248,9 +348,18 @@ def author(rig, clips):
             n, r = emit(rig, c, name, c['frames'], lambda f, c=c: loco_pose(rig, c, f, WALK))
         elif name == 'idle_h032':
             n, r = emit(rig, c, name, c['frames'], lambda f, c=c: idle_pose(rig, c, f))
+        elif name in ('punch_jab_l_h032', 'punch_cross_r_h032'):
+            continue
         else:
             n, r = dict(c), dict(frames=c['frames'], copied=True)
         n['source'] = 'h032' if r.get('copied') else 'h032+mlbb-finish'
+        out.append(n)
+        report[name] = r
+    base = Base(rig, clips)
+    tmpl = clips['punch_jab_l_h032']
+    for name, (keys, frames) in ATTACKS.items():
+        n, r = emit(rig, tmpl, name, frames, keyed(rig, base, keys, frames))
+        n.update(name=name, source='h032+mlbb-keyed', events={'impact': 8.0}, melee=True)
         out.append(n)
         report[name] = r
     return out, report

@@ -18,7 +18,7 @@ import numpy as np
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--video', required=True)
-    p.add_argument('--t0', type=float, required=True)
+    p.add_argument('--t0', type=float, default=0.0)
     p.add_argument('--n', type=int, default=8)
     p.add_argument('--step', type=int, default=3)
     p.add_argument('--frames', default='', help='MLBB のコマ番号の列（0 始まり。--t0/--step より優先）')

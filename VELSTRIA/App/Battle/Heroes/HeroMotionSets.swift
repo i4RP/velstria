@@ -279,13 +279,15 @@ enum HeroMotionSets {
         return s
     }()
 
-    /// H032 ディアス: 拳の構えの待機・構えたままの歩行・前傾の走り・左ジャブ → 右ストレート（3 発目の円撃は
-    /// Motion_H032.empoweredAttack の全身のモーション）・スキル（S1 の 3 連打・S2 の突進 / 致命の一撃・奥義の溜め突き）。
+    /// H032 ディアス（MLBB のディロスの画面収録に合わせた仕上げ。docs/H032_QUALITY.md）: 腕を下ろして刃の輪を体の横へ張り出す
+    /// 待機・歩行・走行、刃の輪の斬撃（左の振り下ろし → 右の横薙ぎ → 3 発目の円撃 = 両腕を開いて薙ぐ専用のクリップ。
+    /// クリップが無ければ Motion_H032.empoweredAttack）・スキル（S1 の 3 連打・S2 の突進 / 致命の一撃・奥義の溜め突き）。
     private static let dyrroth: HeroMotionSet = {
         // 刃の輪は前腕に沿う縦の刃（SkinnedHeroModel.forearmBlade）。正面・俯瞰からは縁だけが見え、顎の前の構えでも
         // 顔・頭を覆わない
-        var s = make(["punch_jab_l_h032", "punch_cross_r_h032"], idle: "idle_h032", death: "death_forward",
+        var s = make(["slash_l_h032", "slash_r_h032"], idle: "idle_h032", death: "death_forward",
                      offhandGrip: HeroMotionSet.fistGrip)
+        s.empowered = "slash_circle_h032"
         s.gripOnForeArm = true
         s.castsFromStart = true
         // 突進・飛びかかりの間は脚もクリップ（走る脚に戻さない）
