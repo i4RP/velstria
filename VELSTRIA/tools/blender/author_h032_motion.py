@@ -145,6 +145,24 @@ def aim_limb(qs, side, upper_dir, fore_dir, w=1.0):
     rotate_chain(qs, [f, h], r2)
 
 
+def run_arms(qs, side, sw, amp=1.0, w=1.0):
+    """MLBB の走りの腕（vid6 コマ 143〜154 の横からの全コマ）: 前へ振る側は輪を顔の前まで振り上げ（前腕が立つ）、後ろへ振る側は
+    輪を腰の横へ下ろす（前腕が下を向く）。手は体の近く・横へ開く（正面 vid7 で輪の外縁が体の中心から ±0.36）。sw = -1（後ろ）〜 1（前）。"""
+    sgn = 1 if side == 'R' else -1
+    fwd = qs[S['torso']] @ FWD
+    fwd = V((fwd.x, 0, fwd.z)).normalized()
+    right = fwd.cross(UP).normalized()
+    t = .5+.5*max(-1.0, min(1.0, sw))*amp
+
+    def d(f, o, u):
+        return (fwd*f + right*sgn*o + UP*u).normalized()
+    hi_u, hi_f = d(.36, .42, -.83), d(.6, .1, .78)
+    lo_u, lo_f = d(-.28, .42, -.86), d(.38, .22, -.9)
+    u = lo_u.lerp(hi_u, smooth(t)).normalized()
+    f = lo_f.lerp(hi_f, smooth(t)).normalized()
+    aim_limb(qs, side, u, f, w)
+
+
 def plant(rig, qs, off, targets):
     errs = []
     for suf, side in LEGS:
@@ -172,8 +190,9 @@ def lowest_contact(rig, qs, off):
 # 1 周 ≒ 23 コマ（0.77 秒、片足 11.5 コマ）。胴は深く前傾（35〜45°）、頭は前へ突き出して前を見る。刃の輪は腰〜胸の高さで
 # 体の横・やや前に構え、肘を曲げたまま脚と逆に前後へ振る。マント・尾は後ろへ流れる。
 
-RUN = dict(lean=math.radians(4), hips_share=.3, head_follow=.4, drop=.02, abduct=0.0, elbow=0.0, low=.85, out=1.5)
-WALK = dict(lean=math.radians(14), hips_share=.35, head_follow=.6, drop=.02, abduct=0.0, elbow=0.0, low=.8, out=1.3)
+RUN = dict(lean=math.radians(-8), hips_share=.3, head_follow=.5, drop=.02, abduct=0.0, elbow=0.0, low=0.0, out=1.5, arms=1.0,
+           steady=.6, mean=math.radians(64.2))
+WALK = dict(lean=math.radians(10), hips_share=.35, head_follow=.6, drop=.02, abduct=0.0, elbow=0.0, low=0.0, out=1.3, arms=.6)
 
 
 def loco_pose(rig, clip, f, cfg):
@@ -181,17 +200,23 @@ def loco_pose(rig, clip, f, cfg):
     qs = [q.copy() for q in qs]
     off = V(root)*rig.leg_length
     feet = foot_targets(rig, qs, off)
-    add_lean(qs, cfg['lean'], cfg['hips_share'], cfg['head_follow'])
+    lean = cfg['lean']
+    if cfg.get('steady'):
+        # 初版の前傾の揺れ（胸の区間で 57〜72°）を ならす: 周の平均（cfg['mean']）との差の steady 倍を戻す
+        lean += cfg['steady']*(cfg['mean']-lean_of(qs[S['torso']]))
+    add_lean(qs, lean, cfg['hips_share'], cfg['head_follow'])
     for side, other in (('R', 'L'), ('L', 'R')):
         if cfg['abduct']:
             abduct(qs, side, cfg['abduct'])
         if cfg['elbow']:
             open_elbow(qs, side, cfg['elbow'])
+        th = limb(qs, 'thigh'+other)
         if cfg['low']:
             # 腕は反対の脚と同じ向きに振る（腿の前後の向き × 0.6）
-            th = limb(qs, 'thigh'+other)
             swing = max(-.35, min(.35, -th.z*.6))
             low_arms(qs, side, swing, w=cfg['low'], out=cfg['out'])
+        if cfg.get('arms'):
+            run_arms(qs, side, -th.z/.45, amp=cfg['arms'])
     off = off.copy()
     off.y -= cfg['drop']
     err = plant(rig, qs, off, feet)
