@@ -12,6 +12,9 @@ struct HeroMotionSet {
     var attacks: [String] = []
     /// 通常攻撃のマスク。.full = 立ち止まっている時は全身・移動中は上半身、.upper = 常に上半身。
     var attackMask: HeroClipMask = .full
+    /// 前の通常攻撃からこの秒数より空いたら、次の通常攻撃を attacks の先頭から振り直す（MLBB のティグラルは止まると ① に戻る。H029）。
+    /// nil = 順番を続ける（既定。ほかのヒーローは変えない）。
+    var attackRestartAfter: Float? = nil
     /// スキル詠唱（Skill1, Skill2, Ultimate の順。nil = 手続き）。
     var casts: [String?] = [nil, nil, nil]
     /// スキルが最初に当たった時（playCastHit）に始め直す詠唱のクリップ（Skill1, Skill2, Ultimate。H034 の鎖鉤の引き寄せ）。
@@ -92,6 +95,7 @@ struct HeroMotionBinding {
     let idleWeaponR: Float?
     let weaponOffset: V3
     let idleWeaponL: Float?
+    let attackRestartAfter: Float?
 
     /// どのクリップも見つからなければ nil（重ねる層を持たず、手続きと完全に同じ）。
     init?(set: HeroMotionSet, library: HeroMotionLibrary) {
@@ -125,6 +129,7 @@ struct HeroMotionBinding {
         idleWeaponR = set.idleWeaponR
         weaponOffset = set.weaponOffset
         idleWeaponL = set.idleWeaponL
+        attackRestartAfter = set.attackRestartAfter
     }
 
     /// スキル枠 → casts の添字（パッシブは Skill1 と同じ。HeroAnimator.castIndex と同じ対応）。
@@ -317,6 +322,8 @@ enum HeroMotionSets {
     private static let borg: HeroMotionSet = {
         // 通常攻撃は MLBB の 3 種の繰り返し（横振り → 返し → 叩きつけ。docs/H029_QUALITY.md 段 2）
         var s = make(["maul_sweep_h029", "maul_backhand_h029", "maul_smash_h029"], idle: "idle_h029", offhandGrip: borgShieldGrip)
+        // 連続の攻撃の間隔（約 1 秒）より空いたら ① から（a 13.30 秒の単発は ①）
+        s.attackRestartAfter = 1.5
         s.dedicatedIdle = true
         s.dedicatedAttack = true
         s.stateBlend = 0.2

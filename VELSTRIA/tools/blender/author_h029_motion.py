@@ -295,8 +295,8 @@ class Pose:
 
 # MLBB のティグラルの構え（2026-10-15 / 10-18 の画面収録）: 聖槌は右肩に担ぐ（右手は胸の前で柄を握り、柄は右肩の上を通って
 # 槌頭は肩の後ろ上。石突きは手の前下へ出る）。盾は左腕に下げて左脇に縦に立てる（上の縁が肩、下の縁が膝の上。外の面は外・やや後ろ）。
-CARRY = dict(hips=(-3, 2, 0), torso=(-2, 3, 0), head=(2, -2), drop=0.07,
-             hand_r=V((-0.16, -0.16, -0.29)), shaft=V((0.20, 0.62, 0.76)), pole_r=V((0.9, -1.0, 0.2)),
+CARRY = dict(hips=(-3, 2, 0), torso=(-2, 3, 0), head=(2, -2), drop=0.05,
+             hand_r=V((-0.16, -0.05, -0.29)), shaft=V((0.20, 0.46, 0.86)), pole_r=V((0.9, -1.0, 0.2)),
              hand_l=V((-0.07, -0.46, -0.11)), pole_l=V((-0.5, -0.2, 1.0)),
              shield=(V((0.0, 1.0, 0.0)), V((-1.0, 0.0, 0.45))))
 
@@ -431,8 +431,10 @@ def idle(rest, prime, u):
 # Velstria のヒーローは mapScale 1.35 倍速く動く（260 × 1.35 = 毎秒 3.51 m）ので、歩調（コマ数）を MLBB に合わせ、
 # 歩幅を 1.35 倍（1.64 m = ヒーロー空間 1.24）にした。減速中など遅い時は walk（1 周 0.733 秒）。
 GAITS = {
-    'run': dict(frames=14, speed=3.51, contact=0.42, lift=0.13, lean=9, bob=0.03, drop=0.085, width=0.17, knee=0.20),
-    'walk': dict(frames=22, speed=1.80, contact=0.60, lift=0.085, lean=4, bob=0.016, drop=0.075, width=0.19, knee=0.22),
+    'run': dict(frames=14, speed=3.51, contact=0.48, lift=0.17, lean=10, bob=0.045, drop=0.045, width=0.21, knee=0.24,
+                twist=9, hammer=0.03, shield=0.09),
+    'walk': dict(frames=22, speed=1.80, contact=0.62, lift=0.10, lean=4, bob=0.022, drop=0.04, width=0.22, knee=0.24,
+                 twist=6, hammer=0.018, shield=0.06),
 }
 
 
@@ -449,10 +451,11 @@ def locomotion(rest, prime, u, run):
     w = math.tau * u
     bounce = math.cos(2 * (w - math.tau * contact / 2))   # 1 = 支持の中ほど（沈む）
     twist = math.cos(w)                                   # + = 右脚が前（腰は左へ回り、胴は打ち消す）
-    p.hips = (CARRY['hips'][0] + 6 * twist, CARRY['hips'][1] + lean * 0.5, 2.5 * math.sin(w))
-    p.torso = (CARRY['torso'][0] - 4 * twist, CARRY['torso'][1] + lean * 0.6 + 1.5 * bounce, -1.5 * math.sin(w))
+    p.hips = (CARRY['hips'][0] + g['twist'] * twist, CARRY['hips'][1] + lean * 0.5, 3.0 * math.sin(w))
+    p.torso = (CARRY['torso'][0] - g['twist'] * 0.65 * twist, CARRY['torso'][1] + lean * 0.6 + 2.0 * bounce, -2.0 * math.sin(w))
     p.head = (CARRY['head'][0] - 2 * twist, CARRY['head'][1] - lean * 0.6 - 1.0 * bounce)
-    p.offset = V((0.012 * math.cos(w), -g['drop'] - g['bob'] * (0.5 + 0.5 * bounce), 0))
+    # 重装の重い上下（支持の中ほどで沈み、蹴り出しで浮く）と、支持脚の側への腰の横の揺れ
+    p.offset = V((0.022 * math.cos(w), -g['drop'] - g['bob'] * (0.5 + 0.5 * bounce), 0))
     for side, phase in (('right', u), ('left', u + 0.5)):
         x = g['width'] if side == 'right' else -g['width']
         ph = phase % 1
@@ -470,16 +473,17 @@ def locomotion(rest, prime, u, run):
             v = (ph - contact) / (1 - contact)
             tangent = 2 * reach * (1 - contact) / contact
             foot.z = reach - 2 * reach * smooth(v) + tangent * (2 * v ** 3 - 3 * v * v + v)
-            foot.y += g['lift'] * math.sin(math.pi * v) ** 1.5
+            # 蹴り出した足は後ろで高く上がり（踵を蹴り上げ）、前へ振り出して下ろす
+            foot.y += g['lift'] * math.sin(math.pi * v ** 0.75) ** 1.3
             p.roll[side] = 24 * (1 - smooth(v / 0.35)) - 12 * math.sin(math.pi * v) - 9 * smooth((v - 0.8) / 0.2)
             p.toe[side] = 0
         p.feet[side] = foot
     # 槌は肩に乗ったまま、体の上下に少し遅れて揺れる。盾の腕は左脚と逆に小さく前後する（右脚が前 = 盾が前）
     lag = math.cos(2 * (w - math.tau * contact / 2) - 0.9)
-    p.hand_r = CARRY['hand_r'] + V((0.0, -0.014 * lag, 0.0))
-    p.shaft = (CARRY['shaft'] + V((0.0, 0.0, 0.03 * lag))).normalized()
-    p.hand_l = CARRY['hand_l'] + V((0.012, 0.012 * (1 - abs(math.cos(w))), -0.07 * math.cos(w)))
-    p.shield = (V((0.0, 1.0, 0.16 * math.cos(w))).normalized(), CARRY['shield'][1].copy())
+    p.hand_r = CARRY['hand_r'] + V((0.0, -g['hammer'] * lag, 0.0))
+    p.shaft = (CARRY['shaft'] + V((0.0, 0.0, 2.0 * g['hammer'] * lag))).normalized()
+    p.hand_l = CARRY['hand_l'] + V((0.012, 0.015 * (1 - abs(math.cos(w))), -g['shield'] * math.cos(w)))
+    p.shield = (V((0.0, 1.0, 2.2 * g['shield'] * math.cos(w))).normalized(), CARRY['shield'][1].copy())
     p.knee_out = g['knee']
     return p, g['speed'], period
 
@@ -523,8 +527,9 @@ def maul_strike(head, yaw):
     return head, (head - sh).normalized()
 
 
-def attack_base(rest, t, hips_yaw, torso_yaw, lean, drop, step):
-    """通常攻撃の体（腰と胴のひねり・前傾・沈み・左足の踏み込み）。各引数は val の keys（step は (dz, dy) の組）。"""
+def attack_base(rest, t, hips_yaw, torso_yaw, lean, drop, step, back=None, shift=None):
+    """通常攻撃の体（腰と胴のひねり・前傾・沈み・左足の踏み込み）。各引数は val の keys（step は左足の (dz, dy)、back は右足を
+    後ろへ引く量、shift は腰の (横, 前後) のずれ = 体重の移り）。"""
     p = carry_pose(rest)
     hy, ty = val(hips_yaw, t), val(torso_yaw, t)
     ln = val(lean, t)
@@ -539,6 +544,17 @@ def attack_base(rest, t, hips_yaw, torso_yaw, lean, drop, step):
     lift = smooth((-dz - 0.04) / 0.08)
     p.roll['right'] = 10 * lift
     p.toe['right'] = -8 * lift
+    if back:
+        b = val(back, t)
+        p.feet['right'] = rest.foot('right', dx=0.4 * b, dz=b)
+        p.roll['right'] = max(p.roll['right'], 16 * smooth(b / 0.12))
+        p.toe['right'] = min(p.toe['right'], -14 * smooth(b / 0.12))
+        p.feet['left'] = p.feet['left'] + V((-0.25 * max(0.0, -dz), 0, 0))
+    if shift:
+        sh = val([(k[0], V((k[1][0], 0, k[1][1])), *k[2:]) for k in shift], t)
+        p.offset.x += sh.x
+        p.offset.z += sh.z
+    p.knee_out = 0.45
     return p, hy + ty
 
 
@@ -550,12 +566,15 @@ def attack_sweep(rest, prime, t):
     """① 横振り（右 → 左）。"""
     imp = ATTACK_IMPACT
     p, yaw = attack_base(rest, t,
-                         [(0, 0), (0.15, -16, 'o2'), (imp, 6, 'i2'), (0.42, 20, 'o'), (0.6, 20), (ATTACK_END, 0, 'io')],
-                         [(0, 0), (0.15, -26, 'o2'), (imp, 8, 'i2'), (0.42, 28, 'o'), (0.6, 26), (ATTACK_END, 0, 'io')],
-                         [(0, 0), (0.15, -4), (imp, 12, 'i2'), (0.42, 18, 'o'), (0.6, 16), (ATTACK_END, 0, 'io')],
-                         [(0, 0), (0.15, -0.01), (imp, 0.04, 'i2'), (0.45, 0.06), (0.62, 0.05), (ATTACK_END, 0, 'io')],
-                         [(0, (0, 0)), (0.10, (0.0, 0.0)), (0.19, (-0.07, 0.06), 'o2'), (imp, (-0.15, 0.0), 'i2'), (0.62, (-0.15, 0.0)),
-                          (0.76, (-0.06, 0.04), 'io'), (ATTACK_END, (0, 0), 'o')])
+                         [(0, 0), (0.15, -22, 'o2'), (imp, 10, 'i2'), (0.42, 32, 'o'), (0.64, 30), (ATTACK_END, 0, 'io')],
+                         [(0, 0), (0.15, -40, 'o2'), (imp, 14, 'i2'), (0.42, 48, 'o'), (0.64, 44), (ATTACK_END, 0, 'io')],
+                         [(0, 0), (0.15, 4, 'o2'), (imp, 26, 'i2'), (0.42, 34, 'o'), (0.64, 30), (ATTACK_END, 0, 'io')],
+                         [(0, 0), (0.15, 0.05, 'o2'), (imp, 0.15, 'i2'), (0.45, 0.19, 'o'), (0.64, 0.17), (ATTACK_END, 0, 'io')],
+                         [(0, (0, 0)), (0.08, (0.0, 0.0)), (0.17, (-0.12, 0.07), 'o2'), (imp, (-0.36, 0.0), 'i2'), (0.66, (-0.36, 0.0)),
+                          (0.80, (-0.12, 0.05), 'io'), (ATTACK_END, (0, 0), 'o')],
+                         back=[(0, 0), (0.17, 0.02), (imp, 0.14, 'i2'), (0.66, 0.14), (ATTACK_END, 0, 'io')],
+                         shift=[(0, (0, 0)), (0.15, (0.03, 0.03), 'o2'), (imp, (-0.01, -0.10), 'i2'), (0.45, (-0.06, -0.10), 'o'),
+                                (0.64, (-0.05, -0.09)), (ATTACK_END, (0, 0), 'io')])
     p.hand_r = arc([(0, CARRY['hand_r']), (0.08, V((-0.10, -0.08, -0.32)), 'o2'), (0.62, V((-0.30, -0.36, -0.18))),
                     (0.75, V((-0.20, 0.05, -0.36)), 'io'), (ATTACK_END, CARRY['hand_r'], 'io')], t)
     p.shaft = dirs([(0, CARRY['shaft']), (0.08, V((0.15, 0.45, 0.88)), 'o2'), (0.62, V((-0.6, -0.6, 0.3))),
@@ -575,12 +594,15 @@ def attack_backhand(rest, prime, t):
     """② 返し（左 → 右）。振りかぶりで盾は体の前へ来る（MLBB の 6.13〜6.43 秒）。"""
     imp = ATTACK_IMPACT
     p, yaw = attack_base(rest, t,
-                         [(0, 0), (0.17, 18, 'o2'), (imp, -4, 'i2'), (0.43, -20, 'o'), (0.6, -20), (ATTACK_END, 0, 'io')],
-                         [(0, 0), (0.17, 30, 'o2'), (imp, -6, 'i2'), (0.43, -28, 'o'), (0.6, -25), (ATTACK_END, 0, 'io')],
-                         [(0, 0), (0.17, 2), (imp, 12, 'i2'), (0.43, 16, 'o'), (0.6, 14), (ATTACK_END, 0, 'io')],
-                         [(0, 0), (0.17, 0.0), (imp, 0.04, 'i2'), (0.45, 0.06), (0.62, 0.05), (ATTACK_END, 0, 'io')],
-                         [(0, (0, 0)), (0.12, (0.0, 0.0)), (0.2, (-0.06, 0.05), 'o2'), (imp, (-0.12, 0.0), 'i2'), (0.62, (-0.12, 0.0)),
-                          (0.76, (-0.05, 0.04), 'io'), (ATTACK_END, (0, 0), 'o')])
+                         [(0, 0), (0.17, 24, 'o2'), (imp, -8, 'i2'), (0.43, -30, 'o'), (0.64, -28), (ATTACK_END, 0, 'io')],
+                         [(0, 0), (0.17, 46, 'o2'), (imp, -12, 'i2'), (0.43, -46, 'o'), (0.64, -42), (ATTACK_END, 0, 'io')],
+                         [(0, 0), (0.17, 6, 'o2'), (imp, 26, 'i2'), (0.43, 32, 'o'), (0.64, 28), (ATTACK_END, 0, 'io')],
+                         [(0, 0), (0.17, 0.05, 'o2'), (imp, 0.15, 'i2'), (0.45, 0.19, 'o'), (0.64, 0.17), (ATTACK_END, 0, 'io')],
+                         [(0, (0, 0)), (0.10, (0.0, 0.0)), (0.19, (-0.12, 0.07), 'o2'), (imp, (-0.34, 0.0), 'i2'), (0.66, (-0.34, 0.0)),
+                          (0.80, (-0.11, 0.05), 'io'), (ATTACK_END, (0, 0), 'o')],
+                         back=[(0, 0), (0.17, 0.02), (imp, 0.14, 'i2'), (0.66, 0.14), (ATTACK_END, 0, 'io')],
+                         shift=[(0, (0, 0)), (0.17, (-0.04, 0.03), 'o2'), (imp, (0.01, -0.09), 'i2'), (0.45, (0.06, -0.09), 'o'),
+                                (0.64, (0.05, -0.08)), (ATTACK_END, (0, 0), 'io')])
     p.hand_r = arc([(0, CARRY['hand_r']), (0.10, V((-0.22, 0.20, -0.22)), 'o2'), (0.17, V((-0.42, -0.02, -0.02)), 'io'),
                     (0.62, V((0.26, -0.42, -0.08))), (0.76, V((0.08, -0.20, -0.30)), 'io'), (ATTACK_END, CARRY['hand_r'], 'io')], t)
     p.shaft = dirs([(0, CARRY['shaft']), (0.10, V((0.0, 1.0, 0.15)), 'o2'), (0.17, V((-0.55, 0.35, 0.75)), 'io'),
@@ -604,12 +626,14 @@ def attack_smash(rest, prime, t):
     """③ 叩きつけ。振りかぶりで盾を左の頭の高さへ上げ（MLBB の 7.27〜7.40 秒）、命中で槌頭を前の地面に置いて止まる。"""
     imp = ATTACK_IMPACT
     p, yaw = attack_base(rest, t,
-                         [(0, 0), (0.18, -8, 'o2'), (imp, 4, 'i'), (0.6, 4), (ATTACK_END, 0, 'io')],
-                         [(0, 0), (0.18, -12, 'o2'), (imp, 6, 'i'), (0.6, 4), (ATTACK_END, 0, 'io')],
-                         [(0, 0), (0.18, -16, 'o2'), (imp, 30, 'i'), (0.62, 26), (ATTACK_END, 0, 'io')],
-                         [(0, 0), (0.18, -0.02, 'o2'), (imp, 0.09, 'i'), (0.62, 0.08), (ATTACK_END, 0, 'io')],
-                         [(0, (0, 0)), (0.10, (0.0, 0.0)), (0.2, (-0.08, 0.06), 'o2'), (imp, (-0.18, 0.0), 'i2'), (0.64, (-0.18, 0.0)),
-                          (0.78, (-0.06, 0.04), 'io'), (ATTACK_END, (0, 0), 'o')])
+                         [(0, 0), (0.18, -10, 'o2'), (imp, 6, 'i'), (0.64, 6), (ATTACK_END, 0, 'io')],
+                         [(0, 0), (0.18, -16, 'o2'), (imp, 8, 'i'), (0.64, 6), (ATTACK_END, 0, 'io')],
+                         [(0, 0), (0.18, -16, 'o2'), (imp, 44, 'i'), (0.64, 40), (ATTACK_END, 0, 'io')],
+                         [(0, 0), (0.18, -0.01, 'o2'), (imp, 0.20, 'i'), (0.64, 0.19), (ATTACK_END, 0, 'io')],
+                         [(0, (0, 0)), (0.10, (0.0, 0.0)), (0.2, (-0.14, 0.08), 'o2'), (imp, (-0.40, 0.0), 'i2'), (0.66, (-0.40, 0.0)),
+                          (0.80, (-0.13, 0.05), 'io'), (ATTACK_END, (0, 0), 'o')],
+                         back=[(0, 0), (0.18, 0.03), (imp, 0.15, 'i2'), (0.66, 0.15), (ATTACK_END, 0, 'io')],
+                         shift=[(0, (0, 0)), (0.18, (0.0, 0.05), 'o2'), (imp, (0.02, -0.14), 'i'), (0.64, (0.02, -0.13)), (ATTACK_END, (0, 0), 'io')])
     p.hand_r = arc([(0, CARRY['hand_r']), (0.12, V((0.0, 0.38, 0.02)), 'o2'), (0.19, V((0.02, 0.45, 0.06)), 'io'),
                     (0.62, V((-0.05, -0.36, -0.36))), (0.77, V((-0.10, -0.15, -0.40)), 'io'), (ATTACK_END, CARRY['hand_r'], 'io')], t)
     p.shaft = dirs([(0, CARRY['shaft']), (0.12, V((0.15, 0.55, 0.82)), 'o2'), (0.19, V((0.05, 0.22, 0.97)), 'io'),
@@ -654,6 +678,10 @@ def skill_base(rest, t, hips_yaw, torso_yaw, lean, drop, step, back=None, forwar
     return p, yaw
 
 
+# S1 の槌頭が地を打つ所（ヒーロー空間の前 -Z。× 1.32 = 世界 1.87 m）。MLBB は足元から 1.83〜1.88 単位（docs/H029_QUALITY.md 二周目）
+S1_HIT = -1.42
+
+
 def skill_wave(rest, prime, t):
     """S1 聖槌波 1.45 秒（打撃 0.25 = 1 回目の衝撃波）。"""
     s = 0.25
@@ -674,8 +702,9 @@ def skill_wave(rest, prime, t):
     p.pole_r = dirs([(0, CARRY['pole_r']), (0.05, V((1, -0.3, 0.6))), (0.17, V((1, 0.4, 0.2))), (s, V((1, -0.8, 0.2))),
                      (1.12, V((1, -0.8, 0.0))), (1.35, CARRY['pole_r'])], t)
     up, _ = swing([(0.04, 185, -20, 0.22), (0.07, 182, -28, 0.26, 'o2'), (0.15, 180, 25, 0.22, 'io'), (0.205, 178, 72, 0.16, 'i2')], t, yaw)
-    down = val([(0.205, V((0.10, 2.35, 0.25))), (0.225, V((0.12, 1.95, -0.85)), 'l'), (s, V((0.15, HEAD_HALF, -1.32)), 'i2'),
-                (0.32, V((0.15, HEAD_HALF + 0.07, -1.30)), 'o'), (0.45, V((0.15, HEAD_HALF + 0.02, -1.30))), (0.97, V((0.15, HEAD_HALF + 0.02, -1.30)))], t)
+    down = val([(0.205, V((0.10, 2.35, 0.25))), (0.225, V((0.12, 1.95, -0.92)), 'l'), (s, V((0.16, HEAD_HALF, S1_HIT)), 'i2'),
+                (0.32, V((0.16, HEAD_HALF + 0.07, S1_HIT + 0.02)), 'o'), (0.45, V((0.16, HEAD_HALF + 0.02, S1_HIT + 0.02))),
+                (0.97, V((0.16, HEAD_HALF + 0.02, S1_HIT + 0.02)))], t)
     head = up.lerp(down, smooth((t - 0.205) / 0.02))
     _, sw = maul_strike(head, yaw)
     p.strike = (head, sw, strike_weight(t, 0.02, 0.06, 0.95, 1.06))
