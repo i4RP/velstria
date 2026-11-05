@@ -1,23 +1,300 @@
 {
-  "about": "H029 ボルグと MLBB のティグラルの比較の一覧（docs/H029_QUALITY.md）。mlbb = [動画, 秒]、clip / at = Velstria のクリップと秒、heading = MLBB のコマでのヒーローの画面の向き（0 = 奥、90 = 右、180 = 手前、270 = 左）。画像はリポジトリに入れない",
-  "videos": {
-    "a": "ScreenRecording_10-15-2026_11-02-59_1.mp4",
-    "b": "ScreenRecording_10-18-2026_00-59-09_1.mp4"
-  },
-  "box": [477, 173, 160, 160],
-  "scale": 2.0,
-  "stages": {
-    "gait": [
-      {"label": "待機（正面）", "mlbb": ["b", 30.0], "clip": "idle_h029", "at": 0.0, "heading": 170},
-      {"label": "待機（右前）", "mlbb": ["a", 0.67], "clip": "idle_h029", "at": 1.0, "heading": 135},
-      {"label": "待機（奥）", "mlbb": ["b", 37.0], "clip": "idle_h029", "at": 2.0, "heading": 20},
-      {"label": "移動（横）脚が開く", "mlbb": ["b", 35.73], "clip": "run_h029", "at": 0.0, "heading": 100},
-      {"label": "移動（横）脚が揃う", "mlbb": ["b", 35.87], "clip": "run_h029", "at": 0.117, "heading": 100},
-      {"label": "移動（横）脚が開く", "mlbb": ["b", 35.97], "clip": "run_h029", "at": 0.233, "heading": 100},
-      {"label": "移動（奥）", "mlbb": ["a", 3.73], "clip": "run_h029", "at": 0.06, "heading": 40},
-      {"label": "移動（奥）", "mlbb": ["b", 28.6], "clip": "run_h029", "at": 0.3, "heading": 330},
-      {"label": "移動（手前）", "mlbb": ["b", 37.47], "clip": "run_h029", "at": 0.1, "heading": 235},
-      {"label": "移動（手前）", "mlbb": ["b", 35.33], "clip": "run_h029", "at": 0.35, "heading": 200}
-    ]
-  }
+ "about": "H029 ボルグと MLBB のティグラルの比較の一覧（docs/H029_QUALITY.md）。mlbb = [動画, 秒]、clip / at = Velstria のクリップと秒、heading = MLBB のコマでのヒーローの画面の向き（0 = 奥、90 = 右、180 = 手前、270 = 左）。画像はリポジトリに入れない",
+ "videos": {
+  "a": "ScreenRecording_10-15-2026_11-02-59_1.mp4",
+  "b": "ScreenRecording_10-18-2026_00-59-09_1.mp4"
+ },
+ "box": [
+  447,
+  127,
+  220,
+  220
+ ],
+ "scale": 1.6,
+ "stages": {
+  "gait": [
+   {
+    "label": "待機（正面）",
+    "mlbb": [
+     "b",
+     30.0
+    ],
+    "clip": "idle_h029",
+    "at": 0.0,
+    "heading": 170
+   },
+   {
+    "label": "待機（右前）",
+    "mlbb": [
+     "a",
+     0.67
+    ],
+    "clip": "idle_h029",
+    "at": 1.0,
+    "heading": 135
+   },
+   {
+    "label": "待機（奥）",
+    "mlbb": [
+     "b",
+     37.0
+    ],
+    "clip": "idle_h029",
+    "at": 2.0,
+    "heading": 20
+   },
+   {
+    "label": "移動（横）脚が開く",
+    "mlbb": [
+     "b",
+     35.73
+    ],
+    "clip": "run_h029",
+    "at": 0.0,
+    "heading": 100
+   },
+   {
+    "label": "移動（横）脚が揃う",
+    "mlbb": [
+     "b",
+     35.87
+    ],
+    "clip": "run_h029",
+    "at": 0.117,
+    "heading": 100
+   },
+   {
+    "label": "移動（横）脚が開く",
+    "mlbb": [
+     "b",
+     35.97
+    ],
+    "clip": "run_h029",
+    "at": 0.233,
+    "heading": 100
+   },
+   {
+    "label": "移動（奥）",
+    "mlbb": [
+     "a",
+     3.73
+    ],
+    "clip": "run_h029",
+    "at": 0.06,
+    "heading": 40
+   },
+   {
+    "label": "移動（奥）",
+    "mlbb": [
+     "b",
+     28.6
+    ],
+    "clip": "run_h029",
+    "at": 0.3,
+    "heading": 330
+   },
+   {
+    "label": "移動（手前）",
+    "mlbb": [
+     "b",
+     37.47
+    ],
+    "clip": "run_h029",
+    "at": 0.1,
+    "heading": 235
+   },
+   {
+    "label": "移動（手前）",
+    "mlbb": [
+     "b",
+     35.33
+    ],
+    "clip": "run_h029",
+    "at": 0.35,
+    "heading": 200
+   }
+  ],
+  "attack": [
+   {
+    "label": "① 横振り 命中-0.23s",
+    "mlbb": [
+     "b",
+     5.27
+    ],
+    "clip": "maul_sweep_h029",
+    "at": 0.04,
+    "heading": 50
+   },
+   {
+    "label": "① 横振り 命中-0.13s",
+    "mlbb": [
+     "b",
+     5.37
+    ],
+    "clip": "maul_sweep_h029",
+    "at": 0.14,
+    "heading": 50
+   },
+   {
+    "label": "① 横振り 命中-0.07s",
+    "mlbb": [
+     "b",
+     5.43
+    ],
+    "clip": "maul_sweep_h029",
+    "at": 0.2,
+    "heading": 50
+   },
+   {
+    "label": "① 横振り 命中+0.00s",
+    "mlbb": [
+     "b",
+     5.5
+    ],
+    "clip": "maul_sweep_h029",
+    "at": 0.27,
+    "heading": 50
+   },
+   {
+    "label": "① 横振り 命中+0.10s",
+    "mlbb": [
+     "b",
+     5.6
+    ],
+    "clip": "maul_sweep_h029",
+    "at": 0.37,
+    "heading": 50
+   },
+   {
+    "label": "① 横振り 命中+0.30s",
+    "mlbb": [
+     "b",
+     5.8
+    ],
+    "clip": "maul_sweep_h029",
+    "at": 0.57,
+    "heading": 50
+   },
+   {
+    "label": "② 返し 命中-0.27s",
+    "mlbb": [
+     "b",
+     6.3
+    ],
+    "clip": "maul_backhand_h029",
+    "at": 0.0,
+    "heading": 50
+   },
+   {
+    "label": "② 返し 命中-0.17s",
+    "mlbb": [
+     "b",
+     6.4
+    ],
+    "clip": "maul_backhand_h029",
+    "at": 0.1,
+    "heading": 50
+   },
+   {
+    "label": "② 返し 命中-0.10s",
+    "mlbb": [
+     "b",
+     6.47
+    ],
+    "clip": "maul_backhand_h029",
+    "at": 0.17,
+    "heading": 50
+   },
+   {
+    "label": "② 返し 命中+0.00s",
+    "mlbb": [
+     "b",
+     6.57
+    ],
+    "clip": "maul_backhand_h029",
+    "at": 0.27,
+    "heading": 50
+   },
+   {
+    "label": "② 返し 命中+0.10s",
+    "mlbb": [
+     "b",
+     6.67
+    ],
+    "clip": "maul_backhand_h029",
+    "at": 0.37,
+    "heading": 50
+   },
+   {
+    "label": "② 返し 命中+0.33s",
+    "mlbb": [
+     "b",
+     6.9
+    ],
+    "clip": "maul_backhand_h029",
+    "at": 0.6,
+    "heading": 50
+   },
+   {
+    "label": "③ 叩きつけ 命中-0.23s",
+    "mlbb": [
+     "b",
+     7.27
+    ],
+    "clip": "maul_smash_h029",
+    "at": 0.04,
+    "heading": 50
+   },
+   {
+    "label": "③ 叩きつけ 命中-0.10s",
+    "mlbb": [
+     "b",
+     7.4
+    ],
+    "clip": "maul_smash_h029",
+    "at": 0.17,
+    "heading": 50
+   },
+   {
+    "label": "③ 叩きつけ 命中-0.03s",
+    "mlbb": [
+     "b",
+     7.47
+    ],
+    "clip": "maul_smash_h029",
+    "at": 0.24,
+    "heading": 50
+   },
+   {
+    "label": "③ 叩きつけ 命中+0.00s",
+    "mlbb": [
+     "b",
+     7.5
+    ],
+    "clip": "maul_smash_h029",
+    "at": 0.27,
+    "heading": 50
+   },
+   {
+    "label": "③ 叩きつけ 命中+0.13s",
+    "mlbb": [
+     "b",
+     7.63
+    ],
+    "clip": "maul_smash_h029",
+    "at": 0.4,
+    "heading": 50
+   },
+   {
+    "label": "③ 叩きつけ 命中+0.33s",
+    "mlbb": [
+     "b",
+     7.83
+    ],
+    "clip": "maul_smash_h029",
+    "at": 0.6,
+    "heading": 50
+   }
+  ]
+ }
 }

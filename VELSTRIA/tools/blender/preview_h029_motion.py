@@ -126,15 +126,18 @@ def scene(a):
     return rig, height, pose
 
 
-# 比較の一覧（tools/mlbb_video/motion_compare.py が MLBB のコマと並べる）: 戦闘の見下ろしは MLBB の縮尺（62.3 px / 単位 を 2 倍、
-# 1 m = 124.6 px。ヒーロー空間は ×1.32）で 320 px 四方、足元はタイルの (160, 245)。横からの拡大は既定の大きさ。
-SHOT_TILE = (320, 320)
-SHOT_GAME_HEIGHT = 320 / (124.6 * 1.32) / 1.28
+# 比較の一覧（tools/mlbb_video/motion_compare.py が MLBB のコマと並べる）: 戦闘の見下ろしは MLBB の縮尺（62.3 px / 単位 × 指定の
+# scale。ヒーロー空間は ×1.32）で box の大きさ × scale の正方形。足元が MLBB の (556.6, 295) と同じ所に来るよう、box の上端は
+# 295 − (タイルの半分 + 注視点の高さ × cos45° × 縮尺) / scale（h029-mlbb-compare.json の box）。横からの拡大は槌の届く範囲まで。
+MLBB_PX_PER_UNIT = 62.3
 
 
 def shots(a):
     spec = json.loads(Path(a.shots).read_text(encoding='utf-8'))
     rows = spec['stages'][a.stage]
+    box, k = spec.get('box', [477, 173, 160, 160]), spec.get('scale', 2.0)
+    tile = (int(box[2] * k), int(box[3] * k))
+    game_height = tile[1] / (MLBB_PX_PER_UNIT * k * SCALE) / 1.28
     clips = {c['name']: c for c in json.loads(Path(a.clips).read_text())['clips']}
     rig, height, pose = scene(a)
     out = Path('build/h029-motion/compare') / a.stage
@@ -149,7 +152,7 @@ def shots(a):
             for o in list(bpy.data.objects):
                 if o.type in ('CAMERA', 'FONT') or o.name.startswith('Ground'):
                     bpy.data.objects.remove(o, do_unlink=True)
-            label = preview.setup_scene(rig, SHOT_GAME_HEIGHT if view == 'game' else height * 1.25, name, SHOT_TILE)
+            label = preview.setup_scene(rig, game_height if view == 'game' else height * 1.6, name, tile)
             label.data.body = ''
             clip = clips[r['clip']]
             f = r.get('at', 0.0) * FPS
@@ -161,6 +164,7 @@ def shots(a):
 
 
 FPS = 30
+SCALE = 1.32   # HeroBlueprints の H029（motion.scale）
 
 
 def main():
