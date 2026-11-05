@@ -295,6 +295,258 @@
     "at": 0.6,
     "heading": 50
    }
+  ],
+  "skill": [
+   {
+    "label": "S1 発動+0.05s",
+    "mlbb": [
+     "a",
+     6.57
+    ],
+    "clip": "maul_wave_h029",
+    "at": 0.05,
+    "heading": 50
+   },
+   {
+    "label": "S1 発動+0.11s",
+    "mlbb": [
+     "a",
+     6.63
+    ],
+    "clip": "maul_wave_h029",
+    "at": 0.11,
+    "heading": 50
+   },
+   {
+    "label": "S1 発動+0.21s",
+    "mlbb": [
+     "a",
+     6.73
+    ],
+    "clip": "maul_wave_h029",
+    "at": 0.21,
+    "heading": 50
+   },
+   {
+    "label": "S1 発動+0.25s",
+    "mlbb": [
+     "a",
+     6.77
+    ],
+    "clip": "maul_wave_h029",
+    "at": 0.25,
+    "heading": 50
+   },
+   {
+    "label": "S1 発動+0.48s",
+    "mlbb": [
+     "a",
+     7.0
+    ],
+    "clip": "maul_wave_h029",
+    "at": 0.48,
+    "heading": 50
+   },
+   {
+    "label": "S1 発動+0.98s",
+    "mlbb": [
+     "a",
+     7.5
+    ],
+    "clip": "maul_wave_h029",
+    "at": 0.98,
+    "heading": 50
+   },
+   {
+    "label": "S1 発動+1.18s",
+    "mlbb": [
+     "a",
+     7.7
+    ],
+    "clip": "maul_wave_h029",
+    "at": 1.18,
+    "heading": 50
+   },
+   {
+    "label": "S1 発動+1.38s",
+    "mlbb": [
+     "a",
+     7.9
+    ],
+    "clip": "maul_wave_h029",
+    "at": 1.38,
+    "heading": 50
+   },
+   {
+    "label": "S2 突進 発動+0.10s",
+    "mlbb": [
+     "b",
+     24.73
+    ],
+    "clip": "shield_charge_h029",
+    "at": 0.1,
+    "heading": 100
+   },
+   {
+    "label": "S2 突進 発動+0.24s",
+    "mlbb": [
+     "b",
+     24.87
+    ],
+    "clip": "shield_charge_h029",
+    "at": 0.24,
+    "heading": 100
+   },
+   {
+    "label": "S2 突進 発動+0.67s",
+    "mlbb": [
+     "b",
+     25.3
+    ],
+    "clip": "shield_charge_h029",
+    "at": 0.67,
+    "heading": 100
+   },
+   {
+    "label": "S2 突進 発動+0.77s",
+    "mlbb": [
+     "b",
+     25.4
+    ],
+    "clip": "shield_charge_h029",
+    "at": 0.77,
+    "heading": 100
+   },
+   {
+    "label": "S2 再使用 発動+0.10s",
+    "mlbb": [
+     "b",
+     25.83
+    ],
+    "clip": "maul_upswing_h029",
+    "at": 0.1,
+    "heading": 80
+   },
+   {
+    "label": "S2 再使用 発動+0.20s",
+    "mlbb": [
+     "b",
+     25.93
+    ],
+    "clip": "maul_upswing_h029",
+    "at": 0.2,
+    "heading": 80
+   },
+   {
+    "label": "S2 再使用 発動+0.27s",
+    "mlbb": [
+     "b",
+     26.0
+    ],
+    "clip": "maul_upswing_h029",
+    "at": 0.27,
+    "heading": 80
+   },
+   {
+    "label": "S2 再使用 発動+0.40s",
+    "mlbb": [
+     "b",
+     26.13
+    ],
+    "clip": "maul_upswing_h029",
+    "at": 0.4,
+    "heading": 80
+   },
+   {
+    "label": "S2 再使用 発動+0.57s",
+    "mlbb": [
+     "b",
+     26.3
+    ],
+    "clip": "maul_upswing_h029",
+    "at": 0.57,
+    "heading": 80
+   },
+   {
+    "label": "奥義 発動+0.10s",
+    "mlbb": [
+     "a",
+     1.5
+    ],
+    "clip": "maul_sanctuary_h029",
+    "at": 0.1,
+    "heading": 100
+   },
+   {
+    "label": "奥義 発動+0.23s",
+    "mlbb": [
+     "a",
+     1.63
+    ],
+    "clip": "maul_sanctuary_h029",
+    "at": 0.23,
+    "heading": 100
+   },
+   {
+    "label": "奥義 発動+0.60s",
+    "mlbb": [
+     "a",
+     2.0
+    ],
+    "clip": "maul_sanctuary_h029",
+    "at": 0.6,
+    "heading": 100
+   },
+   {
+    "label": "奥義 発動+0.87s",
+    "mlbb": [
+     "a",
+     2.27
+    ],
+    "clip": "maul_sanctuary_h029",
+    "at": 0.87,
+    "heading": 100
+   },
+   {
+    "label": "奥義 発動+0.97s",
+    "mlbb": [
+     "a",
+     2.37
+    ],
+    "clip": "maul_sanctuary_h029",
+    "at": 0.97,
+    "heading": 100
+   },
+   {
+    "label": "奥義 発動+1.30s",
+    "mlbb": [
+     "a",
+     2.7
+    ],
+    "clip": "maul_sanctuary_h029",
+    "at": 1.3,
+    "heading": 100
+   },
+   {
+    "label": "奥義 発動+1.70s",
+    "mlbb": [
+     "a",
+     3.1
+    ],
+    "clip": "maul_sanctuary_h029",
+    "at": 1.7,
+    "heading": 100
+   },
+   {
+    "label": "奥義 発動+2.00s",
+    "mlbb": [
+     "a",
+     3.4
+    ],
+    "clip": "maul_sanctuary_h029",
+    "at": 2.0,
+    "heading": 100
+   }
   ]
  }
 }
