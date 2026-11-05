@@ -1,11 +1,12 @@
 import Foundation
 import simd
 
-/// A fixed-size local pose for authored cloth/hair chains (H025, H027, H028, H029). No entities,
+/// A fixed-size local pose for authored cloth/hair chains (H025, H027, H028, H029, H034). No entities,
 /// timers, allocations or physics world; evaluated by the visible model update.
 struct HeroSecondaryPose {
-    /// 揺れ物の骨を持つヒーロー（H027・H029 はマントの 6 本だけ: tools/blender/finish_h027_cape.py・finish_h029_cape.py）。
-    static let heroes: Set<String> = ["H025", "H027", "H028", "H029"]
+    /// 揺れ物の骨を持つヒーロー（H027・H029 はマントの 6 本だけ: tools/blender/finish_h027_cape.py・finish_h029_cape.py。
+    /// H034 は背の長髪をマントと同じ 6 本で: finish_h034_mane.py）。
+    static let heroes: Set<String> = ["H025", "H027", "H028", "H029", "H034"]
     static let names = ["capel1", "capel2", "capel3", "caper1", "caper2", "caper3",
                         "hair1", "hair2", "hair3", "skirtl", "skirtr"]
     var pitch = SIMD16<Float>(repeating: 0)

@@ -235,16 +235,19 @@ enum FX_H034: HeroFXSet {
         r.fillsEmptyPhases = false
         var impact: [FXCue] = []
         // 2〜6 撃の直前（録画: 撃の 1〜4 コマ前）: 金の三日月の振り（加算の帯。長さ 2.4〜3.7 m・太さ 0.35〜0.4 m）。
-        // 左の縦の振り（上から前の下へ）と前の低い振り（左から右）を交互。帯の頭が撃の時刻に届く
+        // 鎖鉤の振り（H034MotionClips の chain_frenzy_h034、docs/H034_QUALITY.md 段 3）と同じ向き: 2・4 撃 = 右 → 左の横なぎ、
+        // 3・5 撃 = 左上 → 右下の返し、6 撃目 = 右の後ろの上から前の地面への縦の叩きつけ（地を打つ 1.68 秒 = 最後の撃の 0.17 秒前に帯の頭が届く）。
+        // 角度は + = 左（SkillFXPlayer の局所は右・上・前）、roll + で左が上（90 で縦の面: + = 上）、x は右
         let swings: [(radius: Float, from: Float, to: Float, height: Float, roll: Float, x: Float)] = [
-            (1.5, 125, -35, 1.25, 72, -0.3), (1.6, 80, -85, 0.95, 12, 0), (1.55, 130, -30, 1.3, 80, -0.25),
-            (1.65, -80, 85, 0.9, -10, 0), (1.7, 120, -45, 1.35, 85, -0.2),
+            (1.6, -100, 60, 1.15, -12, 0), (1.55, 100, -55, 1.2, 38, 0), (1.65, -100, 65, 1.1, -12, 0),
+            (1.6, 105, -55, 1.2, 38, 0), (1.6, 150, -40, 1.3, 90, 0.25),
         ]
         let sweep: Float = 0.09
         for (n, w) in swings.prefix(hits - 1).enumerated() {
+            let lands = n == hits - 2 ? last - 0.17 : G + gap * Float(n + 1)
             impact.append(.ribbon(.swing(radius: w.radius, from: w.from, to: w.to, height: w.height, roll: w.roll,
                                          duration: sweep, life: 0.13, width: 0.4, swingGold),
-                                  at: G + gap * Float(n + 1) - sweep, .along(0), offset: [w.x, 0, 0.1]))
+                                  at: lands - sweep, .along(0), offset: [w.x, 0, 0.1]))
         }
         // 6 撃目（録画 C+48〜C+70）: 術者と対象の間（0.6）の淡い黄緑の円・対象から立ちのぼる黄の光の棘・暗いひび・最後の撃の閃光
         // （Effekseer。3D に隠れる。効果の前 = 術者 → 対象）

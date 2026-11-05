@@ -713,6 +713,15 @@ final class HeroMotionClipTests: XCTestCase {
         XCTAssertLessThan(maxDrift, 0.03, "Support contact should stay fixed through curved travel")
     }
 
+    /// H034 ゴルム: 同梱のモデルの背の長髪に揺れ物の骨（capel1〜caper3。tools/blender/finish_h034_mane.py）があり、実行時の揺れが動かす。
+    func testBundledGormManeHasSecondaryChains() throws {
+        guard let url = HeroAssetLibrary.bundledURL("Hero_H034") else { throw XCTSkip("Hero_H034 が同梱されていない") }
+        let model = HeroModelLibrary.makeHero(heroID: "H034", skinID: nil, team: .blue, master: MasterData.shared,
+                                              options: HeroModelOptions.showcase.with(mesh: .skinned(url)))
+        let m = try XCTUnwrap(model as? SkinnedHeroModel)
+        XCTAssertTrue(m.hasSecondary, "長髪の揺れ物の骨（capel1〜caper3）が見つからない")
+    }
+
     /// H034 ゴルム: 専用の収録の待機・移動・通常攻撃（MLBB の 3 種）が Motion_H034 の全身の通常攻撃に上書きされず、打撃が sim の windup に来る。
     func testBundledGormClipsOwnIdleGaitAndAttack() throws {
         HeroMotionClips.setResolverForTesting(nil)
