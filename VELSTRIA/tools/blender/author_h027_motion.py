@@ -31,11 +31,12 @@ FPS = 30
 HERO = 'App/Resources/Heroes/Hero_H027.usdz'
 OUT = Path('build/h027-motion')
 DETAILS = h25.DETAILS
-# Dragon spear (HeroGear .dragonSpear): grip at the origin, +Y to the tip, entity scale 1.08 (weaponScale).
-SPEAR_SCALE = 1.08
+# Dragon spear (HeroGear .dragonSpear): grip at the origin, +Y to the tip, entity scale 1.08 (weaponScale) x 0.7 (SkinnedHeroModel
+# gearScale: MLBB's spear is 1.5-1.7x the standing height, docs/H027_QUALITY.md).
+SPEAR_SCALE = 1.08 * 0.7
 # MLBB holds the spear near the middle (training idle: hand to blade ~ hand to butt). The prop origin is 29 % from the butt, so the
 # fist grips GRIP_SHIFT m further toward the tip (HeroMotionSets "H027" weaponOffset = (0, -GRIP_SHIFT, 0)).
-GRIP_SHIFT = 0.30
+GRIP_SHIFT = 0.25
 SPEAR_BUTT = -0.84 * SPEAR_SCALE - GRIP_SHIFT
 SPEAR_TIP = 2.04 * SPEAR_SCALE - GRIP_SHIFT
 # HeroBlueprints H027 scale: the clip's feet travel x 1.06 in the game, so groundSpeed is exported in game metres.
@@ -137,13 +138,13 @@ GUARD = dict(hy=-0.055, hx=0.0, hz=0.0, hyaw=-30, hpitch=2, hroll=0, tyaw=-46, t
 # 穂先を右前の足元へ下ろす（石突は左肩の後ろへ上がる）。空いた左手は拳にして左腰の横。
 STAND = dict(GUARD, hy=-0.11, hyaw=-10, hpitch=2, tyaw=-6, tpitch=0, dyaw=2, dpitch=-4,
              lx=-0.27, lz=-0.07, lyaw=18, rx=0.28, rz=0.06, ryaw=-22,
-             ox=0.22, oy=0.975, oz=0.02, syaw=-42, spitch=-27, lgrip=0, lfx=-0.25, lfy=1.0, lfz=-0.03,
+             ox=0.22, oy=0.975, oz=0.02, syaw=-42, spitch=-43, lgrip=0, lfx=-0.25, lfy=1.0, lfz=-0.03,
              lcurl=0.9, rpx=1, rpy=-0.3, rpz=0.2, lpx=-1, lpy=-0.2, lpz=0.2)
 # 槍を引きずる持ち方（走り・払いの前・振り下ろしの後。スキルプレビュー 31.1〜31.7 秒・44.7〜45.3 秒・51.0〜51.4 秒）: 右手を右腰に
 # 置いたまま穂先を右後ろの足元へ寝かせ（真後ろから右へ 30°）、石突は前の肩の高さへ。左の拳は胸の前へ出す。上体は少し前へ傾ける。
 TRAIL = dict(STAND, hy=-0.035, hyaw=-4, hpitch=5, tyaw=-8, tpitch=11, dyaw=6, dpitch=-10,
              lx=-0.10, lz=0.0, lyaw=4, rx=0.12, rz=0.0, ryaw=-6,
-             ox=0.26, oy=0.99, oz=0.08, syaw=-150, spitch=-26, lgrip=0, lfx=-0.2, lfy=1.1, lfz=-0.18,
+             ox=0.26, oy=0.99, oz=0.08, syaw=-150, spitch=-40, lgrip=0, lfx=-0.2, lfy=1.1, lfz=-0.18,
              lcurl=1, rpx=1, rpy=-0.3, rpz=-0.2, lpx=-1, lpy=-0.4, lpz=0.3)
 # 払いの決め（スキルプレビュー 24.33〜24.80 秒）: 相手の方へ深く踏み込んだ低く広い構え（左足を 0.44 m 前、右足を後ろへ開き、腰を 0.2 m
 # 落として上体を相手へ倒す）で、穂先を左後ろへ水平に残す（柄は背の後ろ、右手は右腰）。
@@ -154,7 +155,7 @@ REAR = dict(TRAIL, hy=-0.2, hz=-0.17, hyaw=-4, hpitch=8, tyaw=8, tpitch=16, dyaw
 # 穂先を体の右前の足元へ下ろす（ヒーローの向きでは右後ろ = 引きずる持ち方と同じ向き）。左の拳は体の左（ヒーローの前）へ張る。
 TURN = dict(TRAIL, hy=-0.17, hz=-0.04, hyaw=-80, hpitch=4, tyaw=-96, tpitch=10, dyaw=-70, dpitch=-6,
             lx=-0.12, lz=-0.3, lyaw=-30, rx=0.2, rz=0.22, ryaw=-80,
-            ox=0.06, oy=0.85, oz=0.3, syaw=-140, spitch=-22, lfx=0.0, lfy=1.08, lfz=-0.46, rpx=0.3, rpy=-0.4, rpz=1,
+            ox=0.06, oy=0.85, oz=0.3, syaw=-140, spitch=-36, lfx=0.0, lfy=1.08, lfz=-0.46, rpx=0.3, rpy=-0.4, rpz=1,
             lpx=-0.4, lpy=-0.3, lpz=-1)
 
 
@@ -196,7 +197,7 @@ def clip_specs():
     # 走行 0.333 秒 = 2 歩（MLBB の訓練場 75〜92 コマ: 接地が 4.5〜5 コマおき = 1 周 9.5〜10 コマ）。地面の速さ 2.65 m/s（子龍の 265）。
     # 胴を 42°・腰を 18° 前へ倒し（背骨の上だけに掛かるので見た目は 30° 前後）、蹴り出した足のかかとを高く上げて膝を前へ送る小刻みで大きな脚の回し方。槍は後ろへ引きずり、
     # 左の拳を胸の前で振る。
-    S.append(dict(name='h027_run', state='run', frames=10, loop=True, base=dict(TRAIL, tpitch=42, hpitch=18, dpitch=-34, oz=0.03, lfx=-0.14, lfy=1.12, lfz=-0.36),
+    S.append(dict(name='h027_run', state='run', frames=10, loop=True, base=dict(TRAIL, tpitch=42, hpitch=18, dpitch=-34, ox=0.3, oz=0.06, syaw=-155, spitch=-34, lfx=-0.14, lfy=1.12, lfz=-0.36),
                   rootXZ=0, groundSpeed=2.65, contact=0.36, hipsDrop=-0.1, bounce=0.04, lift=0.11,
                   heel=0.3, knee=0.27, kick=0.08, over=0.14, armSwing=0.2,
                   prime=('meshy_h027_run', None, 0.15)))
@@ -295,8 +296,8 @@ def clip_specs():
                                   lgrip=0.4)),
                         (23, dict(hy=-0.06, hz=0.02, tpitch=2, hyaw=-12, tyaw=-16, ox=0.24, oy=1.05, oz=0.08, syaw=22, spitch=196,
                                   lgrip=0, lfx=-0.14, lfy=1.14, lfz=-0.2, dpitch=-4)),
-                        (29, dict(TRAIL, hy=-0.05, syaw=30, spitch=206, lz=-0.22, rz=0.06)),
-                        (39, dict(TRAIL, syaw=30, spitch=206, lz=-0.16, rz=0.04))]))
+                        (29, dict(TRAIL, hy=-0.05, syaw=30, spitch=218, lz=-0.22, rz=0.06)),
+                        (39, dict(TRAIL, syaw=30, spitch=218, lz=-0.16, rz=0.04))]))
     # スキル2 竜牙突き: 突進の間の姿勢（詠唱のクリップ、脚もクリップのまま = 突進中に足を回さない。スキルプレビュー 46.37〜46.47 秒）。
     # 槍を前へ水平に突き出したまま体をほぼ水平まで前へ倒して飛び込み、後ろ脚を伸ばして左脚を畳む（MLBB 1393 コマ）。到着（sim の命中）で
     # h027_strike_hit が突き切る。

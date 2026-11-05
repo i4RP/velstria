@@ -438,6 +438,9 @@ final class SkinnedHeroModel: HeroDisplayModel {
     static func gearScale(_ kind: String) -> Float {
         switch kind {
         case "\(WeaponKind.mechCrossbow)": return 0.78
+        // 竜槍（H027）: MLBB の子龍の槍は立ち姿の身長の 1.5〜1.7 倍（訓練場の画面で 124 px 以上 / 81 px）。手続きの寸法のままでは
+        // 2.3 倍（ゲームで 3.3 m）なので 0.7 倍にして 1.6 倍に合わせる（docs/H027_QUALITY.md「体と槍の大きさ」）
+        case "\(WeaponKind.dragonSpear)": return 0.7
         case "\(OffhandKind.ashBow)", "\(OffhandKind.lightBow)": return 0.84
         default: return 1
         }
