@@ -681,29 +681,33 @@ struct HeroGearBuilder {
         }
     }
 
-    /// 刃の輪の先端（abyssRing の前の鉤刃の付け根から先までの中ほど = 輪の中心 0.1 + 半径 0.18 + 0.08）。
-    static let abyssRingTip = V3(0, 0.36, 0)
+    /// 刃の輪の大きさの倍率。MLBB のディロスの輪の縁の外径は身長の 0.20 倍（正面の走りのコマで 14〜15 px / 71〜75 px。
+    /// docs/H032_QUALITY.md「体の大きさ」）。0.8 倍で縁の外径 0.33 m = 待機の高さ 1.63 m の 0.20 倍。
+    static let abyssRingScale: Float = 0.8
+    /// 刃の輪の先端（abyssRing の前の鉤刃の付け根から先までの中ほど = 輪の中心 0.1 + 半径 0.18 + 0.08、× abyssRingScale）。
+    static let abyssRingTip = V3(0, 0.36 * abyssRingScale, 0)
 
     /// 刃の輪（H032 ディアス。右手の武器・左手の副手で共通）: 拳を通す金の輪と内縁の紅い光、外へ反る 4 本の鉤刃、輪を横切る握り。
     /// 原点が握りで、輪の中心は少し前（+Y）。面は XY なので、構え（武器角 -1.5）で水平になり上方カメラから円く見える
     private func abyssRing(_ b: inout HeroMeshBuilder) {
-        let o = V3(0, 0.1, 0)
-        let R: Float = 0.18
-        b.torus(o, R, 0.026, .metal, rot: rx(.pi / 2), segments: 22, sides: 6)
-        b.torus(o, R - 0.032, 0.01, .glow, rot: rx(.pi / 2), segments: 20, sides: 4)
+        let g = HeroGearBuilder.abyssRingScale
+        let o = V3(0, 0.1 * g, 0)
+        let R: Float = 0.18 * g
+        b.torus(o, R, 0.026 * g, .metal, rot: rx(.pi / 2), segments: 22, sides: 6)
+        b.torus(o, R - 0.032 * g, 0.01 * g, .glow, rot: rx(.pi / 2), segments: 20, sides: 4)
         let half = (R * R - o.y * o.y).squareRoot()
-        b.rod(V3(-half, 0, 0), V3(half, 0, 0), 0.018, .dark)
+        b.rod(V3(-half, 0, 0), V3(half, 0, 0), 0.018 * g, .dark)
         // 鉤刃: 輪の外へ伸びて回転の向きへ反る（前の 1 本は長い）
         for k in 0..<4 {
             let phi = Float.pi / 2 + Float(k) * Float.pi / 2
             let n = V2(cos(phi), sin(phi)), t = V2(-sin(phi), cos(phi))
-            let base = V2(o.x, o.y) + n * (R - 0.01)
-            let len: Float = k == 0 ? 0.11 : 0.08
-            let heel: V2 = base - t * 0.05
-            let toe: V2 = base + t * 0.035
-            let point: V2 = base + n * len + t * 0.085
+            let base = V2(o.x, o.y) + n * (R - 0.01 * g)
+            let len: Float = (k == 0 ? 0.11 : 0.08) * g
+            let heel: V2 = base - t * (0.05 * g)
+            let toe: V2 = base + t * (0.035 * g)
+            let point: V2 = base + n * len + t * (0.085 * g)
             let notch: V2 = base + n * (len * 0.4)
-            b.extrude([heel, toe, point, notch], depth: 0.022, .zero, .metal)
+            b.extrude([heel, toe, point, notch], depth: 0.022 * g, .zero, .metal)
         }
     }
 
