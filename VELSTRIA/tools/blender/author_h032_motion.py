@@ -33,9 +33,10 @@ UPPER = [S[s] for s in ('torso', 'head', 'armR', 'foreArmR', 'handR', 'armL', 'f
 ARM = {'R': [S['armR'], S['foreArmR'], S['handR']], 'L': [S['armL'], S['foreArmL'], S['handL']]}
 LEGS = [('R', 'right'), ('L', 'left')]
 FWD = V((0, 0, -1))
-# HeroBlueprints の H032 の scale（MLBB の画面の上の身長に合わせた 1.28。docs/H032_QUALITY.md「体の大きさ」）。クリップの足は模型の大きさで
-# 動くので、groundSpeed（足が滑らない移動の速さ）も同じ倍率にする（実行時は世界の速さ / groundSpeed で再生する）。
-MODEL_SCALE = 1.28
+# HeroBlueprints の H032 の scale（1.0。画面の上の身長が MLBB と 1 割以内なので変えない。docs/H032_QUALITY.md「体の大きさ」）。
+# クリップの足は模型の大きさで動くので、scale を変える時は groundSpeed（足が滑らない移動の速さ）も同じ倍率にする
+# （実行時は世界の速さ / groundSpeed で再生する）。
+MODEL_SCALE = 1.0
 # 初版のクリップの groundSpeed（scale 1 の模型で測った値）
 V1_GROUND_SPEED = {'walk_h032': 1.25, 'run_h032': 3.3}
 UP = V((0, 1, 0))
@@ -196,7 +197,7 @@ def lowest_contact(rig, qs, off):
 # 体の横・やや前に構え、肘を曲げたまま脚と逆に前後へ振る。マント・尾は後ろへ流れる。
 
 RUN = dict(lean=math.radians(-8), hips_share=.3, head_follow=.5, drop=.02, abduct=0.0, elbow=0.0, low=0.0, out=1.5, arms=1.0,
-           steady=.6, mean=math.radians(64.2))
+           steady=.6, mean=math.radians(64.2), stride=1.17)
 WALK = dict(lean=math.radians(10), hips_share=.35, head_follow=.6, drop=.02, abduct=0.0, elbow=0.0, low=0.0, out=1.3, arms=.6)
 
 
@@ -205,6 +206,10 @@ def loco_pose(rig, clip, f, cfg):
     qs = [q.copy() for q in qs]
     off = V(root)*rig.leg_length
     feet = foot_targets(rig, qs, off)
+    if cfg.get('stride', 1.0) != 1.0:
+        # 歩幅を伸ばす: 足の前後の位置（腰の真下から）を stride 倍にして IK で置く（groundSpeed も同じ倍率）
+        for k in feet:
+            feet[k] = V((feet[k].x, feet[k].y, feet[k].z*cfg['stride']))
     lean = cfg['lean']
     if cfg.get('steady'):
         # 初版の前傾の揺れ（胸の区間で 57〜72°）を ならす: 周の平均（cfg['mean']）との差の steady 倍を戻す
@@ -459,7 +464,8 @@ def author(rig, clips):
         else:
             n, r = dict(c), dict(frames=c['frames'], copied=True)
         if name in V1_GROUND_SPEED:
-            n['groundSpeed'] = round(V1_GROUND_SPEED[name]*MODEL_SCALE, 3)
+            stride = (RUN if name == 'run_h032' else WALK).get('stride', 1.0)
+            n['groundSpeed'] = round(V1_GROUND_SPEED[name]*stride*MODEL_SCALE, 3)
         n['source'] = 'h032' if r.get('copied') else 'h032+mlbb-finish'
         out.append(n)
         report[name] = r
