@@ -806,15 +806,20 @@ final class SkinnedHeroModel: HeroDisplayModel {
 
     // MARK: 適用
 
-    /// 前腕に沿う縦の刃（H032 の刃の輪）: Prop の +Y を肘の側へ、輪の面を前腕と胴の正面を含む面にする（正面・俯瞰からは縁だけが
-    /// 見える）。前腕が正面を向く（突き）ときは前腕と胴の上を含む面。前腕の区間のねじれ（素材ごとに違う）に左右されない。
-    private static func forearmBlade(_ foreArm: simd_quatf, torso: simd_quatf) -> simd_quatf {
-        let d = simd_normalize(foreArm.act(V3(0, -1, 0)))
-        var n = simd_cross(d, torso.act(V3(0, 0, -1)))
-        if simd_length(n) < 0.35 { n = simd_cross(d, torso.act(V3(0, 1, 0))) }
-        n = simd_normalize(n)
-        let y = -d
-        let x = simd_normalize(simd_cross(y, n))
+    /// 手首を囲む刃の輪（H032。MLBB のディロスの籠手の輪）: 輪の面（Prop の XY）を前腕に直交させ、輪の中心（Prop +Y、握りから 0.1）を
+    /// 腕の外側（右腕は胴の右・左腕は胴の左。前腕に直交する成分）へ向ける。腕を下ろした構え・走りで輪が体の横に水平に見え、
+    /// 見下ろしのカメラから円く見える（MLBB の画面収録。docs/H032_QUALITY.md）。前腕が真横を向く時は胴の正面を外側の代わりにする。
+    /// 前腕の区間のねじれ（素材ごとに違う）に左右されない。
+    private static func forearmBlade(_ foreArm: simd_quatf, torso: simd_quatf, side: Float) -> simd_quatf {
+        let z = simd_normalize(foreArm.act(V3(0, -1, 0)))
+        var out = torso.act(V3(side, 0, 0))
+        out -= z * simd_dot(out, z)
+        if simd_length(out) < 0.35 {
+            out = torso.act(V3(0, 0, -1))
+            out -= z * simd_dot(out, z)
+        }
+        let y = simd_normalize(out)
+        let x = simd_normalize(simd_cross(y, z))
         return simd_quatf(simd_float3x3(columns: (x, y, simd_cross(x, y))))
     }
 
@@ -871,14 +876,14 @@ final class SkinnedHeroModel: HeroDisplayModel {
             let angR = m.idleWeaponR.map { p.weaponR + ($0 - p.weaponR) * k } ?? p.weaponR
             let angL = m.idleWeaponL.map { p.weaponL + ($0 - p.weaponL) * k } ?? p.weaponL
             let gripHandR = m.gripOnForeArm ? q.foreArmR : q.handR, gripHandL = m.gripOnForeArm ? q.foreArmL : q.handL
-            let heldR = m.gripOnForeArm ? Self.forearmBlade(q.foreArmR, torso: q.torso)
+            let heldR = m.gripOnForeArm ? Self.forearmBlade(q.foreArmR, torso: q.torso, side: 1)
                 : m.weaponGrip.map { gripHandR * $0 } ?? q.torso * ry(p.armR.yaw) * rx(angR)
             // 握りから武器の芯までのずれ（武器の軸。H030 の星砲は掌を砲身の上に乗せる）
             let heldPosR = handPosR + gripHandR.act(gripR) + heldR.act(m.weaponOffset)
             weapon.position = simd_mix(handPosR + q.foreArmR.act(gripR), heldPosR, V3(repeating: wu))
             weapon.orientation = weaponFollowsArm ? q.handR : simd_slerp(qp.weaponR(p, followsArm: false), heldR, wu)
             offhand.position = simd_mix(handPosL + q.foreArmL.act(gripL), handPosL + gripHandL.act(gripL), V3(repeating: wu))
-            let heldL = m.gripOnForeArm ? Self.forearmBlade(q.foreArmL, torso: q.torso)
+            let heldL = m.gripOnForeArm ? Self.forearmBlade(q.foreArmL, torso: q.torso, side: -1)
                 : m.offhandGrip.map { gripHandL * $0 } ?? q.torso * ry(-p.armL.yaw) * rx(angL)
             offhand.orientation = offhandFollowsArm ? q.handL : simd_slerp(qp.weaponL(p, followsArm: false), heldL, wu)
         } else {

@@ -15,6 +15,8 @@ import VelstriaCore
 //   -fxCaptureRings             スキルの前に、寸法が既知の地面の輪（半径 3 m・6 m の水色）を置いた画と置かない画を撮る（カメラの確認用）
 //   -fxCaptureSide              ヒーローを人形の西に東向きで置く（カメラから体の横が見える。全身のモーションの確認用）
 //   -fxCaptureAttack            スキルの後に通常攻撃を 2 回ほど撮る（最初の攻撃の始まりから attackTimes）
+//   -fxCaptureWalk              最後に歩きを撮る（人形の南西から東へ歩いて体の横が見える 1 周 0.5 秒をコマ送り、奥・手前へ向きを変え、止まる）。
+//                               ヒーローのモーション合わせ用（docs/H029_QUALITY.md）。歩く向きと時刻は FXCapture.walkPhases
 //   -fxCaptureLockstep          描くたびに sim と描画の時刻を 1 tick ずつ進める（BattleRenderer。遅いシミュレータでも撮る時刻 =
 //                               sim の時刻 = モーション・演出の時刻。細かい時刻で撮るときに使う）
 // 英雄にだけ撃てるスキル（FXCheckDriver.heroOnly）は敵の英雄を人形の東に置いて撃つ（FXCheckDriver と同じ）。
@@ -74,6 +76,8 @@ final class FXCapture {
         case attackPlace
         case attackWait(until: Double)
         case attackWatch(t0: Double, next: Int)
+        case walkPlace
+        case walk(phase: Int, t0: Double, next: Int)
         case place(index: Int)
         case settle(index: Int, until: Double)
         case rings(phase: Int, until: Double)
@@ -93,8 +97,17 @@ final class FXCapture {
     private let wantsSide: Bool
     /// -fxCaptureAttack: スキルの後に通常攻撃を撮る。
     private let wantsAttack: Bool
+    /// -fxCaptureWalk: 最後に歩きを撮る。
+    private let wantsWalk: Bool
     /// -fxCaptureLockstep: 1 tick 送り（BattleRenderer が読む）。
     let lockstep: Bool
+    /// 歩きの撮影（向き = sim の (東, 北)、0 = 止まる。時刻は向きを変えてから）。東へ歩く間は 1 周（約 0.47 秒）を 1/30 秒ごと。
+    static let walkPhases: [(name: String, direction: Vec2, times: [Double])] = [
+        ("walk_e", Vec2(1, 0), (0..<16).map { 1.0 + Double($0) / 30 }),
+        ("walk_n", Vec2(0, 1), [0.6, 0.667, 0.733, 0.8]),
+        ("walk_s", Vec2(0, -1), [0.6, 0.667, 0.733, 0.8]),
+        ("stop", Vec2(0, 0), [0.0, 0.1, 0.2, 0.333, 0.5, 0.8]),
+    ]
     /// 通常攻撃の撮影時刻（最初の攻撃の始まりから。2 回分）。
     static let attackTimes: [Double] = [0.0, 0.066, 0.133, 0.199, 0.266, 0.333, 0.399, 0.499, 0.599, 0.699, 0.833, 0.999,
                                          1.099, 1.199, 1.333, 1.499, 1.666]
@@ -117,6 +130,7 @@ final class FXCapture {
         wantsSide = DebugLaunch.args.contains("-fxCaptureSide")
         wantsAttack = DebugLaunch.args.contains("-fxCaptureAttack")
         lockstep = DebugLaunch.args.contains("-fxCaptureLockstep")
+        wantsWalk = DebugLaunch.args.contains("-fxCaptureWalk")
         dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("fxcapture")
     }
 
@@ -155,7 +169,7 @@ final class FXCapture {
                      + " sealed=\(!player.materials.createsShaded)"
                      + " sheetsMissing=\(player.sheets.missing.map(\.rawValue).sorted())")
                 noteLegRig(controller: controller, world: world)
-                step = wantsAttack ? .attackPlace : .finish
+                step = wantsAttack ? .attackPlace : (wantsWalk ? .walkPlace : .finish)
                 return
             }
             guard place(controller: controller) else { note("人形が見つからない"); step = .finish; return }
@@ -203,12 +217,45 @@ final class FXCapture {
         case .attackWatch(let t0, let next):
             let times = FXCapture.attackTimes
             guard next < times.count else {
-                step = .finish
+                step = wantsWalk ? .walkPlace : .finish
                 return
             }
             guard s.time - t0 >= times[next] else { return }
             step = .attackWatch(t0: t0, next: next + 1)
             shoot(world: world, name: "atk_\(Int((times[next] * 1000).rounded()))", slot: "atk", cast: 0,
+                  requested: times[next], actual: s.time - t0)
+        case .walkPlace:
+            // 人形の西 12 m・南 5 m から東へ歩く（人形の南 5 m を通り過ぎる。カメラから体の右の横が見える）
+            guard let me = controller.humanIndex, let foe = dummyID(controller), let fi = s.index(of: foe) else { step = .finish; return }
+            var w = controller.state
+            let spot = w.units[fi].pos + Vec2(-1200, -500)
+            w.units[me].pos = spot
+            w.units[me].prevPos = spot
+            w.units[me].path.removeAll()
+            w.units[me].moveIntent = .none
+            w.units[me].facing = 0
+            controller.restore(w)
+            controller.send(.move(direction: FXCapture.walkPhases[0].direction))
+            step = .walk(phase: 0, t0: s.time, next: 0)
+        case .walk(let phase, let t0, let next):
+            let phases = FXCapture.walkPhases
+            guard phase < phases.count else {
+                controller.send(.stop)
+                step = .finish
+                return
+            }
+            let times = phases[phase].times
+            guard next < times.count else {
+                if phase + 1 < phases.count {
+                    let d = phases[phase + 1].direction
+                    controller.send(d == Vec2(0, 0) ? .stop : .move(direction: d))
+                }
+                step = .walk(phase: phase + 1, t0: s.time, next: 0)
+                return
+            }
+            guard s.time - t0 >= times[next] else { return }
+            step = .walk(phase: phase, t0: t0, next: next + 1)
+            shoot(world: world, name: "\(phases[phase].name)_\(Int((times[next] * 1000).rounded()))", slot: phases[phase].name, cast: 0,
                   requested: times[next], actual: s.time - t0)
         case .cast(let k):
             let hero = manifest?.hero ?? ""

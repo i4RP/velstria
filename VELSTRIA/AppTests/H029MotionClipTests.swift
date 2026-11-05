@@ -98,6 +98,21 @@ final class H029MotionClipTests: XCTestCase {
         }
     }
 
+    /// 詠唱のクリップは詠唱の状態（手続きの Motion_H029 の長さ）が終わるまで続く。先に終わると手続きの姿勢へ一瞬戻る
+    /// （槌を体の横に立て盾を胸の前に構えた旧い構え）。再生は打撃 = KitTimes になる位置から始まる。
+    func testCastClipsCoverCastState() throws {
+        let a = try animator()
+        let lib = HeroMotionClips.library(heroID: hero)
+        let cases: [(SkillSlot, Int, String)] = [(.skill1, 0, "maul_wave_h029"), (.skill2, 0, "shield_charge_h029"),
+                                                 (.skill2, 1, "maul_upswing_h029"), (.ultimate, 0, "maul_sanctuary_h029")]
+        for (slot, stage, name) in cases {
+            let info = lib.clips[try XCTUnwrap(lib.index(of: name), name)]
+            let strike = try XCTUnwrap(a.profile.clipStrike(slot, stage: stage), name)
+            let visible = info.endTime - (info.impactTime - strike)
+            XCTAssertGreaterThanOrEqual(visible, a.castDuration(slot, stage: stage), "\(name): クリップが詠唱より先に終わる")
+        }
+    }
+
     func testLocomotionPicksWalkOrRunBySpeed() throws {
         var a = try animator()
         a.setState(.run)
