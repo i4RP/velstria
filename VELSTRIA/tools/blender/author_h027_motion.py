@@ -196,7 +196,7 @@ def clip_specs():
     # 走行 0.333 秒 = 2 歩（MLBB の訓練場 75〜92 コマ: 接地が 4.5〜5 コマおき = 1 周 9.5〜10 コマ）。地面の速さ 2.65 m/s（子龍の 265）。
     # 胴を 42°・腰を 18° 前へ倒し（背骨の上だけに掛かるので見た目は 30° 前後）、蹴り出した足のかかとを高く上げて膝を前へ送る小刻みで大きな脚の回し方。槍は後ろへ引きずり、
     # 左の拳を胸の前で振る。
-    S.append(dict(name='h027_run', state='run', frames=10, loop=True, base=dict(TRAIL, tpitch=42, hpitch=18, dpitch=-34, oz=0.03),
+    S.append(dict(name='h027_run', state='run', frames=10, loop=True, base=dict(TRAIL, tpitch=42, hpitch=18, dpitch=-34, oz=0.03, lfx=-0.14, lfy=1.12, lfz=-0.36),
                   rootXZ=0, groundSpeed=2.65, contact=0.36, hipsDrop=-0.1, bounce=0.04, lift=0.11,
                   heel=0.3, knee=0.27, kick=0.08, over=0.14, armSwing=0.2,
                   prime=('meshy_h027_run', None, 0.15)))
