@@ -498,7 +498,8 @@ final class SkinnedHeroModel: HeroDisplayModel {
     private let weaponPoints: HeroWeaponPoints
     private var animator: HeroAnimator
     private var secondary = HeroSecondaryMotion()
-    private let hasSecondary: Bool
+    /// 揺れ物の骨（マント・髪・裾）を実行時に動かすか（HeroSecondaryPose.heroes かつ骨がある）。
+    private(set) var hasSecondary: Bool
     private var footContacts: HeroFootContacts?
     /// 歩幅の基準にする腰から足首までの長さ（m）。テストで手続きモデルと skinned モデルの走りの位相を揃えるのに使う。
     var legLength: Float {
@@ -522,7 +523,7 @@ final class SkinnedHeroModel: HeroDisplayModel {
         thirdPersonMeshes = skinned.map { $0.model!.mesh }
         poser = HeroSkeletonPoser(rig: rig)
         footContacts = heroID == "H025" ? HeroFootContacts(rig: rig) : nil
-        hasSecondary = (heroID == "H025" || heroID == "H028") && rig.secondaryIndex.contains(where: { $0 >= 0 })
+        hasSecondary = HeroSecondaryPose.heroes.contains(heroID) && rig.secondaryIndex.contains(where: { $0 >= 0 })
         handR = rig.index[.handR]!
         handL = rig.index[.handL]!
         stringIndexR = rig.jointNames.firstIndex { HeroJointRole.normalize($0) == "righthandindex3" }
