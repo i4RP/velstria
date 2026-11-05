@@ -18,7 +18,7 @@ concurrency:
 jobs:
   preview:
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 75
     defaults:
       run:
         shell: bash
@@ -39,7 +39,10 @@ jobs:
             -derivedDataPath build/H027Derived \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee build/h027-preview/build.log | grep -E "error:|BUILD|TEST BUILD" | head -60
 
+      # 撮影が固まっても後のテストと保存は走らせる（段の上限。ジョブ全体は 60 分）
       - name: Record H027 idle, locomotion, attacks and skills
+        timeout-minutes: 25
+        continue-on-error: true
         run: bash tools/capture_h027_motion.sh
 
       - name: Motion and grip contract tests

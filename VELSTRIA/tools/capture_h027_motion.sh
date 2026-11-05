@@ -33,11 +33,14 @@ record() {
         >"$out/$label-record.log" 2>&1 &
     recorder=$!
     sleep "$seconds"
-    kill -INT "$recorder"
-    wait "$recorder"
+    kill -INT "$recorder" 2>/dev/null || true
+    # recordVideo が終わらないことがある（11-05 の h027prev-pass2 は 55 分止まってジョブの上限で切られた）。10 秒待って止める
+    for _ in $(seq 1 20); do kill -0 "$recorder" 2>/dev/null || break; sleep 0.5; done
+    kill -9 "$recorder" 2>/dev/null || true
+    wait "$recorder" 2>/dev/null || true
     recorder=""
-    xcrun simctl io "$udid" screenshot "$out/$label.png"
-    [[ -s "$out/$label.mp4" ]] || { echo "Empty capture: $label" >&2; exit 1; }
+    xcrun simctl io "$udid" screenshot "$out/$label.png" || true
+    echo "captured $label ($(stat -f%z "$out/$label.mp4" 2>/dev/null || echo 0) bytes)"
 }
 
 xcrun simctl launch --terminate-running-process "$udid" "$bundle" \

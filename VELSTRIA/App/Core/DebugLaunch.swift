@@ -156,7 +156,9 @@ enum DebugLaunch {
                     humanHeroID: hero, humanName: name,
                     options: PracticeOptions(infiniteGold: mode == "practice", noCooldowns: args.contains("-practiceNoCD"), startLevel: value(after: "-practiceLevel").flatMap { Int($0) } ?? 1),
                     tutorial: mode == "tutorial", seed: seed)
-                if mode == "practice", value(after: "-efkAuto") != nil,
+                // 比較撮影（-fxCapture）もスキルを自動で習得する（10-27 に練習場の自動習得が手動の「自動配分」になってから、撮影では
+                // スキルが 0 段のまま撃てなかった: 11-05 の fxcap-h027pass3・fxcap-h032r2a で S1・S2・奥義が出ない）
+                if mode == "practice", value(after: "-efkAuto") != nil || value(after: "-fxCapture") != nil,
                    let i = config.players.firstIndex(where: { $0.controller == .human }) {
                     config.players[i].autoLevelSkills = true
                 }
