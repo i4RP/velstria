@@ -33,6 +33,11 @@ UPPER = [S[s] for s in ('torso', 'head', 'armR', 'foreArmR', 'handR', 'armL', 'f
 ARM = {'R': [S['armR'], S['foreArmR'], S['handR']], 'L': [S['armL'], S['foreArmL'], S['handL']]}
 LEGS = [('R', 'right'), ('L', 'left')]
 FWD = V((0, 0, -1))
+# HeroBlueprints の H032 の scale（MLBB の画面の上の身長に合わせた 1.28。docs/H032_QUALITY.md「体の大きさ」）。クリップの足は模型の大きさで
+# 動くので、groundSpeed（足が滑らない移動の速さ）も同じ倍率にする（実行時は世界の速さ / groundSpeed で再生する）。
+MODEL_SCALE = 1.28
+# 初版のクリップの groundSpeed（scale 1 の模型で測った値）
+V1_GROUND_SPEED = {'walk_h032': 1.25, 'run_h032': 3.3}
 UP = V((0, 1, 0))
 
 
@@ -453,6 +458,8 @@ def author(rig, clips):
             continue
         else:
             n, r = dict(c), dict(frames=c['frames'], copied=True)
+        if name in V1_GROUND_SPEED:
+            n['groundSpeed'] = round(V1_GROUND_SPEED[name]*MODEL_SCALE, 3)
         n['source'] = 'h032' if r.get('copied') else 'h032+mlbb-finish'
         out.append(n)
         report[name] = r
