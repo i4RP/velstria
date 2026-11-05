@@ -95,7 +95,9 @@ final class H029MotionClipTests: XCTestCase {
     func testLocomotionPicksWalkOrRunBySpeed() throws {
         var a = try animator()
         a.setState(.run)
-        for _ in 0..<60 { _ = a.advance(dt: 1.0 / 60, moveSpeed: 2.6) }
+        // 試合の移動速度（260 × mapScale 1.35 = 毎秒 3.51 m）は走り（MLBB の小走り 14 コマ / 周）を等速で回す
+        let base = Float(260 * Balance.mapScale / Balance.unitsPerMeter)
+        for _ in 0..<60 { _ = a.advance(dt: 1.0 / 60, moveSpeed: base) }
         XCTAssertEqual(a.clips.clipName, "run_h029")
         a.setState(.idle)
         for _ in 0..<60 { _ = a.advance(dt: 1.0 / 60, moveSpeed: 0) }

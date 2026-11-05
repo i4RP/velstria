@@ -301,8 +301,12 @@ enum HeroMotionSets {
     /// H029 ボルグの専用の収録（H029MotionClips.json、docs/H029_MOTION.md）。待機・歩行・走行・通常攻撃・スキルの詠唱
     /// （打撃は Motion_H029.clipStrike = KitTimes。S2 の再使用は段のクリップ、突進の間は脚もクリップ）。
     /// 槌は手の区間に持たせ（fistGrip: 柄 = 親指の側、打撃面 = 前腕の向き）、盾は前腕に付けた向き
-    /// （盾の上 +Y → 親指の側 -Z、盾の面 -Z → 手の -X = 前腕を胸の前で横にした時の正面）。
-    static let borgShieldGrip = simd_quatf(simd_float3x3(columns: (SIMD3<Float>(0, -1, 0), SIMD3<Float>(0, 0, -1), SIMD3<Float>(1, 0, 0))))
+    /// （盾の上 +Y → 肘の側 +Y を親指の側 -Z へ 15° 倒した向き、盾の面 -Z → 手の甲 -X）。MLBB のティグラルは盾を左脇に縦に下げるので、
+    /// 前腕を 15° 前へ出して下げた腕で盾が鉛直に立つ（tools/blender/author_h029_motion.py の SHIELD_TILT・shield_hand）。
+    static let borgShieldGrip: simd_quatf = {
+        let c = cos(Float.pi / 12), s = sin(Float.pi / 12)
+        return simd_quatf(simd_float3x3(columns: (SIMD3<Float>(0, -s, -c), SIMD3<Float>(0, c, -s), SIMD3<Float>(1, 0, 0))))
+    }()
     private static let borg: HeroMotionSet = {
         var s = make(["maul_smash_h029"], idle: "idle_h029", offhandGrip: borgShieldGrip)
         s.dedicatedIdle = true
