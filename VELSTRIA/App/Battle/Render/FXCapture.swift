@@ -225,10 +225,11 @@ final class FXCapture {
             shoot(world: world, name: "atk_\(Int((times[next] * 1000).rounded()))", slot: "atk", cast: 0,
                   requested: times[next], actual: s.time - t0)
         case .walkPlace:
-            // 人形の西 12 m・南 5 m から東へ歩く（人形の南 5 m を通り過ぎる。カメラから体の右の横が見える）
+            // 人形の西 10 m・南 3 m から東へ歩く（人形の南 3 m を通り過ぎる。カメラから体の右の横が見える）。
+            // 南 5 m は練習場の塔に当たって止まった（2026-11-05 の fxcap-h029-motion-walk-r1）
             guard let me = controller.humanIndex, let foe = dummyID(controller), let fi = s.index(of: foe) else { step = .finish; return }
             var w = controller.state
-            let spot = w.units[fi].pos + Vec2(-1200, -500)
+            let spot = w.units[fi].pos + Vec2(-1000, -300)
             w.units[me].pos = spot
             w.units[me].prevPos = spot
             w.units[me].path.removeAll()
