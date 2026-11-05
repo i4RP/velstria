@@ -130,6 +130,15 @@ final class H029MotionClipTests: XCTestCase {
         }
     }
 
+    /// 同梱のモデルのマントに揺れ物の骨（capel1〜3・caper1〜3）があり、実行時の揺れ（HeroSecondaryMotion）が動かす。
+    func testBundledCapeHasSecondaryChains() throws {
+        guard let url = HeroAssetLibrary.bundledURL("Hero_H029") else { throw XCTSkip("Hero_H029 が同梱されていない") }
+        let model = HeroModelLibrary.makeHero(heroID: hero, skinID: nil, team: .blue, master: MasterData.shared,
+                                              options: HeroModelOptions.showcase.with(mesh: .skinned(url)))
+        let m = try XCTUnwrap(model as? SkinnedHeroModel)
+        XCTAssertTrue(m.hasSecondary, "マントの揺れ物の骨（capel1〜caper3）が見つからない")
+    }
+
     func testLocomotionPicksWalkOrRunBySpeed() throws {
         var a = try animator()
         a.setState(.run)

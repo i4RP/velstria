@@ -25,7 +25,9 @@ from author_h025_motion import bind_usd_axes, ik, local_delta, pack, solve
 
 FPS = 30
 SCALE = 1.32  # HeroBlueprints の H029（motion.scale）。groundSpeed はゲームの m/s
-HERO = 'App/Resources/Heroes/Hero_H029.usdz'
+# Blender 4.5 は揺れ物の骨（finish_h029_cape.py）を足した USD の取り込みで落ちるので、骨を足す前の元（finish が書き出す）を使う。
+# クリップが動かす骨は同じ（揺れ物の骨は実行時の HeroSecondaryMotion だけが動かす）
+HERO = 'build/h029-motion/Hero_H029_base.usdz' if Path('build/h029-motion/Hero_H029_base.usdz').exists() \n    else 'App/Resources/Heroes/Hero_H029.usdz'
 FINGERS = ('thumb', 'index', 'middle', 'ring', 'pinky')
 DETAILS = ['leftshoulder', 'rightshoulder', 'lefttoebase', 'righttoebase']
 DETAILS += [s + 'hand' + f + str(n) for s in ('left', 'right') for f in FINGERS for n in (1, 2, 3)]
