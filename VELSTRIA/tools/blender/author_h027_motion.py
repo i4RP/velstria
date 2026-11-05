@@ -286,18 +286,15 @@ def clip_specs():
                                   spitch=-18, lz=-0.26, rz=0.14, lfx=-0.14, lfy=1.14, lfz=-0.2)),
                         (17, dict(ox=0.25, oy=1.0, oz=-0.12, syaw=-125, spitch=-24)),
                         (21, dict(TRAIL, hy=-0.05, hz=-0.04, lz=-0.22, rz=0.08))]))
-    # アルティメット 至高の武人（MLBB 31.73〜31.93 秒: 発動の光に隠れて、穂先を下げたまま直立）: 引きずる持ち方のまま胸を張って
-    # 上体を起こし、左の拳を胸の前で握って気を高める（打撃 4 = 発動の光）。短く保って戻す。移動中は上半身だけ（走りを止めない）。
-    S.append(dict(name='h027_warrior', state='cast', frames=24, loop=False, base=TRAIL, rootXZ=1,
-                  events=dict(impact=4), melee=False, prime=('meshy_h027_warrior', [(0, 12), (4, 24), (23, 48)], 0.2),
+    # アルティメット 至高の武人: MLBB は Project NEXT の改修で発動時の動作を外した（ONE Esports「Layla and Zilong are up next for
+    # reworks」: removed the idle animation when triggered）。スキルプレビュー 31.73〜31.93 秒も発動の光の中で直立のまま。引きずる持ち方
+    # のまま胸を小さく張って左の拳を握るだけ（14 フレーム、打撃 4 = 発動の光）。移動中は上半身だけ（走りを止めない）。
+    S.append(dict(name='h027_warrior', state='cast', frames=14, loop=False, base=TRAIL, rootXZ=1,
+                  events=dict(impact=4), melee=False, prime=None,
                   keys=[(0, {}),
-                        (2, dict(hy=-0.07, tpitch=10, dpitch=0, lfx=-0.14, lfy=1.08, lfz=-0.16)),
-                        (4, dict(hy=-0.04, tpitch=-8, hpitch=0, dpitch=-14, ox=0.26, oy=1.02, oz=0.06, spitch=-24,
-                                 lfx=-0.05, lfy=1.15, lfz=-0.2, lflex=1, lx=-0.16, rx=0.18)),
-                        (10, dict(hy=-0.04, tpitch=-9, hpitch=0, dpitch=-12, ox=0.26, oy=1.02, oz=0.06, spitch=-24,
-                                  lfx=-0.05, lfy=1.16, lfz=-0.21, lflex=1, lx=-0.16, rx=0.18)),
-                        (16, dict(tpitch=2, dpitch=-6, lflex=0.4, lfx=-0.1, lfy=1.14, lfz=-0.22)),
-                        (23, {})]))
+                        (4, dict(hy=-0.04, tpitch=2, dpitch=-10, lfx=-0.07, lfy=1.15, lfz=-0.21, lflex=1)),
+                        (8, dict(hy=-0.04, tpitch=3, dpitch=-9, lfx=-0.07, lfy=1.15, lfz=-0.22, lflex=1)),
+                        (13, {})]))
     return S
 
 
