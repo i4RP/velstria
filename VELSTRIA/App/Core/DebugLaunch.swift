@@ -118,6 +118,7 @@ enum DebugLaunch {
         if let raw = value(after: "-stage"), let stage = MatchStage(rawValue: raw) {
             p.settings.battleStage = stage
         }
+        if args.contains("-firstPerson") { p.settings.firstPersonView = true }
         app.profile = p
         if args.contains("-sampleReplays") { addSampleReplays(to: app) }
         if args.contains("-sampleRecords") { addSampleRecords(to: app) }

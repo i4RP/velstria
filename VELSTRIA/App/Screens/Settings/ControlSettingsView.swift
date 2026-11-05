@@ -60,6 +60,12 @@ struct ControlSettingsView: View {
                                               symbol: "hand.point.left.fill", isOn: settingsBinding(app, \.leftHandedLayout),
                                               identifier: "controls_left_handed")
                             SettingsDivider()
+                            SettingsToggleRow(title: L("一人称視点（試験中）", "First-person View (Experimental)"),
+                                              detail: L("オフ（既定）は見下ろしの三人称視点です。オンにすると操作キャラの目線になり、空いている場所のドラッグで見回します。",
+                                                        "Off (default) uses the overhead third-person camera. On switches to the hero's eyes; drag an empty area to look around."),
+                                              symbol: "eye.fill", isOn: settingsBinding(app, \.firstPersonView),
+                                              identifier: "controls_first_person")
+                            SettingsDivider()
                             SettingsSliderRow(title: L("HUD の不透明度", "HUD Opacity"), symbol: "circle.lefthalf.filled",
                                               value: settingsBinding(app, \.hudOpacity), range: 0.5...1.0, step: 0.05,
                                               format: SettingsText.percent, identifier: "controls_hud_opacity")

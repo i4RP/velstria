@@ -75,6 +75,7 @@ struct BattleContainerView: View {
         let c = BattleController(launch: launch, online: launch.isOnline ? app.online : nil)
         let settings = app.profile.settings
         c.cameraZoom = settings.cameraZoom
+        c.firstPersonView = settings.firstPersonView
         if !c.isSpectating {
             // スキルは Lv1 の最初の 1 ポイントから毎回、プレイヤーが 3 枠のどれを上げるか選ぶ（自動習得はしない）。
             // 構成が明示的に ON の時（FXCheck などの確認用）だけ自動のまま

@@ -143,12 +143,14 @@ final class HUDAimTests: XCTestCase {
     @MainActor
     func testHeldFirstPersonStickTurnsWithLookAndReleases() {
         let app = AppModel(persistence: ServicesFixtures.tempPersistence())
+        app.profile.settings.firstPersonView = true
         let config = MatchFactory.practiceMatch(humanHeroID: "H001", humanName: "Tester",
                                                 options: PracticeOptions(), seed: 17)
         let controller = BattleController(launch: BattleLaunch(config: config))
         let model = HUDModel(controller: controller)
         model.start(app: app, onFinish: { _ in })
         defer { model.stop() }
+        XCTAssertTrue(controller.firstPersonEnabled, "設定の一人称を試合に反映する")
         controller.look(delta: CGVector(dx: (controller.firstPersonYaw - .pi / 2) / 0.005, dy: 0))
         model.joystickChanged(CGVector(dx: 0, dy: -60), radius: 60)
         model.lookChanged(CGVector(dx: (.pi / 2) / 0.005, dy: 0))
@@ -172,6 +174,12 @@ final class HUDAimTests: XCTestCase {
         let config = MatchFactory.practiceMatch(humanHeroID: "H001", humanName: "Tester",
                                                 options: PracticeOptions(), seed: 17)
         let controller = BattleController(launch: BattleLaunch(config: config))
+        XCTAssertFalse(controller.firstPersonEnabled, "既定は俯瞰の三人称")
+        let initialYaw = controller.firstPersonYaw
+        controller.look(delta: CGVector(dx: 100, dy: 100))
+        XCTAssertEqual(controller.firstPersonYaw, initialYaw, "三人称では見回さない")
+        XCTAssertEqual(controller.movementDirection(fromDrag: CGVector(dx: 0, dy: -1)), Vec2(0, 1), "スティックの上 = 画面の上")
+        controller.firstPersonView = true
         XCTAssertTrue(controller.firstPersonEnabled)
         controller.look(delta: CGVector(dx: 0, dy: 10_000))
         XCTAssertEqual(controller.firstPersonPitch, -85 * .pi / 180, accuracy: 1e-9)

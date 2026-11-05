@@ -57,6 +57,7 @@ final class BattleHUDUITests: XCTestCase {
     func testPracticeToolsAndPlayerHealth() {
         let app = launch(["-battle", "practice", "-hero", "H025", "-language", "ja"])
         XCTAssertTrue(element(app, "hud_attack").waitForExistence(timeout: Self.battleStartTimeout))
+        XCTAssertFalse(element(app, "hud_look").exists, "既定は俯瞰の三人称（見回しの層を出さない）")
         let health = element(app, "hud_player_hp")
         XCTAssertTrue(health.exists)
         XCTAssertGreaterThan(health.frame.midY, app.frame.height * 0.8)
@@ -75,7 +76,7 @@ final class BattleHUDUITests: XCTestCase {
 
     /// 実際の空き領域ドラッグで目線を下げ、胴体の表示と HUD の入力分離を確認する。
     func testFirstPersonLookAndBodyCapture() {
-        let app = launch(["-battle", "practice", "-hero", "H025", "-language", "ja"])
+        let app = launch(["-battle", "practice", "-hero", "H025", "-language", "ja", "-firstPerson"])
         XCTAssertTrue(element(app, "hud_attack").waitForExistence(timeout: Self.battleStartTimeout))
         XCTAssertTrue(element(app, "hud_look").waitForExistence(timeout: 5))
         Thread.sleep(forTimeInterval: 1)

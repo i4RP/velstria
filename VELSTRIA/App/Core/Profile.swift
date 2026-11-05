@@ -84,6 +84,8 @@ struct GameSettings: Codable, Equatable {
     var activeMonsterDetection = false
     /// 1.0 = 既定。0.8〜1.3。
     var cameraZoom: Double = 1.0
+    /// 通常プレイを一人称にする（試験中。既定は俯瞰の三人称: 一人称は後ろからの攻撃に気付けない）。
+    var firstPersonView = false
     var leftHandedLayout = false
     /// 色覚サポート（チーム色を青/橙にし、形状マーカーを強調）。
     var colorblindMode = false
@@ -109,7 +111,7 @@ struct GameSettings: Codable, Equatable {
         case language, bgmVolume, bgmTrack, sfxVolume, voiceVolume, hapticsEnabled
         case graphicsQuality, battleStage, frameRate, showDamageNumbers, joystickMode, skillCastMode
         case attackPriority, topAttackPriority, bottomAttackPriority, heroLock, activeMonsterDetection
-        case cameraZoom, leftHandedLayout, colorblindMode, hudOpacity, subtitlesEnabled
+        case cameraZoom, firstPersonView, leftHandedLayout, colorblindMode, hudOpacity, subtitlesEnabled
         case notificationsEnabled, autoLevelSkills, showRecommendedItems
     }
 }
@@ -139,6 +141,7 @@ extension GameSettings {
         heroLock = try values.decodeIfPresent(Bool.self, forKey: .heroLock) ?? heroLock
         activeMonsterDetection = try values.decodeIfPresent(Bool.self, forKey: .activeMonsterDetection) ?? activeMonsterDetection
         // カメラ距離は利用者が変えられない（UI を隠した）。以前に保存された値は読み込まない。
+        firstPersonView = try values.decodeIfPresent(Bool.self, forKey: .firstPersonView) ?? firstPersonView
         leftHandedLayout = try values.decodeIfPresent(Bool.self, forKey: .leftHandedLayout) ?? leftHandedLayout
         colorblindMode = try values.decodeIfPresent(Bool.self, forKey: .colorblindMode) ?? colorblindMode
         hudOpacity = try values.decodeIfPresent(Double.self, forKey: .hudOpacity) ?? hudOpacity

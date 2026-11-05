@@ -251,9 +251,12 @@ final class BattleController {
     /// 人間ヒーローの units 添字（観戦中は nil）。
     var humanIndex: Int? { humanHeroID.flatMap { sim.state.index(of: $0) } }
 
-    /// 生存中の自分を追う通常プレイだけを一人称にする。死亡中の味方追従・マップ閲覧・観戦は俯瞰を維持。
+    /// 設定の「一人称視点（試験中）」。既定は俯瞰（三人称）。
+    var firstPersonView = false
+
+    /// 一人称を選んだ時だけ、生存中の自分を追う通常プレイを一人称にする。死亡中の味方追従・マップ閲覧・観戦は俯瞰を維持。
     var firstPersonEnabled: Bool {
-        guard !isSpectating, !isEnded, cameraMode == .followHero, let i = humanIndex else { return false }
+        guard firstPersonView, !isSpectating, !isEnded, cameraMode == .followHero, let i = humanIndex else { return false }
         return sim.state.units[i].isAlive && sim.state.units[i].hero?.isDead != true
     }
 

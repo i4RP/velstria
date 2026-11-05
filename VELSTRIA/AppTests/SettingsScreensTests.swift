@@ -128,6 +128,17 @@ final class SettingsScreensTests: XCTestCase {
         }
     }
 
+    /// 既定は俯瞰の三人称。一人称は設定で選んだ時だけ（試験中）で、選んだ値は保存される。
+    func testFirstPersonViewIsOptInAndRoundTrips() throws {
+        XCTAssertFalse(GameSettings().firstPersonView)
+        let legacy = try JSONDecoder().decode(GameSettings.self, from: Data("{}".utf8))
+        XCTAssertFalse(legacy.firstPersonView, "保存の無い旧版も三人称")
+        var settings = GameSettings()
+        settings.firstPersonView = true
+        let decoded = try JSONDecoder().decode(GameSettings.self, from: JSONEncoder().encode(settings))
+        XCTAssertTrue(decoded.firstPersonView)
+    }
+
     func testAttackButtonSettingsRoundTripIndependently() throws {
         var settings = GameSettings()
         settings.topAttackPriority = .lowestHealth

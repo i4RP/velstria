@@ -286,6 +286,7 @@ final class HUDModel {
                 SpectatorCameraLink.link(for: controller).noteZoomSettingChanged()
             }
         }
+        if controller.firstPersonView != s.firstPersonView { controller.firstPersonView = s.firstPersonView }
         if !isSpectating {
             // ズームボタン（ミニマップ横）を押している間は設定の倍率より広く見る
             let zoom = Self.effectiveZoom(s.cameraZoom, boost: zoomBoost)
