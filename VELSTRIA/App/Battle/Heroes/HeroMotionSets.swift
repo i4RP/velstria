@@ -290,7 +290,7 @@ enum HeroMotionSets {
 
     /// H032 ディアス（MLBB のディロスの画面収録に合わせた仕上げ。docs/H032_QUALITY.md）: 腕を下ろして刃の輪を体の横へ張り出す
     /// 待機・歩行・走行、刃の輪の斬撃（左の振り下ろし → 右の横薙ぎ → 3 発目の円撃 = 両腕を開いて薙ぐ専用のクリップ。
-    /// クリップが無ければ Motion_H032.empoweredAttack）・スキル（S1 の両腕の振り下ろし・S2 の突進 / 致命の一撃・
+    /// クリップが無ければ Motion_H032.empoweredAttack）・スキル（S1 の両腕の振り下ろし・S2 の低い突進 / 低いまま 3 撃の致命の一撃・
     /// 奥義 = 輪を頭の横へ掲げて溜め → 引き絞って突き出す）。
     private static let dyrroth: HeroMotionSet = {
         // 刃の輪は手首を囲む輪（SkinnedHeroModel.forearmBlade。面は前腕に直交、中心は腕の外側）。腕を下ろした構え・走りで
@@ -306,7 +306,7 @@ enum HeroMotionSets {
         s.walk = "walk_h032"
         s.run = "run_h032"
         s.casts = ["slam_s1_h032", "dash_s2_h032", "strike_ult_h032"]
-        s.stageCasts = [nil, "punch_s2_strike_h032", nil]
+        s.stageCasts = [nil, "fatal_s2_h032", nil]
         return s
     }()
 
