@@ -59,6 +59,11 @@ public enum HitShapeScenario {
         let options = PracticeOptions(noCooldowns: true, spawnMinions: false, spawnDummies: true, startLevel: 4)
         var config = MatchFactory.practiceMatch(humanHeroID: heroID, humanName: "Probe", options: options, seed: 1,
                                                 master: master)
+        // 10-23 から練習場の人間のヒーローはスキルの枠を自分で選ぶ（autoLevelSkills = false）。観測は撃てる状態で
+        // キットの形を見るので、App の -efkAuto と同じく自動で覚えさせる
+        for i in config.players.indices where config.players[i].controller == .human {
+            config.players[i].autoLevelSkills = true
+        }
         let foeHero = heroID == "H029" ? "H034" : "H029"
         config.players.append(PlayerSlot(team: .red, heroID: foeHero, controller: .bot, position: .mid,
                                          displayName: "Foe", botDifficulty: .easy))
@@ -75,10 +80,26 @@ public enum HitShapeScenario {
         let team = s.units[me].team
         guard let foe = s.units.firstIndex(where: { $0.kind == .hero && $0.team != team }) else { return nil }
         // 置き直し: 人形の南 standoff に北向き。敵の英雄はヒーローの前（人形との間）に南向きで立たせ、操作を人間扱いにする
-        // （入力が無いので動かない）
-        let spot = s.units[dummy].pos + Vec2(0, -standoff)
+        // （入力が無いので動かない）。人形の南に塔がある地図（canyon の練習場）では、塔・壁に押し出されて向きと距離が狂う。
+        // そこで 3 体とも歩ける所で構造物から離れる所まで、人形ごと横・北へずらす（元の位置で足りれば動かさない）
+        let base = s.units[dummy].pos
+        var anchor = base
+        search: for dy in [0.0, 300, 600, 900] {
+            for dx in [0.0, -300, 300, -600, 600, -900, 900] {
+                let d = base + Vec2(dx, dy)
+                let mine = d + Vec2(0, -standoff)
+                let theirs = targetsHero ? mine + Vec2(0, foeDistance) : d + Vec2(standoff, 0)
+                if isClear(s, sim.ctx, d, radius: s.units[dummy].radius), isClear(s, sim.ctx, mine, radius: s.units[me].radius),
+                   isClear(s, sim.ctx, theirs, radius: s.units[foe].radius) {
+                    anchor = d
+                    break search
+                }
+            }
+        }
+        if anchor != base { place(&s, dummy, at: anchor, facing: s.units[dummy].facing) }
+        let spot = anchor + Vec2(0, -standoff)
         place(&s, me, at: spot, facing: Double.pi / 2)
-        let foeSpot = targetsHero ? spot + Vec2(0, foeDistance) : s.units[dummy].pos + Vec2(standoff, 0)
+        let foeSpot = targetsHero ? spot + Vec2(0, foeDistance) : anchor + Vec2(standoff, 0)
         place(&s, foe, at: foeSpot, facing: -Double.pi / 2)
         s.units[foe].hero?.controller = .human
         s.units[dummy].hp = s.units[dummy].stats.maxHP
@@ -141,6 +162,12 @@ public enum HitShapeScenario {
         }
         trace.shapes = box.shapes
         return trace
+    }
+
+    /// p に半径 radius の体を置いても歩ける所で、塔・コアの体と重ならない（50 の余裕）。
+    private static func isClear(_ s: SimState, _ ctx: SimContext, _ p: Vec2, radius: Double) -> Bool {
+        guard ctx.nav.isWalkable(p, radius: radius) else { return false }
+        return !s.units.contains { $0.isAlive && $0.isStructure && $0.pos.distance(to: p) < $0.radius + radius + 50 }
     }
 
     private static func place(_ s: inout SimState, _ i: Int, at p: Vec2, facing: Double) {

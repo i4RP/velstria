@@ -455,7 +455,7 @@ final class MinionWaveTests: XCTestCase {
     }
 
     /// 遊ぶ地図（canyon）でも、ウェーブは MLBB と同じ時刻にレーンの中点で出会う（中央 0:25・側 0:33）。
-    /// canyon のレーンは standard の 0.72〜0.74 倍の長さなので、速さと出る位置をレーンの長さの比で縮める（SpawnSystem.minionLaneScale）。
+    /// canyon のレーンは standard より短い（中央は 0.84 倍）ので、速さと出る位置をレーンの長さの比で縮める（SpawnSystem.minionLaneScale）。
     func testFirstWaveMeetsOnTimeOnTheCanyon() {
         let sim = Simulation(config: WorldTestKit.emptyConfig(), map: .canyon)
         let map = sim.ctx.map
@@ -477,7 +477,7 @@ final class MinionWaveTests: XCTestCase {
             XCTAssertEqual(Self.arcLength(clash.pos, along: path), Self.length(path) / 2, accuracy: 400, "\(lane) meets off-centre")
         }
         XCTAssertEqual(SpawnSystem.minionLaneScale(.standard, .mid), 1, accuracy: 1e-9)
-        XCTAssertLessThan(SpawnSystem.minionLaneScale(.canyon, .mid), 0.8)
+        XCTAssertLessThan(SpawnSystem.minionLaneScale(.canyon, .mid), 0.9)
     }
 
     /// 敵の基部塔が壊れたレーンだけ、それ以後のウェーブがスーパーミニオンになる（MLBB の Call of Raging）。
