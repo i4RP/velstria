@@ -24,7 +24,7 @@ import preview_clip as preview
 from author_h025_motion import bind_usd_axes, ik, local_delta, pack, solve
 
 FPS = 30
-SCALE = 1.32  # HeroBlueprints の H029（motion.scale）。groundSpeed はゲームの m/s
+SCALE = 1.0   # HeroBlueprints の H029（motion.scale。2026-11-05 に 1.32 → 1.0）。groundSpeed はゲームの m/s
 # Blender 4.5 は揺れ物の骨（finish_h029_cape.py）を足した USD の取り込みで落ちるので、骨を足す前の元（finish が書き出す）を使う。
 # クリップが動かす骨は同じ（揺れ物の骨は実行時の HeroSecondaryMotion だけが動かす）
 _BASE = 'build/h029-motion/Hero_H029_base.usdz'
@@ -429,14 +429,17 @@ def idle(rest, prime, u):
     return p
 
 
+# 歩く間の盾の左手（左肩から。胴の向き）: 体の中心の前・腰の高さ
+SHIELD_FRONT = V((0.20, -0.42, -0.30))
+
 # 移動（MLBB の画面収録 10-18 の 35.7〜36.3 秒・28.5〜29.0 秒、10-15 の 3.3〜4.2 秒）: 槌を肩に担ぎ盾を脇に下げたまま
 # 重く小走りする。脚の開きの山が 約 7 コマごと = 1 周 14 コマ（0.467 秒、毎秒 4.3 歩）。MLBB の歩幅は 2.6 / 秒 × 0.467 = 1.21 単位。
 # Velstria のヒーローは mapScale 1.35 倍速く動く（260 × 1.35 = 毎秒 3.51 m）ので、歩調（コマ数）を MLBB に合わせ、
 # 歩幅を 1.35 倍（1.64 m = ヒーロー空間 1.24）にした。減速中など遅い時は walk（1 周 0.733 秒）。
 GAITS = {
-    'run': dict(frames=14, speed=3.51, contact=0.48, lift=0.17, lean=10, bob=0.045, drop=0.045, width=0.21, knee=0.24,
+    'run': dict(frames=14, speed=3.51, contact=0.44, lift=0.17, lean=10, bob=0.045, drop=0.075, width=0.21, knee=0.24,
                 twist=9, hammer=0.03, shield=0.09),
-    'walk': dict(frames=22, speed=1.80, contact=0.62, lift=0.10, lean=4, bob=0.022, drop=0.04, width=0.22, knee=0.24,
+    'walk': dict(frames=18, speed=1.80, contact=0.62, lift=0.10, lean=4, bob=0.022, drop=0.06, width=0.22, knee=0.24,
                  twist=6, hammer=0.018, shield=0.06),
 }
 
@@ -485,8 +488,10 @@ def locomotion(rest, prime, u, run):
     lag = math.cos(2 * (w - math.tau * contact / 2) - 0.9)
     p.hand_r = CARRY['hand_r'] + V((0.0, -g['hammer'] * lag, 0.0))
     p.shaft = (CARRY['shaft'] + V((0.0, 0.0, 2.0 * g['hammer'] * lag))).normalized()
-    p.hand_l = CARRY['hand_l'] + V((0.012, 0.015 * (1 - abs(math.cos(w))), -g['shield'] * math.cos(w)))
-    p.shield = (V((0.0, 1.0, 2.2 * g['shield'] * math.cos(w))).normalized(), CARRY['shield'][1].copy())
+    # 盾は体の前に立てて構える（MLBB の a 3.4〜4.3 秒・b 28.5 秒のカメラへ歩くコマで、盾の表が脚の前に見える）。歩調で小さく上下・前後
+    p.hand_l = SHIELD_FRONT + V((0.0, 0.012 * (1 - abs(math.cos(w))) - 0.01 * bounce, -0.4 * g['shield'] * math.cos(w)))
+    p.pole_l = V((-1.0, -0.3, 0.1))
+    p.shield = (V((0.0, 1.0, 0.10 + 0.8 * g['shield'] * math.cos(w))).normalized(), V((0.12, 0.0, -1.0)))
     p.knee_out = g['knee']
     return p, g['speed'], period
 
@@ -681,8 +686,8 @@ def skill_base(rest, t, hips_yaw, torso_yaw, lean, drop, step, back=None, forwar
     return p, yaw
 
 
-# S1 の槌頭が地を打つ所（ヒーロー空間の前 -Z。× 1.32 = 世界 1.87 m）。MLBB は足元から 1.83〜1.88 単位（docs/H029_QUALITY.md 二周目）
-S1_HIT = -1.42
+# S1 の槌頭が地を打つ所の目標（ヒーロー空間の前 -Z）。MLBB は足元から 1.83〜1.88 単位。腕と柄の届く所で 1.77 m に止まる（docs/H029_QUALITY.md）
+S1_HIT = -1.87 / SCALE
 
 
 def skill_wave(rest, prime, t):
@@ -691,12 +696,12 @@ def skill_wave(rest, prime, t):
     p, yaw = skill_base(rest, t,
                         [(0, 0), (0.06, -10, 'o2'), (0.2, -4), (s, 4, 'i'), (0.95, 4), (1.2, 0, 'io')],
                         [(0, 0), (0.06, -18, 'o2'), (0.2, -6), (s, 6, 'i'), (0.95, 4), (1.2, 0, 'io')],
-                        [(0, 0), (0.06, 4, 'o2'), (0.17, -12, 'io'), (s, 40, 'i'), (0.4, 44, 'o'), (0.95, 42), (1.12, 14, 'io'), (1.3, 0, 'io')],
+                        [(0, 0), (0.06, 4, 'o2'), (0.17, -12, 'io'), (s, 46, 'i'), (0.4, 50, 'o'), (0.95, 48), (1.12, 14, 'io'), (1.3, 0, 'io')],
                         [(0, 0), (0.06, 0.02), (0.17, -0.01), (s, 0.17, 'i'), (0.4, 0.19, 'o'), (0.95, 0.18), (1.12, 0.06, 'io'), (1.3, 0, 'io')],
-                        [(0, (0, 0)), (0.10, (-0.10, 0.08), 'o2'), (s, (-0.52, 0.0), 'i2'), (0.97, (-0.52, 0.0)), (1.14, (-0.22, 0.06), 'io'),
+                        [(0, (0, 0)), (0.10, (-0.10, 0.08), 'o2'), (s, (-0.60, 0.0), 'i2'), (0.97, (-0.60, 0.0)), (1.14, (-0.22, 0.06), 'io'),
                          (1.3, (0, 0), 'o')],
                         back=[(0, 0), (0.12, 0.0), (s, 0.14, 'i2'), (0.97, 0.14), (1.2, 0, 'io')],
-                        forward=[(0, 0), (0.17, -0.02), (s, 0.16, 'i'), (0.97, 0.16), (1.2, 0, 'io')])
+                        forward=[(0, 0), (0.17, -0.02), (s, 0.28, 'i'), (0.97, 0.28), (1.2, 0, 'io')])
     # 槌: 肩 → 真後ろの下（腕を後ろへ伸ばす）→ 後ろから頭上 → 前の地面。戻りは体の右前に立ててから肩へ
     p.hand_r = arc([(0, CARRY['hand_r']), (0.05, V((0.12, -0.42, 0.20)), 'o2'), (0.97, V((0.0, -0.40, -0.30))),
                     (1.12, V((0.02, -0.30, -0.32)), 'io'), (1.35, CARRY['hand_r'], 'io')], t)
@@ -729,20 +734,22 @@ def skill_charge(rest, prime, t):
     p, yaw = attack_base(rest, t,
                          [(0, 0), (0.06, 6, 'o'), (arrive, 6), (0.74, 4, 'o'), (1.0, 0, 'io')],
                          [(0, 0), (0.06, 8, 'o'), (arrive, 8), (0.74, 6, 'o'), (1.0, 0, 'io')],
-                         [(0, 0), (0.06, 20, 'o'), (arrive, 20), (0.72, 26, 'o'), (0.82, 12), (1.0, 0, 'io')],
-                         [(0, 0), (0.06, 0.04, 'o'), (arrive, 0.04), (0.72, 0.07, 'o'), (1.0, 0, 'io')],
+                         [(0, 0), (0.05, 44, 'o'), (arrive, 42), (0.72, 48, 'o'), (0.86, 18), (1.0, 0, 'io')],
+                         [(0, 0), (0.05, 0.09, 'o'), (arrive, 0.09), (0.72, 0.13, 'o'), (1.0, 0, 'io')],
                          [(0, (0, 0)), (1.0, (0, 0))])
     cyc = (t / 0.335) % 1  # 0.67 秒で 2 周 = 4 歩
     p.offset.y -= 0.02 * run * (0.5 + 0.5 * math.cos(cyc * math.tau * 2))
+    # 体ごと盾で突っ込む（腰を前へ。sim が術者を動かすので水平の位置は戻す）
+    p.offset.z -= 0.14 * run
     # 盾を体の前（胸の前に縦、外の面が前）。終点で押し込む
-    p.hand_l = arc([(0, CARRY['hand_l']), (0.07, V((0.20, -0.22, -0.38)), 'o'), (arrive, V((0.20, -0.22, -0.38))),
-                    (0.71, V((0.20, -0.20, -0.45)), 'o'), (0.85, V((0.16, -0.28, -0.34))), (1.0, CARRY['hand_l'], 'io')], t)
+    p.hand_l = arc([(0, CARRY['hand_l']), (0.05, V((0.22, -0.14, -0.46)), 'o'), (arrive, V((0.22, -0.14, -0.46))),
+                    (0.71, V((0.22, -0.12, -0.49)), 'o'), (0.85, V((0.18, -0.26, -0.40))), (1.0, CARRY['hand_l'], 'io')], t)
     p.shield = (dirs([(0, CARRY['shield'][0]), (0.07, V((0.0, 1.0, 0.2)), 'o'), (0.85, V((0.0, 1.0, 0.2))), (1.0, CARRY['shield'][0], 'io')], t),
                 dirs([(0, CARRY['shield'][1]), (0.07, V((0.25, 0.0, -1.0)), 'o'), (0.85, V((0.2, 0.0, -1.0))), (1.0, CARRY['shield'][1], 'io')], t))
     p.pole_l = dirs([(0, CARRY['pole_l']), (0.07, V((-1.0, -0.6, 0.3))), (0.85, V((-1.0, -0.6, 0.3))), (1.0, CARRY['pole_l'])], t)
     p.shrug['left'] = (val([(0, 0), (0.06, 8), (arrive, 8), (0.71, 12), (1.0, 0)], t), val([(0, 0), (0.06, 14), (0.71, 18), (1.0, 0)], t))
     # 脚: 走り（短い接地の重い踏み込み）→ 終点で左足を前に踏ん張る
-    reach = 0.27   # MLBB の突進は大股（b 24.87・25.30 秒で両足が大きく開く）
+    reach = 0.36   # MLBB の突進は大股（b 24.87・25.30 秒で両足が大きく開く）
     for side, ph0 in (('right', 0.0), ('left', 0.5)):
         stance = rest.foot(side)
         ph = (cyc + ph0) % 1
@@ -753,7 +760,7 @@ def skill_charge(rest, prime, t):
         else:
             v = (ph - 0.45) / 0.55
             z = reach - 2 * reach * smooth(v)
-            y = 0.17 * math.sin(math.pi * v)
+            y = 0.20 * math.sin(math.pi * v)
         moving = V(((-0.20 if side == 'left' else 0.20), stance.y + y, z))
         stop = rest.foot(side, dz=(-0.22 if side == 'left' else 0.12))
         k = smooth((t - arrive + 0.04) / 0.08)
@@ -825,8 +832,6 @@ def author(rig, prime, out):
     specs = [
         # name, frames, loop, events, builder(t or u)
         dict(name='idle_h029', frames=120, loop=True, make=lambda u: idle(rest, prime, u), blend=0.25),
-        dict(name='walk_h029', frames=GAITS['walk']['frames'], loop=True, make=lambda u: locomotion(rest, prime, u, False)[0],
-             blend=0.2, groundSpeed=GAITS['walk']['speed'], local='H029-mlbb-gait'),
         dict(name='run_h029', frames=GAITS['run']['frames'], loop=True, make=lambda u: locomotion(rest, prime, u, True)[0],
              blend=0.15, groundSpeed=GAITS['run']['speed'], local='H029-mlbb-gait'),
         *[dict(name=n, frames=28, loop=False, events=dict(impact=round(ATTACK_IMPACT * FPS, 2), end=27), make=f, blend=0.12, rootXZ=1,

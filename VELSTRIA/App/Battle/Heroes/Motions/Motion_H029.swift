@@ -13,7 +13,7 @@ import VelstriaCore
 //             沈んだ構えで止まってから起き上がる。
 // 角度は体の鉛直に対して書く（MotionBuilder.worldAngles。腕の pitch 0 = 真下・π/2 = 前・π = 真上、武器角 0 = 真上・-π/2 = 前・
 // ±π = 真下・+ = 後ろ。yaw + = 左回り）。足首の目標（footR / footL）は待機の足首からのずれ（m。-z = 前）。
-// 腰の沈み hipsDrop は手続きの脚（0.56）に対する値で、スキンの脚へ伸ばす（ボルグは拡縮 1.32 の巨漢・脚 約 1 m）。
+// 腰の沈み hipsDrop は手続きの脚（0.56）に対する値で、スキンの脚へ伸ばす（ボルグは拡縮 1.0・脚 約 0.93 m。2026-11-05 に 1.32 から下げた）。
 
 enum Motion_H029: HeroMotionScript {
     private static let hero = "H029"

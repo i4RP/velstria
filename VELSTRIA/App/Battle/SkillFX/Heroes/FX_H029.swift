@@ -141,9 +141,9 @@ enum FX_H029: HeroFXSet {
         case .passive:
             // 誓いが積まれる・防御が発動する: 左腕の盾にきらめき（スキルの発動のたびにも出るので小さく短く）
             r.cast = [
-                .emit(.flare(0.9, .core, life: 0.14, tex: .flare4), .follow, offset: [-0.45, 1.1, 0.35]),
+                .emit(.flare(0.9, .core, life: 0.14, tex: .flare4), .follow, offset: [-0.45, 1.1, 0.35] * body),
                 .mesh(.decal(.hexShield, 1.5, .secondary, life: 0.4, spin: 0, grow: 1.15, alpha: 0.5), .follow),
-                .emit(.motes(6, radius: 0.3, .primary, life: 0.6), .follow, offset: [-0.4, 1.0, 0.3]),
+                .emit(.motes(6, radius: 0.3, .primary, life: 0.6), .follow, offset: [-0.4, 1.0, 0.3] * body),
             ]
             r.hit = []
         case .skill1:
@@ -156,10 +156,14 @@ enum FX_H029: HeroFXSet {
         return r
     }
 
+    /// 体に付けた演出の位置の倍率（体の大きさ HeroBlueprints の scale を 1.32 → 1.0 にした: MLBB のティグラルと画面の上の身長を
+    /// 合わせた。docs/H029_QUALITY.md「体の大きさ」）。値は scale 1.32 の時に測った位置 × body。地面の範囲・判定の位置は変えない。
+    static let body: Float = 1.0 / 1.32
+
     // MARK: - スキル1 聖槌波
 
-    /// S1 の槌頭が地を打つ前の距離（m）。モーション（tools/blender/author_h029_motion.py の S1_HIT −1.42 × scale 1.32）と同じ。
-    static let waveHammerHit: Float = 1.87
+    /// S1 の槌頭が地を打つ前の距離（m）。モーション（tools/blender/author_h029_motion.py の S1 の踏み込み）で槌頭が届いた所（scale 1.0）。
+    static let waveHammerHit: Float = 1.77
 
     /// 0.25 秒で槌が地を打つ → 台形に 3 回、前へ進みながらはじける（R = 台形の奥行き 6.1m = 射程）。
     /// MLBB の画面収録（docs/vfx/H029.md）: 振り下ろす金の軌跡と地を前へ走るぎざぎざの金の筋 → 回ごとに白金の芯から放射状の
@@ -172,9 +176,9 @@ enum FX_H029: HeroFXSet {
         r.cast = [
             // 槌を頭上の後ろから前の地面へ振り下ろす金の軌跡（前と上の縦の弧）。モーション（docs/vfx/H029.md「モーション」）:
             // 槌頭は 0.19 秒に後ろの上 [0, 3.0, -1.9]、t0（0.25）に前の地面 [0, 0.1, 2.8]。弧は中心 [0, 1.5, 0.5]・半径 2.75 で両方を通る
-            .ribbon(.swing(radius: 2.75, from: 148, to: -31, height: 1.5, roll: 90, duration: 0.08, life: 0.16, width: 0.8,
-                           .primary).with { $0.ease = .inOut }, at: max(0, t0 - 0.08), offset: [0, 0, 0.5]),
-            // 槌の頭が地を打つ点（前 1.87m = MLBB の足元から 1.85。docs/H029_QUALITY.md 二周目）: 白金の閃光と小さな衝撃の輪・土煙。
+            .ribbon(.swing(radius: 2.75 * body, from: 148, to: -31, height: 1.5 * body, roll: 90, duration: 0.08, life: 0.16, width: 0.8,
+                           .primary).with { $0.ease = .inOut }, at: max(0, t0 - 0.08), offset: [0, 0, 0.5 * body]),
+            // 槌の頭が地を打つ点（前 1.77m。MLBB の足元から 1.85 を体の大きさの比で 1.73。docs/H029_QUALITY.md 二周目）: 白金の閃光と小さな衝撃の輪・土煙。
             // 見た目だけ（範囲の部品・衝撃波の位置は判定のまま）
             .emit(.flare(1.6, .core, life: 0.14, tex: .flare6), at: t0, offset: [0, 0.4, waveHammerHit]),
             .mesh(ring(0.9, .accent, life: 0.28, refract: 0.004), at: t0, offset: [0, 0, waveHammerHit]),
@@ -250,7 +254,7 @@ enum FX_H029: HeroFXSet {
         let half = s.meters("dashWidth")
         r.cast = [
             // 盾を構えて踏み出す閃き
-            .emit(.flare(1.3, .core, life: 0.14), .follow, offset: [-0.3, 1.0, 0.7]),
+            .emit(.flare(1.3, .core, life: 0.14), .follow, offset: [-0.3, 1.0, 0.7] * body),
             // 体を包む炎: 爆炎のコマ送りを 0.15 秒おきに重ねて途切れない炎の塊にする（3D の上。体の少し後ろ）と、金と橙の炎の殻
             // （炎の半球の模型・炎の筋が上へ流れて縁が欠ける）、盾の前の金の三日月。MLBB: 突進の間、体が金〜橙の炎に包まれる
             .mesh(FXMesh.flipbook(.fireball, 2.5, .white, life: 0.38, grow: 1.15), .follow, offset: [0, 0.95, -0.35])
@@ -283,7 +287,7 @@ enum FX_H029: HeroFXSet {
             }, .follow, offset: [0, 0.8, -0.3]),
             .emit(.trail(.streak, .core, rate: 50, life: 0.25, size: 0.2).with {
                 $0.duration = dashTime; $0.stretch = 2.4; $0.dir = .backward; $0.speed = 4; $0.tintEnd = .primary
-            }, .follow, offset: [0, 1.0, 0]),
+            }, .follow, offset: [0, 1.0 * body, 0]),
             .emit(.trail(.smoke, dust, rate: 18, life: 0.7, size: 0.9).with {
                 $0.duration = dashTime + 0.03; $0.additive = false; $0.grow = 1.6; $0.fade = .gradualFadeInOut; $0.tintEnd = nil
                 $0.sheet = .smokePuff
@@ -335,11 +339,11 @@ enum FX_H029: HeroFXSet {
         // 後ろの下 [-0.3, 0.4, -1.6]、0.2 秒（打ち上げ）に前の低い所を抜けて [-0.4, 2.0, 2.2] へ、0.3 秒に頭上 [0.45, 4.2, -0.3]。
         // 弧は中心 [-0.3, 2.1, 0.2]・半径 2.0（-140° = 後ろの下、-20° = 0.2 秒の前、100° = 頭上）を 0.1〜0.3 秒に等速で
         r.cast = [
-            .emit(.gather(16, radius: 0.9, .primary, life: 0.12), .follow, offset: [-0.3, 0.4, -1.6]),
+            .emit(.gather(16, radius: 0.9, .primary, life: 0.12), .follow, offset: [-0.3, 0.4, -1.6] * body),
             .emit(.sparks(8, speed: 3, .primary, end: .accent, gravity: 4).with { $0.dir = .up; $0.spread = 50 }, at: 0.14,
-                  offset: [-0.3, 0.15, 0.7]),
-            .ribbon(.swing(radius: 2.0, from: -140, to: 100, height: 2.1, roll: 90, duration: 0.2, life: 0.2, width: 0.95,
-                           .primary).with { $0.ease = .linear }, at: max(0, t - 0.1), offset: [-0.3, 0, 0.2]),
+                  offset: [-0.3, 0.15, 0.7] * body),
+            .ribbon(.swing(radius: 2.0 * body, from: -140, to: 100, height: 2.1 * body, roll: 90, duration: 0.2, life: 0.2, width: 0.95,
+                           .primary).with { $0.ease = .linear }, at: max(0, t - 0.1), offset: [-0.3, 0, 0.2] * body),
         ]
         // 扇のアーキタイプなので発動と同時に再生される。振り上げは smashDelay の後
         r.impact = [
@@ -399,12 +403,12 @@ enum FX_H029: HeroFXSet {
         // 頭の上へ水平に掲げた盾（MLBB のティグラル。左手 [-0.22, 2.64, 0.08]・盾の中心 [-0.25, 2.7, 0.1]、0.22〜0.93 秒。
         // docs/H029_QUALITY.md 段 3）に金の光が集まり、盾が上がり切る 0.28 秒に閃光、盾の上に金の光輪が立つ（0.93 秒まで）
         r.cast = [
-            .emit(.gather(20, radius: 1.2, .primary, life: 0.8), at: 0.12, .follow, offset: [-0.22, 2.75, 0.15]),
-            .emit(.flare(1.8, .core, life: 0.3, tex: .flare6), at: 0.28, .follow, offset: [-0.22, 2.9, 0.2]),
+            .emit(.gather(20, radius: 1.2, .primary, life: 0.8), at: 0.12, .follow, offset: [-0.22, 2.75, 0.15] * body),
+            .emit(.flare(1.8, .core, life: 0.3, tex: .flare6), at: 0.28, .follow, offset: [-0.22, 2.9, 0.2] * body),
             .mesh(.sprite(.ringDouble, 2.2, .primary, life: 0.62, grow: 1.15, alpha: 0.85).glowing().with {
                 $0.fadeIn = 0.3
                 $0.fadeOut = 0.6
-            }, at: 0.3, .follow, offset: [-0.22, 2.95, 0.05]),
+            }, at: 0.3, .follow, offset: [-0.22, 2.95, 0.05] * body),
         ]
         r.impact = [
             // 0〜: 範囲が淡い金に満ちる（縁ほど明るい輪の画像 + 柔らかい光）。縁は弧に沿って流れる金の筋
@@ -451,7 +455,7 @@ enum FX_H029: HeroFXSet {
             // 崩落の直前: 掲げた盾の上から天へ立つ細い光の筋（光る。筋が上へ流れる）
             .mesh(.pillar(0.16, height: 9, .core, life: 0.32, alpha: 1).glowing()
                 .flowing(.streaks, scroll: [0, -3], tiling: 2, strength: 0.6, edge: .primary).with { $0.onTop = true }, at: t - 0.24,
-                  offset: [-0.22, 1.2, 0.15]),
+                  offset: [-0.22, 1.2, 0.15] * body),
             // 1.0: 聖槌が落ちて崩落 — 範囲を覆う光の棘・白熱の閃光・爆炎
             .mesh(.groundFlipbook(.spikes, R * 2.3, hot, life: 0.5, grow: 1.1), at: t),
             .mesh(.sprite(.glowHard, 4.2, .core, life: 0.22, grow: 1.5).glowing().with { $0.fadeIn = 0; $0.onTop = true }, at: t,
@@ -494,9 +498,10 @@ enum FX_H029: HeroFXSet {
             .mesh(.model(.pillar2, nil, .core, size: [0.75, 3, 0.75], sizeEnd: [0.4, 8, 0.4], life: 0.38).glowing()
                 .flowing(.flame, scroll: [0, -3], tiling: 1.6, strength: 0.6, erosion: 0.25, edge: .primary).with { $0.onTop = true },
                   at: t - 0.02),
-            // 槌頭が地を打つ点（前 2.65m。モーションの 1.0 秒）の白金の閃光と火花。範囲を覆う部品は中心のまま
-            .emit(.flare(2.2, .core, life: 0.16, tex: .flare6), at: t, offset: [0.16, 0.3, 2.65]),
-            .emit(.sparks(30, speed: 11, .core, end: .primary, size: 0.12, life: 0.55), at: t, offset: [0.16, 0.4, 2.65]),
+            // 盾が地を打つ点（MLBB のティグラルは崩落で盾を前の地面へ叩きつける。モーションの 1.0 秒の盾の下の縁、前 0.75 m）の
+            // 白金の閃光と火花（見た目だけ）。範囲を覆う部品は中心のまま
+            .emit(.flare(2.2, .core, life: 0.16, tex: .flare6), at: t, offset: [-0.05, 0.3, 0.75]),
+            .emit(.sparks(30, speed: 11, .core, end: .primary, size: 0.12, life: 0.55), at: t, offset: [-0.05, 0.4, 0.75]),
             // 白い岩片（回る岩のコマ送り）・土煙・残り火
             .emit(.debris(16, speed: 8, .rgb(0.92, 0.9, 0.85), size: 0.3).with {
                 $0.sheet = .rockTumble
@@ -529,12 +534,12 @@ enum FX_H029: HeroFXSet {
     /// 誓いを使い切った（防御の発動がスキルの直後）ときの盾の弾け。released は消費した誓いの数（4）。
     static func passiveRelease(_ s: FXSkillInfo, released: Int) -> [FXCue]? {
         [
-            .emit(.flare(2.0, .core, life: 0.2, tex: .flare6), .follow, offset: [-0.4, 1.1, 0.45]),
+            .emit(.flare(2.0, .core, life: 0.2, tex: .flare6), .follow, offset: [-0.4, 1.1, 0.45] * body),
             .mesh(.dome(1.1, .secondary, life: 0.45, tex: .hexShield, alpha: 0.6), .follow),
             .mesh(.wall(.hexShield, width: 1.3, height: 1.5, .primary, life: 0.35, alpha: 0.8), .follow,
                   offset: [0, 0.2, 0.7]),
             .mesh(.shockRing(1.3, .primary, life: 0.35), .follow),
-            .emit(.sparks(14, speed: 5, .core, end: .primary), .follow, offset: [-0.3, 1.1, 0.5]),
+            .emit(.sparks(14, speed: 5, .core, end: .primary), .follow, offset: [-0.3, 1.1, 0.5] * body),
         ]
     }
 

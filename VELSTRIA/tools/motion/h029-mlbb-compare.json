@@ -44,74 +44,74 @@
     "heading": 20
    },
    {
-    "label": "移動（横）脚が開く",
+    "label": "移動（右奥）脚が開く",
     "mlbb": [
      "b",
      35.73
     ],
     "clip": "run_h029",
     "at": 0.0,
-    "heading": 100
+    "heading": 65
    },
    {
-    "label": "移動（横）脚が揃う",
+    "label": "移動（右奥）脚が揃う",
     "mlbb": [
      "b",
      35.87
     ],
     "clip": "run_h029",
     "at": 0.117,
-    "heading": 100
+    "heading": 65
    },
    {
-    "label": "移動（横）脚が開く",
+    "label": "移動（右奥）脚が開く",
     "mlbb": [
      "b",
      35.97
     ],
     "clip": "run_h029",
     "at": 0.233,
-    "heading": 100
+    "heading": 65
    },
    {
-    "label": "移動（奥）",
+    "label": "移動（左手前）",
     "mlbb": [
      "a",
      3.73
     ],
     "clip": "run_h029",
     "at": 0.06,
-    "heading": 40
+    "heading": 225
    },
    {
-    "label": "移動（奥）",
+    "label": "移動（左手前）",
     "mlbb": [
      "b",
      28.6
     ],
     "clip": "run_h029",
     "at": 0.3,
-    "heading": 330
+    "heading": 230
    },
    {
-    "label": "移動（手前）",
+    "label": "移動（右手前）",
     "mlbb": [
      "b",
      37.47
     ],
     "clip": "run_h029",
     "at": 0.1,
-    "heading": 235
+    "heading": 125
    },
    {
-    "label": "移動（手前）",
+    "label": "移動（左）",
     "mlbb": [
      "b",
      35.33
     ],
     "clip": "run_h029",
     "at": 0.35,
-    "heading": 200
+    "heading": 260
    }
   ],
   "attack": [
@@ -557,7 +557,7 @@
     ],
     "clip": "run_h029",
     "at": 0.0,
-    "heading": 100
+    "heading": 65
    },
    {
     "label": "小走り 1 周 1/14 コマ",
@@ -567,7 +567,7 @@
     ],
     "clip": "run_h029",
     "at": 0.0333,
-    "heading": 100
+    "heading": 65
    },
    {
     "label": "小走り 1 周 2/14 コマ",
@@ -577,7 +577,7 @@
     ],
     "clip": "run_h029",
     "at": 0.0667,
-    "heading": 100
+    "heading": 65
    },
    {
     "label": "小走り 1 周 3/14 コマ",
@@ -587,7 +587,7 @@
     ],
     "clip": "run_h029",
     "at": 0.1,
-    "heading": 100
+    "heading": 65
    },
    {
     "label": "小走り 1 周 4/14 コマ",
@@ -597,7 +597,7 @@
     ],
     "clip": "run_h029",
     "at": 0.1333,
-    "heading": 100
+    "heading": 65
    },
    {
     "label": "小走り 1 周 5/14 コマ",
@@ -607,7 +607,7 @@
     ],
     "clip": "run_h029",
     "at": 0.1667,
-    "heading": 100
+    "heading": 65
    },
    {
     "label": "小走り 1 周 6/14 コマ",
@@ -617,7 +617,7 @@
     ],
     "clip": "run_h029",
     "at": 0.2,
-    "heading": 100
+    "heading": 65
    },
    {
     "label": "小走り 1 周 7/14 コマ",
@@ -627,7 +627,7 @@
     ],
     "clip": "run_h029",
     "at": 0.2333,
-    "heading": 100
+    "heading": 65
    },
    {
     "label": "小走り 1 周 8/14 コマ",
@@ -637,7 +637,7 @@
     ],
     "clip": "run_h029",
     "at": 0.2667,
-    "heading": 100
+    "heading": 65
    },
    {
     "label": "小走り 1 周 9/14 コマ",
@@ -647,7 +647,7 @@
     ],
     "clip": "run_h029",
     "at": 0.3,
-    "heading": 100
+    "heading": 65
    },
    {
     "label": "小走り 1 周 10/14 コマ",
@@ -657,7 +657,7 @@
     ],
     "clip": "run_h029",
     "at": 0.3333,
-    "heading": 100
+    "heading": 65
    },
    {
     "label": "小走り 1 周 11/14 コマ",
@@ -667,7 +667,7 @@
     ],
     "clip": "run_h029",
     "at": 0.3667,
-    "heading": 100
+    "heading": 65
    },
    {
     "label": "小走り 1 周 12/14 コマ",
@@ -677,7 +677,7 @@
     ],
     "clip": "run_h029",
     "at": 0.4,
-    "heading": 100
+    "heading": 65
    },
    {
     "label": "小走り 1 周 13/14 コマ",
@@ -687,6 +687,48 @@
     ],
     "clip": "run_h029",
     "at": 0.4333,
+    "heading": 65
+   }
+  ],
+  "s2": [
+   {
+    "label": "S2 突進 発動+0.10s",
+    "mlbb": [
+     "b",
+     24.73
+    ],
+    "clip": "shield_charge_h029",
+    "at": 0.1,
+    "heading": 100
+   },
+   {
+    "label": "S2 突進 発動+0.24s",
+    "mlbb": [
+     "b",
+     24.87
+    ],
+    "clip": "shield_charge_h029",
+    "at": 0.24,
+    "heading": 100
+   },
+   {
+    "label": "S2 突進 発動+0.67s",
+    "mlbb": [
+     "b",
+     25.3
+    ],
+    "clip": "shield_charge_h029",
+    "at": 0.67,
+    "heading": 100
+   },
+   {
+    "label": "S2 突進 発動+0.77s",
+    "mlbb": [
+     "b",
+     25.4
+    ],
+    "clip": "shield_charge_h029",
+    "at": 0.77,
     "heading": 100
    }
   ]

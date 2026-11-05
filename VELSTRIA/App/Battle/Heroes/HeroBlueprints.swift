@@ -314,11 +314,12 @@ enum HeroBlueprints {
                       accent: HSB(0.99, 0.85, 0.88), glow: HSB(0.0, 0.82, 1.0), scale: 1.02),
         // H029 聖槌のボルグ（Support）: 巨大な聖槌と金の大盾・青い板金に金の縁取り・赤いマント・金髪に金の額冠（兜は被らない）。
         // 基調色 = Theme.heroHue（青 0.60）、metal = 金（縁・聖印・槌の打撃面）、accent = 赤（マント）。
-        // scale 1.32: overheadHeight = (headTop 1.55 + 0.38) * 1.32 = 2.55（上限 2.7）、頭頂 1.593 * 1.32 = 2.10（上限 2.2）。
+        // scale 1.0（2026-11-05 に 1.32 から下げた）: 出荷のカメラで撮った画の身長（画面の高さの 15.4%）を MLBB のティグラル（15.6%）に
+        // 合わせた（docs/H029_QUALITY.md「体の大きさ」）。巨漢の体格は build .titan の胴の幅・肩幅で出す。
         HeroBlueprint(build: .titan, armor: .knight, pauldron: .big, skirt: .tassets, hair: .short,
                       gear: [.circlet], weapon: .holyMaul, offhand: .heaterShield, back: .cape, float: .none,
                       attack: .slash, metal: .gold, skin: .fair, hairColor: HSB(0.13, 0.45, 1.0),
-                      accent: HSB(0.99, 0.78, 0.85), glow: HSB(0.13, 0.5, 1.0), scale: 1.32),
+                      accent: HSB(0.99, 0.78, 0.85), glow: HSB(0.13, 0.5, 1.0), scale: 1.0),
         // H030 星砲のライナ（Ranger = MLBB の Layla）: 背丈を超える魔砲（白い砲身・金の枠と 2 本の砲角・水色の動力球）を腰だめに構える。
         // 腰まで届く金髪の長いツインテール・茶革の髪留めと水色の宝石、白い上着・茶革の胴着・紺のネクタイ・青いスカート・黒い長靴下。
         // 基調色 = Theme.heroHue（青 0.63 = スカート）、cloth = 白い上着、accent = 茶革、metal = 金（砲の枠・肩章）、glow = 水色。
@@ -336,13 +337,12 @@ enum HeroBlueprints {
         // H032 赤拳のディアス（Duelist）: 深淵の王子。両手首に金の刃の輪（内縁が紅く光る）・白い髪と金の角・紅く光る目・
         // 薄紫の肌のはだけた胸に紅い光の核・濃い紫の棘の肩甲と上着・紅のズボンと脛の棘の輪・長い黒い尾。小柄。
         // 基調色 = Theme.heroHue（紫 0.71。secondary = 濃い紫の鎧）、metal = 金（刃の輪・角）、accent = 紅（ズボン・襟の裏）、glow = 赤。
-        // scale 1.28: MLBB の画面の上の身長（立ち姿 71〜75 px / 512 px = 13.9〜14.6%）に合わせる（scale 1 は 11.0%。docs/H032_QUALITY.md
-        // 「体の大きさ」）。overheadHeight = (頭頂 1.70 + 0.38) × 1.28 = 2.66（上限 2.7）、頭頂 1.70 × 1.28 = 2.18（上限 2.2）。
-        // クリップの groundSpeed も 1.28 倍（author_h032_motion.py の MODEL_SCALE）。
+        // scale 1.0: 出荷の見下ろしのカメラで画面の上の身長が MLBB の立ち姿（71〜75 px / 512 px）と 1 割以内（docs/H032_QUALITY.md
+        // 「体の大きさ」）。変える時はクリップの groundSpeed も同じ倍率にする（author_h032_motion.py の MODEL_SCALE）。
         HeroBlueprint(build: .slim, armor: .abyss, pauldron: .spiked, skirt: .none, hair: .wild,
                       gear: [.demonHorns], weapon: .abyssRing, offhand: .abyssRing, back: .demonTail, float: .none,
                       attack: .dualSlash, metal: .gold, skin: .violet, hairColor: HSB(0.72, 0.06, 0.97),
-                      accent: HSB(0.97, 0.8, 0.6), glow: HSB(0.99, 0.85, 1.0), scale: 1.28, glowingEyes: true),
+                      accent: HSB(0.97, 0.8, 0.6), glow: HSB(0.99, 0.85, 1.0), scale: 1.0, glowingEyes: true),
         // H033 紅牙のヴァルド（Assassin）: モバレジェのアルーカード。立ち上げて流した金髪・濃紺の長いコートに銅の縁・青い短いケープ・
         // 右腕の銀の籠手・片手で振る巨大な銀の大剣（髑髏の鍔・ギザギザの峰・青く光る樋）。
         // 基調色 = Theme.heroHue（青 0.61）、secondary = 濃紺（コート）、metal = 銀（大剣・籠手・ボタン）、accent = 銅（縁）、glow = 青。

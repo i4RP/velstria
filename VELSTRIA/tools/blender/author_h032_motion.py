@@ -33,9 +33,10 @@ UPPER = [S[s] for s in ('torso', 'head', 'armR', 'foreArmR', 'handR', 'armL', 'f
 ARM = {'R': [S['armR'], S['foreArmR'], S['handR']], 'L': [S['armL'], S['foreArmL'], S['handL']]}
 LEGS = [('R', 'right'), ('L', 'left')]
 FWD = V((0, 0, -1))
-# HeroBlueprints の H032 の scale（MLBB の画面の上の身長に合わせた 1.28。docs/H032_QUALITY.md「体の大きさ」）。クリップの足は模型の大きさで
-# 動くので、groundSpeed（足が滑らない移動の速さ）も同じ倍率にする（実行時は世界の速さ / groundSpeed で再生する）。
-MODEL_SCALE = 1.28
+# HeroBlueprints の H032 の scale（1.0。画面の上の身長が MLBB と 1 割以内なので変えない。docs/H032_QUALITY.md「体の大きさ」）。
+# クリップの足は模型の大きさで動くので、scale を変える時は groundSpeed（足が滑らない移動の速さ）も同じ倍率にする
+# （実行時は世界の速さ / groundSpeed で再生する）。
+MODEL_SCALE = 1.0
 # 初版のクリップの groundSpeed（scale 1 の模型で測った値）
 V1_GROUND_SPEED = {'walk_h032': 1.25, 'run_h032': 3.3}
 UP = V((0, 1, 0))
@@ -196,7 +197,7 @@ def lowest_contact(rig, qs, off):
 # 体の横・やや前に構え、肘を曲げたまま脚と逆に前後へ振る。マント・尾は後ろへ流れる。
 
 RUN = dict(lean=math.radians(-8), hips_share=.3, head_follow=.5, drop=.02, abduct=0.0, elbow=0.0, low=0.0, out=1.5, arms=1.0,
-           steady=.6, mean=math.radians(64.2))
+           steady=.6, mean=math.radians(64.2), stride=1.17)
 WALK = dict(lean=math.radians(10), hips_share=.35, head_follow=.6, drop=.02, abduct=0.0, elbow=0.0, low=0.0, out=1.3, arms=.6)
 
 
@@ -205,6 +206,10 @@ def loco_pose(rig, clip, f, cfg):
     qs = [q.copy() for q in qs]
     off = V(root)*rig.leg_length
     feet = foot_targets(rig, qs, off)
+    if cfg.get('stride', 1.0) != 1.0:
+        # 歩幅を伸ばす: 足の前後の位置（腰の真下から）を stride 倍にして IK で置く（groundSpeed も同じ倍率）
+        for k in feet:
+            feet[k] = V((feet[k].x, feet[k].y, feet[k].z*cfg['stride']))
     lean = cfg['lean']
     if cfg.get('steady'):
         # 初版の前傾の揺れ（胸の区間で 57〜72°）を ならす: 周の平均（cfg['mean']）との差の steady 倍を戻す
@@ -302,7 +307,18 @@ def keyed(rig, base, keys, frames, feet_fn=None):
                 break
         else:
             qs, off = [q.copy() for q in poses[-1][1]], poses[-1][2].copy()
-        feet = feet_fn(fr) if feet_fn else base.feet
+        feet = feet_fn(fr) if feet_fn else dict(base.feet)
+        # 踏み出し（キーの stepL / stepR = その足の前への m。足は弧を描いて上がる）
+        for (fa, qa, oa, ka), (fb, qb, ob, kb) in zip(poses, poses[1:]):
+            if fr <= fb:
+                t = (fr-fa)/max(1e-6, fb-fa)
+                for suf, side in LEGS:
+                    a0, b0 = ka.get('step'+suf, 0.0), kb.get('step'+suf, 0.0)
+                    st = a0+(b0-a0)*smooth(t)
+                    if st or a0 != b0:
+                        up = .12*math.sin(math.pi*t) if abs(b0-a0) > .05 else 0.0
+                        feet[side] = feet[side]+FWD*st+V((0, up, 0))
+                break
         err = plant(rig, qs, off, feet)
         return qs, off, err
     return at
@@ -316,31 +332,38 @@ def keyed(rig, base, keys, frames, feet_fn=None):
 
 # 二周目（vid6 コマ 70〜107 の横からの全コマ）: どちらの撃も頭の上へ振り上げてから前下へ振り下ろす大きな弧で、命中の前後に体を的の方へ
 # 深く倒す（1 撃目は命中で最も倒れてすぐ起きる、2 撃目は命中の直後 1 コマで胴がほぼ水平まで倒れる）。命中の後は輪を胸の前に構えて立つ。
-SLASH_L = [  # 左腕: 頭の上へ振り上げ（73〜75 = 3〜5）→ 前へ倒れ込みながら振り下ろす（76〜77 = 6〜7）→ 命中（78 = 8）→ すぐ起きる（79〜80）
+# 三周目（委員会A の監査 11-05）: 振りが小さく体が立ったまま → 体ごと大きくひねり（±0.85 rad）、腕を体の横へ伸ばし切って大きな弧で振り回す。
+# 振り抜きは 2〜3 フレームで速く、命中の決めで 1.5 フレーム止める（MLBB の 77〜79・97〜99 の残像の止まり）。時刻は二周目のまま（命中 8）。
+SLASH_L = [  # 左腕: 左の後ろ・肩の高さへ腕を伸ばし切って引く（5）→ 横の大きな弧で前へ（6.5）→ 命中（8）で前へ伸ばし切って止まる（9.5）→
+    # 右下へ振り抜く（12）。右腕は命中で後ろ外へ張る（見下ろしで両腕が体から大きく離れる）
     (0, {}),
-    (2, dict(twist=.12, drop=.03, L=((.1, .55, -.2), (.3, .3, .5)), ease='smooth')),
-    (5, dict(twist=.35, lean=math.radians(-4), lift=.01, L=((-.2, .4, .9), (-.3, .15, .95)),
-             R=((.15, .55, -.8), (.75, .1, .4)), ease='out')),
-    (6.5, dict(twist=.1, lean=math.radians(24), drop=.05, fwd=.06, L=((.5, .4, .75), (.95, .05, .35)), ease='in')),
-    (8, dict(twist=-.3, lean=math.radians(38), drop=.11, fwd=.14, L=((.92, 0, 0), (.85, -.35, -.15)),
-             R=((-.2, .6, -.75), (.2, .3, -.9)), ease='linear')),
-    (10, dict(twist=-.4, lean=math.radians(12), drop=.05, fwd=.1, L=((.7, -.25, -.4), (.5, -.55, -.5)),
-              R=((-.1, .55, -.8), (.4, .2, -.7)), ease='out')),
-    (13, dict(twist=-.2, lean=math.radians(5), drop=.02, fwd=.05)),
+    (2, dict(twist=.3, drop=.04, L=((.1, .6, -.3), (.3, .5, .4)), ease='smooth')),
+    (5, dict(twist=.85, lean=math.radians(-2), lift=.01, L=((-.5, .85, .15), (-.5, .85, .15)),
+             R=((.3, .4, -.8), (.8, -.1, .45)), ease='out')),
+    (6.5, dict(twist=.25, lean=math.radians(18), drop=.05, fwd=.1, L=((.3, .95, .05), (.35, .94, 0)), ease='in', stepL=.15)),
+    (8, dict(twist=-.6, lean=math.radians(34), drop=.12, fwd=.22, L=((.8, -.55, .05), (.75, -.65, 0)),
+             R=((-.6, .7, -.35), (-.65, .6, -.4)), ease='linear', stepL=.3)),
+    (9.5, dict(twist=-.68, lean=math.radians(35), drop=.12, fwd=.22, L=((.6, -.8, 0), (.5, -.86, -.05)),
+               R=((-.6, .7, -.35), (-.65, .6, -.4)), ease='linear', stepL=.3)),
+    (12, dict(twist=-.75, lean=math.radians(22), drop=.08, fwd=.16, L=((.55, -.65, -.5), (.45, -.75, -.5)),
+              R=((-.45, .7, -.55), (-.3, .6, -.7)), ease='out', stepL=.3)),
+    (16, dict(twist=-.3, lean=math.radians(8), drop=.03, fwd=.06, stepL=.12)),
     (23, {}),
 ]
-SLASH_R = [  # 右腕（左も少し上げる）: 沈んでひねる（93 = 3）→ 両腕を頭の上へ（94〜96 = 4〜6）→ 振り下ろし（97 = 7）→ 命中（98 = 8）→
-    # 胴がほぼ水平まで倒れる（99 = 9）→ 起きる（100〜）
+SLASH_R = [  # 右腕（左も上げる）: 沈んでひねる（3）→ 右腕を右の後ろ上へ伸ばし切る（5.5）→ 上を回して振り下ろす（7）→ 命中（8）→
+    # 胴がほぼ水平まで倒れて止まる（9〜10.5）→ 起きる。左腕は命中で後ろ外へ張る
     (0, {}),
-    (3, dict(twist=-.18, drop=.04, R=((.15, .6, -.3), (.4, .3, .6)), ease='smooth')),
-    (5.5, dict(twist=-.3, lean=math.radians(-6), lift=.01, R=((-.1, .35, .93), (-.3, .1, .95)), L=((.0, .5, .55), (.3, .2, .93)),
+    (3, dict(twist=-.3, drop=.05, R=((.15, .7, -.2), (.4, .4, .6)), ease='smooth')),
+    (5.5, dict(twist=-.85, lean=math.radians(-6), lift=.01, R=((-.4, .6, .7), (-.4, .6, .7)), L=((.2, .7, .4), (.5, .3, .8)),
                ease='out')),
-    (7, dict(twist=-.05, lean=math.radians(18), drop=.05, fwd=.06, R=((.6, .3, .7), (.95, .1, .3)), ease='in')),
-    (8, dict(twist=.3, lean=math.radians(34), drop=.1, fwd=.14, R=((.85, -.05, -.4), (.7, -.3, -.65)),
-             L=((-.2, .6, -.7), (.2, .4, -.85)), ease='linear')),
-    (9, dict(twist=.4, lean=math.radians(52), drop=.14, fwd=.16, R=((.45, -.3, -.84), (.25, -.55, -.8)),
-             L=((-.25, .6, -.72), (.2, .4, -.85)), ease='out')),
-    (12, dict(twist=.25, lean=math.radians(18), drop=.06, fwd=.1, R=((.3, .2, -.9), (.6, 0, -.6)))),
+    (7, dict(twist=-.2, lean=math.radians(20), drop=.05, fwd=.1, R=((.55, .75, .35), (.6, .72, .3)), ease='in', stepR=.12)),
+    (8, dict(twist=.45, lean=math.radians(36), drop=.11, fwd=.2, R=((.8, -.5, -.2), (.75, -.6, -.25)),
+             L=((-.6, .7, -.35), (-.65, .6, -.4)), ease='linear', stepR=.25)),
+    (9, dict(twist=.6, lean=math.radians(52), drop=.15, fwd=.22, R=((.55, -.45, -.7), (.45, -.55, -.7)),
+             L=((-.6, .7, -.35), (-.65, .6, -.4)), ease='out', stepR=.25)),
+    (10.5, dict(twist=.62, lean=math.radians(52), drop=.15, fwd=.22, R=((.53, -.47, -.7), (.43, -.57, -.7)),
+                L=((-.6, .7, -.35), (-.65, .6, -.4)), ease='linear', stepR=.25)),
+    (13, dict(twist=.3, lean=math.radians(18), drop=.06, fwd=.12, R=((.3, .25, -.9), (.6, 0, -.6)), stepR=.2)),
     (23, {}),
 ]
 CIRCLE = [  # 円撃（二周目、vid6 コマ 110〜127）: 光りながら両腕を V 字に頭の上へ広げて体を持ち上げる（112〜115 = 2〜5）→ 右腕を振り上げて
@@ -348,13 +371,15 @@ CIRCLE = [  # 円撃（二周目、vid6 コマ 110〜127）: 光りながら両�
     (0, {}),
     (2, dict(lean=math.radians(-6), lift=.03, R=((.1, .8, .55), (.1, .5, .85)), L=((.1, .8, .55), (.1, .5, .85)), ease='out')),
     (5, dict(lean=math.radians(-10), lift=.05, R=((0, .6, .8), (-.05, .3, .95)), L=((0, .6, .8), (-.05, .3, .95)))),
-    (6.5, dict(twist=-.1, lean=math.radians(15), drop=.03, fwd=.06, R=((.6, .4, .65), (.9, .2, .35)), L=((.1, .95, .1), (-.2, .9, .2)),
-               ease='in')),
-    (8, dict(twist=.3, lean=math.radians(40), drop=.13, fwd=.16, R=((.85, .1, -.4), (.7, -.25, -.6)), L=((-.3, .9, -.2), (-.5, .8, -.2)),
-             ease='linear')),
-    (10, dict(twist=.3, lean=math.radians(36), drop=.12, fwd=.16, R=((.8, .15, -.5), (.6, -.2, -.7)), L=((-.3, .9, -.25), (-.5, .8, -.25)),
-              ease='out')),
-    (14, dict(lean=math.radians(8), drop=.04, fwd=.08, R=((.2, .8, -.5), (0, .85, -.5)), L=((.2, .8, -.5), (0, .85, -.5)))),
+    (6.5, dict(twist=-.6, lean=math.radians(15), drop=.03, fwd=.08, R=((.2, .9, .4), (.5, .8, .3)), L=((.1, .95, .1), (-.2, .9, .2)),
+               ease='in', stepL=.12)),
+    (8, dict(twist=.75, lean=math.radians(40), drop=.13, fwd=.22, R=((.85, -.3, -.4), (.8, -.45, -.4)), L=((-.5, .85, -.15), (-.55, .82, -.15)),
+             ease='linear', stepL=.3)),
+    (9.5, dict(twist=.85, lean=math.radians(40), drop=.13, fwd=.22, R=((.8, -.35, -.45), (.75, -.5, -.45)), L=((-.5, .85, -.15), (-.55, .82, -.15)),
+               ease='linear', stepL=.3)),
+    (11, dict(twist=.7, lean=math.radians(34), drop=.12, fwd=.2, R=((.8, .15, -.5), (.6, -.2, -.7)), L=((-.3, .9, -.25), (-.5, .8, -.25)),
+              ease='out', stepL=.3)),
+    (14, dict(twist=.3, lean=math.radians(8), drop=.04, fwd=.1, R=((.2, .8, -.5), (0, .85, -.5)), L=((.2, .8, -.5), (0, .85, -.5)), stepL=.15)),
     (25, {}),
 ]
 ATTACKS = {'slash_l_h032': (SLASH_L, 24), 'slash_r_h032': (SLASH_R, 24), 'slash_circle_h032': (CIRCLE, 26)}
@@ -368,12 +393,15 @@ SLAM_S1 = [  # 二周目（vid6 コマ 359〜376 の横からの全コマ）: �
     (0, {}),
     (3, dict(lean=math.radians(-4), lift=.02, R=((0, 1, .05), (.15, .95, .1)), L=((0, 1, .05), (.15, .95, .1)), ease='out')),
     (5, dict(lean=math.radians(2), lift=.01, R=((.2, .95, .1), (.4, .9, .05)), L=((.2, .95, .1), (.4, .9, .05)))),
-    (6.5, dict(lean=math.radians(18), drop=.05, R=((.75, .45, .2), (.9, .2, -.05)), L=((.75, .45, .2), (.9, .2, -.05)), ease='in')),
-    (8, dict(lean=math.radians(32), drop=.13, fwd=.1, R=((.8, .25, -.55), (.6, .05, -.8)), L=((.8, .25, -.55), (.6, .05, -.8)),
-             ease='linear')),
-    (11, dict(lean=math.radians(28), drop=.12, fwd=.08, R=((.35, .8, -.5), (.55, .6, -.55)), L=((.35, .8, -.5), (.55, .6, -.55)),
-              ease='out')),
-    (22, dict(lean=math.radians(26), drop=.11, fwd=.08, R=((.35, .82, -.45), (.55, .62, -.5)), L=((.35, .82, -.45), (.55, .62, -.5)))),
+    (6.5, dict(lean=math.radians(20), drop=.05, fwd=.08, R=((.75, .55, .3), (.9, .35, .05)), L=((.75, .55, .3), (.9, .35, .05)),
+               ease='in', stepL=.12)),
+    (8, dict(lean=math.radians(40), drop=.16, fwd=.2, R=((.8, .3, -.55), (.6, .15, -.8)), L=((.8, .3, -.55), (.6, .15, -.8)),
+             ease='linear', stepL=.3)),
+    (9.5, dict(lean=math.radians(41), drop=.16, fwd=.2, R=((.78, .32, -.55), (.58, .17, -.8)), L=((.78, .32, -.55), (.58, .17, -.8)),
+               ease='linear', stepL=.3)),
+    (12, dict(lean=math.radians(32), drop=.14, fwd=.16, R=((.3, .9, -.35), (.5, .75, -.45)), L=((.3, .9, -.35), (.5, .75, -.45)),
+              ease='out', stepL=.3)),
+    (22, dict(lean=math.radians(28), drop=.13, fwd=.14, R=((.3, .92, -.3), (.5, .78, -.4)), L=((.3, .92, -.3), (.5, .78, -.4)), stepL=.28)),
     (39, {}),
 ]
 # 奥義（vid6 コマ 696〜726。指を離したのが 696、命中 719 = 0.77 秒）: 紫の帯が体を巻く間、両腕を頭の横まで上げて輪を掲げる（0.1〜0.45 秒）→
@@ -388,10 +416,13 @@ STRIKE_ULT = [  # 二周目（vid6 コマ 696〜740 の横からの全コマ）:
               ease='smooth')),
     (21.5, dict(twist=-.3, lean=math.radians(34), drop=.14, fwd=.08, R=((-.65, .35, -.68), (-.75, .25, -.45)),
                 L=((-.6, .4, -.68), (-.7, .3, -.45)), ease='out')),
-    (23, dict(twist=.3, lean=math.radians(28), drop=.12, fwd=.16, R=((.95, .05, .05), (.98, -.1, .05)),
-              L=((-.4, .55, -.7), (-.2, .5, -.85)), ease='in')),
-    (30, dict(twist=.3, lean=math.radians(24), drop=.1, fwd=.15, R=((.9, .05, -.1), (.95, -.12, -.05)),
-              L=((-.4, .55, -.7), (-.2, .5, -.85)), ease='out')),
+    # 三周目: MLBB は 719→722 の 3 コマで的のそばまで数単位跳び込む（sim は動かない決まりなので、前足を 0.75 m 踏み出して体を 0.7 m 出す）
+    (23, dict(twist=.35, lean=math.radians(36), drop=.1, fwd=.7, R=((.95, .05, .05), (.98, -.1, .05)),
+              L=((-.4, .55, -.7), (-.2, .5, -.85)), ease='in', stepL=.75, stepR=.4)),
+    (26, dict(twist=.38, lean=math.radians(36), drop=.11, fwd=.7, R=((.93, .05, -.05), (.97, -.12, -.02)),
+              L=((-.4, .55, -.7), (-.2, .5, -.85)), ease='linear', stepL=.75, stepR=.4)),
+    (34, dict(twist=.3, lean=math.radians(24), drop=.08, fwd=.45, R=((.85, .1, -.3), (.85, -.1, -.4)),
+              L=((-.3, .55, -.75), (0, .5, -.85)), ease='out', stepL=.5, stepR=.25)),
     (54, {}),
 ]
 # S2（二周目、vid6 コマ 280〜324）: 1 回目の突進は赤い残像の低い姿勢（281〜288）で、当たった後も的の前で低くかがんだまま（289〜300）。
@@ -430,6 +461,7 @@ CASTS = {'slam_s1_h032': (SLAM_S1, 40, .26*FPS), 'strike_ult_h032': (STRIKE_ULT,
 def emit(rig, src, name, frames, fn, extra=None):
     c = {k: v for k, v in src.items() if k not in ('rot', 'root')}
     c.update(extra or {})
+    c['name'] = name
     c['frames'] = frames
     c['rot'], c['root'] = [], []
     prev, errs = [None]*15, []
@@ -449,7 +481,9 @@ def author(rig, clips):
         if name == 'run_h032':
             n, r = emit(rig, c, name, c['frames'], lambda f, c=c: loco_pose(rig, c, f, RUN))
         elif name == 'walk_h032':
-            n, r = emit(rig, c, name, c['frames'], lambda f, c=c: loco_pose(rig, c, f, WALK))
+            # MLBB の移動は 1 種類の走り（鈍足でも同じ走りが遅くなる）: 歩きも走りと同じ姿勢のクリップ（実行時は速さ / groundSpeed で遅く回る）
+            rc = clips['run_h032']
+            n, r = emit(rig, rc, name, rc['frames'], lambda f, c=rc: loco_pose(rig, c, f, RUN))
         elif name == 'idle_h032':
             n, r = emit(rig, c, name, c['frames'], lambda f, c=c: idle_pose(rig, c, f))
         elif name == 'dash_s2_h032':
@@ -459,7 +493,7 @@ def author(rig, clips):
         else:
             n, r = dict(c), dict(frames=c['frames'], copied=True)
         if name in V1_GROUND_SPEED:
-            n['groundSpeed'] = round(V1_GROUND_SPEED[name]*MODEL_SCALE, 3)
+            n['groundSpeed'] = round(V1_GROUND_SPEED['run_h032']*RUN.get('stride', 1.0)*MODEL_SCALE, 3)
         n['source'] = 'h032' if r.get('copied') else 'h032+mlbb-finish'
         out.append(n)
         report[name] = r
@@ -467,12 +501,12 @@ def author(rig, clips):
     tmpl = clips['punch_jab_l_h032']
     for name, (keys, frames) in ATTACKS.items():
         n, r = emit(rig, tmpl, name, frames, keyed(rig, base, keys, frames))
-        n.update(name=name, source='h032+mlbb-keyed', events={'impact': 8.0}, melee=True)
+        n.update(name=name, source='h032+mlbb-keyed', events={'impact': 8.0}, melee=True, rootXZ=1.0)
         out.append(n)
         report[name] = r
     for name, (keys, frames, impact) in CASTS.items():
         n, r = emit(rig, tmpl, name, frames, keyed(rig, base, keys, frames))
-        n.update(name=name, source='h032+mlbb-keyed', events={'impact': round(impact, 3)}, melee=True)
+        n.update(name=name, source='h032+mlbb-keyed', events={'impact': round(impact, 3)}, melee=True, rootXZ=1.0)
         out.append(n)
         report[name] = r
     return out, report

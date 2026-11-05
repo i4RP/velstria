@@ -25,7 +25,7 @@ final class H029MotionClipTests: XCTestCase {
         let b = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))
         XCTAssertTrue(b.dedicatedIdle)
         XCTAssertTrue(set.dedicatedAttack)
-        XCTAssertNotNil(b.walk)
+        XCTAssertNil(b.walk, "移動は 1 種類の走り（鈍足でも同じ走りを遅く回す）")
         XCTAssertNotNil(b.run)
         XCTAssertEqual(b.attacks.count, 3, "MLBB の通常攻撃 3 種")
         XCTAssertEqual(b.casts.compactMap { $0 }.count, 3)
@@ -33,7 +33,7 @@ final class H029MotionClipTests: XCTestCase {
         XCTAssertEqual(b.cast(1, stage: 0), lib.index(of: "shield_charge_h029"))
         XCTAssertTrue(b.locksLegs(1), "突進中も脚はクリップ")
         XCTAssertFalse(b.locksLegs(0))
-        for name in ["idle_h029", "walk_h029", "run_h029", "maul_sweep_h029", "maul_backhand_h029", "maul_smash_h029",
+        for name in ["idle_h029", "run_h029", "maul_sweep_h029", "maul_backhand_h029", "maul_smash_h029",
                      "maul_wave_h029", "shield_charge_h029",
                      "maul_upswing_h029", "maul_sanctuary_h029"] {
             let c = try XCTUnwrap(lib.index(of: name), name)
@@ -149,7 +149,13 @@ final class H029MotionClipTests: XCTestCase {
         a.setState(.idle)
         for _ in 0..<60 { _ = a.advance(dt: 1.0 / 60, moveSpeed: 0) }
         a.setState(.run)
+        let before = a.clips.clipTime
         for _ in 0..<60 { _ = a.advance(dt: 1.0 / 60, moveSpeed: 1.2) }
-        XCTAssertEqual(a.clips.clipName, "walk_h029")
+        XCTAssertEqual(a.clips.clipName, "run_h029", "鈍足でも同じ走り")
+        // 実際の速さ / groundSpeed で回す（1 秒で 1.2 / 3.51 周の分だけ進む。足を滑らせない）
+        let lib = HeroMotionClips.library(heroID: hero)
+        let info = lib.clips[try XCTUnwrap(lib.index(of: "run_h029"))]
+        let advanced = (a.clips.clipTime - before + info.duration).truncatingRemainder(dividingBy: info.duration)
+        XCTAssertEqual(advanced, 1.2 / (info.groundSpeed ?? 3.51), accuracy: 0.08)
     }
 }
