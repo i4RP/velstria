@@ -245,17 +245,20 @@ enum HeroMotionSets {
         return s
     }()
 
-    /// H034 ゴルム: Meshy prime の叩きつけと Tripo の歩容を仕上げた専用の収録（H034MotionClips.json、docs/H034_MOTION.md）。
-    /// 待機・歩行・走行・通常攻撃・スキルの詠唱（発動から再生し、打撃は KitTimes: hookDelay・shockDelay・ultDelay + ultInterval）。
+    /// H034 ゴルム: MLBB のフランコの画面収録に合わせた手付けの収録（H034MotionClips.json、docs/H034_QUALITY.md）。
+    /// 待機・走行・通常攻撃・スキルの詠唱（発動から再生し、打撃は KitTimes: hookDelay・shockDelay・ultDelay + ultInterval）。
     /// 鎖鉤が当たると引き寄せ（hookHold → hookPull）のクリップへ。クリップが無ければ Motion_H034 の詠唱のまま。
     private static let gorm: HeroMotionSet = {
-        var s = make(["chain_slam_h034"], idle: "idle_h034")
+        // 通常攻撃は MLBB の 3 種の繰り返し（横なぎ → 返し → 叩き落とし。docs/H034_QUALITY.md 段 2）
+        var s = make(["chain_sweep_h034", "chain_backhand_h034", "chain_chop_h034"], idle: "idle_h034")
+        // 連続の攻撃の間隔（約 0.8 秒）より空いたら ① から（MLBB の 7.37 秒の 1 発目・9.77 秒の 4 発目は ①）
+        s.attackRestartAfter = 1.5
         s.casts = ["hook_throw_h034", "chain_smash_h034", "chain_frenzy_h034"]
         s.castHits = ["hook_pull_h034", nil, nil]
         s.castsFromStart = true
         s.dedicatedIdle = true
         s.dedicatedAttack = true
-        s.walk = "walk_h034"
+        // 移動は 1 種類の走り（MLBB は鈍足でも同じ走りを遅く回す）。walk を持たないと run を実際の速さ / groundSpeed で回す
         s.run = "run_h034"
         return s
     }()

@@ -1,5 +1,8 @@
 # H034 ゴルムの待機・移動・通常攻撃（初版）
 
+> 2026-11-05: 動きは MLBB のフランコの画面収録に合わせて作り直した（[H034_QUALITY.md](H034_QUALITY.md) が正。通常攻撃は 3 種、移動は走り 1 種類、
+> `tools/blender/author_h034_motion.py` は手付けの決めの姿勢 + IK に置き換えた）。下は 10-23 の初版の記録。
+
 対象は「鎖鉤のゴルム H034」（`Kit_H034` のフランコ相当）。`HeroAssetLibrary` が `Hero_H034.usdz` を読み、
 `SkinnedHeroModel` が `H034MotionClips.json` を再生する（参加する時だけ読む: `HeroMotionClips.dedicatedHeroes`）。
 

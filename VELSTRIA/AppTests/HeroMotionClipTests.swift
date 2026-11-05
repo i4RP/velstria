@@ -713,7 +713,7 @@ final class HeroMotionClipTests: XCTestCase {
         XCTAssertLessThan(maxDrift, 0.03, "Support contact should stay fixed through curved travel")
     }
 
-    /// H034 ゴルム: 専用の収録の待機・移動・叩きつけが Motion_H034 の全身の通常攻撃に上書きされず、打撃が sim の windup に来る。
+    /// H034 ゴルム: 専用の収録の待機・移動・通常攻撃（MLBB の 3 種）が Motion_H034 の全身の通常攻撃に上書きされず、打撃が sim の windup に来る。
     func testBundledGormClipsOwnIdleGaitAndAttack() throws {
         HeroMotionClips.setResolverForTesting(nil)
         let lib = HeroMotionClips.library(heroID: "H034")
@@ -721,13 +721,17 @@ final class HeroMotionClipTests: XCTestCase {
         XCTAssertEqual(set.idle, "idle_h034", "HeroIdle の個別の待機に専用の待機を消されない")
         let binding = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))
         XCTAssertTrue(binding.dedicatedIdle)
-        for name in ["idle_h034", "walk_h034", "run_h034", "chain_slam_h034"] {
+        XCTAssertNil(binding.walk, "移動は 1 種類の走り（鈍足でも同じ走りを遅く回す）")
+        XCTAssertNotNil(binding.run)
+        XCTAssertEqual(binding.attacks.count, 3, "MLBB の通常攻撃 3 種（横なぎ → 返し → 叩き落とし）")
+        for name in ["idle_h034", "run_h034", "chain_sweep_h034", "chain_backhand_h034", "chain_chop_h034"] {
             let c = try XCTUnwrap(lib.index(of: name), name)
             XCTAssertNotNil(lib.clips[c].detailBase, "\(name): 肩・つま先・指の詳細の回転")
         }
-        let slam = lib.clips[try XCTUnwrap(lib.index(of: "chain_slam_h034"))]
-        XCTAssertEqual(slam.impact ?? -1, 13, accuracy: 0.01)
-        XCTAssertTrue(slam.melee)
+        for c in binding.attacks {
+            XCTAssertEqual(lib.clips[c].impact ?? -1, 6, accuracy: 0.01, lib.clips[c].name)
+            XCTAssertTrue(lib.clips[c].melee)
+        }
         // スキル: 発動から再生し、打撃のフレームが KitTimes（30 fps）
         XCTAssertTrue(binding.castsFromStart)
         for (slot, key) in [(SkillSlot.skill1, "hookDelay"), (.skill2, "shockDelay"), (.ultimate, "ultDelay")] {
@@ -745,7 +749,7 @@ final class HeroMotionClipTests: XCTestCase {
             a.playAttack(windup: interval * 0.25, interval: interval)
             XCTAssertEqual(a.clips.role, .attack)
             for _ in 0..<Int((interval * 0.25 / dt).rounded()) { _ = a.advance(dt: dt, moveSpeed: 0) }
-            XCTAssertEqual(a.clips.frame, 13, accuracy: 1, "打撃が sim の命中の時刻に来ない")
+            XCTAssertEqual(a.clips.frame, 6, accuracy: 1, "打撃が sim の命中の時刻に来ない")
             for _ in 0..<Int((interval * 0.75 / dt).rounded()) { _ = a.advance(dt: dt, moveSpeed: 0) }
         }
     }

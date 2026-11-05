@@ -1,0 +1,631 @@
+{
+ "about": "H034 ゴルムと MLBB のフランコの比較の一覧（docs/H034_QUALITY.md）。mlbb = [動画, 秒]、clip / at = Velstria のクリップと秒、heading = MLBB のコマでのヒーローの画面の向き（0 = 奥、90 = 右、180 = 手前、270 = 左）。画像はリポジトリに入れない",
+ "videos": {
+  "a": "ScreenRecording_10-15-2026_11-08-11_1.mp4"
+ },
+ "box": [
+  447,
+  140,
+  220,
+  220
+ ],
+ "scale": 1.6,
+ "stages": {
+  "gait": [
+   {
+    "label": "走り（手前へ）0",
+    "mlbb": [
+     "a",
+     16.07
+    ],
+    "clip": "run_h034",
+    "at": 0.0,
+    "heading": 175
+   },
+   {
+    "label": "走り（手前へ）1",
+    "mlbb": [
+     "a",
+     16.13
+    ],
+    "clip": "run_h034",
+    "at": 0.067,
+    "heading": 175
+   },
+   {
+    "label": "走り（手前へ）2",
+    "mlbb": [
+     "a",
+     16.2
+    ],
+    "clip": "run_h034",
+    "at": 0.133,
+    "heading": 175
+   },
+   {
+    "label": "走り（手前へ）3",
+    "mlbb": [
+     "a",
+     16.27
+    ],
+    "clip": "run_h034",
+    "at": 0.2,
+    "heading": 175
+   },
+   {
+    "label": "走り（奥へ）0",
+    "mlbb": [
+     "a",
+     13.73
+    ],
+    "clip": "run_h034",
+    "at": 0.0,
+    "heading": 335
+   },
+   {
+    "label": "走り（奥へ）1",
+    "mlbb": [
+     "a",
+     13.8
+    ],
+    "clip": "run_h034",
+    "at": 0.067,
+    "heading": 335
+   },
+   {
+    "label": "走り（奥へ）2",
+    "mlbb": [
+     "a",
+     13.87
+    ],
+    "clip": "run_h034",
+    "at": 0.133,
+    "heading": 335
+   },
+   {
+    "label": "走り（奥へ）3",
+    "mlbb": [
+     "a",
+     13.93
+    ],
+    "clip": "run_h034",
+    "at": 0.2,
+    "heading": 335
+   },
+   {
+    "label": "走り（左手前へ）0",
+    "mlbb": [
+     "a",
+     2.0
+    ],
+    "clip": "run_h034",
+    "at": 0.0,
+    "heading": 230
+   },
+   {
+    "label": "走り（左手前へ）1",
+    "mlbb": [
+     "a",
+     2.07
+    ],
+    "clip": "run_h034",
+    "at": 0.067,
+    "heading": 230
+   },
+   {
+    "label": "走り（左手前へ）2",
+    "mlbb": [
+     "a",
+     2.13
+    ],
+    "clip": "run_h034",
+    "at": 0.133,
+    "heading": 230
+   },
+   {
+    "label": "走り（左手前へ）3",
+    "mlbb": [
+     "a",
+     2.2
+    ],
+    "clip": "run_h034",
+    "at": 0.2,
+    "heading": 230
+   }
+  ],
+  "attack": [
+   {
+    "label": "① 横なぎ -0.17s",
+    "mlbb": [
+     "a",
+     9.6
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.03,
+    "heading": 60
+   },
+   {
+    "label": "① 横なぎ -0.14s",
+    "mlbb": [
+     "a",
+     9.63
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.06,
+    "heading": 60
+   },
+   {
+    "label": "① 横なぎ -0.07s",
+    "mlbb": [
+     "a",
+     9.7
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.13,
+    "heading": 60
+   },
+   {
+    "label": "① 横なぎ -0.04s",
+    "mlbb": [
+     "a",
+     9.73
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.16,
+    "heading": 60
+   },
+   {
+    "label": "① 横なぎ +0.00s",
+    "mlbb": [
+     "a",
+     9.77
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.2,
+    "heading": 60
+   },
+   {
+    "label": "① 横なぎ +0.06s",
+    "mlbb": [
+     "a",
+     9.83
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.26,
+    "heading": 60
+   },
+   {
+    "label": "① 横なぎ +0.16s",
+    "mlbb": [
+     "a",
+     9.93
+    ],
+    "clip": "chain_sweep_h034",
+    "at": 0.36,
+    "heading": 60
+   },
+   {
+    "label": "② 返し -0.20s",
+    "mlbb": [
+     "a",
+     7.97
+    ],
+    "clip": "chain_backhand_h034",
+    "at": -0.0,
+    "heading": 60
+   },
+   {
+    "label": "② 返し -0.14s",
+    "mlbb": [
+     "a",
+     8.03
+    ],
+    "clip": "chain_backhand_h034",
+    "at": 0.06,
+    "heading": 60
+   },
+   {
+    "label": "② 返し -0.07s",
+    "mlbb": [
+     "a",
+     8.1
+    ],
+    "clip": "chain_backhand_h034",
+    "at": 0.13,
+    "heading": 60
+   },
+   {
+    "label": "② 返し -0.04s",
+    "mlbb": [
+     "a",
+     8.13
+    ],
+    "clip": "chain_backhand_h034",
+    "at": 0.16,
+    "heading": 60
+   },
+   {
+    "label": "② 返し +0.00s",
+    "mlbb": [
+     "a",
+     8.17
+    ],
+    "clip": "chain_backhand_h034",
+    "at": 0.2,
+    "heading": 60
+   },
+   {
+    "label": "② 返し +0.06s",
+    "mlbb": [
+     "a",
+     8.23
+    ],
+    "clip": "chain_backhand_h034",
+    "at": 0.26,
+    "heading": 60
+   },
+   {
+    "label": "② 返し +0.16s",
+    "mlbb": [
+     "a",
+     8.33
+    ],
+    "clip": "chain_backhand_h034",
+    "at": 0.36,
+    "heading": 60
+   },
+   {
+    "label": "③ 叩き落とし -0.17s",
+    "mlbb": [
+     "a",
+     8.8
+    ],
+    "clip": "chain_chop_h034",
+    "at": 0.03,
+    "heading": 60
+   },
+   {
+    "label": "③ 叩き落とし -0.10s",
+    "mlbb": [
+     "a",
+     8.87
+    ],
+    "clip": "chain_chop_h034",
+    "at": 0.1,
+    "heading": 60
+   },
+   {
+    "label": "③ 叩き落とし -0.04s",
+    "mlbb": [
+     "a",
+     8.93
+    ],
+    "clip": "chain_chop_h034",
+    "at": 0.16,
+    "heading": 60
+   },
+   {
+    "label": "③ 叩き落とし +0.00s",
+    "mlbb": [
+     "a",
+     8.97
+    ],
+    "clip": "chain_chop_h034",
+    "at": 0.2,
+    "heading": 60
+   },
+   {
+    "label": "③ 叩き落とし +0.10s",
+    "mlbb": [
+     "a",
+     9.07
+    ],
+    "clip": "chain_chop_h034",
+    "at": 0.3,
+    "heading": 60
+   },
+   {
+    "label": "③ 叩き落とし +0.23s",
+    "mlbb": [
+     "a",
+     9.2
+    ],
+    "clip": "chain_chop_h034",
+    "at": 0.43,
+    "heading": 60
+   }
+  ],
+  "skill": [
+   {
+    "label": "S1 投げ +0.03s",
+    "mlbb": [
+     "a",
+     3.2
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.03,
+    "heading": 60
+   },
+   {
+    "label": "S1 投げ +0.10s",
+    "mlbb": [
+     "a",
+     3.27
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.1,
+    "heading": 60
+   },
+   {
+    "label": "S1 投げ +0.20s",
+    "mlbb": [
+     "a",
+     3.37
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.2,
+    "heading": 60
+   },
+   {
+    "label": "S1 投げ +0.26s",
+    "mlbb": [
+     "a",
+     3.43
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.26,
+    "heading": 60
+   },
+   {
+    "label": "S1 投げ +0.33s",
+    "mlbb": [
+     "a",
+     3.5
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.33,
+    "heading": 60
+   },
+   {
+    "label": "S1 投げ +0.50s",
+    "mlbb": [
+     "a",
+     3.67
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.5,
+    "heading": 60
+   },
+   {
+    "label": "S1 投げ +0.93s",
+    "mlbb": [
+     "a",
+     4.1
+    ],
+    "clip": "hook_throw_h034",
+    "at": 0.93,
+    "heading": 60
+   },
+   {
+    "label": "S1 引き寄せ +0.27s",
+    "mlbb": [
+     "a",
+     4.2
+    ],
+    "clip": "hook_pull_h034",
+    "at": 0.27,
+    "heading": 60
+   },
+   {
+    "label": "S1 引き寄せ +0.44s",
+    "mlbb": [
+     "a",
+     4.37
+    ],
+    "clip": "hook_pull_h034",
+    "at": 0.44,
+    "heading": 60
+   },
+   {
+    "label": "S1 引き寄せ +0.54s",
+    "mlbb": [
+     "a",
+     4.47
+    ],
+    "clip": "hook_pull_h034",
+    "at": 0.54,
+    "heading": 60
+   },
+   {
+    "label": "S1 引き寄せ +0.64s",
+    "mlbb": [
+     "a",
+     4.57
+    ],
+    "clip": "hook_pull_h034",
+    "at": 0.64,
+    "heading": 60
+   },
+   {
+    "label": "S1 引き寄せ +0.77s",
+    "mlbb": [
+     "a",
+     4.7
+    ],
+    "clip": "hook_pull_h034",
+    "at": 0.77,
+    "heading": 60
+   },
+   {
+    "label": "S1 引き寄せ +0.97s",
+    "mlbb": [
+     "a",
+     4.9
+    ],
+    "clip": "hook_pull_h034",
+    "at": 0.97,
+    "heading": 60
+   },
+   {
+    "label": "S2 +0.10s",
+    "mlbb": [
+     "a",
+     6.27
+    ],
+    "clip": "chain_smash_h034",
+    "at": 0.1,
+    "heading": 60
+   },
+   {
+    "label": "S2 +0.16s",
+    "mlbb": [
+     "a",
+     6.33
+    ],
+    "clip": "chain_smash_h034",
+    "at": 0.16,
+    "heading": 60
+   },
+   {
+    "label": "S2 +0.23s",
+    "mlbb": [
+     "a",
+     6.4
+    ],
+    "clip": "chain_smash_h034",
+    "at": 0.23,
+    "heading": 60
+   },
+   {
+    "label": "S2 +0.26s",
+    "mlbb": [
+     "a",
+     6.43
+    ],
+    "clip": "chain_smash_h034",
+    "at": 0.26,
+    "heading": 60
+   },
+   {
+    "label": "S2 +0.36s",
+    "mlbb": [
+     "a",
+     6.53
+    ],
+    "clip": "chain_smash_h034",
+    "at": 0.36,
+    "heading": 60
+   },
+   {
+    "label": "S2 +0.53s",
+    "mlbb": [
+     "a",
+     6.7
+    ],
+    "clip": "chain_smash_h034",
+    "at": 0.53,
+    "heading": 60
+   },
+   {
+    "label": "奥義 +0.10s",
+    "mlbb": [
+     "a",
+     10.07
+    ],
+    "clip": "chain_frenzy_h034",
+    "at": 0.1,
+    "heading": 60
+   },
+   {
+    "label": "奥義 +0.23s",
+    "mlbb": [
+     "a",
+     10.2
+    ],
+    "clip": "chain_frenzy_h034",
+    "at": 0.23,
+    "heading": 60
+   },
+   {
+    "label": "奥義 +0.50s",
+    "mlbb": [
+     "a",
+     10.47
+    ],
+    "clip": "chain_frenzy_h034",
+    "at": 0.5,
+    "heading": 60
+   },
+   {
+    "label": "奥義 +0.56s",
+    "mlbb": [
+     "a",
+     10.53
+    ],
+    "clip": "chain_frenzy_h034",
+    "at": 0.56,
+    "heading": 60
+   },
+   {
+    "label": "奥義 +0.90s",
+    "mlbb": [
+     "a",
+     10.87
+    ],
+    "clip": "chain_frenzy_h034",
+    "at": 0.9,
+    "heading": 60
+   },
+   {
+    "label": "奥義 +1.53s",
+    "mlbb": [
+     "a",
+     11.5
+    ],
+    "clip": "chain_frenzy_h034",
+    "at": 1.53,
+    "heading": 60
+   },
+   {
+    "label": "奥義 +1.60s",
+    "mlbb": [
+     "a",
+     11.57
+    ],
+    "clip": "chain_frenzy_h034",
+    "at": 1.6,
+    "heading": 60
+   },
+   {
+    "label": "奥義 +1.73s",
+    "mlbb": [
+     "a",
+     11.7
+    ],
+    "clip": "chain_frenzy_h034",
+    "at": 1.73,
+    "heading": 60
+   },
+   {
+    "label": "奥義 +1.86s",
+    "mlbb": [
+     "a",
+     11.83
+    ],
+    "clip": "chain_frenzy_h034",
+    "at": 1.86,
+    "heading": 60
+   },
+   {
+    "label": "奥義 +2.06s",
+    "mlbb": [
+     "a",
+     12.03
+    ],
+    "clip": "chain_frenzy_h034",
+    "at": 2.06,
+    "heading": 60
+   }
+  ]
+ }
+}
