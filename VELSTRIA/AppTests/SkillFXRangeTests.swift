@@ -193,9 +193,13 @@ final class SkillFXRangeTests: XCTestCase {
 
     /// 弾の毎 tick の掃引は 1 本につながり、0.5 秒で消える。試合中は何も作らない。ゴルムの S2 は半径 257 の円が出る。
     func testOverlayMergesSweepsFadesAndCreatesNothingWhileLive() {
-        let config = MatchFactory.practiceMatch(humanHeroID: "H034", humanName: "P",
+        var config = MatchFactory.practiceMatch(humanHeroID: "H034", humanName: "P",
                                                 options: PracticeOptions(noCooldowns: true, spawnMinions: false,
                                                                          startLevel: 4), seed: 3)
+        // 10-23 から練習場の人間はスキルを自分で選ぶ（autoLevelSkills = false）。S2 を撃てるよう自動で覚えさせる
+        for i in config.players.indices where config.players[i].controller == .human {
+            config.players[i].autoLevelSkills = true
+        }
         let c = BattleController(launch: BattleLaunch(config: config))
         AssetLedger.beginLoading()
         let overlay = HitShapeOverlay(controller: c)
