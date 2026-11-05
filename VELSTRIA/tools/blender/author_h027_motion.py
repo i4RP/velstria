@@ -128,10 +128,10 @@ STAND = dict(GUARD, hy=-0.07, hyaw=-10, hpitch=0, tyaw=-6, tpitch=-3, dyaw=2, dp
              ox=0.22, oy=0.975, oz=0.02, syaw=-42, spitch=-24, lgrip=0, lfx=-0.25, lfy=1.0, lfz=-0.03,
              lcurl=0.9, rpx=1, rpy=-0.3, rpz=0.2, lpx=-1, lpy=-0.2, lpz=0.2)
 # 槍を引きずる持ち方（走り・払いの前・振り下ろしの後。スキルプレビュー 31.1〜31.7 秒・44.7〜45.3 秒・51.0〜51.4 秒）: 右手を右腰に
-# 置いたまま穂先を右後ろの足元へ寝かせ（右から 50° 後ろ）、石突は左前の肩の高さへ。左の拳は胸の前へ出す。上体は少し前へ傾ける。
+# 置いたまま穂先を右後ろの足元へ寝かせ（真後ろから右へ 30°）、石突は前の肩の高さへ。左の拳は胸の前へ出す。上体は少し前へ傾ける。
 TRAIL = dict(STAND, hy=-0.035, hyaw=-4, hpitch=5, tyaw=-8, tpitch=11, dyaw=6, dpitch=-10,
              lx=-0.10, lz=0.0, lyaw=4, rx=0.12, rz=0.0, ryaw=-6,
-             ox=0.24, oy=0.99, oz=0.10, syaw=-140, spitch=-26, lgrip=0, lfx=-0.2, lfy=1.1, lfz=-0.18,
+             ox=0.26, oy=0.99, oz=0.08, syaw=-150, spitch=-26, lgrip=0, lfx=-0.2, lfy=1.1, lfz=-0.18,
              lcurl=1, rpx=1, rpy=-0.3, rpz=-0.2, lpx=-1, lpy=-0.4, lpz=0.3)
 # 払いの決め（スキルプレビュー 24.33〜24.80 秒）: 相手へ向いたまま、穂先を左後ろへ水平に残す（柄は背の後ろ、右手は右腰）。
 REAR = dict(TRAIL, hy=-0.06, hz=-0.04, hyaw=-4, hpitch=2, tyaw=6, tpitch=6, dyaw=-2, dpitch=-3,
@@ -179,65 +179,43 @@ def clip_specs():
     S.append(dict(name='h027_run', state='run', frames=12, loop=True, base=TRAIL,
                   rootXZ=0, groundSpeed=2.65, contact=0.4, hipsDrop=-0.085, bounce=0.026, lift=0.11,
                   prime=('meshy_h027_run', None, 0.2)))
-    # 通常攻撃 1: 突き。槍を引いて重心を後ろへ（柄は左手の中を滑る）→ 左足を踏み込み、腰 → 胸 → 肩の順に回して右手で
-    # 送り出す（打撃 10）。体は半身のまま、石突は右腰の外へ逃がす → 引き戻し、足を戻して構え。
-    S.append(dict(name='h027_thrust', state='attack', frames=28, loop=False, base=GUARD, rootXZ=1,
-                  events=dict(impact=10), melee=True, prime=('meshy_h027_thrust', [(0, 0), (10, 12), (27, 66)], 0.25),
+    # 通常攻撃 A: 水平の払い（スキルプレビュー 24.17〜24.40 秒）。後ろの足元に寝かせた穂先を右へ回して引き（5〜8）、左足を
+    # 踏み込みながら腰 → 胸の順に左へ回して、右 → 前 → 左へ大きく払う（打撃 10 = 穂先が右前の相手を通る）。そのまま穂先を左後ろへ
+    # 回し込み、柄を背の後ろへ通して水平に残す（決めの姿勢 REAR。次の B はここから始まる）。
+    S.append(dict(name='h027_sweep', state='attack', frames=26, loop=False, base=TRAIL, rootXZ=1,
+                  events=dict(impact=10), melee=True, prime=('meshy_h027_sweep', [(0, 0), (10, 13), (25, 60)], 0.2),
                   keys=[(0, {}),
-                        (4, dict(hz=0.05, hy=-0.07, hyaw=-40, tyaw=-58, tpitch=3, ox=0.2, oy=0.97, oz=0.10, syaw=11, spitch=8,
-                                 ld=0.30, dyaw=-6, lz=-0.17, llift=0)),
-                        (6, dict(lz=-0.22, llift=0.05)),
-                        (8, dict(hz=-0.06, hy=-0.09, hyaw=-26, tyaw=-40, tpitch=8, ox=0.17, oy=1.0, oz=-0.12, syaw=7, spitch=5,
-                                 ld=0.24, lz=-0.30, llift=0.02)),
-                        (9, dict(lz=-0.33, llift=0)),
-                        (10, dict(hz=-0.15, hy=-0.115, hyaw=-18, tyaw=-30, tpitch=13, ox=0.14, oy=1.03, oz=-0.30, syaw=5, spitch=3,
-                                  ld=0.19, lz=-0.33, llift=0, dyaw=-4, dpitch=-5)),
-                        (13, dict(hz=-0.14, hy=-0.11, hyaw=-19, tyaw=-31, tpitch=12, ox=0.145, oy=1.03, oz=-0.28, syaw=5, spitch=3,
-                                  ld=0.19, lz=-0.33, llift=0)),
-                        (19, dict(hz=-0.05, hy=-0.075, hyaw=-26, tyaw=-40, tpitch=6, ox=0.16, oy=1.0, oz=-0.1, syaw=8, spitch=7,
-                                  ld=0.22, lz=-0.25, llift=0.03)),
-                        (23, dict(lz=-0.19, llift=0)),
-                        (27, {})]))
-    # 通常攻撃 2: 払い。腰と胸を右へひねって穂先を右前へ引き（左手は柄を離して均衡を取る）、左足を踏み込みながら腰から左へ
-    # 回して穂先を腰の高さで右 → 左へ大きく払う（打撃 10 = 穂先が正面を通る）→ 左手を柄へ戻して構え。
-    S.append(dict(name='h027_sweep', state='attack', frames=30, loop=False, base=GUARD, rootXZ=1,
-                  events=dict(impact=10), melee=True, prime=('meshy_h027_sweep', [(0, 0), (10, 13), (29, 60)], 0.25),
+                        (5, dict(hyaw=-30, tyaw=-46, tpitch=6, hy=-0.06, ox=0.25, oy=1.0, oz=0.13, syaw=-150, spitch=-12,
+                                 lz=-0.10, llift=0.04, lfx=-0.06, lfy=1.15, lfz=-0.26, dyaw=-8)),
+                        (8, dict(hyaw=-36, tyaw=-56, ox=0.26, oy=1.02, oz=0.17, syaw=-168, spitch=-8, lz=-0.22, llift=0.03)),
+                        (9, dict(hyaw=-22, tyaw=-30, ox=0.28, oy=1.04, oz=-0.2, syaw=-110, spitch=-4, lz=-0.27, llift=0)),
+                        (10, dict(hyaw=-4, tyaw=2, tpitch=10, hy=-0.09, hz=-0.06, ox=0.26, oy=1.06, oz=-0.26, syaw=-25, spitch=0,
+                                  lz=-0.28, llift=0, dyaw=-4, lfx=-0.24, lfy=1.05, lfz=0.06)),
+                        (12, dict(hyaw=8, tyaw=24, ox=0.1, oy=1.1, oz=-0.32, syaw=40, spitch=6)),
+                        (14, dict(hyaw=12, tyaw=30, ox=0.14, oy=1.28, oz=-0.14, syaw=70, spitch=55)),
+                        (16, dict(hyaw=6, tyaw=20, tpitch=6, ox=0.2, oy=1.22, oz=0.0, syaw=140, spitch=30, lfx=-0.2, lfy=1.1, lfz=-0.12)),
+                        (19, dict(REAR)),
+                        (25, dict(REAR))]))
+    # 通常攻撃 B: 頭上からの振り下ろし（スキルプレビュー 24.83〜25.30 秒）。左後ろに残した槍を穂先を後ろへ向けたまま頭の高さへ
+    # 担ぎ上げ（4〜8、上体を左へひねって反らす）、打撃の直前に頭上を越えて左上 → 前 → 右下へ斜めに振り下ろす（打撃 10 = 穂先が
+    # 相手の胸の前を通る）。穂先は右後ろの足元へ流し、引きずる持ち方（TRAIL）で止まる（次の A はここから始まる）。
+    S.append(dict(name='h027_overhead', state='attack', frames=26, loop=False, base=REAR, rootXZ=1,
+                  events=dict(impact=10), melee=True, prime=None,
                   keys=[(0, {}),
-                        (3, dict(lgrip=0.35)),
-                        (6, dict(hyaw=-50, tyaw=-72, tpitch=4, hz=0.03, hy=-0.08, ox=0.22, oy=1.02, oz=-0.02, syaw=-50, spitch=2,
-                                 lgrip=0, lfx=-0.25, lfy=1.0, lfz=-0.15, dyaw=-8, lz=-0.2, llift=0.04)),
-                        (8, dict(hyaw=-32, tyaw=-40, ox=0.22, oy=1.02, oz=-0.16, syaw=-30, lz=-0.28, llift=0.02)),
-                        (9, dict(lz=-0.30, llift=0)),
-                        (10, dict(hyaw=-10, tyaw=-6, tpitch=6, hz=-0.07, hy=-0.10, ox=0.2, oy=1.03, oz=-0.27, syaw=5, spitch=0,
-                                  lgrip=0, lfx=-0.32, lfy=1.05, lfz=0.05, dyaw=0, lz=-0.30, llift=0)),
-                        (13, dict(hyaw=14, tyaw=28, ox=0.08, oy=1.02, oz=-0.27, syaw=55, spitch=1, lfx=-0.3, lfy=1.04, lfz=0.12, dyaw=8)),
-                        (17, dict(hyaw=4, tyaw=8, tpitch=5, ox=0.12, oy=1.0, oz=-0.18, syaw=38, spitch=4, lgrip=0, lfx=-0.26, lfz=0.0)),
-                        (21, dict(lgrip=1, hyaw=-16, tyaw=-24, hz=-0.03, ox=0.15, oy=1.0, oz=-0.08, syaw=18, spitch=6, ld=0.22,
-                                  lz=-0.24, llift=0.03)),
-                        (24, dict(lz=-0.18, llift=0)),
-                        (29, {})]))
-    # 通常攻撃 3: 切り上げ。膝を曲げて穂先を前下へ下ろし、左足を踏み込んで脚と腰で伸び上がり、穂先を前下 → 頭上へ縦に
-    # 振り上げる（打撃 10 = 穂先が相手の胸の高さを通る）。石突は右脚の外へ → 下ろして構え。
-    S.append(dict(name='h027_rising', state='attack', frames=30, loop=False, base=GUARD, rootXZ=1,
-                  events=dict(impact=10), melee=True, prime=('meshy_h027_rising', [(0, 12), (10, 31), (29, 70)], 0.25),
-                  keys=[(0, {}),
-                        (5, dict(hy=-0.13, hz=0.02, tpitch=14, hyaw=-38, tyaw=-56, ox=0.18, oy=0.87, oz=-0.06, syaw=6, spitch=-14, shL=14,
-                                 ld=0.08, dpitch=6, lz=-0.19, llift=0.03)),
-                        (8, dict(hy=-0.11, hz=-0.02, tpitch=10, hyaw=-30, tyaw=-46, ox=0.17, oy=0.93, oz=-0.12, spitch=-2, ld=0.1, shL=10,
-                                 lz=-0.25, llift=0.02)),
-                        (9, dict(lz=-0.26, llift=0)),
-                        (10, dict(hy=-0.07, hz=-0.06, tpitch=3, hyaw=-22, tyaw=-32, ox=0.17, oy=1.01, oz=-0.17, syaw=8, spitch=8, shL=6,
-                                  ld=0.13, lz=-0.26, llift=0, dpitch=-3)),
-                        (12, dict(hy=-0.04, tpitch=-3, ox=0.18, oy=1.1, oz=-0.15, syaw=12, spitch=38, ld=0.17, shL=0, dpitch=-7)),
-                        (15, dict(hy=-0.02, hz=-0.04, tpitch=-9, hyaw=-18, tyaw=-26, ox=0.2, oy=1.19, oz=-0.1, syaw=18, spitch=64,
-                                  ld=0.2, dpitch=-10)),
-                        (20, dict(hy=-0.045, hz=-0.02, tpitch=-1, ox=0.18, oy=1.06, oz=-0.06, syaw=12, spitch=30, ld=0.22,
-                                  lz=-0.21, llift=0.02)),
-                        (23, dict(lz=-0.18, llift=0)),
-                        (29, {})]))
-    # パッシブ 竜の三連突き（Motion_H027.empoweredAttack と同じ拍）: 突きの構えから 1 発目（打撃 10 = sim の 1 発目の命中）、
+                        (4, dict(ox=0.2, oy=1.28, oz=0.06, syaw=145, spitch=10, tyaw=20, hyaw=4, lz=-0.14, llift=0.04)),
+                        (8, dict(ox=0.18, oy=1.33, oz=0.08, syaw=155, spitch=14, tyaw=28, hyaw=8, tpitch=-4, hy=-0.035, dpitch=-6,
+                                 lfx=-0.13, lfy=1.26, lfz=-0.22, lz=-0.24, llift=0.02)),
+                        (9, dict(ox=0.2, oy=1.3, oz=-0.16, syaw=70, spitch=10, tyaw=10, tpitch=2, lz=-0.27, llift=0)),
+                        (10, dict(ox=0.25, oy=1.2, oz=-0.28, syaw=6, spitch=-6, tyaw=-12, hyaw=-10, tpitch=8, hy=-0.1, hz=-0.06,
+                                  lz=-0.28, llift=0, lfx=-0.24, lfy=1.05, lfz=0.06, dpitch=-2)),
+                        (12, dict(ox=0.3, oy=1.1, oz=-0.33, syaw=-70, spitch=-32, tpitch=6)),
+                        (14, dict(ox=0.26, oy=1.0, oz=-0.1, syaw=-115, spitch=-26, tyaw=-10)),
+                        (18, dict(TRAIL, hy=-0.06, hz=-0.04, lz=-0.24, rz=0.08)),
+                        (25, dict(TRAIL, hy=-0.05, hz=-0.03, lz=-0.2, rz=0.06))]))
+    # パッシブ 竜の三連突き（スキルプレビュー 26.40〜26.93 秒: 4 コマおきの 3 突き）: 構えから 1 発目（打撃 10 = sim の 1 発目の命中）、
     # 穂先を少し引いては突き直し、2・3 発目を 4 / 8 フレーム後（flurryInterval = 4 tick ≈ 0.133 秒）に突き切る。
     # 1 本ごとに向きが少し変わり、胴が突くたびに前へ入る。打撃の後は等速で再生する（HeroAnimator の専用クリップの経路）。
+    # 最後は穂先を後ろの足元へ下ろして引きずる持ち方へ戻る（MLBB 27.20〜27.30 秒）。
     S.append(dict(name='h027_flurry', state='attack', frames=34, loop=False, base=GUARD, rootXZ=1,
                   events=dict(impact=10), melee=True, prime=('meshy_h027_thrust', [(0, 0), (10, 12), (33, 70)], 0.2),
                   keys=[(0, {}),
@@ -248,17 +226,18 @@ def clip_specs():
                                  ld=0.22, lz=-0.33, llift=0)),
                         (10, dict(hz=-0.15, hy=-0.115, hyaw=-18, tyaw=-30, tpitch=13, ox=0.14, oy=1.03, oz=-0.30, syaw=7, spitch=4,
                                   ld=0.19, lz=-0.33, dyaw=-4, dpitch=-5)),
-                        (12, dict(hz=-0.13, hyaw=-21, tyaw=-34, tpitch=11, ox=0.15, oy=1.02, oz=-0.21, syaw=4, spitch=4, ld=0.2)),
-                        (14, dict(hz=-0.17, hy=-0.12, hyaw=-15, tyaw=-26, tpitch=15, ox=0.13, oy=1.035, oz=-0.32, syaw=2, spitch=2,
+                        (12, dict(hz=-0.1, hyaw=-24, tyaw=-38, tpitch=9, ox=0.17, oy=1.02, oz=-0.14, syaw=6, spitch=4, ld=0.26)),
+                        (14, dict(hz=-0.18, hy=-0.125, hyaw=-14, tyaw=-24, tpitch=16, ox=0.15, oy=1.035, oz=-0.36, syaw=10, spitch=2,
                                   ld=0.18)),
-                        (16, dict(hz=-0.15, hyaw=-19, tyaw=-31, tpitch=13, ox=0.145, oy=1.025, oz=-0.23, syaw=6, spitch=3, ld=0.2)),
-                        (18, dict(hz=-0.19, hy=-0.125, hyaw=-12, tyaw=-22, tpitch=17, ox=0.125, oy=1.04, oz=-0.34, syaw=5, spitch=3,
+                        (16, dict(hz=-0.11, hyaw=-22, tyaw=-36, tpitch=10, ox=0.165, oy=1.025, oz=-0.15, syaw=8, spitch=3, ld=0.26)),
+                        (18, dict(hz=-0.21, hy=-0.13, hyaw=-10, tyaw=-20, tpitch=19, ox=0.15, oy=1.04, oz=-0.37, syaw=11, spitch=3,
                                   ld=0.17, dpitch=-6)),
-                        (21, dict(hz=-0.18, hyaw=-13, tyaw=-23, tpitch=16, ox=0.13, oy=1.035, oz=-0.32, ld=0.17)),
-                        (27, dict(hz=-0.06, hy=-0.075, hyaw=-26, tyaw=-40, tpitch=6, ox=0.16, oy=1.0, oz=-0.1, syaw=8, spitch=7,
-                                  ld=0.22, lz=-0.25, llift=0.03)),
-                        (30, dict(lz=-0.19, llift=0)),
-                        (33, {})]))
+                        (21, dict(hz=-0.18, hyaw=-13, tyaw=-23, tpitch=16, ox=0.16, oy=1.035, oz=-0.32, syaw=10, ld=0.17, lgrip=1)),
+                        (24, dict(lgrip=0.3, ox=0.22, oy=1.02, oz=-0.27, syaw=-70, spitch=-18, hz=-0.1, tyaw=-20)),
+                        (27, dict(lgrip=0, hz=-0.05, hy=-0.07, hyaw=-10, tyaw=-14, tpitch=8, ox=0.25, oy=1.0, oz=-0.12, syaw=-125,
+                                  spitch=-24, lz=-0.24, llift=0.03, lfx=-0.14, lfy=1.14, lfz=-0.22)),
+                        (30, dict(lz=-0.2, llift=0)),
+                        (33, dict(TRAIL, hy=-0.05, hz=-0.03, lz=-0.18, rz=0.06))]))
     # スキル1 跳槍撃（詠唱のクリップ: 呼び出しの castLead 0.12 秒後が打撃 = 掬い上げの接触）。低く構えて穂先を対象の下へ
     # 差し入れ（4）、掬い上げて頭上へ持ち上げたまま保ち（4〜12 = sim の持ち上げ 0.4 秒）、腰と背を反らして頭上を越えて
     # 背後へ振り抜く（12〜18 = sim の放り投げ 0.2 秒）。穂先は頭の右を通る → 構えへ戻す。

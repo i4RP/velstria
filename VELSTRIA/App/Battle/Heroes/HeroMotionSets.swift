@@ -183,7 +183,8 @@ enum HeroMotionSets {
     /// （H027MotionClips.json、docs/H027_MOTION.md）。槍は右手の区間に追従させ（握りの向きは仕上げと同じ値）、
     /// 左手は仕上げで柄の上に置いてある。詠唱もクリップ（打撃の時刻 = 呼び出しの castLead 後。演出の時刻は FX_H027 のまま）。
     private static let jarld: HeroMotionSet = {
-        var s = make(["h027_thrust", "h027_sweep", "h027_rising"], idle: "h027_idle", death: "death_forward",
+        // 通常攻撃は MLBB の 2 種の交互（A 水平の払い → B 頭上からの振り下ろし。A の決めが B の始まり、B の決めが A の始まり）
+        var s = make(["h027_sweep", "h027_overhead"], idle: "h027_idle", death: "death_forward",
                      weaponGrip: rx(-.pi / 2) * ry(-0.1658))
         s.dedicatedIdle = true
         // MLBB の子龍は槍の中ほどを握る（訓練場の待機: 手から穂先と石突がほぼ同じ長さ）。Prop の原点は石突から 29% なので、
