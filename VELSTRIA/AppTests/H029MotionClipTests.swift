@@ -4,6 +4,7 @@ import VelstriaCore
 
 /// H029 ボルグの専用の収録（H029MotionClips.json、docs/H029_MOTION.md）が実際の再生経路で使われること:
 /// 手続き（HeroIdle・HeroGait・Motion_H029 の全身の通常攻撃）に上書きされず、打撃は KitTimes / sim の windup に合う。
+@MainActor
 final class H029MotionClipTests: XCTestCase {
     private let hero = "H029"
 
