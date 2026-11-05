@@ -24,9 +24,11 @@ from author_h025_motion import bind_usd_axes, solve
 
 HERO = 'App/Resources/Heroes/Hero_H029.usdz'
 OUT = Path('build/h029-motion/preview')
-# HeroMotionSets の H029: 槌 = fistGrip（+Y → 手の -Z）、盾 = 前腕に付けた盾（+Y → 親指の側、盾の面 -Z → 手の -X）
+# HeroMotionSets の H029: 槌 = fistGrip（+Y → 手の -Z）、盾 = borgShieldGrip（+Y → 肘の側 +Y を親指の側へ SHIELD_TILT 倒した向き、
+# 盾の面 -Z → 手の -X）
 FIST = Quaternion((1, 0, 0), -math.pi / 2)
-SHIELD = Matrix(((0, 0, 1), (-1, 0, 0), (0, -1, 0))).to_quaternion()
+_C, _S = math.cos(math.radians(15)), math.sin(math.radians(15))   # author_h029_motion.SHIELD_TILT
+SHIELD = Matrix(((0, 0, 1), (-_S, _C, 0), (-_C, -_S, 0))).to_quaternion()
 # 手続きの武器の範囲（HeroGear）: 聖槌の高さ 1.742、盾の高さ 0.958 と中心・ry(0.3)
 MAUL_H, SHIELD_H = 1.742, 0.958
 SHIELD_CENTER, SHIELD_YAW = Vector((-0.10, -0.07, -0.12)), 0.3
@@ -94,20 +96,8 @@ def details_at(clip, f):
     return out
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument('--clips', default='App/Resources/Heroes/H029MotionClips.json')
-    ap.add_argument('--clip', default='all')
-    ap.add_argument('--frames', type=int, default=8)
-    ap.add_argument('--view', default='34')
-    ap.add_argument('--tile', default='300x360')
-    ap.add_argument('--video', action='store_true')
-    ap.add_argument('--loops', type=int, default=2)
-    a = ap.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else [])
-    clips = {c['name']: c for c in json.loads(Path(a.clips).read_text())['clips']}
-    names = list(clips) if a.clip == 'all' else a.clip.split(',')
-    tile = tuple(int(v) for v in a.tile.split('x'))
-    OUT.mkdir(parents=True, exist_ok=True)
+def scene(a):
+    """ヒーローと武器を読み、(rig, height, pose(clip, frame)) を返す。pose は骨と武器を置いて view_layer を更新する。"""
     rig, meshes, height, _ = preview.load_hero(str(Path(HERO).resolve()))
     bind_usd_axes(rig, HERO)
     maul = prop('App/Resources/Heroes/Prop_holyMaul.usdz', 'Maul')
@@ -118,8 +108,86 @@ def main():
     hand_r, hand_l = rig.index['righthand'], rig.index['lefthand']
     grip_r = 0.6 * (rig.P0[rig.index['righthandindex1']] - rig.P0[hand_r]).length if 'righthandindex1' in rig.index else 0.06
     grip_l = 0.6 * (rig.P0[rig.index['lefthandindex1']] - rig.P0[hand_l]).length if 'lefthandindex1' in rig.index else 0.06
+
+    def pose(clip, f):
+        kxz = float(clip.get('rootXZ', 0))
+        qs, root = cm.interp_clip(clip, f)
+        offset = Vector((root.x * kxz, root.y, root.z * kxz)) * rig.leg_length
+        dR, P = solve(rig, qs, offset, details_at(clip, f))
+        rig.apply_pose(dR, P)
+        qr, ql = qs[cm.SEG_INDEX['handR']], qs[cm.SEG_INDEX['handL']]
+        pr = P[hand_r] + qr @ Vector((0, -grip_r, 0))
+        pl = P[hand_l] + ql @ Vector((0, -grip_l, 0))
+        mr = Matrix.LocRotScale(pr, qr @ FIST, Vector((1, 1, 1))) @ maul_fit
+        ml = Matrix.LocRotScale(pl, ql @ SHIELD, Vector((1, 1, 1))) @ shield_fit
+        maul.matrix_world = preview.hero_to_world(rig, mr) @ maul_rest
+        shield.matrix_world = preview.hero_to_world(rig, ml) @ shield_rest
+        bpy.context.view_layer.update()
+    return rig, height, pose
+
+
+# 比較の一覧（tools/mlbb_video/motion_compare.py が MLBB のコマと並べる）: 戦闘の見下ろしは MLBB の縮尺（62.3 px / 単位 を 2 倍、
+# 1 m = 124.6 px。ヒーロー空間は ×1.32）で 320 px 四方、足元はタイルの (160, 245)。横からの拡大は既定の大きさ。
+SHOT_TILE = (320, 320)
+SHOT_GAME_HEIGHT = 320 / (124.6 * 1.32) / 1.28
+
+
+def shots(a):
+    spec = json.loads(Path(a.shots).read_text(encoding='utf-8'))
+    rows = spec['stages'][a.stage]
+    clips = {c['name']: c for c in json.loads(Path(a.clips).read_text())['clips']}
+    rig, height, pose = scene(a)
+    out = Path('build/h029-motion/compare') / a.stage
+    out.mkdir(parents=True, exist_ok=True)
+    for view in ['game', 'side']:
+        jobs = [(i, r) for i, r in enumerate(rows) if r.get('clip')]
+        for i, r in jobs:
+            name = f"g{int(r.get('heading', 180))}" if view == 'game' else 'side'
+            if name.startswith('g'):
+                th = math.radians(float(r.get('heading', 180)))
+                preview.VIEWS[name] = Vector((math.sin(th) * 0.7071, 0.7071, math.cos(th) * 0.7071))
+            for o in list(bpy.data.objects):
+                if o.type in ('CAMERA', 'FONT') or o.name.startswith('Ground'):
+                    bpy.data.objects.remove(o, do_unlink=True)
+            label = preview.setup_scene(rig, SHOT_GAME_HEIGHT if view == 'game' else height * 1.25, name, SHOT_TILE)
+            label.data.body = ''
+            clip = clips[r['clip']]
+            f = r.get('at', 0.0) * FPS
+            f = f % clip['frames'] if clip['loop'] else min(f, clip['frames'] - 1)
+            pose(clip, f)
+            bpy.context.scene.render.filepath = str((out / f'{i:02d}_{view}.png').resolve())
+            bpy.ops.render.render(write_still=True)
+    print(f'[h029-shots] {out}', flush=True)
+
+
+FPS = 30
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--clips', default='App/Resources/Heroes/H029MotionClips.json')
+    ap.add_argument('--clip', default='all')
+    ap.add_argument('--frames', type=int, default=8)
+    ap.add_argument('--view', default='34')
+    ap.add_argument('--tile', default='300x360')
+    ap.add_argument('--video', action='store_true')
+    ap.add_argument('--loops', type=int, default=2)
+    ap.add_argument('--shots', help='比較の一覧の指定（tools/motion/h029-mlbb-compare.json）。--stage の行を 1 コマずつ撮る')
+    ap.add_argument('--stage')
+    a = ap.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else [])
+    if a.shots:
+        return shots(a)
+    clips = {c['name']: c for c in json.loads(Path(a.clips).read_text())['clips']}
+    names = list(clips) if a.clip == 'all' else a.clip.split(',')
+    tile = tuple(int(v) for v in a.tile.split('x'))
+    OUT.mkdir(parents=True, exist_ok=True)
+    rig, height, pose = scene(a)
     report = {}
     for view in a.view.split(','):
+        if view.startswith('g') and view[1:].lstrip('-').isdigit():
+            # 戦闘の見下ろし（俯角 45°）。数字 = 画面でのヒーローの向き（0 = 奥、90 = 右、180 = 手前、270 = 左）
+            th = math.radians(float(view[1:]))
+            preview.VIEWS[view] = Vector((math.sin(th) * 0.7071, 0.7071, math.cos(th) * 0.7071))
         for o in list(bpy.data.objects):
             if o.type in ('CAMERA', 'FONT') or o.name.startswith('Ground'):
                 bpy.data.objects.remove(o, do_unlink=True)
@@ -136,18 +204,7 @@ def main():
             tmp = tempfile.mkdtemp(prefix='h029_preview_')
             files = []
             for i, f in enumerate(frames):
-                qs, root = cm.interp_clip(clip, f)
-                offset = Vector((root.x * kxz, root.y, root.z * kxz)) * rig.leg_length
-                dR, P = solve(rig, qs, offset, details_at(clip, f))
-                rig.apply_pose(dR, P)
-                qr, ql = qs[cm.SEG_INDEX['handR']], qs[cm.SEG_INDEX['handL']]
-                pr = P[hand_r] + qr @ Vector((0, -grip_r, 0))
-                pl = P[hand_l] + ql @ Vector((0, -grip_l, 0))
-                mr = Matrix.LocRotScale(pr, qr @ FIST, Vector((1, 1, 1))) @ maul_fit
-                ml = Matrix.LocRotScale(pl, ql @ SHIELD, Vector((1, 1, 1))) @ shield_fit
-                maul.matrix_world = preview.hero_to_world(rig, mr) @ maul_rest
-                shield.matrix_world = preview.hero_to_world(rig, ml) @ shield_rest
-                bpy.context.view_layer.update()
+                pose(clip, f)
                 label.data.body = f"H029 {name}  f{f:.1f}/{n}"
                 p = os.path.join(tmp, f'f{i:04d}.png')
                 bpy.context.scene.render.filepath = p

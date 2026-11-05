@@ -282,13 +282,16 @@ enum HeroMotionSets {
         return s
     }()
 
-    /// H032 ディアス: 拳の構えの待機・構えたままの歩行・前傾の走り・左ジャブ → 右ストレート（3 発目の円撃は
-    /// Motion_H032.empoweredAttack の全身のモーション）・スキル（S1 の 3 連打・S2 の突進 / 致命の一撃・奥義の溜め突き）。
+    /// H032 ディアス（MLBB のディロスの画面収録に合わせた仕上げ。docs/H032_QUALITY.md）: 腕を下ろして刃の輪を体の横へ張り出す
+    /// 待機・歩行・走行、刃の輪の斬撃（左の振り下ろし → 右の横薙ぎ → 3 発目の円撃 = 両腕を開いて薙ぐ専用のクリップ。
+    /// クリップが無ければ Motion_H032.empoweredAttack）・スキル（S1 の両腕の振り下ろし・S2 の突進 / 致命の一撃・
+    /// 奥義 = 輪を頭の横へ掲げて溜め → 引き絞って突き出す）。
     private static let dyrroth: HeroMotionSet = {
         // 刃の輪は前腕に沿う縦の刃（SkinnedHeroModel.forearmBlade）。正面・俯瞰からは縁だけが見え、顎の前の構えでも
         // 顔・頭を覆わない
-        var s = make(["punch_jab_l_h032", "punch_cross_r_h032"], idle: "idle_h032", death: "death_forward",
+        var s = make(["slash_l_h032", "slash_r_h032"], idle: "idle_h032", death: "death_forward",
                      offhandGrip: HeroMotionSet.fistGrip)
+        s.empowered = "slash_circle_h032"
         s.gripOnForeArm = true
         s.castsFromStart = true
         // 突進・飛びかかりの間は脚もクリップ（走る脚に戻さない）
@@ -296,7 +299,7 @@ enum HeroMotionSets {
         s.dedicatedIdle = true
         s.walk = "walk_h032"
         s.run = "run_h032"
-        s.casts = ["punch_s1_h032", "dash_s2_h032", "punch_ult_h032"]
+        s.casts = ["slam_s1_h032", "dash_s2_h032", "strike_ult_h032"]
         s.stageCasts = [nil, "punch_s2_strike_h032", nil]
         return s
     }()
@@ -304,8 +307,12 @@ enum HeroMotionSets {
     /// H029 ボルグの専用の収録（H029MotionClips.json、docs/H029_MOTION.md）。待機・歩行・走行・通常攻撃・スキルの詠唱
     /// （打撃は Motion_H029.clipStrike = KitTimes。S2 の再使用は段のクリップ、突進の間は脚もクリップ）。
     /// 槌は手の区間に持たせ（fistGrip: 柄 = 親指の側、打撃面 = 前腕の向き）、盾は前腕に付けた向き
-    /// （盾の上 +Y → 親指の側 -Z、盾の面 -Z → 手の -X = 前腕を胸の前で横にした時の正面）。
-    static let borgShieldGrip = simd_quatf(simd_float3x3(columns: (SIMD3<Float>(0, -1, 0), SIMD3<Float>(0, 0, -1), SIMD3<Float>(1, 0, 0))))
+    /// （盾の上 +Y → 肘の側 +Y を親指の側 -Z へ 15° 倒した向き、盾の面 -Z → 手の甲 -X）。MLBB のティグラルは盾を左脇に縦に下げるので、
+    /// 前腕を 15° 前へ出して下げた腕で盾が鉛直に立つ（tools/blender/author_h029_motion.py の SHIELD_TILT・shield_hand）。
+    static let borgShieldGrip: simd_quatf = {
+        let c = cos(Float.pi / 12), s = sin(Float.pi / 12)
+        return simd_quatf(simd_float3x3(columns: (SIMD3<Float>(0, -s, -c), SIMD3<Float>(0, c, -s), SIMD3<Float>(1, 0, 0))))
+    }()
     private static let borg: HeroMotionSet = {
         var s = make(["maul_smash_h029"], idle: "idle_h029", offhandGrip: borgShieldGrip)
         s.dedicatedIdle = true

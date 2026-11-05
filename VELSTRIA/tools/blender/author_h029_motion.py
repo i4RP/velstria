@@ -197,6 +197,22 @@ def shrug(rig, details, side, up, fwd):
     details[side + 'shoulder'] = local_delta(rig, side + 'shoulder', rz(D(sign * up)) @ ry(D(-sign * fwd)))
 
 
+# 盾の持ち方（HeroMotionSets.borgShieldGrip と同じ）: 盾の上 +Y = 手の区間の肘の側 +Y を親指の側 -Z へ SHIELD_TILT だけ倒した向き、
+# 盾の外の面 -Z = 手の甲の側 -X。前腕を SHIELD_TILT だけ前へ出して下げた腕（MLBB の左脇に縦に下げた盾）で盾が鉛直に立つ。
+SHIELD_TILT = math.radians(15)
+
+
+def shield_hand(U, N):
+    """盾の上 U と外の面の向き N（ヒーロー空間）になる左手の区間回転（borgShieldGrip の逆）。"""
+    U = U.normalized()
+    X = -(N - U * N.dot(U)).normalized()
+    W = X.cross(U)
+    c, s = math.cos(SHIELD_TILT), math.sin(SHIELD_TILT)
+    Y = U * c + W * s
+    Z = -U * s + W * c
+    return frame(-Y, -Z)
+
+
 # MARK: - prime の素材
 
 class Prime:
@@ -237,7 +253,7 @@ class Rest:
 
     def foot(self, side, dx=0.0, dz=0.0, dy=0.0):
         a = self.ankle[side].copy()
-        a.x = (-0.265 if side == 'left' else 0.265) + dx
+        a.x = (-0.235 if side == 'left' else 0.235) + dx
         a.z = (-0.10 if side == 'left' else 0.11) + dz
         a.y += dy
         return a
@@ -273,6 +289,27 @@ class Pose:
         self.knee_out = 0.35
         # 打撃の間だけ、聖槌の頭（ヒーロー空間）と柄の向きで右手を決める: (頭, 柄, 重み)
         self.strike = None
+        # 盾の向き（胴の座標の (上, 外の面)）。None = 旧来の shield_up（左手の親指の側 = 盾の上の旧い持ち方）から決める
+        self.shield = None
+
+
+# MLBB のティグラルの構え（2026-10-15 / 10-18 の画面収録）: 聖槌は右肩に担ぐ（右手は胸の前で柄を握り、柄は右肩の上を通って
+# 槌頭は肩の後ろ上。石突きは手の前下へ出る）。盾は左腕に下げて左脇に縦に立てる（上の縁が肩、下の縁が膝の上。外の面は外・やや後ろ）。
+CARRY = dict(hips=(-3, 2, 0), torso=(-2, 3, 0), head=(2, -2), drop=0.07,
+             hand_r=V((-0.16, -0.16, -0.29)), shaft=V((0.20, 0.62, 0.76)), pole_r=V((0.9, -1.0, 0.2)),
+             hand_l=V((-0.07, -0.46, -0.11)), pole_l=V((-0.5, -0.2, 1.0)),
+             shield=(V((0.0, 1.0, 0.0)), V((-1.0, 0.0, 0.45))))
+
+
+def carry_pose(rest):
+    p = Pose(rest)
+    p.hips, p.torso, p.head = CARRY['hips'], CARRY['torso'], CARRY['head']
+    p.offset = V((0, -CARRY['drop'], 0))
+    p.hand_r, p.shaft, p.pole_r = CARRY['hand_r'].copy(), CARRY['shaft'].copy(), CARRY['pole_r'].copy()
+    p.hand_l, p.pole_l = CARRY['hand_l'].copy(), CARRY['pole_l'].copy()
+    p.shield = (CARRY['shield'][0].copy(), CARRY['shield'][1].copy())
+    p.shrug = {'left': (0.0, 0.0), 'right': (4.0, 0.0)}
+    return p
 
 
 MAUL_HEAD = 1.08   # 握りから槌頭の中心まで（HeroGear の holyMaul、Prop はこの高さに合わせて拡縮）
@@ -336,8 +373,20 @@ def build(rig, p):
         s2 = flat * math.sqrt(1 - dy * dy) + V((0, dy, 0))
         err = arm_ik(rig, qs, offset, details, 'right', P1[rig.index['righthand']], qt @ p.pole_r, s2, dev=(40, 140))
     errors.append(err if not p.strike or p.strike[2] < 0.5 else 0.0)
-    errors.append(arm_ik(rig, qs, offset, details, 'left', sl + qt @ p.hand_l, qt @ p.pole_l, qt @ p.shield_up,
-                         dev=(60, 120)))
+    hl = cm.SEG_INDEX['handL']
+    if p.shield:
+        want = shield_hand(qt @ p.shield[0], qt @ p.shield[1])
+        errors.append(arm_ik(rig, qs, offset, details, 'left', sl + qt @ p.hand_l, qt @ p.pole_l, want @ V((0, 0, -1)),
+                             dev=(0, 180)))
+    else:
+        errors.append(arm_ik(rig, qs, offset, details, 'left', sl + qt @ p.hand_l, qt @ p.pole_l, qt @ p.shield_up,
+                             dev=(60, 120)))
+        # 旧い持ち方（盾の上 = 親指の側、外の面 = 手の甲）の盾の向きを保って、今の持ち方の手へ直す
+        old = qs[hl]
+        want = shield_hand(old @ V((0, 0, -1)), old @ V((-1, 0, 0)))
+    qs[hl] = want
+    fore = qs[cm.SEG_INDEX['foreArmL']] @ V((0, -1, 0))
+    build.wrist = math.degrees(fore.angle(want @ V((0, -1, 0))))
     build.last = errors
     return qs, offset, details, max(errors)
 
@@ -351,53 +400,62 @@ def guard_texture(prime, t, w=0.35):
 
 
 def idle(rest, prime, u):
-    """4 秒の待機（ループ）。重い呼吸 1 回、頭をゆっくり上げて戻す、柄の握り直し。盾と槌は動かさない。"""
-    p = Pose(rest)
+    """4 秒の待機（ループ）。槌を右肩に担ぎ、盾を左脇に下げた MLBB の立ち姿。重い呼吸 1 回、頭をゆっくり上げて戻す、
+    柄の握り直し（0.55〜0.75）。槌と盾は呼吸に乗って僅かに上下するだけ。"""
+    p = carry_pose(rest)
     breath = math.sin(u * math.tau)            # 0 → 吸う → 0 → 吐く
     lift = 0.5 - 0.5 * math.cos(u * math.tau)  # 頭・胸を上げる（周期の中ほどで最大）
     p.offset.y += 0.006 * breath - 0.004 * lift
-    p.hips = (GUARD['hips'][0], GUARD['hips'][1] + 0.6 * breath, 0.4 * math.sin(u * math.tau + 0.6))
-    p.torso = (GUARD['torso'][0] + 1.2 * math.sin(u * math.tau + 1.1), GUARD['torso'][1] - 2.0 * breath - 1.5 * lift, 0)
-    p.head = (GUARD['head'][0] - 2.5 * lift, GUARD['head'][1] - 6.0 * lift + 1.0 * breath)
+    h0, t0, d0 = CARRY['hips'], CARRY['torso'], CARRY['head']
+    p.hips = (h0[0], h0[1] + 0.6 * breath, 0.4 * math.sin(u * math.tau + 0.6))
+    p.torso = (t0[0] + 1.2 * math.sin(u * math.tau + 1.1), t0[1] - 2.0 * breath - 1.5 * lift, 0)
+    p.head = (d0[0] - 2.5 * lift, d0[1] - 6.0 * lift + 1.0 * breath)
     for side in ('left', 'right'):
-        p.shrug[side] = (1.8 * max(0.0, breath) + 0.6 * lift, p.shrug[side][1])
-    # 握り直し: 0.55〜0.75 の間だけ指を緩めて握り直す（柄の向きは変えない）
+        p.shrug[side] = (p.shrug[side][0] + 1.8 * max(0.0, breath) + 0.6 * lift, p.shrug[side][1])
     p.regrip = 0.28 * math.sin(math.pi * smooth((u - 0.55) / 0.2)) ** 2 if 0.55 < u < 0.75 else 0.0
-    p.hand_r = GUARD['hand_r'] + V((0, 0.006 * breath, 0))
-    p.hand_l = GUARD['hand_l'] + V((0, 0.008 * breath, -0.004 * breath))
+    p.hand_r = CARRY['hand_r'] + V((0, 0.008 * breath, 0))
+    p.hand_l = CARRY['hand_l'] + V((0, 0.006 * breath, -0.004 * breath))
     p.texture = guard_texture(prime, u, 0.25)
     return p
 
 
+# 移動（MLBB の画面収録 10-18 の 35.7〜36.3 秒・28.5〜29.0 秒、10-15 の 3.3〜4.2 秒）: 槌を肩に担ぎ盾を脇に下げたまま
+# 重く小走りする。脚の開きの山が 約 7 コマごと = 1 周 14 コマ（0.467 秒、毎秒 4.3 歩）。MLBB の歩幅は 2.6 / 秒 × 0.467 = 1.21 単位。
+# Velstria のヒーローは mapScale 1.35 倍速く動く（260 × 1.35 = 毎秒 3.51 m）ので、歩調（コマ数）を MLBB に合わせ、
+# 歩幅を 1.35 倍（1.64 m = ヒーロー空間 1.24）にした。減速中など遅い時は walk（1 周 0.733 秒）。
+GAITS = {
+    'run': dict(frames=14, speed=3.51, contact=0.42, lift=0.13, lean=9, bob=0.03, drop=0.085, width=0.17, knee=0.20),
+    'walk': dict(frames=22, speed=1.80, contact=0.60, lift=0.085, lean=4, bob=0.016, drop=0.075, width=0.19, knee=0.22),
+}
+
+
 def locomotion(rest, prime, u, run):
-    """歩行（prime f12→54、1.4 秒）・走行（prime f9→42、1.1 秒）。支持脚は移動速度を打ち消す一定速度で地面に固定。"""
-    p = Pose(rest)
-    name, f0, f1 = ('h029_run_prime', 9, 42) if run else ('h029_walk_prime', 12, 54)
-    period = (f1 - f0) / FPS
-    speed = (2.10 if run else 1.0)  # ヒーロー空間の m/s（走行は prime の歩幅 / 周期、歩行は巨体に合わせて歩幅を詰める）
-    contact = 0.36 if run else 0.56
-    h, t, hd, _ = prime.cycle(name, f0, f1, u)
-    h0, t0, hd0, _ = prime.cycle(name, f0, f1, 0)
-    # prime の揺れ（腰の左右のひねり・胴の反動）は半分だけ使い、前傾と盾の構えは手付け
-    p.texture = (relative(h, h0, 0.55), relative(t, t0, 0.45), relative(hd, hd0, 0.3))
-    lean = 16 if run else 4
-    p.hips = (-4, lean * 0.55, 0)
-    p.torso = (-3, lean * 0.6 + 2, 0)
-    p.head = (2, -lean * 0.5 - 2)
-    reach = speed * period * contact / 2
-    w2 = math.cos(u * math.tau * 2)
-    # 接地のたびに腰が沈み、蹴り出しで上がる（走行は浮きを大きく）
-    p.offset = V((0, -(0.13 if run else 0.11) - (0.03 if run else 0.016) * (0.5 + 0.5 * w2), 0))
+    """支持脚は移動速度を打ち消す一定速度で地面に固定、離地は弧。かかと接地 → つま先の蹴り出し。上半身は担いだ構えのまま、
+    腰の上下（支持の中ほどで沈む）・腰のひねりと胴の打ち消し・盾の小さな前後の揺れ・槌の遅れた上下。"""
+    g = GAITS['run' if run else 'walk']
+    period = g['frames'] / FPS
+    stride = g['speed'] * period / SCALE           # 1 周の歩幅（ヒーロー空間）
+    contact = g['contact']
+    reach = stride * contact / 2
+    p = carry_pose(rest)
+    lean = g['lean']
+    w = math.tau * u
+    bounce = math.cos(2 * (w - math.tau * contact / 2))   # 1 = 支持の中ほど（沈む）
+    twist = math.cos(w)                                   # + = 右脚が前（腰は左へ回り、胴は打ち消す）
+    p.hips = (CARRY['hips'][0] + 6 * twist, CARRY['hips'][1] + lean * 0.5, 2.5 * math.sin(w))
+    p.torso = (CARRY['torso'][0] - 4 * twist, CARRY['torso'][1] + lean * 0.6 + 1.5 * bounce, -1.5 * math.sin(w))
+    p.head = (CARRY['head'][0] - 2 * twist, CARRY['head'][1] - lean * 0.6 - 1.0 * bounce)
+    p.offset = V((0.012 * math.cos(w), -g['drop'] - g['bob'] * (0.5 + 0.5 * bounce), 0))
     for side, phase in (('right', u), ('left', u + 0.5)):
-        x = 0.20 if side == 'right' else -0.20
+        x = g['width'] if side == 'right' else -g['width']
         ph = phase % 1
         foot = rest.ankle[side].copy()
         foot.x = x
         if ph < contact:
             v = ph / contact
             foot.z = -reach + 2 * reach * v
-            roll = 22 * smooth((v - 0.78) / 0.22)   # 蹴り出しでかかとを上げる
-            heel = -8 * (1 - smooth(v / 0.18))      # 着地はかかとから
+            roll = 24 * smooth((v - 0.74) / 0.26)   # 蹴り出しでかかとを上げる
+            heel = -9 * (1 - smooth(v / 0.18))      # 着地はかかとから
             p.roll[side] = roll + heel
             p.toe[side] = -roll * 0.7
             foot.y += 0.06 * math.sin(D(max(0.0, roll)))
@@ -405,23 +463,18 @@ def locomotion(rest, prime, u, run):
             v = (ph - contact) / (1 - contact)
             tangent = 2 * reach * (1 - contact) / contact
             foot.z = reach - 2 * reach * smooth(v) + tangent * (2 * v ** 3 - 3 * v * v + v)
-            foot.y += (0.15 if run else 0.075) * math.sin(math.pi * v) ** 1.5
-            p.roll[side] = 22 * (1 - smooth(v / 0.35)) - 10 * math.sin(math.pi * v) - 8 * smooth((v - 0.8) / 0.2)
+            foot.y += g['lift'] * math.sin(math.pi * v) ** 1.5
+            p.roll[side] = 24 * (1 - smooth(v / 0.35)) - 12 * math.sin(math.pi * v) - 9 * smooth((v - 0.8) / 0.2)
             p.toe[side] = 0
         p.feet[side] = foot
-    sway = math.sin(u * math.tau)
-    # 盾は胸の前で保ち、槌は体の横で立てて持つ（走行は盾を前へ出して前傾）
-    if run:
-        p.hand_l = V((0.24, -0.20, -0.42)) + V((0, 0.012 * w2, 0))
-        p.shield_up = V((0.0, 1.0, 0.25))
-        p.hand_r = V((0.15, -0.40, -0.10)) + V((0, 0.02 * w2, 0.05 * sway))
-        p.shaft = V((0.12, 0.80, -0.58))
-    else:
-        p.hand_l = GUARD['hand_l'] + V((0, 0.008 * w2, 0))
-        p.hand_r = GUARD['hand_r'] + V((0, 0.012 * w2, 0.035 * sway))
-        p.shaft = GUARD['shaft'] + V((0, 0, -0.04 * sway))
-    p.knee_out = 0.25
-    return p, speed * SCALE, period
+    # 槌は肩に乗ったまま、体の上下に少し遅れて揺れる。盾の腕は左脚と逆に小さく前後する（右脚が前 = 盾が前）
+    lag = math.cos(2 * (w - math.tau * contact / 2) - 0.9)
+    p.hand_r = CARRY['hand_r'] + V((0.0, -0.014 * lag, 0.0))
+    p.shaft = (CARRY['shaft'] + V((0.0, 0.0, 0.03 * lag))).normalized()
+    p.hand_l = CARRY['hand_l'] + V((0.012, 0.012 * (1 - abs(math.cos(w))), -0.07 * math.cos(w)))
+    p.shield = (V((0.0, 1.0, 0.16 * math.cos(w))).normalized(), CARRY['shield'][1].copy())
+    p.knee_out = g['knee']
+    return p, g['speed'], period
 
 
 def attack(rest, prime, t):
@@ -640,10 +693,10 @@ def author(rig, prime, out):
     specs = [
         # name, frames, loop, events, builder(t or u)
         dict(name='idle_h029', frames=120, loop=True, make=lambda u: idle(rest, prime, u), blend=0.25),
-        dict(name='walk_h029', frames=42, loop=True, make=lambda u: locomotion(rest, prime, u, False)[0], blend=0.2,
-             groundSpeed=round(1.0 * SCALE, 3)),
-        dict(name='run_h029', frames=33, loop=True, make=lambda u: locomotion(rest, prime, u, True)[0], blend=0.18,
-             groundSpeed=round(2.10 * SCALE, 3)),
+        dict(name='walk_h029', frames=GAITS['walk']['frames'], loop=True, make=lambda u: locomotion(rest, prime, u, False)[0],
+             blend=0.2, groundSpeed=GAITS['walk']['speed'], local='H029-mlbb-gait'),
+        dict(name='run_h029', frames=GAITS['run']['frames'], loop=True, make=lambda u: locomotion(rest, prime, u, True)[0],
+             blend=0.15, groundSpeed=GAITS['run']['speed'], local='H029-mlbb-gait'),
         dict(name='maul_smash_h029', frames=27, loop=False, events=dict(impact=12, end=26), make=lambda t: attack(rest, prime, t),
              blend=0.12, rootXZ=1, source='h029_attack_prime'),
         dict(name='maul_wave_h029', frames=31, loop=False, events=dict(impact=7.5, end=30), make=lambda t: wave(rest, prime, t),
@@ -655,21 +708,23 @@ def author(rig, prime, out):
         dict(name='maul_sanctuary_h029', frames=52, loop=False, events=dict(impact=30, end=51), make=lambda t: sanctuary(rest, prime, t),
              blend=0.08, rootXZ=1, source='h029_ult_prime'),
     ]
-    state = json.loads(Path('build/h029-motion/api-state.json').read_text())['tasks']
+    # 出所: 以前の書き出しの source（Meshy prime のタスク）を保ち、手付けの段の名前だけ替える（api-state.json が無くても回る）
+    before = {c['name']: c.get('source', '') for c in json.loads(out.read_text())['clips']} if out.exists() else {}
     clips, report = [], {}
     for sp in specs:
         loop, n = sp['loop'], sp['frames']
-        src = sp.get('source') or {'idle_h029': 'h029_idle_prime', 'walk_h029': 'h029_walk_prime', 'run_h029': 'h029_run_prime'}[sp['name']]
-        c = dict(name=sp['name'], source=f"meshy:text-to-motion:{state[src]['task_id']}+local:H029-contact-finish",
+        base = before.get(sp['name'], 'local').split('+local:')[0]
+        c = dict(name=sp['name'], source=f"{base}+local:{sp.get('local', 'H029-contact-finish')}",
                  frames=n, loop=loop, rootXZ=sp.get('rootXZ', 0), melee=not loop, events=sp.get('events', {}), rot=[], root=[],
                  detailJoints=[r for r in DETAILS if r in rig.index], detailRot=[], blend=sp['blend'])
         if 'groundSpeed' in sp:
             c['groundSpeed'] = sp['groundSpeed']
         prev, pd = [None] * 15, [None] * len(c['detailJoints'])
-        errors, ground, limbs, heads = [], [], [], []
+        errors, ground, limbs, heads, wrists = [], [], [], [], []
         for f in range(n):
             t = f / n if loop else f / FPS
             qs, offset, details, err = build(rig, sp['make'](t))
+            wrists.append(build.wrist)
             for i, q in enumerate(qs):
                 vals, prev[i] = pack(q, prev[i])
                 c['rot'] += vals
@@ -691,6 +746,7 @@ def author(rig, prime, out):
                                  boundaryDegrees=round(max(cm.quat_angle_deg(x, y) for x, y in zip(a, b)), 3),
                                  lowestAnkleVsRestMm=round(min(ground) * 1000, 1),
                                  maulHeadClearanceMm=round(min(heads) * 1000, 1),
+                                 shieldWristMaxDegrees=round(max(wrists), 1),
                                  missMm=dict(zip(('footL', 'footR', 'handR', 'handL'), [round(x * 1000, 1) for x in limbs])))
     out.write_text(json.dumps(dict(version=1, fps=FPS, segments=cm.SEGMENTS, clips=clips), separators=(',', ':')) + '\n')
     return report
