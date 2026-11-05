@@ -2,7 +2,7 @@
 
 Run from VELSTRIA: Blender -b -P tools/blender/preview_h027_motion.py -- [--only h027_thrust,...] [--view 34|top|side|front]
   [--video]
-The spear is a proxy with the game's dimensions (HeroGear .dragonSpear × 1.08) placed with the runtime rule
+The spear is a proxy with the game's dimensions (HeroGear .dragonSpear × 1.08 × gearScale 0.7 = author.SPEAR_SCALE) placed with the runtime rule
 weapon.position = hand + q.handR·(0, -grip, 0), orientation = q.handR · weaponGrip (HeroMotionSets "H027").
 """
 import argparse
@@ -45,7 +45,7 @@ def make_spear():
         o.matrix_world = Matrix.Translation(V((0, (y0 + y1) / 2, 0))) @ Matrix.Rotation(-math.pi / 2, 4, 'X')
         o.parent = root
         return o
-    s = 1.08
+    s = author.SPEAR_SCALE
     cyl(-0.84 * s, 1.1 * s, 0.03 * s, dark)
     cyl(-0.84 * s, -0.56 * s, 0.044 * s, gold)
     cyl(1.04 * s, 1.42 * s, 0.09 * s, teal)
@@ -107,7 +107,7 @@ def attach_prop(rig, root, path):
         c.hide_render = True
     prop.parent = root
     prop.matrix_parent_inverse = Matrix.Identity(4)
-    prop.matrix_basis = Matrix.Scale(2.88 / length * 1.08, 4)
+    prop.matrix_basis = Matrix.Scale(2.88 / length * author.SPEAR_SCALE, 4)
     return prop
 
 

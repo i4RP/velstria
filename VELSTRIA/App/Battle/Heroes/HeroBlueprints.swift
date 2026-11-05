@@ -337,6 +337,8 @@ enum HeroBlueprints {
         // H032 赤拳のディアス（Duelist）: 深淵の王子。両手首に金の刃の輪（内縁が紅く光る）・白い髪と金の角・紅く光る目・
         // 薄紫の肌のはだけた胸に紅い光の核・濃い紫の棘の肩甲と上着・紅のズボンと脛の棘の輪・長い黒い尾。小柄。
         // 基調色 = Theme.heroHue（紫 0.71。secondary = 濃い紫の鎧）、metal = 金（刃の輪・角）、accent = 紅（ズボン・襟の裏）、glow = 赤。
+        // scale 1.0: 出荷の見下ろしのカメラで画面の上の身長が MLBB の立ち姿（71〜75 px / 512 px）と 1 割以内（docs/H032_QUALITY.md
+        // 「体の大きさ」）。変える時はクリップの groundSpeed も同じ倍率にする（author_h032_motion.py の MODEL_SCALE）。
         HeroBlueprint(build: .slim, armor: .abyss, pauldron: .spiked, skirt: .none, hair: .wild,
                       gear: [.demonHorns], weapon: .abyssRing, offhand: .abyssRing, back: .demonTail, float: .none,
                       attack: .dualSlash, metal: .gold, skin: .violet, hairColor: HSB(0.72, 0.06, 0.97),
