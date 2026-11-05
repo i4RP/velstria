@@ -136,9 +136,9 @@ GUARD = dict(hy=-0.055, hx=0.0, hz=0.0, hyaw=-30, hpitch=2, hroll=0, tyaw=-46, t
              rcurl=1, lcurl=1, lflex=0, rpx=0.9, rpy=-0.4, rpz=0.5, lpx=-0.9, lpy=-0.5, lpz=0.3, shR=0, shL=0)
 # 待機（MLBB の訓練場 0.3〜2.0 秒・スキルプレビュー 41.5〜43.7 秒）: 足を左右へ広く開いて正面を向き、槍は右手で右腰に持ち、
 # 穂先を右前の足元へ下ろす（石突は左肩の後ろへ上がる）。空いた左手は拳にして左腰の横。
-STAND = dict(GUARD, hy=-0.11, hyaw=-10, hpitch=2, tyaw=-6, tpitch=0, dyaw=2, dpitch=-4,
-             lx=-0.27, lz=-0.07, lyaw=18, rx=0.28, rz=0.06, ryaw=-22,
-             ox=0.22, oy=0.975, oz=0.02, syaw=-42, spitch=-43, lgrip=0, lfx=-0.25, lfy=1.0, lfz=-0.03,
+STAND = dict(GUARD, hy=-0.2, hyaw=-10, hpitch=4, tyaw=-6, tpitch=2, dyaw=2, dpitch=-6,
+             lx=-0.32, lz=-0.08, lyaw=22, rx=0.33, rz=0.07, ryaw=-26,
+             ox=0.23, oy=0.9, oz=0.0, syaw=-42, spitch=-40, lgrip=0, lfx=-0.25, lfy=1.0, lfz=-0.03,
              lcurl=0.9, rpx=1, rpy=-0.3, rpz=0.2, lpx=-1, lpy=-0.2, lpz=0.2)
 # 槍を引きずる持ち方（走り・払いの前・振り下ろしの後。スキルプレビュー 31.1〜31.7 秒・44.7〜45.3 秒・51.0〜51.4 秒）: 右手を右腰に
 # 置いたまま穂先を右後ろの足元へ寝かせ（真後ろから右へ 30°）、石突は前の肩の高さへ。左の拳は胸の前へ出す。上体は少し前へ傾ける。
