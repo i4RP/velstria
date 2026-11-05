@@ -327,7 +327,7 @@ enum HeroMotionSets {
         s.dedicatedIdle = true
         s.dedicatedAttack = true
         s.stateBlend = 0.2
-        s.walk = "walk_h029"
+        // 移動は 1 種類の走り（MLBB は鈍足でも同じ走りを遅く回す）。walk を持たないと run を実際の速さ / groundSpeed で回す
         s.run = "run_h029"
         s.casts = ["maul_wave_h029", "shield_charge_h029", "maul_sanctuary_h029"]
         s.stageCasts = [nil, "maul_upswing_h029", nil]
