@@ -210,8 +210,9 @@ enum Motion_H029: HeroMotionScript {
             p.weaponR = -1.95
             p.glow = 2.0
         }
-        // MLBB は叩きつけから 約 0.7 秒沈んだまま（a 6.77〜7.55 秒）。詠唱の長さ = 専用のクリップ（maul_wave_h029）の見える長さ
-        m.hold(0.45) { p in
+        // MLBB は叩きつけから 約 0.7 秒沈んだまま（a 6.77〜7.55 秒）だが、術者を止めないスキルの詠唱は 1.1 秒まで（SkillFXTests）。
+        // 専用のクリップ（maul_wave_h029）は詠唱の終わりまで沈んだ姿勢を見せ、そこから待機へつなぐ
+        m.hold(0.23) { p in
             p.hipsPitch = 0.48
             p.torsoPitch = 0.66
             p.hipsDrop = 0.18
@@ -405,8 +406,8 @@ enum Motion_H029: HeroMotionScript {
             p.ring = 1.2
         }
         m.markImpact()
-        // 沈んだまま（MLBB は 0.6〜0.8 秒。a 2.40〜3.2 秒）。詠唱の長さ = 専用のクリップ（maul_sanctuary_h029）の見える長さ
-        m.hold(0.55) { p in
+        // 沈んだまま（MLBB は 0.6〜0.8 秒。a 2.40〜3.2 秒）。奥義の詠唱は 1.7 秒まで（SkillFXTests）
+        m.hold(0.22) { p in
             p.hipsPitch = 0.42
             p.torsoPitch = 0.58
             p.hipsDrop = 0.18
