@@ -392,15 +392,15 @@ enum FX_H029: HeroFXSet {
         var r = SkillFXRecipe()
         let R = s.meters("ultReach")
         let p: Float = 0, t = s.seconds("ultTotal")
-        // 顔の前の高さへ掲げた盾（左手 [-0.25, 2.2, 0.5]・上端 [-0.2, 2.9, 0.6]、0.12〜0.93 秒。docs/vfx/H029.md「モーション」）に
-        // 金の光が集まり、盾が上がり切る 0.28 秒に閃光、盾の後ろに金の光輪が立つ（振りかぶりの頂点 0.93 秒まで）
+        // 頭の上へ水平に掲げた盾（MLBB のティグラル。左手 [-0.22, 2.64, 0.08]・盾の中心 [-0.25, 2.7, 0.1]、0.22〜0.93 秒。
+        // docs/H029_QUALITY.md 段 3）に金の光が集まり、盾が上がり切る 0.28 秒に閃光、盾の上に金の光輪が立つ（0.93 秒まで）
         r.cast = [
-            .emit(.gather(20, radius: 1.2, .primary, life: 0.8), at: 0.12, .follow, offset: [-0.2, 2.6, 0.6]),
-            .emit(.flare(1.8, .core, life: 0.3, tex: .flare6), at: 0.28, .follow, offset: [-0.2, 2.8, 0.65]),
+            .emit(.gather(20, radius: 1.2, .primary, life: 0.8), at: 0.12, .follow, offset: [-0.22, 2.75, 0.15]),
+            .emit(.flare(1.8, .core, life: 0.3, tex: .flare6), at: 0.28, .follow, offset: [-0.22, 2.9, 0.2]),
             .mesh(.sprite(.ringDouble, 2.2, .primary, life: 0.62, grow: 1.15, alpha: 0.85).glowing().with {
                 $0.fadeIn = 0.3
                 $0.fadeOut = 0.6
-            }, at: 0.3, .follow, offset: [-0.2, 2.5, 0.35]),
+            }, at: 0.3, .follow, offset: [-0.22, 2.95, 0.05]),
         ]
         r.impact = [
             // 0〜: 範囲が淡い金に満ちる（縁ほど明るい輪の画像 + 柔らかい光）。縁は弧に沿って流れる金の筋
@@ -447,7 +447,7 @@ enum FX_H029: HeroFXSet {
             // 崩落の直前: 掲げた盾の上から天へ立つ細い光の筋（光る。筋が上へ流れる）
             .mesh(.pillar(0.16, height: 9, .core, life: 0.32, alpha: 1).glowing()
                 .flowing(.streaks, scroll: [0, -3], tiling: 2, strength: 0.6, edge: .primary).with { $0.onTop = true }, at: t - 0.24,
-                  offset: [-0.2, 1.2, 0.6]),
+                  offset: [-0.22, 1.2, 0.15]),
             // 1.0: 聖槌が落ちて崩落 — 範囲を覆う光の棘・白熱の閃光・爆炎
             .mesh(.groundFlipbook(.spikes, R * 2.3, hot, life: 0.5, grow: 1.1), at: t),
             .mesh(.sprite(.glowHard, 4.2, .core, life: 0.22, grow: 1.5).glowing().with { $0.fadeIn = 0; $0.onTop = true }, at: t,
