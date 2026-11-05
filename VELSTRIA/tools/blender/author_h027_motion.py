@@ -75,6 +75,18 @@ def grip_quat(roll):
 
 # MARK: - Keyframe tracks (monotone cubic Hermite; loops wrap with periodic tangents)
 
+def catmull(t, pts):
+    """Catmull-Rom through (t, value) knots (clamped ends): smooth through every knot without stopping at it."""
+    for i in range(len(pts) - 1):
+        (t1, p1), (t2, p2) = pts[i], pts[i + 1]
+        if t <= t2 or i == len(pts) - 2:
+            p0 = pts[i - 1][1] if i > 0 else p1 - (p2 - p1)
+            p3 = pts[i + 2][1] if i + 2 < len(pts) else p2 + (p2 - p1)
+            u = max(0.0, min(1.0, (t - t1) / max(1e-6, t2 - t1)))
+            return 0.5 * (2 * p1 + (-p0 + p2) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u * u + (-p0 + 3 * p1 - 3 * p2 + p3) * u ** 3)
+    return pts[-1][1]
+
+
 def track_value(keys, t, loop, period):
     if not keys:
         return None
@@ -133,10 +145,17 @@ TRAIL = dict(STAND, hy=-0.035, hyaw=-4, hpitch=5, tyaw=-8, tpitch=11, dyaw=6, dp
              lx=-0.10, lz=0.0, lyaw=4, rx=0.12, rz=0.0, ryaw=-6,
              ox=0.26, oy=0.99, oz=0.08, syaw=-150, spitch=-26, lgrip=0, lfx=-0.2, lfy=1.1, lfz=-0.18,
              lcurl=1, rpx=1, rpy=-0.3, rpz=-0.2, lpx=-1, lpy=-0.4, lpz=0.3)
-# 払いの決め（スキルプレビュー 24.33〜24.80 秒）: 相手へ向いたまま、穂先を左後ろへ水平に残す（柄は背の後ろ、右手は右腰）。
-REAR = dict(TRAIL, hy=-0.06, hz=-0.04, hyaw=-4, hpitch=2, tyaw=6, tpitch=6, dyaw=-2, dpitch=-3,
-            lx=-0.12, lz=-0.24, lyaw=8, rx=0.14, rz=0.10, ryaw=-24,
-            ox=0.225, oy=1.0, oz=0.03, syaw=150, spitch=-8, lfx=-0.2, lfy=1.13, lfz=-0.2, rpx=1, rpy=-0.4, rpz=0.1)
+# 払いの決め（スキルプレビュー 24.33〜24.80 秒）: 相手の方へ深く踏み込んだ低く広い構え（左足を 0.44 m 前、右足を後ろへ開き、腰を 0.2 m
+# 落として上体を相手へ倒す）で、穂先を左後ろへ水平に残す（柄は背の後ろ、右手は右腰）。
+REAR = dict(TRAIL, hy=-0.2, hz=-0.17, hyaw=-4, hpitch=8, tyaw=8, tpitch=16, dyaw=-2, dpitch=-10,
+            lx=-0.22, lz=-0.44, lyaw=10, rx=0.2, rz=0.24, ryaw=-36,
+            ox=0.225, oy=0.86, oz=0.02, syaw=150, spitch=-8, lfx=-0.22, lfy=0.96, lfz=-0.26, rpx=1, rpy=-0.4, rpz=0.1)
+# 振り下ろしの決め（スキルプレビュー 25.20〜25.47 秒）: 振り抜いた勢いで体ごと右へ 90° 回り（胸がカメラの側）、低く広い構えで、
+# 穂先を体の右前の足元へ下ろす（ヒーローの向きでは右後ろ = 引きずる持ち方と同じ向き）。左の拳は体の左（ヒーローの前）へ張る。
+TURN = dict(TRAIL, hy=-0.17, hz=-0.04, hyaw=-80, hpitch=4, tyaw=-96, tpitch=10, dyaw=-70, dpitch=-6,
+            lx=-0.12, lz=-0.3, lyaw=-30, rx=0.2, rz=0.22, ryaw=-80,
+            ox=0.06, oy=0.85, oz=0.3, syaw=-140, spitch=-26, lfx=0.0, lfy=1.08, lfz=-0.46, rpx=0.3, rpy=-0.4, rpz=1,
+            lpx=-0.4, lpy=-0.3, lpz=-1)
 
 
 def keys_of(spec, name, base):
@@ -174,70 +193,84 @@ def clip_specs():
     S.append(dict(name='h027_walk', state='walk', frames=20, loop=True, base=dict(TRAIL, tpitch=4, hpitch=1, dpitch=-4),
                   rootXZ=0, groundSpeed=1.3, contact=0.56, hipsDrop=-0.05, bounce=0.014, lift=0.07,
                   prime=('meshy_h027_walk', None, 0.25)))
-    # 走行 0.4 秒 = 2 歩（MLBB の 10〜12 コマ周期。地面の速さ 2.65 m/s = 子龍の 265）。槍を後ろへ引きずり、左の拳を前へ出して
-    # 小刻みに速く脚を回す（腰の上下は小さく、上体は少し前傾）。
-    S.append(dict(name='h027_run', state='run', frames=12, loop=True, base=TRAIL,
-                  rootXZ=0, groundSpeed=2.65, contact=0.4, hipsDrop=-0.085, bounce=0.026, lift=0.11,
-                  prime=('meshy_h027_run', None, 0.2)))
-    # 通常攻撃 A: 水平の払い（スキルプレビュー 24.17〜24.40 秒）。後ろの足元に寝かせた穂先を右へ回して引き（5〜8）、左足を
-    # 踏み込みながら腰 → 胸の順に左へ回して、右 → 前 → 左へ大きく払う（打撃 10 = 穂先が右前の相手を通る）。そのまま穂先を左後ろへ
-    # 回し込み、柄を背の後ろへ通して水平に残す（決めの姿勢 REAR。次の B はここから始まる）。
+    # 走行 0.333 秒 = 2 歩（MLBB の訓練場 75〜92 コマ: 接地が 4.5〜5 コマおき = 1 周 9.5〜10 コマ）。地面の速さ 2.65 m/s（子龍の 265）。
+    # 胴を 42°・腰を 18° 前へ倒し（背骨の上だけに掛かるので見た目は 30° 前後）、蹴り出した足のかかとを高く上げて膝を前へ送る小刻みで大きな脚の回し方。槍は後ろへ引きずり、
+    # 左の拳を胸の前で振る。
+    S.append(dict(name='h027_run', state='run', frames=10, loop=True, base=dict(TRAIL, tpitch=42, hpitch=18, dpitch=-34, oz=0.03),
+                  rootXZ=0, groundSpeed=2.65, contact=0.36, hipsDrop=-0.1, bounce=0.04, lift=0.11,
+                  heel=0.3, knee=0.27, kick=0.08, over=0.14, armSwing=0.2,
+                  prime=('meshy_h027_run', None, 0.15)))
+    # 通常攻撃 A: 水平の払い（スキルプレビュー 24.07〜24.80 秒）。引きずる持ち方から腰と胸を右へ 62° ひねって穂先を右後ろへ引き、
+    # 左足を持ち上げて（4〜7）前へ 0.44 m 踏み込み（9）、腰を 0.2 m 落としながら右 → 前 → 左へ大きく払う（打撃 10 = 穂先が右前の
+    # 相手を通る）。穂先は頭の横へ上げて左後ろへ回し込み、踏み込んだ低い構えのまま水平に残す（決めの姿勢 REAR。次の B はここから）。
     S.append(dict(name='h027_sweep', state='attack', frames=26, loop=False, base=TRAIL, rootXZ=1,
-                  events=dict(impact=10), melee=True, prime=('meshy_h027_sweep', [(0, 0), (10, 13), (25, 60)], 0.2),
+                  events=dict(impact=10), melee=True, prime=('meshy_h027_sweep', [(0, 0), (10, 13), (25, 60)], 0.15),
                   keys=[(0, {}),
-                        (5, dict(hyaw=-30, tyaw=-46, tpitch=6, hy=-0.06, ox=0.25, oy=1.0, oz=0.13, syaw=-150, spitch=-12,
-                                 lz=-0.10, llift=0.04, lfx=-0.06, lfy=1.15, lfz=-0.26, dyaw=-8)),
-                        (8, dict(hyaw=-36, tyaw=-56, ox=0.26, oy=1.02, oz=0.17, syaw=-168, spitch=-8, lz=-0.22, llift=0.03)),
-                        (9, dict(hyaw=-22, tyaw=-30, ox=0.28, oy=1.04, oz=-0.2, syaw=-110, spitch=-4, lz=-0.27, llift=0)),
-                        (10, dict(hyaw=-4, tyaw=2, tpitch=10, hy=-0.09, hz=-0.06, ox=0.26, oy=1.06, oz=-0.26, syaw=-25, spitch=0,
-                                  lz=-0.28, llift=0, dyaw=-4, lfx=-0.24, lfy=1.05, lfz=0.06)),
-                        (12, dict(hyaw=8, tyaw=24, ox=0.1, oy=1.1, oz=-0.32, syaw=40, spitch=6)),
-                        (14, dict(hyaw=12, tyaw=30, ox=0.14, oy=1.28, oz=-0.14, syaw=70, spitch=55)),
-                        (16, dict(hyaw=6, tyaw=20, tpitch=6, ox=0.2, oy=1.22, oz=0.0, syaw=140, spitch=30, lfx=-0.2, lfy=1.1, lfz=-0.12)),
+                        (4, dict(hyaw=-24, tyaw=-40, tpitch=8, hy=-0.06, ox=0.25, oy=1.0, oz=0.12, syaw=-150, spitch=-12,
+                                 lz=-0.12, llift=0.06, lfx=-0.06, lfy=1.12, lfz=-0.26, dyaw=-8)),
+                        (7, dict(hyaw=-40, tyaw=-62, hy=-0.09, hz=-0.04, ox=0.26, oy=0.98, oz=0.16, syaw=-168, spitch=-8,
+                                 lx=-0.16, lz=-0.3, llift=0.06)),
+                        (9, dict(hyaw=-26, tyaw=-34, tpitch=12, hy=-0.15, hz=-0.12, ox=0.28, oy=0.96, oz=-0.16, syaw=-110, spitch=-4,
+                                 lx=-0.22, lz=-0.44, llift=0, lyaw=10)),
+                        (10, dict(hyaw=-6, tyaw=4, tpitch=18, hpitch=8, hy=-0.2, hz=-0.18, ox=0.26, oy=0.92, oz=-0.3, syaw=-25, spitch=0,
+                                  rx=0.2, rz=0.24, ryaw=-36, dyaw=-4, dpitch=-10, lfx=-0.24, lfy=0.98, lfz=-0.1)),
+                        (12, dict(hyaw=8, tyaw=24, hy=-0.21, ox=0.1, oy=0.98, oz=-0.34, syaw=40, spitch=6)),
+                        (14, dict(hyaw=12, tyaw=30, ox=0.14, oy=1.14, oz=-0.16, syaw=70, spitch=50)),
+                        (16, dict(hyaw=6, tyaw=20, tpitch=14, ox=0.2, oy=1.06, oz=-0.02, syaw=140, spitch=28, lfx=-0.22, lfy=0.98, lfz=-0.2)),
                         (19, dict(REAR)),
                         (25, dict(REAR))]))
-    # 通常攻撃 B: 頭上からの振り下ろし（スキルプレビュー 24.83〜25.30 秒）。左後ろに残した槍を穂先を後ろへ向けたまま頭の高さへ
-    # 担ぎ上げ（4〜8、上体を左へひねって反らす）、打撃の直前に頭上を越えて左上 → 前 → 右下へ斜めに振り下ろす（打撃 10 = 穂先が
-    # 相手の胸の前を通る）。穂先は右後ろの足元へ流し、引きずる持ち方（TRAIL）で止まる（次の A はここから始まる）。
+    # 通常攻撃 B: 頭上からの振り下ろし（スキルプレビュー 24.83〜25.47 秒）。踏み込んだ構えから右足を引き寄せて伸び上がり、穂先を
+    # 左後ろへ向けたまま頭の高さへ担いで上体を左へ 34° ひねり（3〜8）、打撃の直前に頭上を越えて左上 → 前 → 右下へ斜めに振り下ろす
+    # （打撃 10 = 穂先が相手の胸の前を通る）。振り抜いた勢いで体ごと右へ 90° 回り、低く広い構えで穂先を足元へ下ろす（決めの姿勢 TURN）。
     S.append(dict(name='h027_overhead', state='attack', frames=26, loop=False, base=REAR, rootXZ=1,
                   events=dict(impact=10), melee=True, prime=None,
                   keys=[(0, {}),
-                        (4, dict(ox=0.2, oy=1.28, oz=0.06, syaw=145, spitch=10, tyaw=20, hyaw=4, lz=-0.14, llift=0.04)),
-                        (8, dict(ox=0.18, oy=1.33, oz=0.08, syaw=155, spitch=14, tyaw=28, hyaw=8, tpitch=-4, hy=-0.035, dpitch=-6,
-                                 lfx=-0.13, lfy=1.26, lfz=-0.22, lz=-0.24, llift=0.02)),
-                        (9, dict(ox=0.2, oy=1.3, oz=-0.16, syaw=70, spitch=10, tyaw=10, tpitch=2, lz=-0.27, llift=0)),
-                        (10, dict(ox=0.25, oy=1.2, oz=-0.28, syaw=6, spitch=-6, tyaw=-12, hyaw=-10, tpitch=8, hy=-0.1, hz=-0.06,
-                                  lz=-0.28, llift=0, lfx=-0.24, lfy=1.05, lfz=0.06, dpitch=-2)),
-                        (12, dict(ox=0.3, oy=1.1, oz=-0.33, syaw=-70, spitch=-32, tpitch=6)),
-                        (14, dict(ox=0.26, oy=1.0, oz=-0.1, syaw=-115, spitch=-26, tyaw=-10)),
-                        (18, dict(TRAIL, hy=-0.06, hz=-0.04, lz=-0.24, rz=0.08)),
-                        (25, dict(TRAIL, hy=-0.05, hz=-0.03, lz=-0.2, rz=0.06))]))
-    # パッシブ 竜の三連突き（スキルプレビュー 26.40〜26.93 秒: 4 コマおきの 3 突き）: 構えから 1 発目（打撃 10 = sim の 1 発目の命中）、
-    # 穂先を少し引いては突き直し、2・3 発目を 4 / 8 フレーム後（flurryInterval = 4 tick ≈ 0.133 秒）に突き切る。
-    # 1 本ごとに向きが少し変わり、胴が突くたびに前へ入る。打撃の後は等速で再生する（HeroAnimator の専用クリップの経路）。
-    # 最後は穂先を後ろの足元へ下ろして引きずる持ち方へ戻る（MLBB 27.20〜27.30 秒）。
+                        (3, dict(hy=-0.1, hz=-0.1, tyaw=18, hyaw=6, tpitch=6, hpitch=3, ox=0.2, oy=1.12, oz=0.06, syaw=145, spitch=10,
+                                 rx=0.16, rz=0.12, rlift=0.05, lfx=-0.16, lfy=1.15, lfz=-0.22)),
+                        (6, dict(hy=-0.04, hz=-0.06, tyaw=30, hyaw=12, tpitch=-4, hpitch=0, ox=0.18, oy=1.3, oz=0.08, syaw=155, spitch=14,
+                                 rx=0.14, rz=0.06, rlift=0, lz=-0.32, dpitch=-6, lfx=-0.13, lfy=1.26, lfz=-0.22)),
+                        (8, dict(hy=-0.05, tyaw=34, hyaw=16, ox=0.18, oy=1.33, oz=0.08, syaw=155, spitch=14)),
+                        (9, dict(hy=-0.1, tyaw=10, hyaw=4, ox=0.2, oy=1.28, oz=-0.16, syaw=70, spitch=10, tpitch=2)),
+                        (10, dict(hy=-0.14, hz=-0.08, tyaw=-14, hyaw=-10, tpitch=10, hpitch=4, ox=0.25, oy=1.15, oz=-0.28, syaw=6,
+                                  spitch=-6, lz=-0.32, rz=0.12, lfx=-0.24, lfy=1.05, lfz=0.06, dpitch=-4)),
+                        (11, dict(ox=0.313, oy=1.066, oz=-0.3)),
+                        (12, dict(hy=-0.17, tyaw=-50, hyaw=-40, ox=0.21, oy=1.0, oz=-0.3, syaw=-70, spitch=-28, dyaw=-36)),
+                        (14, dict(hy=-0.18, tyaw=-80, hyaw=-66, ox=0.3, oy=0.9, oz=0.14, syaw=-150, spitch=-26, dyaw=-58,
+                                  lfx=-0.04, lfy=1.06, lfz=-0.36, rz=0.2, ryaw=-70, lyaw=-20)),
+                        (15, dict(ox=0.298, oy=0.876, oz=0.131)),
+                        (16, dict(ox=0.028, oy=0.859, oz=0.215)),
+                        (17, dict(TURN)),
+                        (25, dict(TURN))]))
+    # パッシブ 竜の三連突き（スキルプレビュー 26.27〜27.30 秒、打撃 796・800・804 = 4 コマおき）: 構えから 1 発目は前への突き
+    # （打撃 10 = sim の 1 発目の命中）、体を左へ回しながら穂先を左から後ろへ回し、後ろへ向けた槍の石突で 2 発目（14）、穂先を右から
+    # 前へ回して体を戻し 3 発目の突き（18）。最後は穂先を右から後ろの足元へ流して引きずる持ち方へ戻る（MLBB 806〜817 コマ）。
+    # 打撃の後は等速で再生する（HeroAnimator の専用クリップの経路）。
     S.append(dict(name='h027_flurry', state='attack', frames=34, loop=False, base=GUARD, rootXZ=1,
-                  events=dict(impact=10), melee=True, prime=('meshy_h027_thrust', [(0, 0), (10, 12), (33, 70)], 0.2),
+                  events=dict(impact=10), melee=True, prime=('meshy_h027_thrust', [(0, 0), (10, 12), (33, 70)], 0.15),
                   keys=[(0, {}),
-                        (5, dict(hz=0.05, hy=-0.075, hyaw=-42, tyaw=-60, tpitch=3, ox=0.2, oy=0.97, oz=0.10, syaw=11, spitch=8,
+                        (5, dict(hz=0.04, hy=-0.08, hyaw=-46, tyaw=-66, tpitch=3, ox=0.2, oy=0.97, oz=0.10, syaw=11, spitch=8,
                                  ld=0.28, dyaw=-6, lz=-0.17, llift=0)),
-                        (7, dict(lz=-0.23, llift=0.05)),
-                        (9, dict(hz=-0.08, hy=-0.1, hyaw=-24, tyaw=-36, tpitch=9, ox=0.16, oy=1.01, oz=-0.18, syaw=7, spitch=5,
-                                 ld=0.22, lz=-0.33, llift=0)),
-                        (10, dict(hz=-0.15, hy=-0.115, hyaw=-18, tyaw=-30, tpitch=13, ox=0.14, oy=1.03, oz=-0.30, syaw=7, spitch=4,
-                                  ld=0.19, lz=-0.33, dyaw=-4, dpitch=-5)),
-                        (12, dict(hz=-0.1, hyaw=-24, tyaw=-38, tpitch=9, ox=0.17, oy=1.02, oz=-0.14, syaw=6, spitch=4, ld=0.26)),
-                        (14, dict(hz=-0.18, hy=-0.125, hyaw=-14, tyaw=-24, tpitch=16, ox=0.15, oy=1.035, oz=-0.36, syaw=10, spitch=2,
-                                  ld=0.18)),
-                        (16, dict(hz=-0.11, hyaw=-22, tyaw=-36, tpitch=10, ox=0.165, oy=1.025, oz=-0.15, syaw=8, spitch=3, ld=0.26)),
-                        (18, dict(hz=-0.21, hy=-0.13, hyaw=-10, tyaw=-20, tpitch=19, ox=0.15, oy=1.04, oz=-0.37, syaw=11, spitch=3,
-                                  ld=0.17, dpitch=-6)),
-                        (21, dict(hz=-0.18, hyaw=-13, tyaw=-23, tpitch=16, ox=0.16, oy=1.035, oz=-0.32, syaw=10, ld=0.17, lgrip=1)),
-                        (24, dict(lgrip=0.3, ox=0.22, oy=1.02, oz=-0.27, syaw=-70, spitch=-18, hz=-0.1, tyaw=-20)),
-                        (27, dict(lgrip=0, hz=-0.05, hy=-0.07, hyaw=-10, tyaw=-14, tpitch=8, ox=0.25, oy=1.0, oz=-0.12, syaw=-125,
+                        (7, dict(lz=-0.25, llift=0.05)),
+                        (9, dict(hz=-0.08, hy=-0.11, hyaw=-24, tyaw=-36, tpitch=9, ox=0.16, oy=1.01, oz=-0.18, syaw=7, spitch=5,
+                                 ld=0.22, lz=-0.35, llift=0)),
+                        (10, dict(hz=-0.16, hy=-0.13, hyaw=-18, tyaw=-30, tpitch=14, ox=0.14, oy=1.02, oz=-0.32, syaw=7, spitch=4,
+                                  ld=0.19, lz=-0.35, dyaw=-4, dpitch=-5, lgrip=1)),
+                        (11, dict(lgrip=0, lfx=-0.2, lfy=1.12, lfz=-0.2)),
+                        (12, dict(hz=-0.12, hyaw=22, tyaw=46, tpitch=8, ox=0.06, oy=1.06, oz=-0.36, syaw=120, spitch=4, dyaw=-30)),
+                        (13, dict(ox=0.246, oy=1.05, oz=-0.29)),
+                        (14, dict(hz=-0.15, hy=-0.14, hyaw=40, tyaw=70, tpitch=10, ox=0.2, oy=1.04, oz=-0.28, syaw=175, spitch=2,
+                                  dyaw=-52)),
+                        (16, dict(hz=-0.14, hyaw=10, tyaw=20, tpitch=10, ox=0.22, oy=1.06, oz=-0.34, syaw=270, spitch=3, dyaw=-14)),
+                        (17, dict(ox=0.226, oy=1.051, oz=-0.3)),
+                        (18, dict(hz=-0.2, hy=-0.14, hyaw=-12, tyaw=-22, tpitch=18, ox=0.17, oy=1.04, oz=-0.37, syaw=365, spitch=3,
+                                  dyaw=-2, dpitch=-6)),
+                        (21, dict(hz=-0.18, hyaw=-13, tyaw=-23, tpitch=16, ox=0.16, oy=1.035, oz=-0.32, syaw=360)),
+                        (23, dict(ox=0.247, oy=1.008, oz=-0.2)),
+                        (24, dict(ox=0.24, oy=1.0, oz=-0.36, syaw=290, spitch=-16, hz=-0.1, tyaw=-20)),
+                        (27, dict(hz=-0.05, hy=-0.07, hyaw=-10, tyaw=-14, tpitch=8, ox=0.25, oy=1.0, oz=-0.12, syaw=235,
                                   spitch=-24, lz=-0.24, llift=0.03, lfx=-0.14, lfy=1.14, lfz=-0.22)),
                         (30, dict(lz=-0.2, llift=0)),
-                        (33, dict(TRAIL, hy=-0.05, hz=-0.03, lz=-0.18, rz=0.06))]))
+                        (33, dict(TRAIL, hy=-0.05, hz=-0.03, lz=-0.18, rz=0.06, syaw=210))]))
     # スキル1 跳槍撃（詠唱のクリップ: 呼び出しの castLead 0.12 秒後が打撃 = 引っ掛けた瞬間。スキルプレビュー 51.53〜52.27 秒）:
     # 踏み込んで穂先を前へ水平に突き出して対象を引っ掛け（4）、胸の高さで水平に保ったまま持ち上げ（4〜16 = sim の持ち上げ 0.4 秒。
     # MLBB の 1546〜1558 コマ）、腰と背を反らして頭上を越えて背後へ振り抜く（16〜22 = sim の放り投げ 0.2 秒、1558〜1564 コマ）。
@@ -499,6 +532,14 @@ def make_pose(hr, sources, spec, frame, details_only=False):
                 v = u / c
                 target.z += -reach + 2 * reach * v
                 roll = 18 * h25.smooth((v - 0.78) / 0.22)
+            elif spec.get('heel'):
+                # MLBB の走り（訓練場 75〜92 コマ）: 蹴り出した足のかかとを尻の方へ高く上げ（後ろへ少し流れる）、膝を前へ送って
+                # 足を前へ伸ばし、少し引きながら着地する（着地の直前に足が後ろへ動くので、支持の始まりと速度がつながる）
+                v = (u - c) / (1 - c)
+                kick, heel, knee, over = spec['kick'], spec['heel'], spec['knee'], spec['over']
+                target.z += catmull(v, [(0, reach), (0.22, reach + kick), (0.5, 0.0), (0.8, -reach - over), (1.0, -reach)])
+                target.y += max(0.0, catmull(v, [(0, 0.0), (0.28, heel), (0.52, knee), (0.8, 0.09), (1.0, 0.0)]))
+                roll = 24 * (1 - h25.smooth(v / 0.4)) - 10 * math.sin(math.pi * v)
             else:
                 v = (u - c) / (1 - c)
                 tangent = 2 * reach * (1 - c) / c
@@ -535,7 +576,7 @@ def make_pose(hr, sources, spec, frame, details_only=False):
     free = V((ch['lfx'], ch['lfy'], ch['lfz']))
     if move:
         swing = math.sin(phase * math.tau)
-        free += V((0, 0.012 * abs(swing), 0.11 * swing if state == 'walk' else 0.16 * swing))
+        free += V((0, 0.012 * abs(swing), 0.11 * swing if state == 'walk' else spec.get('armSwing', 0.16) * swing))
         free.y += offset.y - spec['hipsDrop']
     w = ch['lgrip']
     left_target = free.lerp(shaft, w)

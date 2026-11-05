@@ -798,7 +798,7 @@ final class HeroMotionClipTests: XCTestCase {
 
     /// H027 ジャルドの専用クリップ（H027MotionClips.json）: 全部そろい、待機・歩行・走行は足が地面に着いたまま（腰のずれは
     /// 1 回だけ）、通常攻撃は MLBB の 2 種の交互で打撃は 10 フレーム目、三連突きは sim の 3 発（4 tick おき）に合う 34 フレーム、
-    /// 指の差分を持つ。走りは MLBB の小刻みな周期（0.4 秒）で、地面の速さはゲームの値（体の 1.06 倍）。
+    /// 指の差分を持つ。走りは MLBB の小刻みな周期（0.333 秒）で、地面の速さはゲームの値（体の 1.06 倍）。
     func testBundledJarldClipsKeepContactAndTiming() throws {
         HeroMotionClips.setResolverForTesting(nil)
         let lib = HeroMotionClips.library(heroID: "H027")
@@ -820,7 +820,7 @@ final class HeroMotionClipTests: XCTestCase {
         let flurry = lib.clips[try XCTUnwrap(lib.index(of: "h027_flurry"))]
         XCTAssertGreaterThan(flurry.endTime - flurry.impactTime, Float(8 * Balance.dt) + 0.2, "3 発目の後も戻りがある")
         let run = lib.clips[try XCTUnwrap(lib.index(of: "h027_run"))]
-        XCTAssertEqual(run.endTime, 0.4, accuracy: 0.01, "MLBB の 10〜12 コマ周期")
+        XCTAssertEqual(run.endTime, 10.0 / 30, accuracy: 0.01, "MLBB の走りの 1 周 = 9.5〜10 コマ")
         XCTAssertEqual(try XCTUnwrap(run.groundSpeed), 2.65 * 1.06, accuracy: 0.01, "足の運び = ゲームの速さ（体の 1.06 倍）")
         let url = try XCTUnwrap(HeroAssetLibrary.bundledURL("Hero_H027"))
         let rig = try XCTUnwrap(HeroAssetLibrary.heroTemplate(url)?.rig)

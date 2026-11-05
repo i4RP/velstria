@@ -49,7 +49,7 @@ struct HeroMotionSet {
     /// nil = 向きは手続きの武器角を胴に対して保ち、位置だけ手に付ける（杖・槍・銃・弓・盾・灯籠。手首の向きで寝かせない）。
     var weaponGrip: simd_quatf? = HeroMotionSet.fistGrip
     var offhandGrip: simd_quatf? = nil
-    /// 武器・副手を前腕に沿う縦の刃として持つ（H032 の刃の輪。grip は使わない。取得素材の手首・前腕のねじれで輪が傾かない）。
+    /// 武器・副手を手首を囲む輪として前腕から向きを決める（H032 の刃の輪。grip は使わない。取得素材の手首・前腕のねじれで輪が傾かない）。
     var gripOnForeArm = false
     /// 状態のクリップ（待機・勝利など。腕を下ろした立ち姿）を重ねている間の武器角（grip が nil の武器だけ。手続きの武器角 θ と同じ:
     /// 胴座標の絶対角、0 = 真上、-π/2 = 前）。nil = 手続きの構え（rest）の角のまま。
@@ -293,8 +293,8 @@ enum HeroMotionSets {
     /// クリップが無ければ Motion_H032.empoweredAttack）・スキル（S1 の両腕の振り下ろし・S2 の突進 / 致命の一撃・
     /// 奥義 = 輪を頭の横へ掲げて溜め → 引き絞って突き出す）。
     private static let dyrroth: HeroMotionSet = {
-        // 刃の輪は前腕に沿う縦の刃（SkinnedHeroModel.forearmBlade）。正面・俯瞰からは縁だけが見え、顎の前の構えでも
-        // 顔・頭を覆わない
+        // 刃の輪は手首を囲む輪（SkinnedHeroModel.forearmBlade。面は前腕に直交、中心は腕の外側）。腕を下ろした構え・走りで
+        // 体の横に水平に見える（MLBB のディロス）
         var s = make(["slash_l_h032", "slash_r_h032"], idle: "idle_h032", death: "death_forward",
                      offhandGrip: HeroMotionSet.fistGrip)
         s.empowered = "slash_circle_h032"

@@ -1,0 +1,68 @@
+name: H027 Motion Preview
+
+# H027 ジャルドのモーションをシミュレータの実際の RealityKit のプレイヤーで撮り（ギャラリー + 練習場の見下ろしのカメラ）、
+# モーションの契約のテストを回す（docs/H027_QUALITY.md）。h027prev-* のタグ（または手動）で動く。タグはブランチの push ではないので
+# TestFlight のワークフローは動かない。実機の FPS の計測ではない。
+on:
+  push:
+    tags: ["h027prev-*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: h027-preview-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: VELSTRIA
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare Xcode and simulator build
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)"
+          xcodebuild -version
+          brew install xcodegen
+          xcodegen generate --quiet
+          mkdir -p build/h027-preview
+          xcodebuild build-for-testing \
+            -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -derivedDataPath build/H027Derived \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee build/h027-preview/build.log | grep -E "error:|BUILD|TEST BUILD" | head -60
+
+      - name: Record H027 idle, locomotion, attacks and skills
+        run: bash tools/capture_h027_motion.sh
+
+      - name: Motion and grip contract tests
+        if: always()
+        run: |
+          xcodebuild test-without-building \
+            -project VELSTRIA.xcodeproj -scheme VELSTRIA -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -derivedDataPath build/H027Derived \
+            -resultBundlePath build/h027-preview/MotionTests.xcresult \
+            -only-testing:VELSTRIATests/HeroMotionClipTests \
+            -only-testing:VELSTRIATests/HeroGripTests \
+            -only-testing:VELSTRIATests/SkinnedHeroModelTests \
+            -only-testing:VELSTRIATests/HeroWeaponTrailTests \
+            -only-testing:VELSTRIATests/EmpoweredAttackFXTests \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build/h027-preview/tests.log | grep -E "error:|failed|passed|Executed|TEST (SUCCEEDED|FAILED)" | tail -80
+
+      - name: Save gameplay footage and test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: h027-gameplay-${{ github.sha }}
+          path: VELSTRIA/build/h027-preview/
+          if-no-files-found: warn
+          retention-days: 30
