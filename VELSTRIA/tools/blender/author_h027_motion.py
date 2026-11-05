@@ -28,7 +28,9 @@ import preview_clip as preview
 
 V = Vector
 FPS = 30
-HERO = 'App/Resources/Heroes/Hero_H027.usdz'
+# Blender 4.5 は揺れ物の骨（finish_h027_cape.py）を足した USD の取り込みで落ちるので、骨を足す前の元（finish が書き出す）を使う。
+# クリップが動かす骨は同じ（マントの骨は実行時の HeroSecondaryMotion だけが動かす）
+HERO = 'build/h027-motion/Hero_H027_base.usdz' if Path('build/h027-motion/Hero_H027_base.usdz').exists()     else 'App/Resources/Heroes/Hero_H027.usdz'
 OUT = Path('build/h027-motion')
 DETAILS = h25.DETAILS
 # Dragon spear (HeroGear .dragonSpear): grip at the origin, +Y to the tip, entity scale 1.08 (weaponScale) x 0.7 (SkinnedHeroModel

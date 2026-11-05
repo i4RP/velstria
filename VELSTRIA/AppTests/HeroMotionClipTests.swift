@@ -847,6 +847,15 @@ final class HeroMotionClipTests: XCTestCase {
         }
     }
 
+    /// H027 のマントに揺れ物の骨（capel1〜3・caper1〜3、tools/blender/finish_h027_cape.py）があり、実行時の揺れが動かす。
+    func testBundledJarldCapeHasSecondaryChains() throws {
+        guard let url = HeroAssetLibrary.bundledURL("Hero_H027") else { throw XCTSkip("Hero_H027 が同梱されていない") }
+        let model = HeroModelLibrary.makeHero(heroID: "H027", skinID: nil, team: .blue, master: MasterData.shared,
+                                              options: HeroModelOptions.showcase.with(mesh: .skinned(url)))
+        let m = try XCTUnwrap(model as? SkinnedHeroModel)
+        XCTAssertTrue(m.hasSecondary, "マントの揺れ物の骨（capel1〜caper3）が見つからない")
+    }
+
     /// 強い通常攻撃は専用クリップで振り（打撃 = windup 秒後、打撃の後は等速）、竜牙突きの命中で到着の突きへつなぐ。
     /// 状態を 65 秒巡回しても有限で、移動中の通常攻撃は下半身を移動に譲る。
     func testJarldEmpoweredCastHitAndLongCycle() throws {
