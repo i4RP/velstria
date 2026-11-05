@@ -979,7 +979,8 @@ final class HeroMotionClipTests: XCTestCase {
         let leg = max(0.1, rig.restPosition[hips].y - feet.map { rig.restPosition[$0].y }.reduce(0, +) / 2)
         let restLowest = try XCTUnwrap(contacts.map { rig.restPosition[$0].y }.min())
         var poser = HeroSkeletonPoser(rig: rig)
-        for name in ["idle_h032", "walk_h032", "run_h032", "slash_l_h032", "slash_r_h032", "slash_circle_h032", "punch_ult_h032"] {
+        for name in ["idle_h032", "walk_h032", "run_h032", "slash_l_h032", "slash_r_h032", "slash_circle_h032", "slam_s1_h032",
+                     "strike_ult_h032"] {
             let c = try XCTUnwrap(lib.index(of: name), name)
             let clip = lib.clips[c]
             var lowest = Float.infinity
@@ -990,9 +991,9 @@ final class HeroMotionClipTests: XCTestCase {
             }
             XCTAssertEqual(lowest, restLowest, accuracy: 0.06, "\(name): 足が地面から浮く・沈む")
         }
-        let s1 = lib.clips[try XCTUnwrap(lib.index(of: "punch_s1_h032"))]
+        let s1 = lib.clips[try XCTUnwrap(lib.index(of: "slam_s1_h032"))]
         XCTAssertEqual(s1.impactTime, 0.26, accuracy: 0.01)
-        XCTAssertEqual(lib.clips[try XCTUnwrap(lib.index(of: "punch_ult_h032"))].impactTime, 0.76, accuracy: 0.01)
+        XCTAssertEqual(lib.clips[try XCTUnwrap(lib.index(of: "strike_ult_h032"))].impactTime, 0.76, accuracy: 0.01)
 
         let set = try XCTUnwrap(HeroMotionSets.set(heroID: "H032"))
         let binding = try XCTUnwrap(HeroMotionBinding(set: set, library: lib))

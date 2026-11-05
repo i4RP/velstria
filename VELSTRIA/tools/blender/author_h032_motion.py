@@ -320,6 +320,38 @@ CIRCLE = [  # 円撃: 交差して溜め → 両腕を外へ開いて薙ぐ
 ]
 ATTACKS = {'slash_l_h032': (SLASH_L, 24), 'slash_r_h032': (SLASH_R, 24), 'slash_circle_h032': (CIRCLE, 26)}
 
+# 段 3: スキル（発動の瞬間から再生 = castsFromStart。impact は KitTimes の判定の時刻）。
+# S1（vid6 コマ 359〜395、強化。指を離したのが 359）: 両腕を大きく広げて振り上げ（2〜3 コマ）→ 前へ両腕を振り下ろす（4 コマ）→
+# 1 つ目の衝撃（8 コマ = 0.27 秒。sim の burstFirstDelay 0.26）→ 低くかがんで腕を前に出したまま衝撃が前へ走る（強化の 5 つ目まで約 1 秒）→ 起き上がる。
+# 初版の右・左・右の 3 連打ではない。
+SLAM_S1 = [
+    (0, {}),
+    (3, dict(lean=math.radians(-8), lift=.02, R=((-.1, .75, .65), (-.2, .45, .87)), L=((-.1, .75, .65), (-.2, .45, .87)),
+             ease='out')),
+    (6, dict(lean=math.radians(18), drop=.05, R=((.75, .45, .3), (.9, .1, .1)), L=((.75, .45, .3), (.9, .1, .1)), ease='in')),
+    (8, dict(lean=math.radians(32), drop=.13, fwd=.1, R=((.8, .2, -.55), (.6, 0, -.8)), L=((.8, .2, -.55), (.6, 0, -.8)),
+             ease='linear')),
+    (22, dict(lean=math.radians(30), drop=.12, fwd=.1, R=((.82, .25, -.5), (.65, .05, -.75)),
+              L=((.82, .25, -.5), (.65, .05, -.75)), ease='out')),
+    (39, {}),
+]
+# 奥義（vid6 コマ 696〜726。指を離したのが 696、命中 719 = 0.77 秒）: 紫の帯が体を巻く間、両腕を頭の横まで上げて輪を掲げる（0.1〜0.45 秒）→
+# 少し沈んで右腕を後ろへ引き絞り、体を反らす（0.45〜0.7 秒）→ 0.76 秒に右腕を前へ突き出して前へ倒れ込む（赤い刃が前へ飛ぶ）→ 低く振り抜いたまま →
+# 構え。足は動かさない（sim も溜めの間・撃った後は動かない）。
+STRIKE_ULT = [
+    (0, {}),
+    (5, dict(lean=math.radians(-6), R=((.05, .75, .66), (.15, .1, .99)), L=((.05, .75, .66), (.15, .1, .99)), ease='out')),
+    (13, dict(lean=math.radians(-4), drop=.03, R=((.1, .78, .62), (.2, .05, .98)), L=((.1, .78, .62), (.2, .05, .98)))),
+    (20, dict(twist=-.55, lean=math.radians(-10), drop=.08, R=((-.55, .55, -.2), (-.7, .2, .2)), L=((.55, .3, .2), (.9, -.2, .3)),
+              ease='smooth')),
+    (23, dict(twist=.3, lean=math.radians(24), drop=.1, fwd=.15, R=((.95, .05, .05), (.98, -.1, .05)),
+              L=((-.3, .6, -.6), (.1, .5, -.85)), ease='in')),
+    (30, dict(twist=.35, lean=math.radians(26), drop=.1, fwd=.15, R=((.9, .05, -.1), (.95, -.12, -.05)),
+              L=((-.3, .6, -.6), (.1, .5, -.85)), ease='out')),
+    (54, {}),
+]
+CASTS = {'slam_s1_h032': (SLAM_S1, 40, .26*FPS), 'strike_ult_h032': (STRIKE_ULT, 55, .76*FPS)}
+
 
 # ---------------------------------------------------------------- 書き出し
 
@@ -348,7 +380,7 @@ def author(rig, clips):
             n, r = emit(rig, c, name, c['frames'], lambda f, c=c: loco_pose(rig, c, f, WALK))
         elif name == 'idle_h032':
             n, r = emit(rig, c, name, c['frames'], lambda f, c=c: idle_pose(rig, c, f))
-        elif name in ('punch_jab_l_h032', 'punch_cross_r_h032'):
+        elif name in ('punch_jab_l_h032', 'punch_cross_r_h032', 'punch_s1_h032', 'punch_ult_h032'):
             continue
         else:
             n, r = dict(c), dict(frames=c['frames'], copied=True)
@@ -360,6 +392,11 @@ def author(rig, clips):
     for name, (keys, frames) in ATTACKS.items():
         n, r = emit(rig, tmpl, name, frames, keyed(rig, base, keys, frames))
         n.update(name=name, source='h032+mlbb-keyed', events={'impact': 8.0}, melee=True)
+        out.append(n)
+        report[name] = r
+    for name, (keys, frames, impact) in CASTS.items():
+        n, r = emit(rig, tmpl, name, frames, keyed(rig, base, keys, frames))
+        n.update(name=name, source='h032+mlbb-keyed', events={'impact': round(impact, 3)}, melee=True)
         out.append(n)
         report[name] = r
     return out, report
