@@ -33,8 +33,13 @@ OUT = Path('build/h027-motion')
 DETAILS = h25.DETAILS
 # Dragon spear (HeroGear .dragonSpear): grip at the origin, +Y to the tip, entity scale 1.08 (weaponScale).
 SPEAR_SCALE = 1.08
-SPEAR_BUTT = -0.84 * SPEAR_SCALE
-SPEAR_TIP = 2.04 * SPEAR_SCALE
+# MLBB holds the spear near the middle (training idle: hand to blade ~ hand to butt). The prop origin is 29 % from the butt, so the
+# fist grips GRIP_SHIFT m further toward the tip (HeroMotionSets "H027" weaponOffset = (0, -GRIP_SHIFT, 0)).
+GRIP_SHIFT = 0.30
+SPEAR_BUTT = -0.84 * SPEAR_SCALE - GRIP_SHIFT
+SPEAR_TIP = 2.04 * SPEAR_SCALE - GRIP_SHIFT
+# HeroBlueprints H027 scale: the clip's feet travel x 1.06 in the game, so groundSpeed is exported in game metres.
+BP_SCALE = 1.06
 SHAFT_R = 0.03 * SPEAR_SCALE
 # Weapon orientation while clips play = q.handR * GRIP (HeroMotionSets "H027" weaponGrip). +Y (shaft) leaves the
 # fist on the thumb side (canonical -Z); the roll puts the blade face up in the guard (solved in main, see report).
@@ -106,22 +111,32 @@ def track_value(keys, t, loop, period):
     return h00 * v0 + h10 * h * m0 + h01 * v1 + h11 * h * m1
 
 
-# MARK: - Poses
+# MARK: - Poses (MLBB 子龍の画面収録に合わせる: docs/H027_QUALITY.md)
 
-# Guard (構え): left foot forward, torso turned right, right fist in front of the right hip, left fist 0.24 m up the shaft,
-# tip aimed at chest height of a target 1.8 m ahead. Arms are short on this model (shoulder→fist 0.41 m), so the
-# body (hips/torso turn, lunge) carries most of the spear travel.
+# 構え（三連突き・詠唱の基準）: left foot forward, torso turned right, right fist in front of the right hip, left fist 0.22 m up
+# the shaft, tip aimed at chest height of a target ahead. Arms are short on this model (shoulder→fist 0.41 m), so the body
+# (hips/torso turn, lunge) carries most of the spear travel.
 GUARD = dict(hy=-0.055, hx=0.0, hz=0.0, hyaw=-30, hpitch=2, hroll=0, tyaw=-46, tpitch=4, troll=0,
              dyaw=-4, dpitch=2, droll=0,
              lx=-0.11, lz=-0.17, lyaw=6, llift=0, lroll=0, rx=0.135, rz=0.15, ryaw=-30, rlift=0, rroll=0,
              ox=0.165, oy=1.0, oz=-0.03, syaw=9, spitch=8, lgrip=1, ld=0.22, lfx=-0.2, lfy=0.98, lfz=-0.05,
              rcurl=1, lcurl=1, lflex=0, rpx=0.9, rpy=-0.4, rpz=0.5, lpx=-0.9, lpy=-0.5, lpz=0.3, shR=0, shL=0)
-# Standing (待機): chest out, front/back feet, spear in the right hand leaning forward with the butt beside the right
-# heel (blade high and forward reads from the top camera), free left hand relaxed at the hip.
-STAND = dict(GUARD, hy=-0.02, hyaw=-10, hpitch=0, tyaw=-12, tpitch=-4, dyaw=6, dpitch=-2,
-             lx=-0.115, lz=-0.09, lyaw=4, rx=0.125, rz=0.10, ryaw=-24,
-             ox=0.225, oy=0.98, oz=-0.035, syaw=10, spitch=58, lgrip=0, lfx=-0.215, lfy=0.985, lfz=-0.035,
-             lcurl=0.55, rpx=1, rpy=-0.2, rpz=0.35, lpx=-1, lpy=-0.2, lpz=0.25)
+# 待機（MLBB の訓練場 0.3〜2.0 秒・スキルプレビュー 41.5〜43.7 秒）: 足を左右へ広く開いて正面を向き、槍は右手で右腰に持ち、
+# 穂先を右前の足元へ下ろす（石突は左肩の後ろへ上がる）。空いた左手は拳にして左腰の横。
+STAND = dict(GUARD, hy=-0.07, hyaw=-10, hpitch=0, tyaw=-6, tpitch=-3, dyaw=2, dpitch=-2,
+             lx=-0.22, lz=-0.05, lyaw=14, rx=0.23, rz=0.05, ryaw=-18,
+             ox=0.22, oy=0.975, oz=0.02, syaw=-42, spitch=-24, lgrip=0, lfx=-0.25, lfy=1.0, lfz=-0.03,
+             lcurl=0.9, rpx=1, rpy=-0.3, rpz=0.2, lpx=-1, lpy=-0.2, lpz=0.2)
+# 槍を引きずる持ち方（走り・払いの前・振り下ろしの後。スキルプレビュー 31.1〜31.7 秒・44.7〜45.3 秒・51.0〜51.4 秒）: 右手を右腰に
+# 置いたまま穂先を右後ろの足元へ寝かせ（右から 50° 後ろ）、石突は左前の肩の高さへ。左の拳は胸の前へ出す。上体は少し前へ傾ける。
+TRAIL = dict(STAND, hy=-0.035, hyaw=-4, hpitch=5, tyaw=-8, tpitch=11, dyaw=6, dpitch=-10,
+             lx=-0.10, lz=0.0, lyaw=4, rx=0.12, rz=0.0, ryaw=-6,
+             ox=0.24, oy=0.99, oz=0.10, syaw=-140, spitch=-26, lgrip=0, lfx=-0.2, lfy=1.1, lfz=-0.18,
+             lcurl=1, rpx=1, rpy=-0.3, rpz=-0.2, lpx=-1, lpy=-0.4, lpz=0.3)
+# 払いの決め（スキルプレビュー 24.33〜24.80 秒）: 相手へ向いたまま、穂先を左後ろへ水平に残す（柄は背の後ろ、右手は右腰）。
+REAR = dict(TRAIL, hy=-0.06, hz=-0.04, hyaw=-4, hpitch=2, tyaw=6, tpitch=6, dyaw=-2, dpitch=-3,
+            lx=-0.12, lz=-0.24, lyaw=8, rx=0.14, rz=0.10, ryaw=-24,
+            ox=0.225, oy=1.0, oz=0.03, syaw=150, spitch=-8, lfx=-0.2, lfy=1.13, lfz=-0.2, rpx=1, rpy=-0.4, rpz=0.1)
 
 
 def keys_of(spec, name, base):
@@ -141,31 +156,29 @@ def keys_of(spec, name, base):
 # Clip specs: frames, loop, base pose, keyframes {frame: {channel: value}}, events, prime source + time warp.
 def clip_specs():
     S = []
-    # 待機 6 秒: 呼吸 2 回、前後の小さな重心移動、左 → 右へ見渡す、空いた左手の握り直し。槍の手と穂先は動かさない。
+    # 待機 6 秒: 構えを崩さず呼吸 2 回、小さな重心移動、右 → 左へ見渡す、空いた左の拳を握り直す。穂先は足元のまま動かさない。
     S.append(dict(name='h027_idle', state='idle', frames=180, loop=True, base=STAND, rootXZ=1,
-                  prime=('meshy_h027_idle', [(0, 10), (180, 110)], 0.35),
-                  keys=[(0, dict(hz=0.0, dyaw=6, dpitch=-2, tyaw=-12, lflex=0)),
-                        (30, dict(hz=-0.012, tyaw=-11)),
-                        (55, dict(dyaw=26, dpitch=-1, tyaw=-6)),
-                        (75, dict(dyaw=24, lflex=0)),
+                  prime=('meshy_h027_idle', [(0, 10), (180, 110)], 0.3),
+                  keys=[(0, dict(hz=0.0, dyaw=2, dpitch=-2, tyaw=-6, lflex=0)),
+                        (30, dict(hz=-0.010, tyaw=-5)),
+                        (55, dict(dyaw=20, dpitch=-1, tyaw=-2)),
+                        (75, dict(dyaw=18, lflex=0)),
                         (84, dict(lflex=1)),
+                        (90, dict(hz=0.008, tyaw=-7)),
                         (96, dict(lflex=0.15)),
-                        (90, dict(hz=0.010, tyaw=-12)),
-                        (118, dict(dyaw=-14, dpitch=-3, tyaw=-17)),
+                        (118, dict(dyaw=-14, dpitch=-3, tyaw=-11)),
                         (140, dict(dyaw=-12)),
-                        (150, dict(hz=-0.006)),
-                        (165, dict(dyaw=4, tyaw=-12, lflex=0))]))
-    # 歩行 1.0 秒 = 2 歩（地面の速さ 1.15 m/s）。上体を起こし、槍は右手で前上へ立てたまま、左腕を軽く振る。
-    S.append(dict(name='h027_walk', state='walk', frames=30, loop=True, base=dict(STAND, tyaw=-8, hyaw=-4, dyaw=4,
-                  lz=0, rz=0, lyaw=2, ryaw=-8, ox=0.215, oz=-0.06, spitch=56, syaw=8),
-                  rootXZ=0, groundSpeed=1.15, contact=0.6, hipsDrop=-0.07, bounce=0.018, lift=0.07,
-                  prime=('meshy_h027_walk', None, 0.3)))
-    # 走行 0.733 秒 = 2 歩（3.0 m/s）。前傾し、槍は右腰に沿わせて穂先を前へ低く寝かせる（石突は外へ逃がす）。
-    S.append(dict(name='h027_run', state='run', frames=22, loop=True, base=dict(STAND, tyaw=-10, tpitch=16, hpitch=8,
-                  hyaw=-4, dyaw=8, dpitch=-14, lz=0, rz=0, lyaw=0, ryaw=-6, ox=0.27, oy=0.87, oz=0.0, syaw=3, spitch=-4,
-                  lcurl=0.9, rpx=1, rpy=0.1, rpz=0.6),
-                  rootXZ=0, groundSpeed=3.0, contact=0.36, hipsDrop=-0.13, bounce=0.03, lift=0.13,
-                  prime=('meshy_h027_run', None, 0.3)))
+                        (150, dict(hz=-0.005)),
+                        (165, dict(dyaw=2, tyaw=-6, lflex=0))]))
+    # 歩行 0.667 秒 = 2 歩（地面の速さ 1.3 m/s。減速された時だけ）。走りと同じ持ち方で、上体を起こして小さく運ぶ。
+    S.append(dict(name='h027_walk', state='walk', frames=20, loop=True, base=dict(TRAIL, tpitch=4, hpitch=1, dpitch=-4),
+                  rootXZ=0, groundSpeed=1.3, contact=0.56, hipsDrop=-0.05, bounce=0.014, lift=0.07,
+                  prime=('meshy_h027_walk', None, 0.25)))
+    # 走行 0.4 秒 = 2 歩（MLBB の 10〜12 コマ周期。地面の速さ 2.65 m/s = 子龍の 265）。槍を後ろへ引きずり、左の拳を前へ出して
+    # 小刻みに速く脚を回す（腰の上下は小さく、上体は少し前傾）。
+    S.append(dict(name='h027_run', state='run', frames=12, loop=True, base=TRAIL,
+                  rootXZ=0, groundSpeed=2.65, contact=0.4, hipsDrop=-0.085, bounce=0.026, lift=0.11,
+                  prime=('meshy_h027_run', None, 0.2)))
     # 通常攻撃 1: 突き。槍を引いて重心を後ろへ（柄は左手の中を滑る）→ 左足を踏み込み、腰 → 胸 → 肩の順に回して右手で
     # 送り出す（打撃 10）。体は半身のまま、石突は右腰の外へ逃がす → 引き戻し、足を戻して構え。
     S.append(dict(name='h027_thrust', state='attack', frames=28, loop=False, base=GUARD, rootXZ=1,
@@ -290,12 +303,12 @@ def clip_specs():
     S.append(dict(name='h027_warrior', state='cast', frames=24, loop=False, base=GUARD, rootXZ=1,
                   events=dict(impact=4), melee=False, prime=('meshy_h027_warrior', [(0, 12), (4, 24), (23, 48)], 0.2),
                   keys=[(0, {}),
-                        (2, dict(hy=-0.09, tpitch=8, ox=0.22, oy=0.98, oz=-0.02, syaw=30, spitch=40, lgrip=0.3)),
-                        (4, dict(hy=-0.06, tpitch=-6, hyaw=-16, tyaw=-20, ox=0.27, oy=1.0, oz=-0.02, syaw=60, spitch=84, lgrip=0,
+                        (2, dict(hy=-0.09, tpitch=8, ox=0.22, oy=1.08, oz=-0.04, syaw=30, spitch=40, lgrip=0.3)),
+                        (4, dict(hy=-0.06, tpitch=-6, hyaw=-16, tyaw=-20, ox=0.25, oy=1.22, oz=-0.06, syaw=60, spitch=78, lgrip=0,
                                  lfx=-0.05, lfy=1.13, lfz=-0.2, lflex=1, dpitch=-10, rz=0.17, lz=-0.21)),
-                        (10, dict(hy=-0.055, tpitch=-7, ox=0.27, oy=1.0, oz=-0.02, syaw=60, spitch=84, lgrip=0, lfx=-0.05, lfy=1.14, lfz=-0.21,
+                        (10, dict(hy=-0.055, tpitch=-7, ox=0.25, oy=1.22, oz=-0.06, syaw=60, spitch=78, lgrip=0, lfx=-0.05, lfy=1.14, lfz=-0.21,
                                   lflex=1, dpitch=-8)),
-                        (15, dict(ox=0.22, oy=1.0, oz=-0.03, syaw=30, spitch=50, lgrip=0.6, lflex=0.5, dpitch=-2)),
+                        (15, dict(ox=0.22, oy=1.1, oz=-0.04, syaw=30, spitch=50, lgrip=0.6, lflex=0.5, dpitch=-2)),
                         (23, {})]))
     return S
 
@@ -602,6 +615,11 @@ def spear_points(rig, hr, qs, P, grip):
     return O, O + ax * SPEAR_BUTT, O + ax * SPEAR_TIP, q
 
 
+def spear_origin(O, q):
+    """Prop origin (weapon space 0) for the grip point O: the runtime's weaponOffset (0, -GRIP_SHIFT, 0)."""
+    return O + q @ V((0, -GRIP_SHIFT, 0))
+
+
 def clearance(rig, hr, qs, offset, details, grip):
     _, P = h25.solve(rig, qs, offset, details)
     O, butt, tip, q = spear_points(rig, hr, qs, P, grip)
@@ -666,7 +684,7 @@ def author(hr, sources, only=None):
         if spec.get('melee'):
             c['melee'] = True
         if spec.get('groundSpeed'):
-            c['groundSpeed'] = spec['groundSpeed']
+            c['groundSpeed'] = round(spec['groundSpeed'] * BP_SCALE, 4)
         prev, pd = [None] * 15, [None] * len(c['detailJoints'])
         errs, worst = [], {}
         faces = []

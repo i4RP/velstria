@@ -75,7 +75,8 @@ def apply(hr, clip, frame, spear, grip):
     dR, P = h25.solve(rig, qs, offset, p25.details_at(clip, frame))
     rig.apply_pose(dR, P)
     O, butt, tip, q = author.spear_points(rig, hr, qs, P, grip)
-    spear.matrix_world = preview.hero_to_world(rig, Matrix.LocRotScale(O, q, V((1, 1, 1))))
+    # the fist holds the shaft GRIP_SHIFT toward the tip (runtime weaponOffset): the prop origin sits behind the grip
+    spear.matrix_world = preview.hero_to_world(rig, Matrix.LocRotScale(author.spear_origin(O, q), q, V((1, 1, 1))))
     bpy.context.view_layer.update()
     return O, tip
 

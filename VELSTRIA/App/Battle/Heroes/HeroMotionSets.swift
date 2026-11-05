@@ -186,6 +186,9 @@ enum HeroMotionSets {
         var s = make(["h027_thrust", "h027_sweep", "h027_rising"], idle: "h027_idle", death: "death_forward",
                      weaponGrip: rx(-.pi / 2) * ry(-0.1658))
         s.dedicatedIdle = true
+        // MLBB の子龍は槍の中ほどを握る（訓練場の待機: 手から穂先と石突がほぼ同じ長さ）。Prop の原点は石突から 29% なので、
+        // 拳を穂先の側へ 0.3 m ずらして握る（tools/blender/author_h027_motion.py の GRIP_SHIFT と同じ値、docs/H027_QUALITY.md）
+        s.weaponOffset = V3(0, -0.30, 0)
         s.walk = "h027_walk"
         s.run = "h027_run"
         s.empowered = "h027_flurry"
