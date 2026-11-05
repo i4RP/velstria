@@ -27,7 +27,8 @@ FPS = 30
 SCALE = 1.32  # HeroBlueprints の H029（motion.scale）。groundSpeed はゲームの m/s
 # Blender 4.5 は揺れ物の骨（finish_h029_cape.py）を足した USD の取り込みで落ちるので、骨を足す前の元（finish が書き出す）を使う。
 # クリップが動かす骨は同じ（揺れ物の骨は実行時の HeroSecondaryMotion だけが動かす）
-HERO = 'build/h029-motion/Hero_H029_base.usdz' if Path('build/h029-motion/Hero_H029_base.usdz').exists() \n    else 'App/Resources/Heroes/Hero_H029.usdz'
+_BASE = 'build/h029-motion/Hero_H029_base.usdz'
+HERO = _BASE if Path(_BASE).exists() else 'App/Resources/Heroes/Hero_H029.usdz'
 FINGERS = ('thumb', 'index', 'middle', 'ring', 'pinky')
 DETAILS = ['leftshoulder', 'rightshoulder', 'lefttoebase', 'righttoebase']
 DETAILS += [s + 'hand' + f + str(n) for s in ('left', 'right') for f in FINGERS for n in (1, 2, 3)]
@@ -741,7 +742,7 @@ def skill_charge(rest, prime, t):
     p.pole_l = dirs([(0, CARRY['pole_l']), (0.07, V((-1.0, -0.6, 0.3))), (0.85, V((-1.0, -0.6, 0.3))), (1.0, CARRY['pole_l'])], t)
     p.shrug['left'] = (val([(0, 0), (0.06, 8), (arrive, 8), (0.71, 12), (1.0, 0)], t), val([(0, 0), (0.06, 14), (0.71, 18), (1.0, 0)], t))
     # 脚: 走り（短い接地の重い踏み込み）→ 終点で左足を前に踏ん張る
-    reach = 0.16
+    reach = 0.27   # MLBB の突進は大股（b 24.87・25.30 秒で両足が大きく開く）
     for side, ph0 in (('right', 0.0), ('left', 0.5)):
         stance = rest.foot(side)
         ph = (cyc + ph0) % 1
@@ -752,7 +753,7 @@ def skill_charge(rest, prime, t):
         else:
             v = (ph - 0.45) / 0.55
             z = reach - 2 * reach * smooth(v)
-            y = 0.13 * math.sin(math.pi * v)
+            y = 0.17 * math.sin(math.pi * v)
         moving = V(((-0.20 if side == 'left' else 0.20), stance.y + y, z))
         stop = rest.foot(side, dz=(-0.22 if side == 'left' else 0.12))
         k = smooth((t - arrive + 0.04) / 0.08)
@@ -795,12 +796,12 @@ def skill_sanctuary(rest, prime, t):
     p, yaw = skill_base(rest, t,
                         [(0, 0), (2.0, 0)],
                         [(0, 0), (0.22, 4, 'o2'), (0.86, 4), (s, -4, 'i'), (1.75, -4), (2.0, 0, 'io')],
-                        [(0, 0), (0.08, 6, 'o2'), (0.22, -8, 'io'), (0.86, -10), (0.93, -14, 'io'), (s, 34, 'i'), (1.1, 36, 'o'), (1.75, 32),
+                        [(0, 0), (0.08, 6, 'o2'), (0.22, -8, 'io'), (0.86, -10), (0.93, -14, 'io'), (s, 40, 'i'), (1.1, 42, 'o'), (1.75, 38),
                          (2.0, 0, 'io')],
-                        [(0, 0), (0.08, 0.05, 'o2'), (0.22, 0.0, 'io'), (0.86, 0.0), (0.93, -0.02), (s, 0.16, 'i'), (1.75, 0.14), (2.0, 0, 'io')],
-                        [(0, (0, 0)), (0.9, (0, 0)), (0.95, (-0.12, 0.08), 'o2'), (s, (-0.30, 0.0), 'i2'), (1.75, (-0.30, 0.0)),
+                        [(0, 0), (0.08, 0.05, 'o2'), (0.22, 0.0, 'io'), (0.86, 0.0), (0.93, -0.02), (s, 0.20, 'i'), (1.75, 0.18), (2.0, 0, 'io')],
+                        [(0, (0, 0)), (0.9, (0, 0)), (0.95, (-0.14, 0.09), 'o2'), (s, (-0.42, 0.0), 'i2'), (1.75, (-0.42, 0.0)),
                          (1.9, (-0.10, 0.05), 'io'), (2.0, (0, 0), 'o')],
-                        back=[(0, 0), (0.95, 0), (s, 0.12, 'i2'), (1.75, 0.12), (2.0, 0, 'io')],
+                        back=[(0, 0), (0.95, 0), (s, 0.16, 'i2'), (1.75, 0.16), (2.0, 0, 'io')],
                         forward=[(0, 0), (0.93, -0.02), (s, 0.12, 'i'), (1.75, 0.12), (2.0, 0, 'io')])
     hold = 0.010 * math.sin(max(0.0, t - 0.25) * 24) * (1 if 0.25 < t < 0.86 else 0)  # 掲げている間の震え
     p.hand_l = arc([(0, CARRY['hand_l']), (0.10, V((-0.02, 0.05, -0.20)), 'o2'), (0.22, V((0.08, 0.50, -0.06)), 'io'),
