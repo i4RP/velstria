@@ -311,7 +311,8 @@ enum HeroMotionSets {
         return simd_quatf(simd_float3x3(columns: (SIMD3<Float>(0, -s, -c), SIMD3<Float>(0, c, -s), SIMD3<Float>(1, 0, 0))))
     }()
     private static let borg: HeroMotionSet = {
-        var s = make(["maul_smash_h029"], idle: "idle_h029", offhandGrip: borgShieldGrip)
+        // 通常攻撃は MLBB の 3 種の繰り返し（横振り → 返し → 叩きつけ。docs/H029_QUALITY.md 段 2）
+        var s = make(["maul_sweep_h029", "maul_backhand_h029", "maul_smash_h029"], idle: "idle_h029", offhandGrip: borgShieldGrip)
         s.dedicatedIdle = true
         s.dedicatedAttack = true
         s.stateBlend = 0.2

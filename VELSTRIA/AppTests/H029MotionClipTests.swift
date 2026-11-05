@@ -27,13 +27,14 @@ final class H029MotionClipTests: XCTestCase {
         XCTAssertTrue(set.dedicatedAttack)
         XCTAssertNotNil(b.walk)
         XCTAssertNotNil(b.run)
-        XCTAssertEqual(b.attacks.count, 1)
+        XCTAssertEqual(b.attacks.count, 3, "MLBB の通常攻撃 3 種")
         XCTAssertEqual(b.casts.compactMap { $0 }.count, 3)
         XCTAssertEqual(b.cast(1, stage: 1), lib.index(of: "maul_upswing_h029"), "S2 の再使用（打ち上げ）のクリップ")
         XCTAssertEqual(b.cast(1, stage: 0), lib.index(of: "shield_charge_h029"))
         XCTAssertTrue(b.locksLegs(1), "突進中も脚はクリップ")
         XCTAssertFalse(b.locksLegs(0))
-        for name in ["idle_h029", "walk_h029", "run_h029", "maul_smash_h029", "maul_wave_h029", "shield_charge_h029",
+        for name in ["idle_h029", "walk_h029", "run_h029", "maul_sweep_h029", "maul_backhand_h029", "maul_smash_h029",
+                     "maul_wave_h029", "shield_charge_h029",
                      "maul_upswing_h029", "maul_sanctuary_h029"] {
             let c = try XCTUnwrap(lib.index(of: name), name)
             XCTAssertNotEqual(lib.clips[c].detailMask, 0, "\(name): 肩・指・つま先の補助関節")
@@ -43,22 +44,27 @@ final class H029MotionClipTests: XCTestCase {
         XCTAssertEqual(a.clips.clipName, "idle_h029", "出現直後から専用の待機")
     }
 
+    /// MLBB の 3 種（横振り → 返し → 叩きつけ）を順に繰り返し、どれも命中 = sim の windup、次の攻撃までに振り終える。
     func testAttackImpactLandsAtSimWindupAtBaseAndFastAttackSpeed() throws {
+        let order = ["maul_sweep_h029", "maul_backhand_h029", "maul_smash_h029"]
         for interval: Float in [0.97, 0.45] {
             var a = try animator()
             let windup = interval * Float(Balance.attackWindupRatio)
             a.setState(.attack)
-            a.playAttack(windup: windup, interval: interval)
-            XCTAssertEqual(a.clips.clipName, "maul_smash_h029")
-            var t: Float = 0, hit: Float?
-            while t < interval {
-                let before = a.clips.clipTime
-                _ = a.advance(dt: 1.0 / 120, moveSpeed: 0)
-                t += 1.0 / 120
-                if hit == nil, before < a.clips.impactTime, a.clips.clipTime >= a.clips.impactTime { hit = t }
+            for k in 0..<4 {
+                a.playAttack(windup: windup, interval: interval)
+                XCTAssertEqual(a.clips.clipName, order[k % 3], "\(k) 発目")
+                var t: Float = 0, hit: Float?
+                while t < interval - 1e-4 {
+                    let before = a.clips.clipTime
+                    _ = a.advance(dt: 1.0 / 120, moveSpeed: 0)
+                    t += 1.0 / 120
+                    if hit == nil, before < a.clips.impactTime, a.clips.clipTime >= a.clips.impactTime { hit = t }
+                }
+                XCTAssertEqual(try XCTUnwrap(hit, "\(interval) \(k)"), windup, accuracy: 1.0 / 60,
+                               "命中 = sim の windup（攻撃間隔 \(interval)、\(order[k % 3])）")
+                XCTAssertTrue(a.clips.clipTime <= a.clips.endTime + 1e-4)
             }
-            XCTAssertEqual(try XCTUnwrap(hit, "\(interval)"), windup, accuracy: 1.0 / 60, "命中 = sim の windup（攻撃間隔 \(interval)）")
-            XCTAssertTrue(a.clips.clipTime <= a.clips.endTime + 1e-4)
         }
     }
 
