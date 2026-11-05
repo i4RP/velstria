@@ -272,8 +272,8 @@ def clip_specs():
                         (30, dict(lz=-0.2, llift=0)),
                         (33, dict(TRAIL, hy=-0.05, hz=-0.03, lz=-0.18, rz=0.06, syaw=210))]))
     # スキル1 跳槍撃（詠唱のクリップ: 呼び出しの castLead 0.12 秒後が打撃 = 引っ掛けた瞬間。スキルプレビュー 51.53〜52.27 秒）:
-    # 踏み込んで穂先を前へ水平に突き出して対象を引っ掛け（4）、胸の高さで水平に保ったまま持ち上げ（4〜16 = sim の持ち上げ 0.4 秒。
-    # MLBB の 1546〜1558 コマ）、腰と背を反らして頭上を越えて背後へ振り抜く（16〜22 = sim の放り投げ 0.2 秒、1558〜1564 コマ）。
+    # 踏み込んで穂先を前へ水平に突き出して対象を引っ掛け（4）、相手へ半身になって両手で胸の高さに水平に保つ（4〜16 = sim の持ち上げ
+    # 0.4 秒。MLBB の 1550〜1558 コマ: 胸がカメラの側、槍は相手の方）、腰と背を反らして頭上を越えて背後へ振り抜く（16〜22 = sim の放り投げ 0.2 秒、1558〜1564 コマ）。
     # 穂先は後ろの足元へ流れて引きずる持ち方で止まる（MLBB はそのまま背後の相手へ払う）。
     S.append(dict(name='h027_flip', state='cast', frames=40, loop=False, base=GUARD, rootXZ=1,
                   events=dict(impact=4), melee=True, prime=('meshy_h027_flip', [(0, 15), (4, 21), (16, 33), (22, 47), (39, 72)], 0.2),
@@ -282,9 +282,13 @@ def clip_specs():
                                  shL=10, shR=4, lz=-0.24, llift=0.03, dpitch=6)),
                         (4, dict(hy=-0.11, tpitch=12, hyaw=-20, tyaw=-28, ox=0.16, oy=1.02, oz=-0.30, syaw=8, spitch=0, ld=0.18, shL=8,
                                  shR=2, lz=-0.3, llift=0, hz=-0.06)),
-                        (8, dict(hy=-0.09, tpitch=6, ox=0.16, oy=1.08, oz=-0.3, spitch=8, ld=0.18, shL=4, shR=0, dpitch=-4)),
-                        (14, dict(hy=-0.07, hz=-0.04, tpitch=2, hyaw=-22, tyaw=-30, ox=0.15, oy=1.12, oz=-0.27, syaw=8, spitch=14,
-                                  ld=0.18, shL=0, dpitch=-8)),
+                        (6, dict(lz=-0.38, llift=0.06, hyaw=-34, tyaw=-50, ld=0.26)),
+                        (8, dict(hy=-0.13, hz=-0.12, tpitch=8, hpitch=3, hyaw=-48, tyaw=-70, ox=0.16, oy=1.1, oz=-0.2, syaw=8, spitch=10,
+                                 ld=0.3, shL=6, shR=0, dpitch=-6, dyaw=40, lz=-0.44, llift=0, lx=-0.16, rz=0.18, rx=0.2)),
+                        (12, dict(hy=-0.12, hz=-0.11, hyaw=-50, tyaw=-72, ox=0.16, oy=1.12, oz=-0.2, syaw=8, spitch=12, ld=0.3,
+                                  dyaw=42, lz=-0.44, rz=0.18)),
+                        (14, dict(hy=-0.09, hz=-0.06, tpitch=4, hyaw=-40, tyaw=-58, ox=0.13, oy=1.14, oz=-0.22, syaw=7, spitch=16,
+                                  ld=0.26, shL=0, dpitch=-8, dyaw=30, lz=-0.32, rz=0.15)),
                         (16, dict(hy=-0.05, tpitch=-4, ox=0.16, oy=1.2, oz=-0.2, syaw=8, spitch=36, ld=0.17, dpitch=-14)),
                         (18, dict(hy=-0.03, hz=0.02, tpitch=-18, ox=0.17, oy=1.34, oz=-0.06, syaw=8, spitch=95, ld=0.16, dpitch=-22)),
                         (20, dict(hy=-0.04, hz=0.04, tpitch=-12, ox=0.22, oy=1.26, oz=0.06, syaw=10, spitch=150, ld=0.14, dpitch=-10,
@@ -305,8 +309,9 @@ def clip_specs():
                         (13, dict(hy=-0.1, tpitch=62, hpitch=41, hyaw=-10, tyaw=-12, ox=0.13, oy=0.92, oz=-0.6, syaw=4, spitch=0,
                                   lgrip=0, lfx=-0.24, lfy=1.0, lfz=-0.1, lz=-0.27, llift=0.15, lroll=-10, rz=0.46, rlift=0.26, rroll=35,
                                   dpitch=27))]))
-    # スキル2 の到着: 飛び込みの姿勢から着地して体重を乗せて突き切り（打撃 3 = 命中の直後）、少し保って穂先を後ろへ下ろす（sim は
-    # そのまま通常攻撃へ移る）。
+    # スキル2 の到着: 飛び込みの姿勢から着地して体を起こしながら突き切り（打撃 3 = 命中の直後。MLBB 1395〜1398）、穂先を左から
+    # 後ろへ回して引きずる持ち方へ戻る（MLBB 1401〜1405 は右回り。Velstria は石突が 1.21 m と長く、右回りだと胸を横切るので左回り。
+    # sim はそのまま通常攻撃へ移る）。
     S.append(dict(name='h027_strike_hit', state='cast', frames=22, loop=False, base=GUARD, rootXZ=1,
                   events=dict(impact=3), melee=True, prime=None,
                   keys=[(0, dict(hy=-0.1, tpitch=62, hpitch=41, hyaw=-10, tyaw=-12, ox=0.13, oy=0.92, oz=-0.6, syaw=4, spitch=0,
@@ -314,11 +319,13 @@ def clip_specs():
                                  dpitch=27)),
                         (3, dict(hz=-0.16, hy=-0.12, tpitch=18, hpitch=8, hyaw=-12, tyaw=-18, ox=0.15, oy=1.03, oz=-0.38, syaw=8,
                                  spitch=2, lz=-0.35, llift=0, lroll=0, rz=0.26, rlift=0, rroll=0, dpitch=-8, lfx=-0.24, lfy=1.04, lfz=0.0)),
-                        (8, dict(hz=-0.15, hy=-0.11, tpitch=14, hpitch=5, ox=0.15, oy=1.03, oz=-0.34)),
-                        (14, dict(hz=-0.08, hy=-0.08, tpitch=8, hpitch=3, hyaw=-10, tyaw=-14, ox=0.24, oy=1.0, oz=-0.3, syaw=-75,
-                                  spitch=-18, lz=-0.26, rz=0.14, lfx=-0.14, lfy=1.14, lfz=-0.2)),
-                        (17, dict(ox=0.25, oy=1.0, oz=-0.12, syaw=-125, spitch=-24)),
-                        (21, dict(TRAIL, hy=-0.05, hz=-0.04, lz=-0.22, rz=0.08))]))
+                        (7, dict(hz=-0.12, hy=-0.09, tpitch=8, hpitch=3, ox=0.16, oy=1.06, oz=-0.3)),
+                        (10, dict(ox=0.22, oy=1.05, oz=-0.36, syaw=50, spitch=2)),
+                        (14, dict(hz=-0.08, hy=-0.08, tpitch=8, hpitch=3, hyaw=-10, tyaw=-14, ox=0.2, oy=1.02, oz=-0.36, syaw=120,
+                                  spitch=-10, lz=-0.26, rz=0.14, lfx=-0.14, lfy=1.14, lfz=-0.2)),
+                        (15, dict(ox=0.299, oy=1.012, oz=-0.219)),
+                        (17, dict(ox=0.24, oy=1.0, oz=-0.1, syaw=175, spitch=-22)),
+                        (21, dict(TRAIL, hy=-0.05, hz=-0.04, lz=-0.22, rz=0.08, syaw=210))]))
     # アルティメット 至高の武人: MLBB は Project NEXT の改修で発動時の動作を外した（ONE Esports「Layla and Zilong are up next for
     # reworks」: removed the idle animation when triggered）。スキルプレビュー 31.73〜31.93 秒も発動の光の中で直立のまま。引きずる持ち方
     # のまま胸を小さく張って左の拳を握るだけ（14 フレーム、打撃 4 = 発動の光）。移動中は上半身だけ（走りを止めない）。
