@@ -438,7 +438,8 @@ final class HeroModelTests: XCTestCase {
         // H029 ボルグ: 巨漢の重装。聖槌 + 大盾（片手の槌なので両手持ちではない）・青い板金に金の縁・赤いマント・金髪（兜は被らない）
         XCTAssertEqual(r[28].build, .titan)
         XCTAssertEqual(r[28].armor, .knight)
-        XCTAssertGreaterThanOrEqual(r[28].scale, 1.25)
+        // 大きさは画面の上の身長を MLBB のティグラルに合わせた 1.0（docs/H029_QUALITY.md「体の大きさ」）。巨漢は build .titan の体格で出す
+        XCTAssertEqual(r[28].scale, 1.0, accuracy: 0.05)
         XCTAssertEqual(r[28].weapon, .holyMaul)
         XCTAssertEqual(r[28].offhand, .heaterShield)
         XCTAssertEqual(r[28].back, .cape)
