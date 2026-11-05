@@ -135,9 +135,9 @@ GUARD = dict(hy=-0.055, hx=0.0, hz=0.0, hyaw=-30, hpitch=2, hroll=0, tyaw=-46, t
              rcurl=1, lcurl=1, lflex=0, rpx=0.9, rpy=-0.4, rpz=0.5, lpx=-0.9, lpy=-0.5, lpz=0.3, shR=0, shL=0)
 # 待機（MLBB の訓練場 0.3〜2.0 秒・スキルプレビュー 41.5〜43.7 秒）: 足を左右へ広く開いて正面を向き、槍は右手で右腰に持ち、
 # 穂先を右前の足元へ下ろす（石突は左肩の後ろへ上がる）。空いた左手は拳にして左腰の横。
-STAND = dict(GUARD, hy=-0.07, hyaw=-10, hpitch=0, tyaw=-6, tpitch=-3, dyaw=2, dpitch=-2,
-             lx=-0.22, lz=-0.05, lyaw=14, rx=0.23, rz=0.05, ryaw=-18,
-             ox=0.22, oy=0.975, oz=0.02, syaw=-42, spitch=-24, lgrip=0, lfx=-0.25, lfy=1.0, lfz=-0.03,
+STAND = dict(GUARD, hy=-0.11, hyaw=-10, hpitch=2, tyaw=-6, tpitch=0, dyaw=2, dpitch=-4,
+             lx=-0.27, lz=-0.07, lyaw=18, rx=0.28, rz=0.06, ryaw=-22,
+             ox=0.22, oy=0.975, oz=0.02, syaw=-42, spitch=-27, lgrip=0, lfx=-0.25, lfy=1.0, lfz=-0.03,
              lcurl=0.9, rpx=1, rpy=-0.3, rpz=0.2, lpx=-1, lpy=-0.2, lpz=0.2)
 # 槍を引きずる持ち方（走り・払いの前・振り下ろしの後。スキルプレビュー 31.1〜31.7 秒・44.7〜45.3 秒・51.0〜51.4 秒）: 右手を右腰に
 # 置いたまま穂先を右後ろの足元へ寝かせ（真後ろから右へ 30°）、石突は前の肩の高さへ。左の拳は胸の前へ出す。上体は少し前へ傾ける。
@@ -154,7 +154,7 @@ REAR = dict(TRAIL, hy=-0.2, hz=-0.17, hyaw=-4, hpitch=8, tyaw=8, tpitch=16, dyaw
 # 穂先を体の右前の足元へ下ろす（ヒーローの向きでは右後ろ = 引きずる持ち方と同じ向き）。左の拳は体の左（ヒーローの前）へ張る。
 TURN = dict(TRAIL, hy=-0.17, hz=-0.04, hyaw=-80, hpitch=4, tyaw=-96, tpitch=10, dyaw=-70, dpitch=-6,
             lx=-0.12, lz=-0.3, lyaw=-30, rx=0.2, rz=0.22, ryaw=-80,
-            ox=0.06, oy=0.85, oz=0.3, syaw=-140, spitch=-26, lfx=0.0, lfy=1.08, lfz=-0.46, rpx=0.3, rpy=-0.4, rpz=1,
+            ox=0.06, oy=0.85, oz=0.3, syaw=-140, spitch=-22, lfx=0.0, lfy=1.08, lfz=-0.46, rpx=0.3, rpy=-0.4, rpz=1,
             lpx=-0.4, lpy=-0.3, lpz=-1)
 
 
