@@ -592,7 +592,7 @@ def attack_chop(rest, t):
                              [(0, 0), (0.06, -36, 'o2'), (0.10, -36), (0.15, -18), (imp, 6, 'i'), (0.45, 6), (end, 0, 'io')],
                              [(0, 0), (0.06, -60, 'o2'), (0.10, -60), (0.15, -30), (imp, 10, 'i'), (0.45, 8), (end, 0, 'io')],
                              [(0, 0), (0.06, -6, 'o2'), (0.15, -12), (imp, 50, 'i'), (0.45, 46), (end, 0, 'io')],
-                             [(0, 0), (0.06, 0.0, 'o2'), (imp, 0.19, 'i'), (0.45, 0.18), (end, 0, 'io')],
+                             [(0, 0), (0.06, 0.0, 'o2'), (0.12, 0.02), (imp, 0.19, 'i2'), (0.45, 0.18), (end, 0, 'io')],
                              [(0, (0, 0)), (0.04, (0.0, 0.0)), (0.13, (-0.12, 0.07), 'o2'), (imp, (-0.32, 0.0), 'i2'), (0.52, (-0.32, 0.0)),
                               (0.64, (-0.10, 0.04), 'io'), (end, (0, 0), 'o')],
                              back=[(0, 0), (0.14, 0.03), (imp, 0.12, 'i2'), (0.52, 0.12), (end, 0, 'io')],
@@ -651,8 +651,8 @@ def skill_hook(rest, t):
     p, yaw, dr = skill_base(rest, t,
                             [(0, 0), (0.10, 26, 'o2'), (0.24, 28), (s, -12, 'i2'), (0.95, -10), (1.3, 0, 'io')],
                             [(0, 0), (0.10, 40, 'o2'), (0.24, 44), (s, -16, 'i2'), (0.95, -12), (1.3, 0, 'io')],
-                            [(0, 0), (0.09, 68, 'o2'), (0.24, 70), (s, 22, 'o'), (0.5, 10), (0.95, 8), (1.3, 0, 'io')],
-                            [(0, 0), (0.09, 0.27, 'o2'), (0.24, 0.28), (s, 0.10, 'o'), (0.5, 0.05), (0.95, 0.05), (1.3, 0, 'io')],
+                            [(0, 0), (0.10, 68, 'io'), (0.24, 70), (s, 22, 'o'), (0.5, 10), (0.95, 8), (1.3, 0, 'io')],
+                            [(0, 0), (0.10, 0.27, 'io'), (0.24, 0.28), (s, 0.10, 'o'), (0.5, 0.05), (0.95, 0.05), (1.3, 0, 'io')],
                             [(0, (0, 0)), (0.12, (0.0, 0.0)), (0.26, (-0.12, 0.07), 'o2'), (s, (-0.32, 0.0), 'i2'), (0.95, (-0.32, 0.0)),
                              (1.15, (-0.10, 0.04), 'io'), (1.3, (0, 0), 'o')],
                             back=[(0, 0), (0.12, 0.04), (s, 0.12, 'i2'), (0.95, 0.12), (1.3, 0, 'io')])
@@ -715,9 +715,9 @@ def skill_shock(rest, t):
                             [(0, 0), (0.12, -14, 'o2'), (0.20, -18), (s, 4, 'i'), (0.6, 2), (0.95, 0, 'io')],
                             [(0, 0), (0.12, -22, 'o2'), (0.20, -28), (s, 6, 'i'), (0.6, 4), (0.95, 0, 'io')],
                             [(0, 0), (0.12, -12, 'o2'), (0.21, -14), (s, 52, 'i'), (0.38, 56, 'o'), (0.6, 52), (0.95, 0, 'io')],
-                            [(0, 0), (0.06, 0.04, 'o2'), (0.15, -0.05, 'io'), (0.21, -0.05), (s, 0.22, 'i'), (0.38, 0.24, 'o'), (0.6, 0.22),
+                            [(0, 0), (0.06, 0.04, 'o2'), (0.15, -0.05, 'io'), (0.19, -0.04), (s, 0.22, 'i2'), (0.38, 0.24, 'o'), (0.6, 0.22),
                              (0.95, 0, 'io')],
-                            [(0, (0, 0)), (0.12, (0.0, 0.0)), (0.21, (-0.12, 0.08), 'o2'), (s, (-0.34, 0.0), 'i2'), (0.62, (-0.34, 0.0)),
+                            [(0, (0, 0)), (0.10, (0.0, 0.0)), (0.18, (-0.12, 0.07), 'o2'), (s, (-0.34, 0.0), 'io'), (0.62, (-0.34, 0.0)),
                              (0.8, (-0.12, 0.04), 'io'), (0.95, (0, 0), 'o')],
                             back=[(0, 0), (0.15, 0.02), (s, 0.14, 'i2'), (0.62, 0.14), (0.95, 0, 'io')],
                             forward=[(0, 0), (0.18, -0.02), (s, 0.10, 'i'), (0.62, 0.10), (0.95, 0, 'io')])
@@ -775,8 +775,8 @@ def skill_hunt(rest, t):
     wind = ULT_SLAM - 0.11
     hy += [(wind, -24, 'o2'), (ULT_SLAM, 4, 'i'), (last, 6, 'o'), (ULT_END, 4), (2.3, 0, 'io')]
     ty += [(wind, -38, 'o2'), (ULT_SLAM, 8, 'i'), (last, 10, 'o'), (ULT_END, 8), (2.3, 0, 'io')]
-    ln += [(wind, -8, 'o2'), (ULT_SLAM, 46, 'i'), (last, 56, 'o'), (ULT_END, 52), (2.3, 0, 'io')]
-    dr += [(wind, 0.0, 'o2'), (ULT_SLAM, 0.20, 'i'), (last, 0.26, 'o'), (ULT_END, 0.24), (2.3, 0, 'io')]
+    ln += [(wind, 14, 'io'), (ULT_SLAM, 46, 'i2'), (last, 56, 'o'), (ULT_END, 52), (2.3, 0, 'io')]
+    dr += [(wind, 0.08, 'io'), (ULT_SLAM, 0.20, 'i2'), (last, 0.26, 'o'), (ULT_END, 0.24), (2.3, 0, 'io')]
     keys += [(wind, -150, 60, 0.30, 'o2'), (ULT_SLAM - 0.025, -40, 84, 0.34, 'i2')]
     p, yaw, drop = skill_base(rest, t, hy, ty, ln, dr,
                               [(0, (0, 0)), (0.05, (-0.10, 0.07), 'o2'), (0.14, (-0.34, 0.0), 'i2'), (ULT_SLAM - 0.1, (-0.34, 0.0)),
@@ -811,6 +811,46 @@ def skill_hunt(rest, t):
 
 # MARK: - 書き出し
 
+def ankle_low(rig, P):
+    return min(P[rig.index['leftfoot']].y - rig.P0[rig.index['leftfoot']].y,
+               P[rig.index['rightfoot']].y - rig.P0[rig.index['rightfoot']].y)
+
+
+def lifted(p, lift):
+    if lift > 0:
+        for side in ('left', 'right'):
+            p.feet[side] = p.feet[side] + V((0, lift, 0))
+    return p
+
+
+def settle_lifts(rig, make, n, loop, limit=-0.004, rounds=3):
+    """実行時はフレームの間を区間の回転の補間で引くので、腰が 1 フレームで大きく沈む所（叩きつけ）では接地した足が弧を描いて
+    地面へ沈む（HeroFullBodyMotionTests の 1 cm を越えた: S2 0.25 秒 −2.4 cm）。沈む区間の前後のフレームの足首の目標を沈みの分だけ上げる
+    （上げるのは最大 2 フレーム・速い動きの最中だけで、目では見えない）。返り値: フレームごとの持ち上げ（m）。"""
+    lifts = [0.0] * n
+    for _ in range(rounds):
+        frames = []
+        for f in range(n):
+            t = f / n if loop else f / FPS
+            qs, offset, details, _ = build(rig, lifted(make(t), lifts[f]))
+            frames.append((qs, offset, details))
+        worst = 0.0
+        for f in range(1, n):
+            a, b = frames[f - 1], frames[f]
+            low = 0.0
+            for k in (0.25, 0.5, 0.75):
+                qm = [cm.slerp(x, y, k) for x, y in zip(a[0], b[0])]
+                dm = {r: cm.slerp(a[2][r], b[2][r], k) for r in a[2]}
+                _, Pm = solve(rig, qm, a[1].lerp(b[1], k), dm)
+                low = min(low, ankle_low(rig, Pm))
+            if low < limit:
+                for g in (f - 1, f):
+                    lifts[g] = min(0.03, lifts[g] + (-low + 0.002))
+            worst = min(worst, low)
+        if worst >= limit:
+            break
+    return lifts
+
 def author(rig, out):
     rest = Rest(rig)
     attack = dict(frames=23, loop=False, events=dict(impact=round(ATTACK_IMPACT * FPS, 2), end=22), blend=0.10, rootXZ=1,
@@ -840,10 +880,12 @@ def author(rig, out):
         if 'groundSpeed' in sp:
             c['groundSpeed'] = sp['groundSpeed']
         prev, pd = [None] * 15, [None] * len(c['detailJoints'])
-        errors, ground, limbs, heads = [], [], [], []
+        lifts = settle_lifts(rig, sp['make'], n, loop)
+        errors, ground, limbs, heads, mids = [], [], [], [], []
+        last = None
         for f in range(n):
             t = f / n if loop else f / FPS
-            qs, offset, details, err = build(rig, sp['make'](t))
+            qs, offset, details, err = build(rig, lifted(sp['make'](t), lifts[f]))
             for i, q in enumerate(qs):
                 vals, prev[i] = pack(q, prev[i])
                 c['rot'] += vals
@@ -855,8 +897,16 @@ def author(rig, out):
             limbs = [max(x, y) for x, y in zip(limbs, build.last)] if f else list(build.last)
             _, P = solve(rig, qs, offset, details)
             heads.append(hook_head(rig, qs, P).y - HEAD_R)
-            ground.append(min(P[rig.index['leftfoot']].y - rig.P0[rig.index['leftfoot']].y,
-                              P[rig.index['rightfoot']].y - rig.P0[rig.index['rightfoot']].y))
+            ground.append(ankle_low(rig, P))
+            # 実行時はフレームの間を回転の補間で引くので、接地した足がフレームの間で沈まないかも測る（HeroFullBodyMotionTests の 1 cm）
+            if last is not None:
+                for k in (0.25, 0.5, 0.75):
+                    qm = [cm.slerp(a, b, k) for a, b in zip(last[0], qs)]
+                    om = last[1].lerp(offset, k)
+                    dm = {r: cm.slerp(last[2][r], details[r], k) for r in details}
+                    _, Pm = solve(rig, qm, om, dm)
+                    mids.append((ankle_low(rig, Pm), f - 1 + k))
+            last = (qs, offset, details)
         clips.append(c)
         end = 1.0 if loop else (n - 1) / FPS
         a, _, _, _ = build(rig, sp['make'](0))
@@ -864,6 +914,9 @@ def author(rig, out):
         report[c['name']] = dict(frames=n, maxTargetMissMm=round(max(errors) * 1000, 2),
                                  boundaryDegrees=round(max(cm.quat_angle_deg(x, y) for x, y in zip(a, b)), 3),
                                  lowestAnkleVsRestMm=round(min(ground) * 1000, 1),
+                                 lowestBetweenFramesMm=round(min(mids)[0] * 1000, 1) if mids else 0.0,
+                                 lowestBetweenFramesAt=round(min(mids)[1], 2) if mids else 0.0,
+                                 maxFootLiftMm=round(max(lifts) * 1000, 1),
                                  hookHeadClearanceMm=round(min(heads) * 1000, 1),
                                  missMm=dict(zip(('footL', 'footR', 'handR', 'handL'), [round(x * 1000, 1) for x in limbs])))
     out.write_text(json.dumps(dict(version=1, fps=FPS, segments=cm.SEGMENTS, clips=clips), separators=(',', ':')) + '\n')
