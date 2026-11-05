@@ -29,7 +29,10 @@ final class HeroGripTests: XCTestCase {
             for (state, t) in [(HeroAnimState.idle, 1.5), (.attack, 0.35), (.cast(.skill1), 0.3)] {
                 guard let s = skinned(def.heroID, state: state, seconds: t) else { continue }
                 let hr = try XCTUnwrap(s.jointPosition(.handR)), hl = try XCTUnwrap(s.jointPosition(.handL))
-                XCTAssertLessThan(simd_distance(s.weapon.position, hr), 0.1, "\(def.heroID) \(state) 武器が右手から離れる")
+                // 握る点 = 武器の原点から割り当ての weaponOffset（武器の軸）を戻した所（H027 は槍の中ほどを握る）
+                let offset = HeroMotionSets.set(heroID: def.heroID)?.weaponOffset ?? .zero
+                let grip = s.weapon.position - s.weapon.orientation.act(offset)
+                XCTAssertLessThan(simd_distance(grip, hr), 0.1, "\(def.heroID) \(state) 武器が右手から離れる")
                 XCTAssertLessThan(simd_distance(s.offhand.position, hl), 0.1, "\(def.heroID) \(state) 副手が左手から離れる")
                 checked += 1
             }
