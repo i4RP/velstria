@@ -489,6 +489,14 @@ final class FXCapture {
         guard let fi = s.index(of: foe) else { return false }
         let a = (wantsSide ? 90 : FXCapture.angle) * .pi / 180
         let distance = attack ? max(60, s.units[me].stats.attackRange * 0.8) : FXCapture.standoff
+        // 塔・壁にかかる所では人形ごとずらす（FXCheckDriver.clearAnchor。canyon の練習場は人形の南に塔がある）。
+        // 一度ずらした所は撮影の間ずっと使う（スキルごとに人形が動かない）
+        if dummyAnchor == nil {
+            dummyAnchor = FXCheckDriver.clearAnchor(s, controller.ctx, dummy: fi,
+                                                    others: [(Vec2(-sin(a) * FXCapture.standoff, -cos(a) * FXCapture.standoff),
+                                                              s.units[me].radius)])
+        }
+        if let anchor = dummyAnchor { FXCheckDriver.moveDummy(&s, fi, to: anchor) }
         let spot = s.units[fi].pos + Vec2(-sin(a) * distance, -cos(a) * distance)
         s.units[me].pos = spot
         s.units[me].prevPos = spot
@@ -521,6 +529,8 @@ final class FXCapture {
 
     /// 敵の英雄を最初に置き直した時の位置（出た所）。
     private var foeHome: Vec2?
+    /// 人形を置く所（塔・壁から離した所。最初の置き直しで決める）。
+    private var dummyAnchor: Vec2?
 
     private func foeHeroID(_ controller: BattleController) -> EntityID? {
         let s = controller.state

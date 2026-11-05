@@ -231,12 +231,46 @@ final class FXCheckDriver {
         controller.restore(s)
     }
 
+    /// 人形・自分・敵の英雄を置く所（人形の位置）。人形の南に塔がある地図（canyon の練習場）では、南 standoff の自分や東の敵の英雄が
+    /// 塔・壁にかかって押し出され、向きと距離が狂う（Core の HitShapeScenario と同じ原因、5afcb640）。3 体とも歩ける所で構造物から
+    /// 離れる所まで、人形ごと横・北へずらす（元の位置で足りれば動かさない）。others = 人形からのほかの置き場所（自分・敵の英雄）。
+    nonisolated static func clearAnchor(_ s: SimState, _ ctx: SimContext, dummy: Int, others: [(offset: Vec2, radius: Double)]) -> Vec2 {
+        let base = s.units[dummy].pos
+        func clear(_ p: Vec2, _ r: Double) -> Bool {
+            guard ctx.nav.isWalkable(p, radius: r) else { return false }
+            return !s.units.contains { $0.isAlive && $0.isStructure && $0.pos.distance(to: p) < $0.radius + r + 50 }
+        }
+        for dy in [0.0, 300, 600, 900] {
+            for dx in [0.0, -300, 300, -600, 600, -900, 900] {
+                let d = base + Vec2(dx, dy)
+                if clear(d, s.units[dummy].radius), others.allSatisfy({ clear(d + $0.offset, $0.radius) }) { return d }
+            }
+        }
+        return base
+    }
+
+    /// 人形を anchor へ動かす（clearAnchor の結果。同じなら何もしない）。
+    nonisolated static func moveDummy(_ s: inout SimState, _ fi: Int, to anchor: Vec2) {
+        guard s.units[fi].pos != anchor else { return }
+        s.units[fi].pos = anchor
+        s.units[fi].prevPos = anchor
+        s.units[fi].path.removeAll()
+        s.units[fi].moveIntent = .none
+    }
+
     /// 自分のヒーローを人形の南 standoff に北向きで置き直し、体力・資源を満たす。人形の体力も戻す。
     /// 敵の英雄は人形の東に南向きで置き、体力を満たして人間の操作扱いにする（Bot の判断で動かない。入力が無いので立っているだけ）。
+    /// 塔・壁にかかる所では人形ごとずらす（clearAnchor）。
     private func place(controller: BattleController) -> Bool {
         guard let me = controller.humanIndex, let foe = dummyID(controller) else { return false }
         var s = controller.state
         guard let fi = s.index(of: foe) else { return false }
+        let team0 = s.units[me].team
+        let foeRadius = s.units.first { $0.kind == .hero && $0.team != team0 }?.radius ?? s.units[me].radius
+        let anchor = Self.clearAnchor(s, controller.ctx, dummy: fi,
+                                      others: [(Vec2(0, -FXCheckDriver.standoff), s.units[me].radius),
+                                               (FXCheckDriver.foeOffset, foeRadius)])
+        Self.moveDummy(&s, fi, to: anchor)
         let spot = s.units[fi].pos + Vec2(0, -FXCheckDriver.standoff)
         s.units[me].pos = spot
         s.units[me].prevPos = spot
