@@ -24,7 +24,8 @@ from author_h025_motion import bind_usd_axes, solve
 
 # Blender 4.5 は揺れ物の骨（finish_h029_cape.py）を足した USD の取り込みで落ちるので、骨を足す前の元（finish が書き出す）を使う。
 # クリップが動かす骨は同じ（揺れ物の骨は実行時の HeroSecondaryMotion だけが動かす）
-HERO = 'build/h029-motion/Hero_H029_base.usdz' if Path('build/h029-motion/Hero_H029_base.usdz').exists() \n    else 'App/Resources/Heroes/Hero_H029.usdz'
+_BASE = 'build/h029-motion/Hero_H029_base.usdz'
+HERO = _BASE if Path(_BASE).exists() else 'App/Resources/Heroes/Hero_H029.usdz'
 OUT = Path('build/h029-motion/preview')
 # HeroMotionSets の H029: 槌 = fistGrip（+Y → 手の -Z）、盾 = borgShieldGrip（+Y → 肘の側 +Y を親指の側へ SHIELD_TILT 倒した向き、
 # 盾の面 -Z → 手の -X）
