@@ -1,5 +1,8 @@
 # H032 ディアスの待機・移動・通常攻撃・スキル（初版）
 
+> 2026-11-05 から MLBB のディロスの画面収録に合わせて直している（[H032_QUALITY.md](H032_QUALITY.md)。`tools/blender/author_h032_motion.py` が
+> この初版 = `tools/motion/h032-v1-clips.json` を読んで直す）。下の表は初版の記録。
+
 対象は「赤拳のディアス H032」（`Kit_H032` の Dyrroth 相当）。試合では `Hero_H032.usdz`（2026-10-11 の Tripo 製、
 23 骨・指なし）を `SkinnedHeroModel` が再生する。モデル・顔・衣装・体形・籠手の刃の輪（`Prop_abyssRing`）は作り直していない。
 
