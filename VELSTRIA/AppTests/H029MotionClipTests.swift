@@ -68,6 +68,23 @@ final class H029MotionClipTests: XCTestCase {
         }
     }
 
+    /// 止まって（前の攻撃から 1.5 秒より空いて）から振ると ① に戻る。続けて振る間は順番を続ける。
+    func testAttackRestartsFromSweepAfterPause() throws {
+        var a = try animator()
+        let interval: Float = 0.97, windup = interval * Float(Balance.attackWindupRatio)
+        a.setState(.attack)
+        for name in ["maul_sweep_h029", "maul_backhand_h029"] {
+            a.playAttack(windup: windup, interval: interval)
+            XCTAssertEqual(a.clips.clipName, name)
+            for _ in 0..<Int(interval * 60) { _ = a.advance(dt: 1.0 / 60, moveSpeed: 0) }
+        }
+        a.setState(.idle)
+        for _ in 0..<120 { _ = a.advance(dt: 1.0 / 60, moveSpeed: 0) }
+        a.setState(.attack)
+        a.playAttack(windup: windup, interval: interval)
+        XCTAssertEqual(a.clips.clipName, "maul_sweep_h029", "止まった後は ① から")
+    }
+
     func testCastClipsStrikeAtKitTimes() throws {
         let cases: [(SkillSlot, Int, String, Float)] = [
             (.skill1, 0, "maul_wave_h029", KitTimes(hero, .skill1).seconds("waveFirstDelay")),

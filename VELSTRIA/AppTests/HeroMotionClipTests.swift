@@ -1021,7 +1021,7 @@ final class HeroMotionClipTests: XCTestCase {
         XCTAssertEqual(animator.clips.clip, binding.cast(1))
         animator.playCast(.skill2, stage: 1)
         _ = animator.advance(dt: 1.0 / 60, moveSpeed: 0)
-        XCTAssertEqual(animator.clips.clip, lib.index(of: "punch_s2_strike_h032"), "段 1 は致命の一撃")
+        XCTAssertEqual(animator.clips.clip, lib.index(of: "fatal_s2_h032"), "段 1 は致命の一撃")
     }
 
     func testBundledRainaContactAndPreviewAttack() throws {

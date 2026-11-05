@@ -644,6 +644,8 @@ struct HeroAnimator {
     /// 通常攻撃のクリップを状態だけで回す（setState(.attack)）。playAttack が来たら false（シムの拍に合わせる）。
     private var attackAuto = true
     private var attackCursor = 0
+    /// 最後に通常攻撃のクリップを始めた時刻（HeroMotionSet.attackRestartAfter）。
+    private var lastAttackClipTime: Float = -.infinity
     /// setState(.attack) が自動の拍で始めたばかり（まだ進めていない）の振り。直後の playAttack は同じ振りを
     /// シムの拍で始め直す（setState → playAttack の順に呼ばれても割り当ての順を 1 つ飛ばさない）。
     private var autoAttackPending = false
@@ -1104,6 +1106,8 @@ struct HeroAnimator {
     /// 戻りは次の攻撃までに収める。弓の高速連射では最短 0.025 秒まで縮める。
     private mutating func startAttackClip(windup: Float, interval: Float) {
         guard let b = clips.binding, !b.attacks.isEmpty else { return clips.stop() }
+        if let gap = b.attackRestartAfter, time - lastAttackClipTime > gap { attackCursor = 0 }
+        lastAttackClipTime = time
         let c = b.attacks[attackCursor % b.attacks.count]
         attackCursor = (attackCursor + 1) % b.attacks.count
         startAttackClip(c, windup: windup, interval: interval)
